@@ -106,6 +106,13 @@ class MainActivity : ComponentActivity() {
             mapOpen = intent.getBooleanExtra("editorMap", false)
             add = intent.getStringExtra("editorAdd")
         }
+        // 지도 편의시설·지도 검색 확인용(MZ2AZ-547 P5, iOS `-editorPoi`·`-editorSearch`·`-editorResults`).
+        // `-e editorPoi all|food|sight|stay|transit`, `-e editorSearch 남산`, `-e editorResults 남산`.
+        com.mz2az.scenetrip.routetab.MapPoiDebug.apply {
+            poi = intent.getStringExtra("editorPoi")
+            search = intent.getStringExtra("editorSearch")
+            results = intent.getStringExtra("editorResults")
+        }
         TabRouter.applyFreshBackdoor(intent.getBooleanExtra("freshCourse", false))
         TabRouter.applyNewCourseBackdoor(
             newCourse = intent.getStringExtra("newCourse"),

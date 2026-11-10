@@ -155,21 +155,8 @@ private const val MAX_WIDEN_KM = 300.0
  *
  * 발자취(황금 점선)·데모 주행은 아직 없다. 코스를 지도로 보며 순서를 바꾸고, 동선을
  * 최적화하고, 검색·장바구니·핀 찍기로 담고, 저장·삭제·여행 시작/종료·실시간 안내
- * (길찾기·도착 판정)·챗봇(RouteGuide)·주변 편의시설 칩은 된다.
- */
-private data class MapViewport(
-    val south: Double,
-    val west: Double,
-    val north: Double,
-    val east: Double,
-    val lat: Double,
-    val lng: Double,
-    val zoom: Double,
-    // 이 범위가 GPS(내 위치 포함 맞춤)에서 왔는가 — 주변 편의시설 조회에 위치 동의가 필요한지를 가른다(MZ2AZ-472).
-    val source: CoordinateSource,
-)
-
-/**
+ * (길찾기·도착 판정)·챗봇(RouteGuide)·지도 편의시설 칩·지도 검색(`RouteEditorMapPoi.kt`)은 된다.
+ *
  * 코스 편집 화면. **겹쳐 뜨는 것(정지점 카드·도착 스탬프·검색 시트)은 화면 전체를 덮는 형제로 올라오므로 부모가 `Box` 여야 한다.**
  * 마법사 시트처럼 부모가 `Column` 인 곳에서 열리면(저장 전 새 코스) 본문이 높이를 다 가져가 형제 `fillMaxSize` 상자가 0 높이가 되어 카드가
  * 보이지 않았다 — 어디서 열려도 같게 여기서 `Box` 로 감싼다.
@@ -251,9 +238,17 @@ private fun RouteEditorContent(
     // 가이드 기준: 기기 위치가 있어도 지도 중심을 쓰는가, 그리고 「지도 주변 촬영지 보기」를 누른 시점에 고정한 지도 중심.
     var guideUsesMapCenter by remember { mutableStateOf(false) }
     var nearbyAnchor by remember { mutableStateOf<RouteGuideAnchor?>(null) }
-    var viewport by remember { mutableStateOf<MapViewport?>(null) }
-    var ambientPois by remember { mutableStateOf<List<PoiSummary>>(emptyList()) }
-    var poiGroupsOn by remember { mutableStateOf(PoiCategoryGroup.entries.toSet()) }
+    // 지도 위 편의시설 칩·지도 검색(MZ2AZ-547 P5 M1–M7) — 상태는 `RouteEditorMapPoi.kt`, 규칙은 `MapPoiRules.kt`·`MapSearchRules.kt`.
+    // 지도 검색은 가게·장소만(`GET /pois?q`) 찾는다 — 촬영지는 찾지 않는다(2026-11-10 사용자 요청).
+    val mapPoiScope = rememberCoroutineScope()
+    val mapPoi =
+        remember {
+            val api = PoisApi(API_BASE)
+            EditorMapPoi(mapPoiScope) { q, bbox, limit, source ->
+                apiResult { CoordinateSources.with(source) { api.listPois(bbox = bbox, q = q, limit = limit) } }.getOrThrow().items
+            }
+        }
+    val viewport = mapPoi.viewport
     var aiPlacesOn by remember { mutableStateOf(true) }
     var showDraftNotes by remember { mutableStateOf(false) }
 
@@ -800,31 +795,102 @@ private fun RouteEditorContent(
             .flatMap { it.stops }
             .map { RouteDedupe.key(it.place) }
             .toSet()
-    val poisForChips = ambientPois.filterNot { takenPlaceKeys.contains(RouteDedupe.key(it.asPlaceSummary())) }
+    val poisForChips = mapPoi.pois.filterNot { takenPlaceKeys.contains(RouteDedupe.key(it.asPlaceSummary())) }
     val drawnPlaceIds = stops.mapNotNull { it.savablePlaceId }.toSet()
     val takenPoiIds = stops.mapNotNull { it.poiId }.toSet()
     val visibleAmbientPois =
         poisForChips.filter {
-            poiGroupsOn.contains(it.categoryGroup) && it.placeId !in drawnPlaceIds && it.id !in takenPoiIds
+            mapPoi.chips.isOn(it.categoryGroup) && it.placeId !in drawnPlaceIds && it.id !in takenPoiIds
         }
-    val poiCounts = poisForChips.groupingBy { it.categoryGroup }.eachCount()
+    val poiCounts = MapPoiChips.counts(poisForChips)
     val aiPlacesForChip = guideSession.places.filterNot { takenPlaceKeys.contains(RouteDedupe.key(it.asPlaceSummary())) }
     val visibleAiPlaces = if (aiPlacesOn) aiPlacesForChip.filterNot { place -> stops.any { place.matches(it) } } else emptyList()
+
+    // ── 지도 편의시설 칩·지도 검색(MZ2AZ-547 P5, iOS `RouteEditorMapPoi.swift`) ──
+    // 칩 줄은 편집 중이고 지도가 펼쳐져 있고 여행 안내 중이 아닐 때만(M1). 결과 지도가 떠 있으면 일정 서랍·알약·＋·해태는 비킨다.
+    val showsMapPoiBar = MapPoiChips.showsBar(mode, mapToggle.isOpen, trip.isActive)
+    val mapResultsOpen = showsMapPoiBar && mapPoi.results.isOpen
+    val pickedPoi = guideSession.picked?.takeIf { it.source == com.mz2az.scenetrip.sceneapi.client.model.GuidePlaceSource.poi }
+    val pickedPoiId = pickedPoi?.id
+    // 칩 점·AI 핀에 없는 고른 곳(검색에서 고른 곳) — 따로 빨간 해태를 단다.
+    val loosePicked =
+        pickedPoi?.takeIf { picked -> visibleAmbientPois.none { it.id == picked.id } && guideSession.places.none { it.id == picked.id } }
+    val searchDots =
+        MapSearchRules.mapDots(
+            searching = showsMapPoiBar && mapPoi.searching,
+            listed = mapPoi.list.pinned,
+            results = if (mapResultsOpen) mapPoi.results.state?.shops else null,
+            pickedId = pickedPoiId,
+        )
+    // 지도 아래를 덮는 높이 — 결과 서랍(지도 칸의 42%·78%) 또는 일정 서랍. 지도가 접혀 있으면 서랍이 없다(E4).
+    val mapCover =
+        when {
+            mapResultsOpen -> screenHeight * (mapPoi.results.state?.drawerShare ?: 0.0).toFloat()
+            mapToggle.isOpen -> panelHeight
+            else -> 0.dp
+        }
+
+    // 감춘 갈래의 고른 핀은 놓는다 — 지도에 없는 것을 계속 골라 두면 카드만 남는다. AI 장소는 제 칩이 따로 놓는다.
+    fun dropPickedIfHidden(group: PoiCategoryGroup) {
+        val picked = guideSession.picked
+        if (picked != null && picked.categoryGroup == group && guideSession.places.none { it.id == picked.id }) {
+            guideSession.dismiss()
+        }
+    }
+
+    fun toggleMapChip(group: PoiCategoryGroup) {
+        mapPoi.chips = mapPoi.chips.toggle(group)
+        if (!mapPoi.chips.isOn(group)) dropPickedIfHidden(group)
+    }
+
+    fun toggleAllMapChips() {
+        val wasAll = mapPoi.chips.allOn
+        mapPoi.chips = mapPoi.chips.toggleAll()
+        if (wasAll) PoiCategoryGroup.entries.forEach { dropPickedIfHidden(it) }
+    }
+
+    // 검색 목록·결과의 가게를 골랐다 — 정보 카드가 뜨고 지도가 그곳으로 간다(카드의 「코스에 담기」 로 넣는다).
+    // 시트·결과 서랍·카드가 덮지 않은 곳의 가운데로 옮긴다(`focusOnPicked`, `MapSearchRules.extraLift`). 카드를 닫아도 지도는 그대로다.
+    fun pickSearchPlace(poi: PoiSummary) {
+        mapPoi.results.update { it.markSelfMove(System.currentTimeMillis()) }
+        pickedStop = null
+        guideSession.pick(poi.asGuidePlace())
+        map?.focusOnPicked(poi.latitude, poi.longitude, density.density)
+    }
+
+    // 찾은 것을 받았다 — 결과가 다 보이게 맞춘다(서랍이 덮은 아래는 빼고).
+    LaunchedEffect(mapPoi.results.fitTick) {
+        val shops = mapPoi.results.state?.shops
+        val target = map
+        if (mapPoi.results.fitTick == 0 || shops.isNullOrEmpty() || target == null) return@LaunchedEffect
+        mapPoi.results.update { it.markSelfMove(System.currentTimeMillis()) }
+        withFrameNanos {}
+        target.fit(
+            shops.map { it.asPlaceSummary() },
+            density,
+            screenHeight,
+            mapCover,
+            0.dp,
+            com.mz2az.scenetrip.searchtab.MapInsetMode.ROUTE,
+        )
+    }
 
     // 챗봇이 장소를 찾아 오면 지도엔 그것만 남긴다(iOS `applyGuideAnswer`) — 주변 점
     // 서른 개 사이에서는 방금 추천받은 곳을 못 찾는다. 갈래는 칩으로 다시 켤 수 있다.
     LaunchedEffect(guideSession.places) {
         if (guideSession.places.isNotEmpty()) {
-            poiGroupsOn = emptySet()
+            mapPoi.chips = mapPoi.chips.reset()
             aiPlacesOn = true
         }
     }
 
-    // 안내 중에는 편의시설 점을 다 끈다(2026-09-04 사용자 요청) — 경로선이 주인공인데
-    // 음식점·명소 점이 그 위를 덮었다. 안내가 끝나면 다시 전부 켠다. 안내 중에 칩으로
-    // 켜는 것은 그대로 된다(iOS `RouteEditorView.onChange(of: trip.isActive)`).
+    // 안내 중에는 편의시설 점을 다 끈다(2026-09-04 사용자 요청) — 경로선이 주인공인데 음식점·명소 점이 그 위를 덮었다.
+    // 칩 줄(MZ2AZ-547 M1)은 처음엔 다 꺼져 있다 — 안내가 끝나도 켜지 않는다. 보기로 돌아가도 끈다(칩은 고칠 때만).
     LaunchedEffect(trip.isActive) {
-        poiGroupsOn = if (trip.isActive) emptySet() else PoiCategoryGroup.entries.toSet()
+        if (trip.isActive) mapPoi.reset()
+    }
+    LaunchedEffect(mode) {
+        if (mode == RouteEditorMode.VIEWING) mapPoi.reset()
     }
 
     // 열쇠에 `myLocation` 자체를 두지 않는다 — 계속 받는 값이 올 때마다 화면을 다시 맞추면 손으로 옮긴 지도가 되돌아간다.
@@ -923,9 +989,8 @@ private fun RouteEditorContent(
         here?.let { target.locationOverlay.position = LatLng(it.latitude, it.longitude) }
     }
 
-    // 카메라가 멈추면 그 범위의 주변 편의시설을 받는다. iOS `RouteEditorAmbient.viewportChanged`
-    // — 너무 넓은 화면(줌 13 미만)에서는 안 부른다(점이 먼지처럼 흩어질 뿐이고 서버도 헛돈다),
-    // `LaunchedEffect`가 새 뷰포트마다 이전 요청을 스스로 취소하고 350ms 조용해지길 기다린다.
+    // 칩을 켜거나 「↻ 이 지역에서 다시 찾기」 를 누를 때만 지금 범위를 서버의 「골고루」 순서로 받는다(MZ2AZ-547 M2·M3, iOS
+    // `fetchMapPois`). 지도를 옮기는 것만으로는 받지 않는다 — 예전의 「멈출 때마다 · 줌 13 이상」 조회를 없앴다. 다 꺼지면 점을 비운다.
     //
     // 범위가 GPS 에서 왔으면(내 위치 포함 맞춤) 이 조회가 기기 위치를 서버로 보내는 것이므로 위치기반서비스 동의를 먼저 받는다.
     // 취소하면 조회하지 않는다. 손으로 옮긴 범위는 사용자가 고른 영역이라 묻지 않는다(MZ2AZ-472).
@@ -933,32 +998,71 @@ private fun RouteEditorContent(
     val ambientGate = remember { AIConsentGate(locationStore) }
     LocationConsentSheetHost(ambientGate)
     var ambientRequest by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
-    LaunchedEffect(viewport) {
-        val v = viewport
+
+    fun fetchMapPois() {
         ambientRequest?.cancel()
         ambientGate.cancel()
-        if (v == null || v.zoom < 13.0) {
-            ambientPois = emptyList()
-            return@LaunchedEffect
+        val v = mapPoi.viewport
+        val request = v?.let { mapPoi.chips.request(it.zoom) }
+        if (v == null || request == null) {
+            mapPoi.pois = emptyList()
+            mapPoi.fetch = mapPoi.fetch.clear()
+            return
         }
-        // 여행 시작의 동의 시트와 겹치지 않는다. 허용 뒤 경로 맞춤에서 다시 조회한다.
-        if (v.source == CoordinateSource.DEVICE && trip.isActive && !locationStore.isAllowed) {
-            ambientPois = emptyList()
-            return@LaunchedEffect
-        }
-        delay(350)
-        val bbox = "%.6f,%.6f,%.6f,%.6f".format(Locale.US, v.west, v.south, v.east, v.north)
+        val chips = mapPoi.chips
         ambientGate.requestLocation(v.source) {
+            mapPoi.fetch = mapPoi.fetch.begin()
             ambientRequest =
                 scope.launch {
                     val found =
                         apiResult {
                             CoordinateSources.with(v.source) {
-                                poisApi.listPois(bbox = bbox, lat = v.lat, lng = v.lng, sort = PoisApi.SortListPois.distance, limit = 30)
+                                poisApi.listPois(
+                                    bbox = v.bbox,
+                                    lat = v.centerLat,
+                                    lng = v.centerLng,
+                                    categoryGroup = request.categoryGroup,
+                                    sort = request.sort,
+                                    spreadZoom = request.spreadZoom,
+                                    limit = request.limit,
+                                )
                             }
                         }.getOrNull()
-                    ambientPois = found?.items.orEmpty()
+                    mapPoi.pois = chips.keep(found?.items.orEmpty())
+                    mapPoi.fetch = mapPoi.fetch.finish()
                 }
+        }
+    }
+    LaunchedEffect(mapPoi.chips.ask) { fetchMapPois() }
+
+    // 🔍 — 지도 범위로 찾으므로, 그 범위가 기기 위치에서 왔으면 위치 동의를 먼저 묻는다.
+    fun openMapSearch() {
+        mapPoi.searchText = ""
+        ambientGate.requestLocation(mapPoi.viewport?.source ?: CoordinateSource.USER_SELECTED) { mapPoi.searching = true }
+    }
+
+    // 확인용 뒷문(`MapPoiDebug`) — 지도가 한 번 멈추고 코스에 맞춘 뒤에 칩을 켜고·검색칸·결과 지도를 연다.
+    LaunchedEffect(Unit) {
+        val wanted = MapPoiDebug.take()
+        if (!wanted.any) return@LaunchedEffect
+        repeat(50) { if (mapPoi.viewport == null) delay(100) }
+        delay(2500)
+        when (val poi = wanted.poi) {
+            null -> Unit
+            "all" -> toggleAllMapChips()
+            else -> PoiCategoryGroup.entries.firstOrNull { it.value == poi }?.let { toggleMapChip(it) }
+        }
+        wanted.search?.let {
+            openMapSearch()
+            mapPoi.searchText = it
+        }
+        wanted.results?.let { query ->
+            mapPoi.results.open(query, true, mapPoi.viewport)
+            repeat(50) { if (mapPoi.results.state?.shops == null) delay(100) }
+            mapPoi.results.state?.shops?.firstOrNull()?.let {
+                delay(1500)
+                pickSearchPlace(it)
+            }
         }
     }
     androidx.compose.runtime.DisposableEffect(Unit) {
@@ -1199,22 +1303,25 @@ private fun RouteEditorContent(
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             NaverMapCanvas(
                 modifier = Modifier.fillMaxSize().onSizeChanged { screenHeight = with(density) { it.height.toDp() } },
-                sheetHeight = if (mapToggle.isOpen) panelHeight else 0.dp,
+                // 검색 결과가 떠 있으면 결과 서랍이 일정 서랍 자리를 덮는다(M7).
+                sheetHeight = mapCover,
                 searchBarInset = 0.dp,
                 insetMode = com.mz2az.scenetrip.searchtab.MapInsetMode.ROUTE,
                 onMapReady = { map = it },
                 onCameraIdle = { bounds, center, zoom, source ->
-                    viewport =
+                    mapPoi.cameraIdle(
                         MapViewport(
                             south = bounds.southLatitude,
                             west = bounds.westLongitude,
                             north = bounds.northLatitude,
                             east = bounds.eastLongitude,
-                            lat = center.latitude,
-                            lng = center.longitude,
+                            centerLat = center.latitude,
+                            centerLng = center.longitude,
                             zoom = zoom,
                             source = source,
-                        )
+                        ),
+                        System.currentTimeMillis(),
+                    )
                 },
             )
             PlanOverlay(
@@ -1225,14 +1332,18 @@ private fun RouteEditorContent(
                 // 의 `keepFrom`).
                 keepFromId = if (trip.phase == TripSession.Phase.GUIDING) trip.target?.id else null,
             )
-            AmbientPoiPins(
+            // 칩으로 받은 편의시설 — 칸마다 1등은 원래 점, 나머지는 작은 점(M4). 확대하면 다시 받지 않고 다시 솎는다.
+            // 점을 눌러도 바로 담기지 않는다 — 카드가 먼저 뜨고 「경로에 추가」 는 사람이 카드에서 누른다(iOS `RouteMapAmbient`).
+            SpreadPoiPins(
                 map = map,
                 pois = visibleAmbientPois,
-                pickedId = guideSession.picked?.takeIf { it.source == com.mz2az.scenetrip.sceneapi.client.model.GuidePlaceSource.poi }?.id,
-                // iOS `RouteMapAmbient`: 점을 눌러도 바로 담기지 않는다 — 카드가 먼저 뜨고
-                // "경로에 추가"는 사람이 카드에서 직접 누른다.
+                zoom = viewport?.zoom ?: 0.0,
+                pickedId = pickedPoiId,
                 onTap = { poi -> guideSession.pick(poi) },
             )
+            // 지도 검색의 점(M6·M7) — 목록이 떠 있는 동안은 목록의 것, 엔터 뒤면 결과. 고른 곳은 빨간 해태로 따로.
+            MapSearchDots(map = map, shops = searchDots, onTap = { pickSearchPlace(it) })
+            PickedPoiPin(map = map, place = loosePicked)
             AiPlacePins(
                 map = map,
                 places = visibleAiPlaces,
@@ -1402,30 +1513,13 @@ private fun RouteEditorContent(
                             }
                         },
                     )
-                    // 볼 때는 내 코스만 — 편의시설 칩은 고칠 때만(E2).
-                    if (editTools && (poisForChips.isNotEmpty() || aiPlacesForChip.isNotEmpty())) {
-                        // 감춘 갈래의 고른 핀은 놓는다 — 지도에서 사라진 핀을 카드만 붙잡고
-                        // 있으면 안 된다. AI 장소는 제 칩이 따로 놓는다(iOS
-                        // `RouteEditorControls.poiFilter` onGroupOff).
-                        fun dropPickedIfHidden(group: PoiCategoryGroup) {
-                            val picked = guideSession.picked
-                            if (picked != null && picked.categoryGroup == group && guideSession.places.none { it.id == picked.id }) {
-                                guideSession.dismiss()
-                            }
-                        }
+                    // 칩 자리에는 「AI 장소」 칩만 — 편의시설 갈래 칩은 지도 맨 위(`MapPoiBar`)로 옮겼다(M5). 볼 때는 없다(E2).
+                    if (editTools && aiPlacesForChip.isNotEmpty()) {
                         RoutePoiChips(
-                            counts = poiCounts,
-                            groupsOn = poiGroupsOn,
-                            onToggleGroup = { group ->
-                                val turningOff = poiGroupsOn.contains(group)
-                                poiGroupsOn = if (turningOff) poiGroupsOn - group else poiGroupsOn + group
-                                if (turningOff) dropPickedIfHidden(group)
-                            },
-                            onToggleAll = {
-                                val allOn = poiGroupsOn.size == PoiCategoryGroup.entries.size
-                                poiGroupsOn = if (allOn) emptySet() else PoiCategoryGroup.entries.toSet()
-                                if (allOn) PoiCategoryGroup.entries.forEach { dropPickedIfHidden(it) }
-                            },
+                            counts = emptyMap(),
+                            groupsOn = emptySet(),
+                            onToggleGroup = {},
+                            onToggleAll = {},
                             aiCount = aiPlacesForChip.size,
                             aiOn = aiPlacesOn,
                             onToggleAi = {
@@ -1435,6 +1529,7 @@ private fun RouteEditorContent(
                                     guideSession.dismiss()
                                 }
                             },
+                            showsAll = false,
                         )
                     }
                     RouteDaySummary(course.days.getOrNull(dayIndex), onStayFrame = { stayFrame = it }) { showDayStay = true }
@@ -1626,7 +1721,7 @@ private fun RouteEditorContent(
                     }
                 }
             }
-            if (mapToggle.isOpen) {
+            if (mapToggle.isOpen && !mapResultsOpen) {
                 BottomSheet(
                     detent = detent,
                     onDetentChange = { detent = it },
@@ -1637,17 +1732,34 @@ private fun RouteEditorContent(
                     // 사용자 요청: "일정 쪽에 단추가 늘며 좁아졌다").
                     mediumFraction = 0.60f,
                 ) { panel() }
-            } else {
+            } else if (!mapToggle.isOpen) {
                 Box(Modifier.fillMaxSize().background(IOS.systemBackground)) { panel() }
             }
-            RouteMapPill(
-                toggle = mapToggle,
-                onClick = { toggleMap() },
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomStart)
-                        .then(if (showsBottomBar) Modifier else Modifier.navigationBarsPadding()),
-            )
+            // 지도 맨 위 칩 줄·검색칸·결과 지도(M1·M6·M7). 일정 서랍 위까지 덮을 수 있게 지도와 서랍을 함께 담은 이 칸에 얹는다.
+            if (showsMapPoiBar) {
+                EditorMapTop(
+                    state = mapPoi,
+                    counts = poiCounts,
+                    onSearch = { openMapSearch() },
+                    onToggle = { toggleMapChip(it) },
+                    onAll = { toggleAllMapChips() },
+                    onPick = { pickSearchPlace(it) },
+                    onCommit = { query, wide ->
+                        guideSession.dismiss()
+                        mapPoi.results.open(query, wide, mapPoi.viewport)
+                    },
+                )
+            }
+            if (!mapResultsOpen) {
+                RouteMapPill(
+                    toggle = mapToggle,
+                    onClick = { toggleMap() },
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomStart)
+                            .then(if (showsBottomBar) Modifier else Modifier.navigationBarsPadding()),
+                )
+            }
         }
         // 아래 줄 — 저장된 코스를 고치는 동안은 숨긴다(E3).
         if (showsBottomBar) {
@@ -1716,7 +1828,7 @@ private fun RouteEditorContent(
         }
     }
     // 떠 있는 ＋ — 해태 동그라미 바로 위, 편집 중에만(E8). 가이드 창·핀 찍기·여행 중에는 없다.
-    if (editTools && !showGuide && !pinning && !trip.isActive) {
+    if (editTools && !showGuide && !pinning && !trip.isActive && !mapResultsOpen) {
         CourseAddFab(
             open = addMenuOpen,
             onToggle = { addMenuOpen = !addMenuOpen },
@@ -1726,7 +1838,7 @@ private fun RouteEditorContent(
     }
     Box(modifier = Modifier.fillMaxSize()) {
         RouteGuideFloatingChip(
-            hidden = guideEntry != RouteGuideEntry.FLOATING,
+            hidden = guideEntry != RouteGuideEntry.FLOATING || mapResultsOpen,
             bubble = guideSession.picked == null && pickedStop == null && focusedStopId == null,
             cardTop =
                 if ((guideSession.picked != null || pickedStop != null) && !showGuide) CARD_BOTTOM_PADDING + cardHeight else null,
@@ -1748,7 +1860,7 @@ private fun RouteEditorContent(
 
     // 가이드의 「주변」 기준: 기기 위치(지도의 파란 점)를 먼저 쓰고, 없거나 사용자가 바꾸면 보이는 지도 중심을 쓴다.
     // 지도 중심의 출처는 보이는 범위가 GPS 에서 왔는지에 따른다 — 기기 위치로 맞춘 지도는 기기 출처다(MZ2AZ-472).
-    val guideMapCenter = viewport?.let { it.lat to it.lng }
+    val guideMapCenter = viewport?.let { it.centerLat to it.centerLng }
     val guideMapSource = viewport?.source ?: CoordinateSource.USER_SELECTED
     val guideAnchor =
         RouteGuideAnchor.resolve(

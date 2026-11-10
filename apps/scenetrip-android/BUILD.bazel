@@ -101,6 +101,8 @@ kt_jvm_library(
         "tests/LocationConsentTests.kt",
         "tests/LocationFixTests.kt",
         "tests/MapInsetsTests.kt",
+        "tests/MapPoiRulesTests.kt",
+        "tests/MapSearchRulesTests.kt",
         "tests/ModerationTests.kt",
         "tests/MyReviewDetailsTests.kt",
         "tests/NetworkTests.kt",

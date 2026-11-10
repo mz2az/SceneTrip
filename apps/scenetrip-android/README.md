@@ -148,6 +148,30 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 - 확인용 뒷문(iOS 와 같은 이름): `-e editorMode edit`, `--ez editorMap true`, `-e editorAdd menu|saved|map`,
   `--el openCourseId N --ez freshCourse true`(그 코스를 방금 만든 코스로 연다 — 나가기를 누르면 서버에서 지워진다).
 
+## 웹 시안 반영 P5 — 지도 편의시설 칩·지도 검색 (2026-11-10, MZ2AZ-547)
+
+체크리스트 M1–M7 에 같은 날의 고침(웹 72f87416, iOS `MZ2AZ-547-ios-map-search-fix`)을 얹은 최종 동작이다. 순수 규칙은 `routetab/MapPoiRules.kt`·
+`routetab/MapSearchRules.kt` 에 있고 JVM 시험이 선다(`tests/MapPoiRulesTests.kt`·`tests/MapSearchRulesTests.kt` 75개 — iOS 시험을 옮기고 몇 개 더했다).
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `MapPoiRules.kt` | 지도 범위(`bbox`)·칩 상태(처음 다 꺼짐, 켤 때만 받기, 하나만 켜면 `categoryGroup`)·서버 요청(`sort=spread`·`spreadZoom=floor(zoom)`·`limit=200`)·상태 알약·골고루 찍기(72dp 칸마다 1등은 원래 점, 나머지는 작은 점 9/16) |
+| `MapSearchRules.kt` | 검색어(2글자, 0.35초, 100자)·목록 줄·지도에 찍을 검색 점·고른 곳을 보이는 지도 가운데로(가린 높이의 반, 카드는 적어도 300dp, 확대 ≥16)·결과 지도 상태(서랍 42%↔78%, 「다시 찾기」) |
+| `MapSearchModels.kt` | 검색 목록·결과 지도의 받기(`GET /pois?q` 만, 늦은 답은 취소) |
+| `MapPoiBar.kt`·`MapSearchPanel.kt`·`MapSearchResults.kt` | 칩 줄(🔍 · 전체 · 음식점 · 명소 · 숙소 · 교통)과 알약 · 검색칸과 목록 · 엔터 뒤 결과 지도(검색어 알약·서랍) |
+| `MapPoiMarkers.kt` | 골고루 점(받은 목록이 바뀔 때만 만들고, 확대하면 그림만 바꾼다)·검색 점·검색에서 고른 해태·고른 곳으로 카메라 옮기기 |
+| `RouteEditorMapPoi.kt` | 계획 화면의 칩·검색 상태 묶음(`EditorMapPoi`)·지도 맨 위 자리(`EditorMapTop`)·확인용 뒷문 `MapPoiDebug` |
+
+- 칩 줄은 **편집 중 + 지도 펼침 + 여행 안내 아님** 에서만 지도 맨 위에 뜬다. 보기로 돌아가거나 여행을 시작하면 다 끄고 검색도 닫는다.
+- 받기는 칩을 켤 때와 「↻ 이 지역에서 다시 찾기」 를 누를 때뿐이다. 예전의 「지도가 멈출 때마다 · 줌 13 이상」 조회는 없앴다. 지도를 옮기면 점은 그대로 두고 알약만 뜬다.
+  기기 위치로 맞춘 범위면 위치 동의를 먼저 묻는다(칩·🔍 둘 다).
+- 일정 서랍의 칩 자리에는 「AI 장소」 칩만 남았다.
+- 🔍 는 가게·장소만 찾는다(촬영지 탭·사진 핀은 없다). 목록이 떠 있는 동안 찾은 곳을 지도에 점으로 찍고, 새 결과가 올 때까지 앞의 점을 둔다.
+  고르면 정보 카드가 뜨고 지도는 시트·서랍·카드가 가리지 않은 곳의 가운데로 간다. 카드를 닫아도 지도는 그대로다.
+- 엔터 → 결과 지도: 일정 서랍·「지도」 알약·＋·해태는 비키고 결과 서랍(42%, 손잡이로 78%)이 그 자리를 쓴다. 결과에 맞춘 뒤 사람이 지도를 옮기면 「다시 찾기」.
+- 확인용 뒷문(iOS 와 같은 이름, `-e editorMode edit --ez editorMap true` 와 함께): `-e editorPoi all|food|sight|stay|transit`,
+  `-e editorSearch 글자`(검색칸을 그 글자로 연다), `-e editorResults 글자`(이 지역 밖까지 찾은 결과 지도를 열고 첫 결과를 고른다).
+
 ## 인터페이스
 
 2026-10-13 동기화는 [계획](../../docs/project/plans/android-ios-sync-2026-10.md)과
