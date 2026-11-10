@@ -2,8 +2,6 @@ package com.mz2az.scenetrip.routetab
 
 // 지도 검색 결과 서랍을 손으로 끌기 (MZ2AZ-547, 계획 docs/project/plans/motion-works-drawer-parity.md §3).
 // 서랍은 지도 높이의 42%(낮음) 또는 78%(높음)에 붙는다. 높이는 dp, 속도는 「서랍이 커지는 쪽(위)이 +」 인 dp/초.
-//
-// TODO(MZ2AZ-547): 아래는 시험을 먼저 쓰기 위한 자리표시(stub)다. 값은 일부러 틀리다.
 
 object MapSearchDrawerRules {
     /** 낮은 서랍 — 지도 높이의 42%. */
@@ -25,7 +23,7 @@ object MapSearchDrawerRules {
     fun height(
         mapHeight: Float,
         tall: Boolean,
-    ): Float = 0f
+    ): Float = mapHeight * (if (tall) HIGH_FRACTION else LOW_FRACTION)
 
     /**
      * 끄는 동안의 서랍 높이 — 42%~78% 안이면 손가락 그대로([raw]),
@@ -34,7 +32,15 @@ object MapSearchDrawerRules {
     fun dragged(
         mapHeight: Float,
         raw: Float,
-    ): Float = raw
+    ): Float {
+        val low = height(mapHeight, tall = false)
+        val high = height(mapHeight, tall = true)
+        return when {
+            raw > high -> high + (raw - high) * RUBBER_FACTOR
+            raw < low -> low - (low - raw) * RUBBER_FACTOR
+            else -> raw
+        }
+    }
 
     /**
      * 손을 뗐을 때 붙을 쪽 — 높은 서랍이면 true.
@@ -46,8 +52,17 @@ object MapSearchDrawerRules {
         height: Float,
         velocity: Float,
         wasTall: Boolean,
-    ): Boolean = wasTall
+    ): Boolean {
+        if (velocity >= FLICK_DP_PER_SECOND) return true
+        if (velocity <= -FLICK_DP_PER_SECOND) return false
+        val middle = (height(mapHeight, false) + height(mapHeight, true)) / 2f
+        return when {
+            height > middle -> true
+            height < middle -> false
+            else -> wasTall
+        }
+    }
 
     /** 손잡이를 눌렀다 — 42% ↔ 78%. */
-    fun toggled(tall: Boolean): Boolean = tall
+    fun toggled(tall: Boolean): Boolean = !tall
 }
