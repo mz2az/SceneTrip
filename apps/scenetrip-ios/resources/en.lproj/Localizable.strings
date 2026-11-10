@@ -821,3 +821,13 @@
 "쓰던 글을 버릴까요?" = "Discard this post?";
 "게시판" = "Board";
 "게시판: %@" = "Board: %@";
+/* 홈 사진 카드·떠 있는 단추 (MZ2AZ-547 P2). */
+"어디로 여행 가세요?" = "Where are you traveling?";
+"도시를 고르면 그곳 드라마·영화 촬영지로 코스를 만들어 드려요" = "Pick a city. We'll build a route through its K‑drama spots.";
+"%@, 촬영지 %lld곳" = "%1$@, %2$lld spots";
+"여행 코스 짜기" = "Plan a trip";
+"내 코스 펼치기" = "Show my trips";
+"여행 중: %@ 열기" = "On trip: open %@";
+"접기" = "Close";
+"전체 코스 보기" = "All trips";
+"새 코스" = "New";

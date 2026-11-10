@@ -56,8 +56,10 @@ struct RouteTabView: View {
                 await store.refresh()
                 await ensureDemoCourse()
                 openPending()
+                openPendingNewCourse()
             }
             .onChange(of: router.pendingCourseId) { _, _ in openPending() }
+            .onChange(of: router.pendingNewCourse) { _, _ in openPendingNewCourse() }
             .signInSheet()
             .nicknameSheet()
             .confirmationDialog(
@@ -263,6 +265,16 @@ struct RouteTabView: View {
 
     /// 마이페이지에서 「경로여정에서 열기」로 넘어온 코스를 연다. 쪽지는 한 번
     /// 읽고 버린다 — 남겨 두면 탭에 올 때마다 또 열린다.
+    /// 홈의 도시 칩·「+ 새 코스」 가 남긴 쪽지(`TabRouter.startNewCourse`, MZ2AZ-547 H1·H4).
+    ///
+    /// **P3 가 바꿀 자리다** — 지금은 기존 갈림길(AI 로 짜기 / 직접 짜기)을 띄운다. 도시(`city`)는 아직 쓰지 않는다;
+    /// P3 의 새 코스 시트(F1)·도시로 여행 짜기(Q2 며칠부터)가 받는다.
+    private func openPendingNewCourse() {
+        guard router.pendingNewCourse != nil else { return }
+        router.pendingNewCourse = nil
+        fork = true
+    }
+
     private func openPending() {
         guard let wanted = router.pendingCourseId,
               let course = store.courses.first(where: { $0.serverId == wanted })

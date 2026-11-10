@@ -2,20 +2,6 @@ import Combine
 import Foundation
 import SceneApiClient
 
-/// 홈의 「내 여행 이어가기」 카드가 그리는 것 — 코스 하나와 그 진행.
-struct HomeTrip {
-    let course: RouteCourse
-    /// 서버에 `visitedAt` 이 찍힌 정지점 수. **지어낸 값이 아니다** — 여행 중 성지
-    /// 반경에 들거나 「여기 도착함」을 눌러 남은 기록이다(`VisitStamp` 와 같은 근거).
-    let visited: Int
-    let total: Int
-    /// 진행 중인 일차(1부터). 서버의 `currentDayNo`, 없으면 1.
-    let dayNo: Int
-    let dayStops: [RouteStop]
-    /// 「이어서 길찾기」가 향할 곳 — 진행 중 일차의 첫 미방문 정지점. 다 돌았으면 첫 곳.
-    let nextStop: RouteStop?
-}
-
 /// 홈이 서버에서 받아 오는 것들 (계획 `mobile-home-tab.md` §2).
 ///
 /// **네 요청을 나란히 보낸다.** 줄줄이 기다리면 코스 상세(스탬프용)가 느릴 때 작품
@@ -29,15 +15,10 @@ final class HomeTabModel: ObservableObject {
     /// 「오늘의 성지」 — 하루 동안 같은 곳.
     @Published private(set) var today: PlaceSummary?
 
-    /// 「내 여행 이어가기」에 넘길 코스들 — 여행 중인 것 먼저, 최대 셋. 카드가
-    /// 옆으로 넘겨 가며 보여 준다(2026-09-02 사용자 요청 — 하나만 떡하니 있으면
-    /// 나머지 코스는 있는지도 모른다).
-    @Published private(set) var trips: [HomeTrip] = []
+    /// 홈 사진 카드의 도시 칩 — `GET /places/cities` 한 번, 서버 순서 그대로(MZ2AZ-547 H3). 못 받으면 비어 있고 카드는 그대로 뜬다.
+    @Published private(set) var cities: [PlaceCity] = []
 
     @Published private(set) var stamps: [VisitStamp] = []
-
-    /// 코스 카드에 넣을 코스의 상세를 받는 중인가.
-    @Published private(set) var loading = false
 
     /// 작품 목록조차 못 받았나 — 화면이 「불러오지 못했습니다」 를 띄우는 기준.
     @Published private(set) var failed = false
@@ -50,55 +31,15 @@ final class HomeTabModel: ObservableObject {
 
     private let fetchWorks: (Int) async throws -> [ContentSummary]
 
-    init(fetchWorks: @escaping (Int) async throws -> [ContentSummary] = {
-        try await ContentsAPI.listContents(limit: $0).items
+    /// 기본 조회는 인기순 첫 쪽에 고정 작품(케이팝 데몬 헌터스)을 맨 앞에 세운다(MZ2AZ-547 H6, `PinnedWorks`).
+    init(fetchWorks: @escaping (Int) async throws -> [ContentSummary] = { limit in
+        let works = try await ContentsAPI.listContents(limit: limit).items
+        return await PinnedWorks.apply(to: works) { try? await ContentsAPI.getContent(contentId: $0) }
     }) {
         self.fetchWorks = fetchWorks
         resetWatch = AccountDataReset.changes.sink { [weak self] _ in
-            self?.trips = []
             self?.stamps = []
-            self?.loading = false
         }
-    }
-
-    /// 코스 카드의 모습. 값만 보는 규칙이라 시험이 선다(`HomeTripCardTests`).
-    enum TripCard: Equatable {
-        /// 코스가 있다 — 제목·진행·단추 둘.
-        case filled
-        /// 아직 모른다 — 「내 여행을 불러오는 중…」.
-        case loading
-        /// 물었는데 못 받았다 — 「내 여행을 불러오지 못했어요」.
-        case unavailable
-        /// 코스가 **정말 없다** — 「코스 만들기」.
-        case create
-    }
-
-    /// **코스가 있는지 모르는 동안에는 「코스 만들기」 를 권하지 않는다** (MZ2AZ-372).
-    ///
-    /// 전에는 코스 목록이 오기 전에도(다른 조회에 밀려 몇 초씩) 「여행을 시작해 볼까요? · 코스 만들기」 가
-    /// 떴다 — 코스가 있는 사람에게. 그 단추는 일정짜기(유료)의 입구다. 「없다」 는 목록을 받아 본 뒤에만 말한다.
-    nonisolated static func tripCard(
-        hasTrip: Bool, courseList: RouteStore.CourseListState, hasCourses: Bool, tripsLoading: Bool
-    ) -> TripCard {
-        if hasTrip {
-            return .filled
-        }
-        switch courseList {
-        case .unknown: return .loading
-        case .failed: return .unavailable
-        // 목록은 왔고 코스가 있는데 카드가 아직 없으면 그 코스의 상세를 받는 중이다.
-        case .loaded: return hasCourses && tripsLoading ? .loading : .create
-        }
-    }
-
-    /// 코스 카드 — 코스 목록이 오는 대로 부른다. 나머지(`loadRest`)를 기다리지 않는다.
-    func loadTrips(courses: [RouteCourse]) async {
-        let generation = AccountDataReset.generation
-        loading = true
-        let fetched = await Self.trips(from: courses, installId: installId)
-        guard generation == AccountDataReset.generation else { return }
-        trips = fetched
-        loading = false
     }
 
     /// **코스와 무관한 셋을 나란히 받고, 온 것부터 그린다** (MZ2AZ-372).
@@ -111,7 +52,13 @@ final class HomeTabModel: ObservableObject {
         async let todayJob: Void = loadToday()
         async let stampsJob: Void = loadStamps()
         async let shelfJob: Void = loadShelf()
-        _ = await (todayJob, stampsJob, shelfJob)
+        async let citiesJob: Void = loadCities()
+        _ = await (todayJob, stampsJob, shelfJob, citiesJob)
+    }
+
+    private func loadCities() async {
+        guard let list = try? await PlacesAPI.listPlaceCities() else { return }
+        cities = list.items
     }
 
     func loadShelf() async {
@@ -151,8 +98,6 @@ final class HomeTabModel: ObservableObject {
         Array(works.prefix(shelfCount))
     }
 
-    /// 여행 중인 코스를 앞에, 나머지는 목록 순서대로 — 최대 셋. 상세는 나란히 받는다.
-    /// 코스가 없으면 빈 배열 — 카드는 「코스 만들기」 로 바뀐다.
     /// 화면에 실제로 뜨는 사진이 있는가.
     ///
     /// 주소가 있다고 그림이 나오는 것은 아니다 — 시드에 호스트 없는 상대 경로가 섞여
@@ -165,57 +110,5 @@ final class HomeTabModel: ObservableObject {
             return false
         }
         return (scheme == "http" || scheme == "https") && url.host != nil
-    }
-
-    private static func trips(from courses: [RouteCourse], installId: UUID) async -> [HomeTrip] {
-        let ordered = courses.filter(\.isRunning) + courses.filter { !$0.isRunning }
-        let picks = Array(ordered.prefix(3))
-        return await withTaskGroup(of: (Int, HomeTrip?).self) { group in
-            for (index, course) in picks.enumerated() {
-                group.addTask { await (index, trip(of: course, installId: installId)) }
-            }
-            var slots = [HomeTrip?](repeating: nil, count: picks.count)
-            for await (index, trip) in group {
-                slots[index] = trip
-            }
-            return slots.compactMap { $0 }
-        }
-    }
-
-    private static func trip(of pick: RouteCourse, installId: UUID) async -> HomeTrip? {
-        guard let serverId = pick.serverId else { return nil }
-
-        guard let detail = try? await CoursesAPI.getCourse(xInstallId: installId, courseId: serverId) else {
-            // 상세를 못 받아도 카드는 뜬다 — 제목과 곳수는 목록에 있다.
-            return HomeTrip(
-                course: pick, visited: 0, total: pick.placeCount,
-                dayNo: 1, dayStops: [], nextStop: nil
-            )
-        }
-
-        let course = RouteBridge.course(from: detail)
-        let items = detail.days.flatMap(\.items)
-        let dayNo = max(1, min(detail.currentDayNo ?? 1, max(detail.days.count, 1)))
-        let dayIndex = dayNo - 1
-        let dayStops = course.days.indices.contains(dayIndex) ? course.days[dayIndex].stops : []
-        let dayItems = detail.days.indices.contains(dayIndex) ? detail.days[dayIndex].items : []
-
-        // 브리지는 일차 안의 순서를 지키므로 i 번째 아이템 = i 번째 정지점이다.
-        var next = dayStops.first
-        for (index, item) in dayItems.enumerated() where item.visitedAt == nil {
-            if index < dayStops.count {
-                next = dayStops[index]
-            }
-            break
-        }
-
-        return HomeTrip(
-            course: course,
-            visited: items.filter { $0.visitedAt != nil }.count,
-            total: items.count,
-            dayNo: dayNo,
-            dayStops: dayStops,
-            nextStop: next
-        )
     }
 }

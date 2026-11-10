@@ -19,11 +19,14 @@ final class TabRouter: ObservableObject {
         /// 경로여정.
         case route
         case profile
+        /// 「지금 뜨는 작품」 전체 보기 — 인기순 포스터 격자(MZ2AZ-547 H6, 웹 MZ2AZ-534).
+        case trending
 
         var id: String {
             switch self {
             case .route: "route"
             case .profile: "profile"
+            case .trending: "trending"
             }
         }
     }
@@ -50,6 +53,18 @@ final class TabRouter: ObservableObject {
     /// 편집 화면이 닫힌 뒤에 코스 목록이 읽고 끈다.
     @Published var pendingPlanner = false
 
+    /// 새 코스 만들기 쪽지 — 홈의 도시 칩·떠 있는 줄 「+ 새 코스」 가 남긴다(MZ2AZ-547 H1·H4).
+    ///
+    /// **P3 가 바꿀 자리다.** 지금은 경로여정 덮개를 열고 거기 있던 「코스를 어떻게 만들까요?」 갈림길
+    /// (AI 로 짜기 / 직접 짜기, `RouteTabView.forkSheet`)을 띄운다. P3(새 코스 시트 F1·도시로 여행 짜기 Q*)가
+    /// 들어오면 이 쪽지를 받는 곳을 새 시트로 바꾼다 — `city` 가 있으면 Q2(며칠)부터.
+    @Published var pendingNewCourse: NewCourseRequest?
+
+    struct NewCourseRequest: Equatable {
+        /// 홈 카드의 도시 칩으로 들어왔으면 그 도시 열쇠(`PlaceCity.key`). 「+ 새 코스」 면 nil.
+        let city: String?
+    }
+
     /// 작품검색 탭이 열어 줘야 할 작품 — 홈의 「지금 뜨는 작품」이 남긴다.
     ///
     /// id 가 아니라 **요약 자체**를 넘긴다(2026-09-16). id 만 넘겼더니 검색 탭이 자기
@@ -73,6 +88,9 @@ final class TabRouter: ObservableObject {
         case "profile":
             selected = .home
             cover = .profile
+        case "trending":
+            selected = .home
+            cover = .trending
         default:
             selected = .home
         }
@@ -92,6 +110,18 @@ final class TabRouter: ObservableObject {
 
     func openProfile() {
         cover = .profile
+    }
+
+    /// 새 코스 만들기의 입구 하나 — 홈의 도시 칩(`city`)과 떠 있는 줄 「+ 새 코스」(nil)가 부른다.
+    /// **P3 가 바꿀 갈고리**다(`pendingNewCourse` 참고).
+    func startNewCourse(city: String?) {
+        pendingNewCourse = NewCourseRequest(city: city)
+        cover = .route
+    }
+
+    /// 홈 「지금 뜨는 작품」 의 「전체 보기」.
+    func openTrending() {
+        cover = .trending
     }
 
     /// 홈이 부른다 — 작품검색 탭으로 가서 그 작품의 상세를 연다.

@@ -486,15 +486,31 @@ navi-proto 의 홈 재편(`cd8debd`)과 편의시설 점을 옮겼다. 홈은 �
 
 | 파일 | 하는 일 |
 | --- | --- |
-| `HomeTab/HomeTabView.swift` | 홈 — 인사 · 내 여행 이어가기 · 지금 뜨는 작품 · 오늘의 성지 · 여행자들의 코스 · 커뮤니티 지금 · 내 기록 |
-| `HomeTab/HomeTabModel.swift` | 서버 넷을 나란히 — `listContents`·`listPlaces`·코스 상세(스탬프)·내 여행 |
+| `HomeTab/HomeTabView.swift` | 홈 — 인사 · 「어디로 여행 가세요?」 사진 카드 · 지금 뜨는 작품 · 오늘의 성지 · 커뮤니티 지금 · 내 기록, 오른쪽 아래 떠 있는 「여행 코스 짜기」 단추 (아래 「웹 시안 반영」 절) |
+| `HomeTab/HomeTabModel.swift` | 서버 넷을 나란히 — `listContents`(+고정 작품)·`listPlaces`·코스 상세(스탬프)·`listPlaceCities` |
 | `HomeTab/HomeCards.swift` · `HomeFeed.swift` | 카드들. **오늘의 성지는 「담기」** — 코스 없는 길찾기가 계약에 없어(MZ2AZ-313) 장바구니로 잇는다 |
-| `RootTabs.swift` · `Models/TabRouter.swift` | 탭 셋 + 덮개(`cover`: 경로여정·마이페이지) · 쪽지(`pendingCourseId`·`pendingContentId`·`pendingTripStart`) |
+| `RootTabs.swift` · `Models/TabRouter.swift` | 떠 있는 알약 탭바 + 덮개(`cover`: 경로여정·마이페이지·지금 뜨는 작품 전체) · 쪽지(`pendingCourseId`·`pendingContent`·`pendingTripStart`·`pendingNewCourse`) |
 | `RouteTab/RouteGuide.swift` `pois`·`card` | 편의시설 — `PoisAPI.listPois`(bbox+중심, 거리순 30) · `PoisAPI.getPoi`(분류·주소·전화). 카드 엔드포인트(`getPoiCard`·`listPoiCards`)는 부르지 않는다 |
 | `RouteTab/RoutePoiTone.swift` `RoutePoiGlyph` | 점의 업종 아이콘(카페·식당·지하철·공항…) · 이름표는 크게 확대했을 때만(`PinoPin.caption`) |
 
 로컬에서 점을 보려면 POI 가 적재돼 있어야 한다 — `just seed-poi`(표본 29행) 또는
 `just seed-poi <걸러 둔 jsonl.gz …>`(전량 50만 행, 저장소 밖).
+
+## 웹 시안 반영 P1·P2 — 떠 있는 탭바·홈 사진 카드 (2026-11-10, MZ2AZ-547)
+
+계획은 [ios-web-parity.md](../../docs/project/plans/ios-web-parity.md) T1–T3·H1–H6. 순수 규칙은 `*Rules.swift` 로 떼어 시험한다.
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `RootTabs.swift` `TabBar` · `FloatingTabBarRules.swift` | 화면 바닥에 떠 있는 알약(좌우 16 · 바닥 8 · 높이 58 · 반투명 유리). 세 탭 같은 폭, 고른 탭 뒤 보라 알약이 0.38초에 미끄러짐. 탭 내용은 `safeAreaInset` 으로 알약 뒤까지 내려가 비치고 목록은 74+안전영역을 비운다 |
+| `SearchTab/BottomSheet.swift` · `BottomSheetRules.swift` | 검색 탭 서랍도 알약 뒤까지 내려간다. 접힘·중간 단은 알약 위에 보이는 몫으로 잰다(`clearance + (전체 − clearance) × 비율`), 내용은 바닥을 비운다 |
+| `HomeTab/HomeCityCard.swift` · `HomeCityRules.swift` | 「어디로 여행 가세요?」 사진 카드(높이 250). 앱에 실린 도시 사진 8장(`Images.xcassets/city-cover-*`)이 4초마다 겹쳐 바뀜, 움직임 줄이기면 첫 장 고정. 도시 칩은 `GET /places/cities` 서버 순서 최대 8 |
+| `HomeTab/HomeTripFloat.swift` · `HomeTripFloatRules.swift` | 떠 있는 「여행 코스 짜기」. 코스 0개(목록 받은 뒤)면 바로 새 코스, 있으면 ✕ · ≡ · 「+ 새 코스」 · 내 코스(최대 5, 여행 중 먼저) 줄이 펼쳐짐. 여행 중이면 단추가 곧 그 코스 |
+| `HomeTab/PinnedWorks.swift` · `TrendingRules.swift` · `TrendingWorksView.swift` | 「지금 뜨는 작품」 맨 앞에 케이팝 데몬 헌터스(32) 고정, 「전체 보기」 는 인기순 포스터 격자 덮개 |
+
+**새 코스의 입구는 갈고리 하나다** — 홈의 도시 칩과 「+ 새 코스」 는 `TabRouter.startNewCourse(city:)` 를 부르고, 지금은
+경로여정 덮개의 기존 갈림길(AI 로 짜기 / 직접 짜기)이 뜬다. P3(새 코스 시트 F1·도시로 여행 짜기 Q*)가 이 쪽지를 받는 곳을 바꾼다.
+전체 보기 격자에서 작품을 열면 덮개를 닫고 작품검색 탭의 상세로 간다(웹처럼 격자로 돌아오지는 않는다).
 
 ## 여행 모드 — 편집 화면 안에서 길찾기·스탬프 (2026-09-04, MZ2AZ-307)
 
@@ -513,7 +529,8 @@ navi-proto 의 홈 재편(`cd8debd`)과 편의시설 점을 옮겼다. 홈은 �
   「저장된 코스의 장소에서만 길찾기를 부를 수 있어요」.
 - 코스를 **시작**(`active`)해야 서버가 답한다. 시작 전에는 「코스를 시작한 뒤에…」(409).
 - 실패한 뒤에는 걸어도 다시 묻지 않는다(유료 호출). 503·연결 실패에만 「다시 시도」.
-- 「이어서 길찾기」는 **홈의 「내 여행 이어가기」 카드**에 있다(2026-09-05 홈 탭 이식).
+- 「이어서 길찾기」는 홈의 「내 여행 이어가기」 카드에 있었다(2026-09-05). 그 카드는 MZ2AZ-547 에서 숨겼고, 여행 중인 코스는
+  홈의 떠 있는 단추가 바로 연다(코스 편집 화면 안에서 안내를 켠다).
 - 다녀온 곳도 「다시 길찾기」가 된다. 도착하면 다음 갈 곳이 목록 맨 위로 올라온다.
 - 안내 중에는 편의시설 점을 끈다 — 경로선이 주인공이다. 끝나면 다시 켠다.
 - **발자취**: 안내 중 지나온 자리를 25 m 마다 기기에만 남기고(`FootprintStore`), 지도 오른쪽
