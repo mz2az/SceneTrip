@@ -133,6 +133,18 @@ def chain_plan(
     return [d for d in out if d]
 
 
+def trim_days(
+    chosen: list[list[Place]], pace: str, cfg: dict[str, Any]
+) -> list[list[Place]]:
+    """모델이 고른 날마다 앞에서 하루 곳 수까지만 남긴다 — 순서는 그대로(계획 §3 「하루 몫 자르기」).
+
+    모델은 하루 곳 수를 지키지 않았다(2026-11-10 실측: 서울 2일 빡빡에 13·12곳). 숫자를 모델에게 주면 다른 지역을
+    끌어오므로(`config/llm_planner.json` 의 `_pace_설명`) 주지 않고 여기서 자른다.
+    """
+    per_day = _needed(1, pace, cfg)
+    return [day[:per_day] for day in chosen]
+
+
 def _plan(
     req: PlanRequest, chosen: list[list[Place]], considered: int, *, llm: bool
 ) -> Plan:
@@ -178,12 +190,13 @@ def plan_city_with_model(
     client: Any | None,
     *,
     budget: Callable[[], float] | None = None,
+    cfg: dict[str, Any] | None = None,
 ) -> Plan:
     """도시로 짠다. 모델이 있으면 모델, 못 하면 `chain_plan`. 도시에 좌표 있는 촬영지가 없으면 `PlanError`.
 
     모델 실패는 이유를 stderr 에 남기고 계산으로 넘어간다(`llm_planner.plan_with_model` 과 같은 규칙).
     """
-    cfg = load_config()
+    cfg = cfg or load_config()  # 평가(evals/city_plan_live.py)가 후보 수를 바꿔 넘긴다
     city = req.city or ""
     fetched = book.by_city(city, int(_city_cfg(cfg)["fetch_limit"]))
     avoid = {a.strip() for a in req.avoid}
@@ -206,7 +219,8 @@ def plan_city_with_model(
             )
             by_id = {p.place_id: p for p in candidates}
             chosen = parse_days(str(reply.get("content") or ""), by_id, req.days)
-            return _plan(req, [d for d in chosen if d], len(candidates), llm=True)
+            kept = trim_days([d for d in chosen if d], req.pace, cfg)
+            return _plan(req, kept, len(candidates), llm=True)
         except (PlanError, SceneApiError):
             raise
         except Exception as exc:  # noqa: BLE001 — 모델 경로가 깨져도 일정은 나가야 한다
