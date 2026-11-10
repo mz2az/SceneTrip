@@ -2,13 +2,14 @@ import PhotosUI
 import SceneApiClient
 import SwiftUI
 
-/// 여행후기 쓰기 — **블로그 글쓰기처럼** (MZ2AZ-351).
+/// 글쓰기 — **블로그 글쓰기처럼** (MZ2AZ-351, 블로그형 MZ2AZ-547 K10·K11).
 ///
-/// 위에서부터 사진 → 제목 → 본문 → 다녀온 코스. 폼의 칸을 채우는 느낌이 아니라 **글을 쓰는
-/// 종이**여야 한다 — 그래서 테두리 없는 큰 제목과 넓은 본문이 화면의 대부분이다.
+/// 커뮤니티 탭에서 오른쪽으로 밀려 들어오는 새 화면이다. 머리줄 아래 게시판 칩(처음 값은 보던 게시판)으로 올릴 게시판을 고른다
+/// (`TripPostCreate.board`). 제목 → 본문(글 조각과 사진을 쓴 순서대로, `CommunityArticleEditor`) → 다녀온 코스.
+/// 폼의 칸을 채우는 느낌이 아니라 **글을 쓰는 종이**여야 한다 — 그래서 테두리 없는 큰 제목과 넓은 본문이 화면의 대부분이다.
 ///
-/// 코스를 붙이면 일차·장소까지 글에 사본으로 담긴다. 읽는 사람이 그 코스를 보고 내 코스로
-/// 담을 수 있다(`CommunityPostView`).
+/// 비로그인도 화면은 열린다 — 사진 넣기·올리기를 누르면 로그인으로 안내한다.
+/// 코스를 붙이면 일차·장소까지 글에 사본으로 담긴다. 읽는 사람이 그 코스를 보고 내 코스로 담을 수 있다(`CommunityPostView`).
 struct CommunityComposeView: View {
     @ObservedObject private var store = CommunityStore.shared
     @ObservedObject private var auth = AuthStore.shared
@@ -17,18 +18,42 @@ struct CommunityComposeView: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    @State private var board: TripPostBoard
     @State private var title = ""
-    @State private var story = ""
+    /// 글 조각과 사진을 쓴 순서대로 — 본문과 사진 위치는 여기서 계산한다(`CommunityDraft`).
+    @State private var items: [CommunityDraftItem] = [.text(id: UUID(), text: "")]
+    /// 사진마다 설명·출처·AI 표시. 위치(`afterParagraph`)는 목록이 정한다.
+    @State private var meta: [UUID: CommunityPhotoPlacement] = [:]
     @State private var course: PostCourse?
     @State private var pickingCourse = false
     @State private var checkingPosts = false
     @State private var confirmingDiscard = false
     @State private var composingEpoch = AuthStore.shared.epoch
-    @State private var placements: [UUID: CommunityPhotoPlacement] = [:]
     @State private var previewing = false
 
-    private var canPost: Bool {
-        !submission.working && !submission.uncertain && !submission.completed && photos.canSave && auth.signedIn
+    init(board: TripPostBoard = .review) {
+        _board = State(initialValue: board)
+    }
+
+    private var story: String {
+        CommunityDraft.story(items)
+    }
+
+    private var placements: [UUID: CommunityPhotoPlacement] {
+        CommunityDraft.placements(items, meta: meta)
+    }
+
+    private var locked: Bool {
+        submission.working || submission.uncertain
+    }
+
+    private var hasDraft: Bool {
+        !title.isEmpty || !story.isEmpty || !photos.slots.isEmpty || course != nil
+    }
+
+    /// 내용이 올릴 만한가 — 로그인은 따로 본다(비로그인이면 「올리기」 가 로그인으로 안내한다).
+    private var contentReady: Bool {
+        !submission.working && !submission.uncertain && !submission.completed && photos.canSave
             && composingEpoch == auth.epoch
             && CommunityRules.canPost(title: title, body: story, photoCount: photos.slots.count)
             && CommunityArticle.canCompose(story) && CommunityArticle.plainBody(story).utf16.count <= CommunityRules.bodyLimit
@@ -36,65 +61,120 @@ struct CommunityComposeView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        VStack(spacing: 0) {
+            boardChip
             ScrollView {
                 form
             }
             .scrollDismissesKeyboard(.interactively)
-            .navigationTitle("여행후기 쓰기")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("취소") {
-                        if !title.isEmpty || !story.isEmpty || !photos.slots.isEmpty || course != nil {
-                            confirmingDiscard = true
-                        } else {
-                            dismiss()
-                        }
-                    }.disabled(submission.working)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    HStack {
-                        Button("미리보기") { previewing = true }
-                            .disabled(!CommunityArticle.canCompose(story))
-                        Button("올리기") { Task { await submit() } }.disabled(!canPost)
+        }
+        .navigationTitle(tr("글쓰기"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        // 쓰던 글을 밀어서 잃지 않게 — 뒤로는 「취소」 하나로만(쓰던 것이 있으면 버릴지 묻는다).
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("취소") {
+                    if hasDraft {
+                        confirmingDiscard = true
+                    } else {
+                        dismiss()
                     }
+                }.disabled(submission.working)
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                HStack {
+                    Button("미리보기") { previewing = true }
+                        .disabled(!CommunityArticle.canCompose(story))
+                    Button("올리기") { Task { await submit() } }
+                        .fontWeight(.semibold)
+                        .disabled(!contentReady)
+                        .accessibilityIdentifier("community-submit")
                 }
-            }
-            .sheet(isPresented: $pickingCourse) {
-                CoursePickSheet { course = $0 }
-                    .presentationDetents([.medium, .large])
-            }
-            .sheet(isPresented: $checkingPosts) { MyPostsSheet() }
-            .sheet(isPresented: $previewing) {
-                CommunityArticlePreview(title: title, blocks: articleBlocks, slots: photos.slots, course: course)
-            }
-            .signInSheet()
-            .interactiveDismissDisabled(submission.working || !title.isEmpty || !story.isEmpty || !photos.slots.isEmpty)
-            .onDisappear { photos.cancel() }
-            .onAppear { photos.resume() }
-            .onChange(of: auth.epoch) { _, _ in photos.cancel() }
-            .onChange(of: photos.slots.map(\.id)) { _, ids in
-                placements = placements.filter { ids.contains($0.key) }
-            }
-            .alert(tr("쓰던 후기를 버릴까요?"), isPresented: $confirmingDiscard) {
-                Button("버리기", role: .destructive) { dismiss() }
-                Button("계속 쓰기", role: .cancel) {}
             }
         }
+        .sheet(isPresented: $pickingCourse) {
+            CoursePickSheet { course = $0 }
+                .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $checkingPosts) { MyPostsSheet() }
+        .sheet(isPresented: $previewing) {
+            CommunityArticlePreview(title: title, blocks: articleBlocks, slots: photos.slots, course: course)
+        }
+        .onDisappear { photos.cancel() }
+        .onAppear { photos.resume() }
+        .onChange(of: auth.epoch) { _, _ in photos.cancel() }
+        // 사진 칸 순서를 본문에 놓인 순서와 맞춘다 — 첫 사진이 목록의 대표 사진이고, bodyBlocks 의 photoIndex 가 이 순서를 가리킨다.
+        .onChange(of: CommunityDraft.photoOrder(items)) { _, order in
+            if !order.isEmpty {
+                photos.reorder(order)
+            }
+        }
+        .alert(tr("쓰던 글을 버릴까요?"), isPresented: $confirmingDiscard) {
+            Button("버리기", role: .destructive) { dismiss() }
+            Button("계속 쓰기", role: .cancel) {}
+        }
+    }
+
+    /// 머리줄 아래 게시판 고르기 — 보라 옅은 칩 하나(「여행후기 ⌄」). 누르면 바로 아래로 목록이 펼쳐진다(고른 것에 ✓).
+    private var boardChip: some View {
+        HStack {
+            Menu {
+                Picker(tr("게시판"), selection: $board) {
+                    ForEach(CommunityFeedRules.boards, id: \.self) { item in
+                        Text(tr(CommunityFeedRules.boardLabelKey(item))).tag(item)
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(tr(CommunityFeedRules.boardLabelKey(board))).font(.system(size: 13, weight: .bold))
+                    Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
+                }
+                .foregroundStyle(Color(PinImage.deep))
+                .padding(.leading, 11).padding(.trailing, 9)
+                .frame(height: 28)
+                .background(Capsule().fill(Color(PinImage.deep).opacity(0.1)))
+                .frame(minHeight: 44)
+                .contentShape(.rect)
+            }
+            .disabled(locked)
+            .accessibilityLabel(String(format: tr("게시판: %@"), tr(CommunityFeedRules.boardLabelKey(board))))
+            .accessibilityIdentifier("community-board-picker")
+            Spacer()
+        }
+        .padding(.horizontal, 20).padding(.top, 6)
     }
 
     private var form: some View {
         VStack(alignment: .leading, spacing: 18) {
             status
-            ReviewPhotoStrip(draft: photos, locked: submission.working || submission.uncertain)
-                .padding(.horizontal, 20)
-            editor
-            if !photos.slots.isEmpty {
-                CommunityPlacementEditor(story: story, slots: photos.slots, placements: $placements,
-                                         locked: submission.working || submission.uncertain)
-                    .padding(.horizontal, 20)
+            VStack(alignment: .leading, spacing: 18) {
+                TextField("제목", text: $title, axis: .vertical)
+                    .font(.title2.weight(.bold)).lineLimit(1 ... 3)
+                    .onChange(of: title) { _, value in
+                        // 제목은 한 줄 글이다 — 줄바꿈은 빈칸으로.
+                        if value.contains("\n") {
+                            title = value.replacingOccurrences(of: "\n", with: " ")
+                        }
+                    }
+                Divider()
+                CommunityArticleEditor(
+                    items: $items, meta: $meta, photos: photos, locked: locked,
+                    canPick: {
+                        guard auth.signedIn else {
+                            auth.promptSignIn()
+                            return false
+                        }
+                        return true
+                    }
+                )
+                if CommunityArticle.paragraphs(story).count > CommunityArticle.paragraphLimit {
+                    Text("본문은 64개 문단까지 쓸 수 있어요").font(.footnote).foregroundStyle(.red)
+                }
             }
+            .padding(.horizontal, 20)
+            .disabled(locked)
             courseCard.padding(.horizontal, 16).padding(.top, 6)
             if let count = course?.excludedPins, count > 0 {
                 Text(String(format: tr("직접 찍은 핀 %d곳은 공유되지 않습니다"), count))
@@ -123,27 +203,21 @@ struct CommunityComposeView: View {
         }
     }
 
-    private var editor: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            TextField("제목", text: $title, axis: .vertical)
-                .font(.title2.weight(.bold)).lineLimit(1 ... 3)
-            Divider()
-            TextField("어디를 다녀왔나요? 장면 속 그 자리에 선 이야기를 들려주세요", text: $story, axis: .vertical)
-                .font(.body).lineSpacing(5).lineLimit(8...)
-        }.padding(.horizontal, 20).disabled(submission.working || submission.uncertain)
-    }
-
     // MARK: 사진
 
     private var articleBlocks: [TripPostBlock] {
         CommunityArticle.blocks(body: story, photoIds: photos.slots.map(\.id), placements: placements)
     }
 
-    /// 가로로 넘기는 사진 줄. 첫 칸은 늘 「사진 추가」다 — 첫 장이 대표 사진이 된다.
     private func submit() async {
-        guard canPost else { return }
+        guard auth.signedIn else {
+            auth.promptSignIn()
+            return
+        }
+        guard contentReady else { return }
         let input = TripPostCreate(title: CommunityRules.normalized(title), body: CommunityArticle.plainBody(story),
-                                   photoKeys: photos.keys, courseId: course?.serverId, bodyBlocks: articleBlocks)
+                                   photoKeys: photos.keys, courseId: course?.serverId, bodyBlocks: articleBlocks,
+                                   board: board)
         if let saved = await submission.submit(input, expectedCourse: course) {
             finish(saved)
         } else if submission.photoInvalid {
