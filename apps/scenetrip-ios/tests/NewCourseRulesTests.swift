@@ -110,33 +110,43 @@ final class CityPlanRulesTests: XCTestCase {
 
     // MARK: 다른 곳으로 바꾸기
 
-    func testNearestUnusedSkipsUsed() {
-        let next = CityPlanRules.nearestUnused(to: B.jagalchi, among: B.popular, used: [B.jagalchi.id, B.gamcheon.id])
-        XCTAssertEqual(next?.id, B.busanStation.id)
-        // 모두 쓰였으면 없다.
-        XCTAssertNil(CityPlanRules.nearestUnused(to: B.haeundae, among: B.popular, used: Set(B.ids(B.popular))))
+    /// 누를 때 받은 가까운 곳(거리순) 가운데 코스에 아직 없는 첫 곳으로, 그 카드 하나만 바꾼다.
+    func testSwappedWithNearbyPicksFirstUnusedAndReplacesOnlyThatCard() {
+        let plan = [[B.haeundae, B.gwangalli], [B.jagalchi, B.taejongdae]]
+        // 자갈치 자리에서 가까운 순 — 자갈치 자신, 감천, 부산역.
+        let nearby = [B.jagalchi, B.gamcheon, B.busanStation]
+        let next = CityPlanRules.swapped(plan, day: 1, index: 0, among: nearby)
+        XCTAssertEqual(B.ids(next), B.ids([[B.haeundae, B.gwangalli], [B.gamcheon, B.taejongdae]]))
     }
 
-    func testSwappedReplacesWithNearestUnused() {
-        let plan = [[B.haeundae, B.gwangalli], [B.jagalchi]]
-        let next = CityPlanRules.swapped(plan, day: 1, index: 0, among: B.popular)
-        XCTAssertEqual(B.ids(next), B.ids([[B.haeundae, B.gwangalli], [B.gamcheon]]))
+    /// 다른 날에 들어 있는 곳도 「이미 코스에 있는 곳」 이다 — 해운대 자리에서 가까운 순 가운데
+    /// 동백섬(첫째 날)·광안리(둘째 날)를 건너뛰고 용궁사.
+    func testSwappedWithNearbySkipsPlacesUsedOnOtherDays() {
+        let plan = [[B.haeundae, B.dongbaek], [B.gwangalli]]
+        let nearby = [B.haeundae, B.dongbaek, B.gwangalli, B.yonggungsa]
+        XCTAssertEqual(
+            B.ids(CityPlanRules.swapped(plan, day: 0, index: 0, among: nearby)),
+            B.ids([[B.yonggungsa, B.dongbaek], [B.gwangalli]])
+        )
     }
 
-    /// 다른 날에 들어 있는 곳도 「이미 코스에 있는 곳」 이다 — 해운대 옆 광안리(둘째 날)를 건너뛰고 용궁사.
-    func testSwappedTreatsOtherDaysAsUsed() {
-        let plan = [[B.haeundae], [B.gwangalli]]
-        let next = CityPlanRules.swapped(plan, day: 0, index: 0, among: B.popular)
-        XCTAssertEqual(B.ids(next), B.ids([[B.yonggungsa], [B.gwangalli]]))
+    /// 「첫 곳」 은 받은 목록의 차례다 — 앱이 거리를 다시 재서 고르지 않는다(서버가 이미 거리순으로 준다).
+    func testSwappedWithNearbyTakesListOrderNotRecomputedDistance() {
+        let plan = [[B.jagalchi]]
+        // 감천이 자갈치에서 더 가깝지만 목록에서는 해운대가 먼저다.
+        let nearby = [B.jagalchi, B.haeundae, B.gamcheon]
+        XCTAssertEqual(B.ids(CityPlanRules.swapped(plan, day: 0, index: 0, among: nearby)), [B.ids([B.haeundae])])
     }
 
-    func testSwappedUnchangedWhenNothingLeft() {
-        let plan = [[B.haeundae, B.gwangalli]]
-        let next = CityPlanRules.swapped(plan, day: 0, index: 1, among: [B.haeundae, B.gwangalli])
-        XCTAssertEqual(B.ids(next), B.ids(plan))
+    /// 가까운 곳이 모두 코스에 있으면(또는 하나도 못 받았으면) 그대로.
+    func testSwappedWithNearbyUnchangedWhenAllUsed() {
+        let plan = [[B.haeundae, B.gwangalli], [B.dongbaek]]
+        let nearby = [B.haeundae, B.dongbaek, B.gwangalli]
+        XCTAssertEqual(B.ids(CityPlanRules.swapped(plan, day: 0, index: 1, among: nearby)), B.ids(plan))
+        XCTAssertEqual(B.ids(CityPlanRules.swapped(plan, day: 0, index: 1, among: [])), B.ids(plan))
     }
 
-    // MARK: 빼기·옮기기
+    // MARK: 빼기
 
     func testRemovedTakesOutOneStop() {
         let plan = [[B.haeundae, B.gwangalli, B.busanStation], [B.jagalchi]]
@@ -147,24 +157,6 @@ final class CityPlanRulesTests: XCTestCase {
     func testRemovedKeepsEmptyDay() {
         let plan = [[B.haeundae, B.gwangalli], [B.jagalchi]]
         XCTAssertEqual(B.ids(CityPlanRules.removed(plan, day: 1, index: 0)), [B.ids([B.haeundae, B.gwangalli]), []])
-    }
-
-    /// 꾹 끌기는 이웃과 한 칸씩 바꾼다.
-    func testMovedSwapsNeighbours() {
-        let plan = [[B.haeundae, B.gwangalli, B.busanStation], [B.jagalchi, B.gamcheon]]
-        XCTAssertEqual(B.ids(CityPlanRules.moved(plan, day: 0, from: 0, to: 1)), B.ids([
-            [B.gwangalli, B.haeundae, B.busanStation], [B.jagalchi, B.gamcheon],
-        ]))
-        XCTAssertEqual(B.ids(CityPlanRules.moved(plan, day: 1, from: 1, to: 0)), B.ids([
-            [B.haeundae, B.gwangalli, B.busanStation], [B.gamcheon, B.jagalchi],
-        ]))
-    }
-
-    /// 멀리 옮기기 — 웹 `moveTo` 처럼 `from` 에서 빼서 `to` 자리에 끼운다.
-    func testMovedTakesOutAndInsertsAtTo() {
-        let plan = [[B.haeundae, B.gwangalli, B.busanStation]]
-        XCTAssertEqual(B.ids(CityPlanRules.moved(plan, day: 0, from: 0, to: 2)), [B.ids([B.gwangalli, B.busanStation, B.haeundae])])
-        XCTAssertEqual(B.ids(CityPlanRules.moved(plan, day: 0, from: 2, to: 0)), [B.ids([B.busanStation, B.haeundae, B.gwangalli])])
     }
 
     // MARK: 직접 고르기 — 며칠로 나누기 (웹 `splitDays`)
@@ -259,120 +251,145 @@ final class CityPlanAIRulesTests: XCTestCase {
 
     // MARK: 받은 일정 → 카드
 
-    /// 정지점은 받은 차례가 아니라 `order` 순으로, `placeId` 로 촬영지를 찾는다.
-    func testFromGuideOrdersStopsByOrderAndMapsByPlaceId() {
+    /// 서버가 준 정지점 하나 — 좌표·주소·사진·작품·장면 설명까지 정지점에 실려 온다(계약 덧붙임 1.28.0).
+    private static func full(
+        _ order: Int,
+        _ place: PlaceSummary,
+        imageUrl: String? = nil,
+        contents: [ContentRef]? = nil,
+        scene: String? = nil
+    ) -> GuidePlanStop {
+        GuidePlanStop(
+            order: order, placeId: place.id, name: place.name, address: place.address,
+            latitude: place.latitude, longitude: place.longitude, arriveMinute: 600 + order * 60,
+            sceneDescription: scene, imageUrl: imageUrl, contents: contents
+        )
+    }
+
+    /// 카드는 정지점만으로 만든다 — 번호는 `placeId`, 이름·주소·좌표·사진·장면 설명은 정지점 그대로.
+    func testFromGuideBuildsCardFromStopAlone() {
+        let stop = GuidePlanStop(
+            order: 1, placeId: 501, name: "흰여울문화마을", address: "부산광역시 영도구 영선동4가",
+            latitude: 35.0781, longitude: 129.0453, arriveMinute: 600,
+            sceneDescription: "바다를 보며 걷던 골목", imageUrl: "https://img.example/501.jpg",
+            contents: [ContentRef(contentId: 77, title: "변호인")]
+        )
+        let out = CityPlanRules.fromGuide(GuidePlan(days: [Self.day(1, [stop])]))
+        XCTAssertEqual(out.count, 1)
+        let card = out.first?.first
+        XCTAssertEqual(card?.id, 501)
+        XCTAssertEqual(card?.name, "흰여울문화마을")
+        XCTAssertEqual(card?.address, "부산광역시 영도구 영선동4가")
+        XCTAssertEqual(card?.latitude, 35.0781)
+        XCTAssertEqual(card?.longitude, 129.0453)
+        XCTAssertEqual(card?.imageUrl, "https://img.example/501.jpg")
+        XCTAssertEqual(card?.sceneDescription, "바다를 보며 걷던 골목")
+        XCTAssertEqual(card?.contents?.map(\.contentId), [77])
+        XCTAssertEqual(card?.contents?.map(\.title), ["변호인"])
+    }
+
+    /// 작품은 서버가 준 차례 그대로 싣는다.
+    func testFromGuideKeepsContentsOrder() {
+        let contents = [
+            ContentRef(contentId: 3, title: "해운대"),
+            ContentRef(contentId: 1, title: "친구"),
+            ContentRef(contentId: 2, title: "국제시장"),
+        ]
+        let out = CityPlanRules.fromGuide(GuidePlan(days: [Self.day(1, [Self.full(1, B.haeundae, contents: contents)])]))
+        XCTAssertEqual(out.first?.first?.contents?.map(\.contentId), [3, 1, 2])
+        XCTAssertEqual(out.first?.first?.contents?.map(\.title), ["해운대", "친구", "국제시장"])
+    }
+
+    /// 사진·작품·장면 설명이 없으면 카드에도 없다.
+    func testFromGuideLeavesMissingExtrasEmpty() {
+        let out = CityPlanRules.fromGuide(GuidePlan(days: [Self.day(1, [Self.full(1, B.gamcheon)])]))
+        let card = out.first?.first
+        XCTAssertEqual(card?.id, B.gamcheon.id)
+        XCTAssertNil(card?.imageUrl)
+        XCTAssertNil(card?.sceneDescription)
+        XCTAssertTrue(card?.contents?.isEmpty ?? true)
+    }
+
+    /// 도시 촬영지 목록 없이도 그린다 — 처음 보는 번호도 정지점 이름·좌표로 카드가 된다.
+    func testFromGuideNeedsNoCityPlaceList() {
+        let stop = GuidePlanStop(order: 1, placeId: 9999, name: "처음 보는 곳", latitude: 35.1, longitude: 129.0, arriveMinute: 600)
+        let out = CityPlanRules.fromGuide(GuidePlan(days: [Self.day(1, [stop])]))
+        XCTAssertEqual(out.first?.first?.id, 9999)
+        XCTAssertEqual(out.first?.first?.name, "처음 보는 곳")
+    }
+
+    /// 정지점은 받은 차례가 아니라 `order` 순으로.
+    func testFromGuideOrdersStopsByOrder() {
         let plan = GuidePlan(days: [
             Self.day(1, [
-                Self.stop(3, B.jagalchi.id),
-                Self.stop(1, B.haeundae.id),
-                Self.stop(2, B.gwangalli.id),
+                Self.full(3, B.jagalchi),
+                Self.full(1, B.haeundae),
+                Self.full(2, B.gwangalli),
             ]),
         ])
-        XCTAssertEqual(B.ids(CityPlanRules.fromGuide(plan, places: B.popular)), B.ids([
+        XCTAssertEqual(B.ids(CityPlanRules.fromGuide(plan)), B.ids([
             [B.haeundae, B.gwangalli, B.jagalchi],
         ]))
     }
 
-    /// 카드는 서버가 준 이름이 아니라 그 도시 촬영지 목록의 것이다.
-    func testFromGuideUsesPlaceFromList() {
-        let plan = GuidePlan(days: [Self.day(1, [Self.stop(1, B.haeundae.id, name: "다른 이름")])])
-        let out = CityPlanRules.fromGuide(plan, places: B.popular)
-        XCTAssertEqual(out.first?.first?.name, B.haeundae.name)
-        XCTAssertEqual(out.first?.first?.latitude, B.haeundae.latitude)
-    }
-
-    /// 번호가 없는 곳(편의시설 등)과 목록에 없는 번호는 뺀다.
-    func testFromGuideDropsStopsWithoutPlaceIdOrUnknownId() {
+    /// 번호(`placeId`)가 없는 곳(편의시설 등)은 뺀다.
+    func testFromGuideDropsStopsWithoutPlaceId() {
+        let restaurant = GuidePlanStop(order: 2, poiId: 321, name: "식당", latitude: 35.15, longitude: 129.15, arriveMinute: 660)
         let plan = GuidePlan(days: [
-            Self.day(1, [
-                Self.stop(1, B.haeundae.id),
-                Self.stop(2, nil, name: "식당"),
-                Self.stop(3, 9999),
-                Self.stop(4, B.busanStation.id),
-            ]),
+            Self.day(1, [Self.full(1, B.haeundae), restaurant, Self.full(3, B.busanStation)]),
         ])
-        XCTAssertEqual(B.ids(CityPlanRules.fromGuide(plan, places: B.popular)), B.ids([
+        XCTAssertEqual(B.ids(CityPlanRules.fromGuide(plan)), B.ids([
             [B.haeundae, B.busanStation],
         ]))
     }
 
-    /// 빼고 나서 빈 날은 날째 뺀다.
+    /// 좌표가 없는 곳(위도나 경도 하나라도)은 뺀다 — 지도에 놓을 수 없다.
+    func testFromGuideDropsStopsWithoutCoordinates() {
+        let noLat = GuidePlanStop(order: 2, placeId: 601, name: "위도 없음", longitude: 129.0, arriveMinute: 660)
+        let noLng = GuidePlanStop(order: 3, placeId: 602, name: "경도 없음", latitude: 35.1, arriveMinute: 720)
+        let neither = GuidePlanStop(order: 4, placeId: 603, name: "좌표 없음", arriveMinute: 780)
+        let plan = GuidePlan(days: [
+            Self.day(1, [Self.full(1, B.haeundae), noLat, noLng, neither, Self.full(5, B.gamcheon)]),
+        ])
+        XCTAssertEqual(B.ids(CityPlanRules.fromGuide(plan)), B.ids([
+            [B.haeundae, B.gamcheon],
+        ]))
+    }
+
+    /// 빼고 나서 빈 날, 처음부터 빈 날은 날째 뺀다.
     func testFromGuideDropsDaysLeftEmpty() {
         let plan = GuidePlan(days: [
-            Self.day(1, [Self.stop(1, B.haeundae.id)]),
-            Self.day(2, [Self.stop(1, nil), Self.stop(2, 9999)]),
+            Self.day(1, [Self.full(1, B.haeundae)]),
+            Self.day(2, [Self.stop(1, nil), GuidePlanStop(order: 2, placeId: 700, name: "좌표 없음", arriveMinute: 660)]),
             Self.day(3, []),
-            Self.day(4, [Self.stop(1, B.gamcheon.id)]),
+            Self.day(4, [Self.full(1, B.gamcheon)]),
         ])
-        XCTAssertEqual(B.ids(CityPlanRules.fromGuide(plan, places: B.popular)), B.ids([
+        XCTAssertEqual(B.ids(CityPlanRules.fromGuide(plan)), B.ids([
             [B.haeundae],
             [B.gamcheon],
         ]))
     }
 
-    /// 하나도 맞는 곳이 없으면 빈 배열 — 앱 계산으로 대신 그린다.
-    func testFromGuideEmptyWhenNothingMatches() {
+    /// 쓸 수 있는 곳이 하나도 없으면 빈 배열 — 화면은 「코스를 못 짰어요」 를 띄운다.
+    func testFromGuideEmptyWhenNothingUsable() {
         let plan = GuidePlan(days: [
-            Self.day(1, [Self.stop(1, nil), Self.stop(2, 9999)]),
-            Self.day(2, [Self.stop(1, 8888)]),
+            Self.day(1, [Self.stop(1, nil), GuidePlanStop(order: 2, placeId: 800, name: "좌표 없음", arriveMinute: 660)]),
+            Self.day(2, []),
         ])
-        XCTAssertEqual(CityPlanRules.fromGuide(plan, places: B.popular).count, 0)
-        XCTAssertEqual(CityPlanRules.fromGuide(GuidePlan(days: []), places: B.popular).count, 0)
-        let real = GuidePlan(days: [Self.day(1, [Self.stop(1, B.haeundae.id)])])
-        XCTAssertEqual(CityPlanRules.fromGuide(real, places: []).count, 0)
+        XCTAssertEqual(CityPlanRules.fromGuide(plan).count, 0)
+        XCTAssertEqual(CityPlanRules.fromGuide(GuidePlan(days: [])).count, 0)
     }
 
     /// 여러 날은 날 차례 그대로, 날마다 `order` 순으로.
     func testFromGuideKeepsMultipleDays() {
         let plan = GuidePlan(days: [
-            Self.day(1, [Self.stop(2, B.gwangalli.id), Self.stop(1, B.haeundae.id)]),
-            Self.day(2, [Self.stop(2, B.gamcheon.id), Self.stop(3, B.taejongdae.id), Self.stop(1, B.jagalchi.id)]),
+            Self.day(1, [Self.full(2, B.gwangalli), Self.full(1, B.haeundae)]),
+            Self.day(2, [Self.full(2, B.gamcheon), Self.full(3, B.taejongdae), Self.full(1, B.jagalchi)]),
         ])
-        XCTAssertEqual(B.ids(CityPlanRules.fromGuide(plan, places: B.popular)), B.ids([
+        XCTAssertEqual(B.ids(CityPlanRules.fromGuide(plan)), B.ids([
             [B.haeundae, B.gwangalli],
             [B.jagalchi, B.gamcheon, B.taejongdae],
         ]))
-    }
-}
-
-/// 꾹 눌러 끌어 순서 바꾸기 (R4, 웹 `useHoldReorder.ts`).
-final class HoldReorderRulesTests: XCTestCase {
-    func testHoldAndSlop() {
-        XCTAssertEqual(HoldReorderRules.holdDuration, 0.3, accuracy: 0.0001)
-        XCTAssertEqual(HoldReorderRules.slop, 8, accuracy: 0.0001)
-    }
-
-    func testDownPastHalfOfBelowSwapsAndSubtractsHeight() {
-        XCTAssertEqual(HoldReorderRules.step(index: 0, count: 3, offset: 60, below: 100, above: nil), HoldReorderStep(to: 1, offset: -40))
-    }
-
-    func testDownExactlyHalfStays() {
-        XCTAssertEqual(HoldReorderRules.step(index: 0, count: 3, offset: 50, below: 100, above: nil), HoldReorderStep(to: 0, offset: 50))
-    }
-
-    func testUpPastHalfOfAboveSwapsAndAddsHeight() {
-        XCTAssertEqual(HoldReorderRules.step(index: 2, count: 3, offset: -70, below: nil, above: 120), HoldReorderStep(to: 1, offset: 50))
-    }
-
-    func testUpNotPastHalfStays() {
-        XCTAssertEqual(HoldReorderRules.step(index: 2, count: 3, offset: -50, below: nil, above: 120), HoldReorderStep(to: 2, offset: -50))
-    }
-
-    /// 맨 끝 카드는 더 내려가지 않고, 맨 앞 카드는 더 올라가지 않는다.
-    func testEdgesDoNotMove() {
-        XCTAssertEqual(HoldReorderRules.step(index: 2, count: 3, offset: 200, below: 100, above: 100), HoldReorderStep(to: 2, offset: 200))
-        XCTAssertEqual(HoldReorderRules.step(index: 0, count: 3, offset: -200, below: 100, above: 100), HoldReorderStep(to: 0, offset: -200))
-    }
-
-    /// 이웃 높이를 모르면(nil 또는 0) 바꾸지 않는다.
-    func testUnknownNeighbourHeightStays() {
-        XCTAssertEqual(HoldReorderRules.step(index: 1, count: 3, offset: 80, below: nil, above: 100), HoldReorderStep(to: 1, offset: 80))
-        XCTAssertEqual(HoldReorderRules.step(index: 1, count: 3, offset: 80, below: 0, above: 100), HoldReorderStep(to: 1, offset: 80))
-    }
-
-    /// 아래로 끄는 중에는 위 이웃을 보지 않는다.
-    func testDirectionPicksNeighbour() {
-        XCTAssertEqual(HoldReorderRules.step(index: 1, count: 3, offset: 30, below: 200, above: 40), HoldReorderStep(to: 1, offset: 30))
     }
 }
 
