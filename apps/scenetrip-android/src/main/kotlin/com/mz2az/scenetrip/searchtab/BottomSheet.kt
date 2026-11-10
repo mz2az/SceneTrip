@@ -1,6 +1,8 @@
 package com.mz2az.scenetrip.searchtab
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -76,6 +78,11 @@ fun BottomSheet(
     // 화면 바닥에서 떠 있는 탭바가 차지하는 높이(MZ2AZ-547 T3, iOS `bottomClearance`). 서랍은 그 뒤까지 내려가고, 접힘·중간 단은 그 위에
     // 보이는 몫으로 재며([BottomSheetRules.height]), 내용은 바닥을 그만큼 비운다. 탭 밖(경로 편집)은 0.
     bottomClearance: Dp = 0.dp,
+    // 높이가 바뀌는 움직임. 검색 탭은 기본 스프링, 계획 화면은 웹과 같은 0.32초 `cubic-bezier(.32,.72,0,1)`(MZ2AZ-547 M4–M6).
+    animationSpec: AnimationSpec<Float> = spring(),
+    // 처음 그릴 높이 — 화면 높이에 대한 비율(1 이면 최대 단). null 이면 [detent] 자리에서 바로 선다.
+    // 계획 화면의 「지도」 는 맨 위에서 그린 뒤 중간 단으로 내려앉는다(M4).
+    enterFraction: Float? = null,
     content: @Composable () -> Unit,
 ) {
     // **`fillMaxSize` 여야 한다.** 너비만 채우면 `maxHeight` 가 내용 높이로 잡혀
@@ -105,10 +112,16 @@ fun BottomSheet(
         var drag by remember { mutableFloatStateOf(0f) }
 
         val settled = heightFor(detent)
-        val animated by animateFloatAsState(
-            targetValue = with(density) { settled.toPx() },
-            label = "sheetHeight",
-        )
+        val settledPx = with(density) { settled.toPx() }
+        val sheet =
+            remember {
+                val start =
+                    enterFraction?.let { with(density) { (total * it).coerceAtMost(maxSheet).toPx() } } ?: settledPx
+                Animatable(start)
+            }
+        // 목표가 바뀌면(단·화면 크기) 그쪽으로 움직인다. 처음에도 돈다 — [enterFraction] 자리에서 [detent] 로.
+        LaunchedEffect(settledPx) { sheet.animateTo(settledPx, animationSpec) }
+        val animated = sheet.value
         val heightPx =
             (animated - drag)
                 .coerceIn(with(density) { 80.dp.toPx() }, with(density) { maxSheet.toPx() })
@@ -137,16 +150,20 @@ fun BottomSheet(
                             orientation = Orientation.Vertical,
                             state = rememberDraggableState { drag += it },
                             onDragStopped = { velocity ->
+                                // 손을 뗀 자리에서 다음 단으로 움직이게 한다 — 끌던 몫을 높이에 옮겨 담는다.
+                                sheet.snapTo(heightPx)
                                 // iOS 는 predictedEndTranslation 으로 던진 방향을 본다.
                                 // 여기서는 속도를 같은 뜻으로 쓴다.
                                 val endPx = heightPx - velocity * 0.1f
                                 val endDp = with(density) { endPx.toDp() }
-                                onDetentChange(
+                                val target =
                                     Detent.entries.minByOrNull {
                                         abs((heightFor(it) - endDp).value)
-                                    } ?: Detent.MEDIUM,
-                                )
+                                    } ?: Detent.MEDIUM
+                                onDetentChange(target)
                                 drag = 0f
+                                // 같은 단으로 돌아가면 목표가 그대로라 위의 효과가 돌지 않는다 — 여기서 움직인다.
+                                sheet.animateTo(with(density) { heightFor(target).toPx() }, animationSpec)
                             },
                         ),
             ) {

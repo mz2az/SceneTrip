@@ -2,11 +2,11 @@ package com.mz2az.scenetrip.routetab
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.DraggableState
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -48,13 +48,15 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.PoiSummary
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.MagnifierIcon
+import com.mz2az.scenetrip.ui.ProtoMotion
+import com.mz2az.scenetrip.ui.appearIn
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -89,6 +91,8 @@ internal fun MapSearchResultsView(
             modifier =
                 Modifier
                     .align(Alignment.BottomCenter)
+                    // 0.08초 뒤 6dp 내려오며 0.22초에 나타난다(M8, 웹 `.proto-search-results`).
+                    .appearIn()
                     .fillMaxWidth()
                     .height(drawer.height.value.dp)
                     .shadow(8.dp, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
@@ -211,7 +215,7 @@ internal class ResultsDrawer(
     fun snapTarget() = MapSearchDrawerRules.height(mapHeight, tall)
 
     fun animateTo(target: Float) {
-        scope.launch { height.animateTo(target, tween(MapSearchDrawerRules.SNAP_MILLIS)) }
+        scope.launch { height.animateTo(target, tween(MapSearchDrawerRules.SNAP_MILLIS, easing = ProtoMotion.EaseOutSheet)) }
     }
 
     fun toggle() {

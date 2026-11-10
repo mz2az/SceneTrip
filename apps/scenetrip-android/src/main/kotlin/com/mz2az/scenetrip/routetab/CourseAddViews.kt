@@ -1,5 +1,7 @@
 package com.mz2az.scenetrip.routetab
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -286,7 +288,9 @@ fun CourseAddFab(
                         .semantics { contentDescription = label }
                         .clickable(role = Role.Button, onClick = onToggle),
             ) {
-                PlusIcon(Color.White, Modifier.size(19.dp).rotate(if (open) 45f else 0f))
+                // 열면 0.2초에 45° 돌아 ✕ 가 된다(MZ2AZ-547 M11, 웹 `transform 0.2s`).
+                val turn by animateFloatAsState(if (open) 45f else 0f, tween(200), label = "addTurn")
+                PlusIcon(Color.White, Modifier.size(19.dp).rotate(turn))
             }
         }
     }

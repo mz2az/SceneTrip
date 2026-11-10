@@ -1,5 +1,7 @@
 package com.mz2az.scenetrip.routetab
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +54,10 @@ import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.PoiSummary
 import com.mz2az.scenetrip.ui.ChevronLeftIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.ProtoMotion
+import com.mz2az.scenetrip.ui.appearIn
+import com.mz2az.scenetrip.ui.reveal
+import kotlinx.coroutines.launch
 
 /**
  * 🔍 를 누르면 칩 줄 자리를 덮는 검색칸과 그 아래 목록 (MZ2AZ-547 M6, iOS `MapSearchPanel`, 웹 `protoPoi.tsx` `SearchPanel`).
@@ -80,6 +87,20 @@ internal fun MapSearchPanel(
     }
     // 닫히면 목록과 지도의 점을 지운다.
     DisposableEffect(Unit) { onDispose { model.reset() } }
+    // 🔍 동그라미 자리에서 오른쪽으로 0.28초에 길어지고, 닫을 때는 0.2초에 줄어든 뒤 닫힌다(MZ2AZ-547 M7, 웹 `.proto-search-open/close`).
+    val reveal = remember { Animatable(0f) }
+    var closing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) { reveal.animateTo(1f, tween(280, easing = ProtoMotion.EaseOutSheet)) }
+    val close: () -> Unit = {
+        if (!closing) {
+            closing = true
+            scope.launch {
+                reveal.animateTo(0f, tween(200, easing = ProtoMotion.EaseIn))
+                onClose()
+            }
+        }
+    }
 
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -91,6 +112,7 @@ internal fun MapSearchPanel(
                 Modifier
                     .fillMaxWidth()
                     .height(46.dp)
+                    .reveal({ reveal.value }, collapsed = 46.dp, fromStart = true)
                     .shadow(10.dp, RoundedCornerShape(50))
                     .clip(RoundedCornerShape(50))
                     .background(IOS.systemBackground)
@@ -103,7 +125,7 @@ internal fun MapSearchPanel(
                     Modifier
                         .size(40.dp)
                         .semantics { contentDescription = closeLabel }
-                        .clickable(role = Role.Button, onClick = onClose),
+                        .clickable(role = Role.Button, onClick = close),
             ) { ChevronLeftIcon(IOS.label, Modifier.size(17.dp)) }
             Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                 if (text.isEmpty()) {
@@ -147,12 +169,14 @@ internal fun MapSearchPanel(
                 }
             }
         }
-        val rows = MapSearchRules.rows(model.phase)
+        val rows = if (closing) emptyList() else MapSearchRules.rows(model.phase)
         if (rows.isNotEmpty()) {
             // 짧으면 내용 높이만, 길면 420 에서 넘긴다(iOS — 한두 줄짜리 목록에 빈 칸이 남지 않게).
             Column(
                 modifier =
                     Modifier
+                        // 0.08초 뒤 6dp 내려오며 0.22초에 나타난다(M8, 웹 `.proto-search-results`).
+                        .appearIn()
                         .fillMaxWidth()
                         .heightIn(max = 420.dp)
                         .shadow(10.dp, RoundedCornerShape(14.dp))

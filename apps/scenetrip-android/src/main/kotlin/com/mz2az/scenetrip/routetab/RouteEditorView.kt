@@ -1,6 +1,7 @@
 package com.mz2az.scenetrip.routetab
 
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -124,6 +125,7 @@ import com.mz2az.scenetrip.ui.KakaoDirectionsNoticeBanner
 import com.mz2az.scenetrip.ui.LocationConsentSheetHost
 import com.mz2az.scenetrip.ui.MagnifierIcon
 import com.mz2az.scenetrip.ui.MapPinEllipseIcon
+import com.mz2az.scenetrip.ui.ProtoMotion
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.SparklesIcon
 import com.mz2az.scenetrip.ui.StairsIcon
@@ -147,6 +149,9 @@ import kotlinx.coroutines.withContext
 import java.util.Locale
 
 private const val MAP_FIT_DEBOUNCE_MILLIS = 150L
+
+/** 계획 화면 서랍이 단을 옮기는 시간(ms) — 웹 `BottomSheet` `SLIDE_MS`(MZ2AZ-547 M4–M6). */
+private const val PLAN_SHEET_MILLIS = 320
 
 /** 코스에 핀이 없을 때 내 자리를 담으러 범위를 넓히는 한계. 이보다 멀면 세계 줌이 된다(MZ2AZ-511). */
 private const val MAX_WIDEN_KM = 300.0
@@ -204,6 +209,10 @@ private fun RouteEditorContent(
     var dayIndex by editorDraft.dayIndex
     var map by remember { mutableStateOf<NaverMap?>(null) }
     var detent by remember { mutableStateOf(Detent.MEDIUM) }
+    // 「목록만」 으로 바뀌는 중(서랍이 맨 위로 올라가는 0.32초) — 「지도」 알약·＋ 단추를 숨긴다(M5).
+    var mapSwitching by remember { mutableStateOf(false) }
+    // 일정 서랍을 새로 그릴 때 시작할 높이(화면 비율) — 「지도」 를 켜면 1(맨 위), 검색 결과를 닫으면 결과 서랍의 높이(M4·M8).
+    var sheetEnter by remember { mutableStateOf<Float?>(null) }
     var panelHeight by remember { mutableStateOf(0.dp) }
     var focusedStopId by remember { mutableStateOf<java.util.UUID?>(null) }
 
@@ -611,25 +620,39 @@ private fun RouteEditorContent(
         }
     }
 
+    // 「지도」: 서랍을 맨 위에서 그린 뒤 중간 단으로 0.32초에 내려앉는다(M4). 「목록만」: 서랍이 맨 위까지 0.32초에 올라간 뒤
+    // 화면 전체 목록으로 바뀌고, 그동안 「지도」 알약·＋ 단추를 숨긴다(M5). 웹 `RouteEditor` `openMap`·`closeMap`.
     fun toggleMap() {
+        if (mapSwitching) return
         val wasOpen = mapToggle.isOpen
         val step = mapToggle.toggle()
-        mapToggle = step.toggle
         if (wasOpen) {
-            pinning = false
-            panelHeight = 0.dp
+            mapSwitching = true
+            detent = Detent.EXPANDED
+            localScope.launch {
+                delay(PLAN_SHEET_MILLIS.toLong())
+                mapToggle = step.toggle
+                pinning = false
+                panelHeight = 0.dp
+                mapSwitching = false
+            }
         } else {
+            mapToggle = step.toggle
+            sheetEnter = 1f
             detent = Detent.MEDIUM
         }
         if (step.fits) fitAfterOpening()
     }
 
-    // 줄을 눌렀다·핀 찍기를 켰다 — 접혀 있으면 펼친다(E5).
+    // 줄을 눌렀다·핀 찍기를 켰다 — 접혀 있으면 펼친다(E5). 펼치는 움직임은 「지도」 와 같다.
     fun revealMap() {
         val wasOpen = mapToggle.isOpen
         val step = mapToggle.reveal()
         mapToggle = step.toggle
-        if (!wasOpen) detent = Detent.MEDIUM
+        if (!wasOpen) {
+            sheetEnter = 1f
+            detent = Detent.MEDIUM
+        }
         if (step.fits) fitAfterOpening()
     }
 
@@ -1726,12 +1749,20 @@ private fun RouteEditorContent(
                     }
                 }
             }
+            // 결과 서랍이 떠 있는 동안 그 높이를 기억한다 — 결과를 닫으면 일정 서랍이 그 자리에서 제 단으로 움직인다(같은 0.32초).
+            LaunchedEffect(mapResultsOpen, mapPoi.results.state?.tall) {
+                if (mapResultsOpen) {
+                    sheetEnter = (mapPoi.results.state?.drawerShare ?: MapSearchDrawerRules.LOW_FRACTION.toDouble()).toFloat()
+                }
+            }
             if (mapToggle.isOpen && !mapResultsOpen) {
                 BottomSheet(
                     detent = detent,
                     onDetentChange = { detent = it },
                     topInset = 8.dp,
                     onHeightChange = { panelHeight = it },
+                    animationSpec = tween(PLAN_SHEET_MILLIS, easing = ProtoMotion.EaseOutSheet),
+                    enterFraction = sheetEnter,
                     // 지도 40 : 일정 60 — 액션 줄·"코스 시작" 단추까지 처음부터 보여야
                     // 한다(iOS `RouteEditorView`의 `mediumFraction: 0.60`, 2026-08-28
                     // 사용자 요청: "일정 쪽에 단추가 늘며 좁아졌다").
@@ -1755,7 +1786,7 @@ private fun RouteEditorContent(
                     },
                 )
             }
-            if (!mapResultsOpen) {
+            if (!mapResultsOpen && !mapSwitching) {
                 RouteMapPill(
                     toggle = mapToggle,
                     onClick = { toggleMap() },
@@ -1848,7 +1879,7 @@ private fun RouteEditorContent(
         active = CoachRules.mapSearchActive(barShown = showsMapPoiBar, searching = mapPoi.searching, resultsOpen = mapPoi.results.isOpen),
     )
     // 떠 있는 ＋ — 해태 동그라미 바로 위, 편집 중에만(E8). 가이드 창·핀 찍기·여행 중에는 없다.
-    if (editTools && !showGuide && !pinning && !trip.isActive && !mapResultsOpen) {
+    if (editTools && !showGuide && !pinning && !trip.isActive && !mapResultsOpen && !mapSwitching) {
         CourseAddFab(
             open = addMenuOpen,
             onToggle = { addMenuOpen = !addMenuOpen },
