@@ -41,13 +41,16 @@ object SceneFlipRules {
      * 모든 카드가 뒤집힌다. 앞면은 장소 사진, 없으면 장면 그림, 둘 다 없으면 빈 칸(「장소 사진이 아직 없어요」).
      * 뒷면은 앞면에 쓰지 않은 쪽, 없으면 「없음」 면(§6 표).
      */
-    @Suppress("UNUSED_PARAMETER")
     fun faces(
         photoUrl: String?,
         sceneUrl: String?,
     ): SceneFlipFaces {
-        // TODO(MZ2AZ-547 §6): 시험 먼저 — 일부러 틀린 값. 구현에서 바꾼다.
-        return SceneFlipFaces(front = "stub", back = SceneFlipBack.Scene("stub"), frontIsScene = true)
+        val photo = photoUrl?.takeIf { NewCourseText.usablePhoto(it) }
+        return when {
+            photo != null && sceneUrl != null -> SceneFlipFaces(front = photo, back = SceneFlipBack.Scene(sceneUrl), frontIsScene = false)
+            sceneUrl != null -> SceneFlipFaces(front = sceneUrl, back = SceneFlipBack.NoPhoto, frontIsScene = true)
+            else -> SceneFlipFaces(front = photo, back = SceneFlipBack.NoScene, frontIsScene = false)
+        }
     }
 
     /**

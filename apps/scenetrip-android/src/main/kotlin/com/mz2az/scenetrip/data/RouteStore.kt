@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.mz2az.scenetrip.analytics.AppAnalytics
 import com.mz2az.scenetrip.analytics.AppEvent
+import com.mz2az.scenetrip.newcourse.CityPlanRules
 import com.mz2az.scenetrip.newcourse.WorksBrowseRules
 import com.mz2az.scenetrip.routetab.RouteBridge
 import com.mz2az.scenetrip.routetab.RouteCourse
@@ -19,6 +20,7 @@ import com.mz2az.scenetrip.sceneapi.client.api.ContentsApi
 import com.mz2az.scenetrip.sceneapi.client.api.CoursesApi
 import com.mz2az.scenetrip.sceneapi.client.api.GuideApi
 import com.mz2az.scenetrip.sceneapi.client.api.PlacesApi
+import com.mz2az.scenetrip.sceneapi.client.api.PlacesApi.SortListPlaces
 import com.mz2az.scenetrip.sceneapi.client.model.ContentList
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.CourseCreate
@@ -29,6 +31,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.CourseStatus
 import com.mz2az.scenetrip.sceneapi.client.model.CourseSummary
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlanRequest
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
+import com.mz2az.scenetrip.sceneapi.client.model.TripPace
 import com.mz2az.scenetrip.sceneapi.client.model.VisitUpdate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -392,6 +395,43 @@ class RouteStore(
             },
         )
 
+    /**
+     * 도시 추천 코스 — 서버 AI 일정(`POST /guide/plan {city, days, pace}`, MZ2AZ-548)을 응답만으로 카드로([CityPlanRules.fromGuide]).
+     * 도시 촬영지 목록은 받지 않는다. 못 받거나(503·시간 초과·네트워크) 그릴 곳이 하나도 없으면 null — 화면이 「다시 시도」 를 보인다.
+     * 앱 계산으로 대신하지 않는다(2026-11-10 사용자 결정, 계획 city-ai-course.md §5). iOS `CityPlanPreview.aiPlan`.
+     */
+    suspend fun planCity(
+        city: String,
+        days: Int,
+        pace: TripPace,
+    ): List<List<PlaceSummary>>? {
+        val request = CityPlanRules.aiRequest(city, days, pace)
+        val reply = apiResult { guideApi.planWithGuide(request) }.getOrNull() ?: return null
+        return CityPlanRules.fromGuide(reply.plan).takeIf { it.isNotEmpty() }
+    }
+
+    /**
+     * 「다른 곳으로 바꾸기」 의 후보 — 그 카드 자리에서 가까운 그 도시 촬영지 [CITY_NEARBY_LIMIT] 곳, 가까운 순
+     * (`GET /places?city&lat&lng&sort=distance&limit=10`). 좌표는 기기 위치가 아니라 카드 장소라 「사용자가 고른 곳」 으로 싣는다.
+     * 못 받으면 null. iOS `CityPlanPreview.swap`.
+     */
+    suspend fun nearbyCityPlaces(
+        city: String,
+        latitude: Double,
+        longitude: Double,
+    ): List<PlaceSummary>? =
+        apiResult {
+            CoordinateSources.with(CoordinateSource.USER_SELECTED) {
+                placesApi.listPlaces(
+                    lat = latitude,
+                    lng = longitude,
+                    sort = SortListPlaces.distance,
+                    limit = CITY_NEARBY_LIMIT,
+                    city = city,
+                )
+            }
+        }.getOrNull()?.items
+
     /** 이름 없이 고르면 "인기 촬영지 1박 2일", 고르면 "도깨비 외 2 1박 2일". */
     private fun courseTitle(
         chosenTitles: List<String>,
@@ -400,6 +440,11 @@ class RouteStore(
         val first = chosenTitles.firstOrNull() ?: return tr("인기 촬영지 %s").format(span.label)
         val name = if (chosenTitles.size == 1) first else tr("%s 외 %d").format(first, chosenTitles.size - 1)
         return "$name ${span.label}"
+    }
+
+    companion object {
+        /** 「다른 곳으로 바꾸기」 에서 물을 근처 촬영지 수(iOS `CityPlanPreview.nearbyLimit`). */
+        const val CITY_NEARBY_LIMIT = 10
     }
 
     /** "직접 짜기" — 빈 일차만 있는 코스. */

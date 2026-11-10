@@ -3,7 +3,6 @@ package com.mz2az.scenetrip.newcourse
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.routetab.RouteCourse
 import com.mz2az.scenetrip.routetab.RouteDay
-import com.mz2az.scenetrip.routetab.RouteGeometry
 import com.mz2az.scenetrip.routetab.RoutePace
 import com.mz2az.scenetrip.routetab.RouteStop
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
@@ -16,7 +15,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.TripPace
 
 // 새 코스 만들기의 순수 규칙 (MZ2AZ-547 P3 — F·Q·R·S·A, 계획 docs/project/plans/ios-web-parity.md).
 // iOS `NewCourse/NewCourseRules.swift` 를 옮긴 것이다. 화면은 얇게 두고 판단은 전부 여기서 한다.
-// 웹 기준: `features/proto/{mockPlan.ts, protoState.ts, protoParts.tsx, ProtoPlanFlows.tsx, useHoldReorder.ts}`.
+// 웹 기준: `features/proto/{protoState.ts, protoParts.tsx, ProtoPlanFlows.tsx}`.
 
 /** 새 코스를 무엇으로 시작하나 — 새 코스 시트(F1)의 세 줄과 홈 도시 칩. */
 sealed class NewCourseStart {
@@ -96,7 +95,7 @@ data class CityQuestionFlow(
     }
 }
 
-// ---- 추천 코스 (R1–R5) — 앱 안 계산 (웹 `mockPlan.ts`) ----
+// ---- 추천 코스 (R1–R5) — 서버 AI 가 짠다(`POST /guide/plan {city}`, MZ2AZ-548) ----
 
 object CityPlanRules {
     /** 하루 몇 곳 — relaxed 3 · normal 5 · packed 7. */
@@ -107,90 +106,65 @@ object CityPlanRules {
             TripPace.packed -> 7
         }
 
-    /** 가까운 곳으로 이어 간 순서. 첫 곳은 목록 맨 앞(가장 인기). 거리가 같으면 앞의 것. */
-    fun chain(candidates: List<PlaceSummary>): List<PlaceSummary> {
-        val first = candidates.firstOrNull() ?: return emptyList()
-        val left = candidates.drop(1).toMutableList()
-        val out = mutableListOf(first)
-        while (left.isNotEmpty()) {
-            val last = out.last()
-            var best = 0
-            for (index in 1 until left.size) {
-                if (RouteGeometry.kilometers(last, left[index]) < RouteGeometry.kilometers(last, left[best])) best = index
-            }
-            out.add(left.removeAt(best))
-        }
-        return out
-    }
-
-    /** 인기순 촬영지에서 후보를 `want * 2` 개 잡아 잇고, 앞에서 `want = 하루 수 × 날 수` 개를 날마다 자른다. 빈 날은 뺀다. */
-    fun plan(
-        places: List<PlaceSummary>,
-        days: Int,
-        pace: TripPace,
-    ): List<List<PlaceSummary>> {
-        val perDay = stopsPerDay(pace)
-        val want = perDay * days.coerceAtLeast(0)
-        if (want <= 0) return emptyList()
-        val picked = chain(places.take(want * 2)).take(want)
-        return (0 until days)
-            .map { day -> picked.drop(day * perDay).take(perDay) }
-            .filter { it.isNotEmpty() }
-    }
-
-    /** 「다른 곳으로 바꾸기」 — 코스에 아직 없는 곳 가운데 바꿀 곳에서 가장 가까운 곳(같으면 앞의 것). 없으면 null. */
-    fun nearestUnused(
-        target: PlaceSummary,
-        places: List<PlaceSummary>,
-        used: Set<Long>,
-    ): PlaceSummary? {
-        var best: PlaceSummary? = null
-        for (place in places) {
-            if (place.id in used) continue
-            val current = best
-            if (current != null && RouteGeometry.kilometers(target, place) >= RouteGeometry.kilometers(target, current)) continue
-            best = place
-        }
-        return best
-    }
-
     /**
      * 「다른 곳으로 바꾸기」 — [day] 일의 [index] 번째를 [nearby] 가운데 코스에 아직 없는 **첫 곳**으로 바꾼 계획. 없거나 범위 밖이면 그대로.
      * [nearby] 는 누를 때 서버에 물은 그 자리 근처 촬영지, 가까운 순(`GET /places?city&lat&lng&sort=distance&limit=10`,
      * 계획 city-ai-course.md §5). 거리를 다시 재지 않고 받은 차례를 그대로 쓴다.
      */
-    @Suppress("UNUSED_PARAMETER")
     fun swapped(
         plan: List<List<PlaceSummary>>,
         day: Int,
         index: Int,
         nearby: List<PlaceSummary>,
     ): List<List<PlaceSummary>> {
-        // TODO(MZ2AZ-548): 시험 먼저 — 일부러 틀린 값. 구현에서 바꾼다.
-        return emptyList()
+        val stops = plan.getOrNull(day) ?: return plan
+        if (index !in stops.indices) return plan
+        val used = plan.flatten().map { it.id }.toSet()
+        val next = nearby.firstOrNull { it.id !in used } ?: return plan
+        return plan.mapIndexed { at, each -> if (at == day) each.toMutableList().also { it[index] = next } else each }
     }
 
     /** 서버 AI 일정 요청(MZ2AZ-548, 계획 city-ai-course.md §5) — 도시·일수·속도만. 작품은 보내지 않는다. */
-    @Suppress("UNUSED_PARAMETER")
     fun aiRequest(
         city: String,
         days: Int,
         pace: TripPace,
-    ): GuidePlanRequest {
-        // TODO(MZ2AZ-548): 시험 먼저 — 일부러 틀린 값. 구현에서 바꾼다.
-        return GuidePlanRequest(titles = listOf("stub"), days = 0, pace = GuidePlanRequest.Pace.packed)
-    }
+    ): GuidePlanRequest =
+        GuidePlanRequest(
+            city = city,
+            days = days,
+            pace =
+                when (pace) {
+                    TripPace.relaxed -> GuidePlanRequest.Pace.relaxed
+                    TripPace.normal -> GuidePlanRequest.Pace.normal
+                    TripPace.packed -> GuidePlanRequest.Pace.packed
+                },
+        )
 
     /**
      * 서버가 준 일정을 카드로 — 응답만으로 그린다(도시 촬영지 목록 없이, 계획 city-ai-course.md §5). 정지점은 `order` 순,
      * 번호(`placeId`)나 좌표가 없는 줄은 빼고, 빈 날도 뺀다. 사진·작품은 정지점의 `imageUrl`·`contents`
      * (`imageUrl` 이 주소로 읽히지 않으면 사진 없음).
      */
-    @Suppress("UNUSED_PARAMETER")
-    fun fromGuide(plan: GuidePlan): List<List<PlaceSummary>> {
-        // TODO(MZ2AZ-548): 시험 먼저 — 일부러 틀린 값. 구현에서 바꾼다.
-        return listOf(emptyList())
-    }
+    fun fromGuide(plan: GuidePlan): List<List<PlaceSummary>> =
+        plan.days
+            .map { day ->
+                day.stops.sortedBy { it.order }.mapNotNull { stop ->
+                    val id = stop.placeId ?: return@mapNotNull null
+                    val lat = stop.latitude ?: return@mapNotNull null
+                    val lng = stop.longitude ?: return@mapNotNull null
+                    PlaceSummary(
+                        id = id,
+                        name = stop.name,
+                        latitude = lat,
+                        longitude = lng,
+                        address = stop.address,
+                        imageUrl = stop.imageUrl?.takeIf { NewCourseText.usablePhoto(it) }?.let { java.net.URI(it) },
+                        contents = stop.contents,
+                        sceneDescription = stop.sceneDescription,
+                    )
+                }
+            }.filter { it.isNotEmpty() }
 
     /** [day] 일의 [index] 번째를 뺀 계획(그날이 비어도 날은 남긴다). 범위 밖이면 그대로. */
     fun removed(
@@ -201,24 +175,6 @@ object CityPlanRules {
         val stops = plan.getOrNull(day) ?: return plan
         if (index !in stops.indices) return plan
         return plan.mapIndexed { at, each -> if (at == day) each.toMutableList().also { it.removeAt(index) } else each }
-    }
-
-    /** 그날 안에서 순서 바꾸기. 범위 밖이면 그대로. */
-    fun moved(
-        plan: List<List<PlaceSummary>>,
-        day: Int,
-        from: Int,
-        to: Int,
-    ): List<List<PlaceSummary>> {
-        val stops = plan.getOrNull(day) ?: return plan
-        if (from !in stops.indices || to !in stops.indices) return plan
-        return plan.mapIndexed { at, each ->
-            if (at != day) {
-                each
-            } else {
-                each.toMutableList().also { it.add(to, it.removeAt(from)) }
-            }
-        }
     }
 
     /** 고른 곳을 며칠로 나눈다(직접 고르기 S1) — 하루 `ceil(n / days)` 곳(최소 1)씩 담은 순서대로. 길이는 언제나 [days](0 이하면 빈 목록). */
@@ -248,47 +204,6 @@ object CityPlanRules {
             madeByAI = madeByAI,
         )
 }
-
-/** 꾹 눌러 끌어 순서 바꾸기 (R4, 웹 `useHoldReorder.ts`). */
-object HoldReorderRules {
-    /** 이만큼 꾹 눌러야 들린다(밀리초). */
-    const val HOLD_MILLIS: Long = 300L
-
-    /** 들리기 전에 이만큼(dp) 넘게 움직이면 꾹 누르기가 아니라 넘기기다. */
-    const val SLOP_DP: Float = 8f
-
-    /**
-     * 끄는 중 한 걸음 — 이웃 카드 높이의 절반을 넘으면 자리를 바꾸고 남은 거리를 돌려준다.
-     *
-     * @param index 지금 끌고 있는 카드의 자리.
-     * @param count 그날 카드 수.
-     * @param offset 손가락이 (마지막 자리 바꿈 뒤) 움직인 세로 거리(아래가 +).
-     * @param below 아래 이웃 카드의 높이(없으면 null).
-     * @param above 위 이웃 카드의 높이(없으면 null).
-     */
-    fun step(
-        index: Int,
-        count: Int,
-        offset: Float,
-        below: Float?,
-        above: Float?,
-    ): HoldReorderStep {
-        if (offset > 0 && index < count - 1 && below != null && below > 0 && offset > below / 2) {
-            return HoldReorderStep(index + 1, offset - below)
-        }
-        if (offset < 0 && index > 0 && above != null && above > 0 && -offset > above / 2) {
-            return HoldReorderStep(index - 1, offset + above)
-        }
-        return HoldReorderStep(index, offset)
-    }
-}
-
-data class HoldReorderStep(
-    /** 옮긴 뒤의 자리(그대로면 index). */
-    val to: Int,
-    /** 옮긴 만큼 덜어 낸 남은 거리. */
-    val offset: Float,
-)
 
 // ---- 담은 곳으로 (A4) — 웹 `ProtoPlanFlows.tsx` `arrange`·`splitEven` ----
 

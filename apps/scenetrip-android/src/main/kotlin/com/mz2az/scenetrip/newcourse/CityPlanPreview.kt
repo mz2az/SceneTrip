@@ -1,11 +1,6 @@
 package com.mz2az.scenetrip.newcourse
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,35 +21,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.data.tr
@@ -63,7 +46,7 @@ import com.mz2az.scenetrip.sceneapi.client.model.TripPace
 import com.mz2az.scenetrip.ui.ArrowClockwiseIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.XmarkIcon
-import kotlinx.coroutines.delay
+import com.mz2az.scenetrip.ui.rememberReduceMotion
 import kotlinx.coroutines.launch
 
 /** 도시 질문은 속도를 묻지 않는다 — 보통(하루 5곳). */
@@ -72,9 +55,10 @@ internal val CITY_PACE = TripPace.normal
 /**
  * 「알아서 짜 주세요」 — 도시 추천 코스 미리보기 (MZ2AZ-547 R1–R5, 웹 `proto/ProtoScreens.tsx` `PlanPreview`, iOS `CityPlanPreview`).
  *
- * 그 도시 촬영지(인기순)를 받아 **앱 안에서** 잇는다([CityPlanRules.plan], 서버 창구 없음). 카드를 꾹 눌러 그날 안에서 순서를 바꾸고,
- * 사진 위 작은 단추로 다른 곳으로 바꾸거나 뺀다. 「이 코스로 만들기」 → 서버에 저장(`POST`+`PUT`) → 정한 여행에 코스 번호 →
- * 방금 만든 코스로 표시하고 계획 화면을 연다(R5·R6).
+ * 서버 AI 일정(`POST /guide/plan {city}`, MZ2AZ-548 — [RouteStore.planCity])을 응답만으로 카드로 그린다. 도시 촬영지 목록은 받지 않고,
+ * 못 받으면 앱 계산으로 대신하지 않고 「다시 시도」 를 보인다(2026-11-10 사용자 결정, 계획 city-ai-course.md §5).
+ * 사진 위 작은 단추로 다른 곳으로 바꾸거나 뺀다(꾹 눌러 순서 바꾸기는 뺐다). 사진을 누르면 뒤집혀 장면 그림([SceneFlipPhoto], §6).
+ * 「이 코스로 만들기」 → 서버에 저장(`POST`+`PUT`) → 정한 여행에 코스 번호 → 방금 만든 코스로 표시하고 계획 화면을 연다(R5·R6).
  */
 @Composable
 fun CityPlanPreview(
@@ -85,11 +69,14 @@ fun CityPlanPreview(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val reduceMotion = rememberReduceMotion()
     var plan by remember { mutableStateOf<List<List<PlaceSummary>>?>(null) }
+    // AI 일정을 못 받았다 — 「다시 시도」. 누를 때마다 [attempt] 가 올라 다시 묻는다.
+    var planFailed by remember { mutableStateOf(false) }
+    var attempt by remember { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     val cityName = CityPlacesStore.city(cityKey)?.name ?: cityKey
-    val places = CityPlacesStore.places[cityKey]
 
     fun save(made: List<List<PlaceSummary>>) {
         if (busy) return
@@ -114,15 +101,27 @@ fun CityPlanPreview(
         }
     }
 
-    LaunchedEffect(places?.size) {
+    /** 「다른 곳으로 바꾸기」 — 그 카드 자리에서 가까운 그 도시 촬영지를 물어 아직 코스에 없는 첫 곳으로. 못 받으면 그대로. */
+    fun swap(
+        day: Int,
+        index: Int,
+    ) {
+        val spot = plan?.getOrNull(day)?.getOrNull(index) ?: return
+        scope.launch {
+            val nearby = routes.nearbyCityPlaces(cityKey, spot.latitude, spot.longitude) ?: return@launch
+            val latest = plan ?: return@launch
+            plan = CityPlanRules.swapped(latest, day, index, nearby)
+        }
+    }
+
+    LaunchedEffect(attempt) {
         if (plan != null) return@LaunchedEffect
-        if (places == null) {
-            CityPlacesStore.loadPlaces(cityKey)
+        planFailed = false
+        val made = routes.planCity(cityKey, days, CITY_PACE)
+        if (made == null) {
+            planFailed = true
             return@LaunchedEffect
         }
-        // 「짜는 중」 을 잠깐 보인다 — 바로 바뀌면 무엇이 일어났는지 모른다(웹과 같은 0.9초).
-        delay(PLANNING_MILLIS)
-        val made = CityPlanRules.plan(places, days, CITY_PACE)
         plan = made
         // 확인용 뒷문 — 짜자마자 「이 코스로 만들기」 를 누른 것처럼 저장한다(프로세스에 한 번, 서버에 코스가 생긴다).
         if (NewCourseDebug.cityAutoSave && !NewCourseDebug.autoSaved) {
@@ -135,22 +134,30 @@ fun CityPlanPreview(
     if (current == null) {
         NewCourseScreen(onBack = onBack) {
             NewCourseTitle(tr("코스를 짜는 중이에요…"))
-            if (cityKey in CityPlacesStore.placeFailures) {
+            if (planFailed) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(tr("촬영지를 못 불러왔어요"), fontSize = 15.sp, color = IOS.secondaryLabel)
-                    NewCourseSecondaryButton(tr("다시 시도")) { scope.launch { CityPlacesStore.loadPlaces(cityKey) } }
+                    Text(tr("코스를 못 짰어요"), fontSize = 15.sp, color = IOS.secondaryLabel)
+                    NewCourseSecondaryButton(tr("다시 시도")) { attempt += 1 }
                 }
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     CircularProgressIndicator(Modifier.size(18.dp), color = IOS.secondaryLabel, strokeWidth = 2.dp)
-                    Text(tr("촬영지를 동선대로 잇고 있어요"), fontSize = 15.sp, color = IOS.secondaryLabel)
+                    Text(tr("AI 가 동선을 짜고 있어요"), fontSize = 15.sp, color = IOS.secondaryLabel)
                 }
             }
         }
         return
     }
 
-    val empty = current.all { it.isEmpty() }
+    // 처음 한 번 살짝 돌 카드 — 첫 카드(모든 카드가 뒤집힌다, §6 표, [SceneFlipRules.peekIndex]).
+    val cards = current.flatten()
+    val peekId =
+        SceneFlipRules
+            .peekIndex(
+                flippable = cards.map { true },
+                hasFlipped = SceneFlipStore.hasFlipped(context),
+                reduceMotion = reduceMotion,
+            )?.let { cards[it].id }
     NewCourseScreen(
         onBack = onBack,
         footer = {
@@ -164,170 +171,55 @@ fun CityPlanPreview(
             }
             NewCoursePrimaryButton(
                 title = if (busy) tr("저장하는 중…") else tr("이 코스로 만들기"),
-                disabled = busy || empty,
+                disabled = busy || current.all { it.isEmpty() },
             ) { save(current) }
         },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             NewCourseTitle(NewCourseText.planTitle(cityName, days))
-            Text(tr("꾹 눌러 순서를 바꾸고, 빼거나 다른 곳으로 바꾼 뒤 저장하세요"), fontSize = 14.sp, color = IOS.secondaryLabel)
-        }
-        if (empty) {
-            Text(
-                tr("이 도시는 촬영지가 적어서 코스를 못 짰어요. 뒤로 가서 「직접 고를게요」 를 눌러 주세요"),
-                fontSize = 15.sp,
-                color = IOS.secondaryLabel,
-            )
+            Text(tr("빼거나 다른 곳으로 바꾼 뒤 저장하세요"), fontSize = 14.sp, color = IOS.secondaryLabel)
         }
         current.forEachIndexed { day, stops ->
             PlanDayList(
                 day = day,
                 stops = stops,
-                onMove = { from, to -> plan = CityPlanRules.moved(plan ?: current, day, from, to) },
-                onSwap = { index -> plan = CityPlanRules.swapped(plan ?: current, day, index, places.orEmpty()) },
+                peekId = peekId,
+                onSwap = { index -> swap(day, index) },
                 onRemove = { index -> plan = CityPlanRules.removed(plan ?: current, day, index) },
             )
         }
     }
 }
 
-private const val PLANNING_MILLIS = 900L
-
-/** 카드 사이 간격. */
-private val CARD_GAP = 12.dp
-
-/** 놓은 카드가 제자리로 돌아가는 시간(ms) — 웹 시안 0.16초(MZ2AZ-547 M13). */
-private const val DROP_MILLIS = 160
-
-/**
- * 하루치 카드 줄 — 꾹 0.3초 눌러 들고 끌면 그날 안에서 순서가 바뀐다 (R4, 웹 `useHoldReorder`).
- *
- * 들리기 전에 8dp 넘게 움직이면(또는 바깥 스크롤이 먼저 가져가면) 넘기기로 보고 놓아 준다. 들린 카드는 1.02배·그림자·햅틱.
- * 이웃 카드(+간격) 높이의 절반을 넘으면 자리를 바꾼다([HoldReorderRules.step]). 손가락은 **화면 기준**으로 잰다 — 카드가 자리를
- * 바꾸면 카드 안 좌표가 한꺼번에 튀기 때문이다.
- */
+/** 하루치 카드 줄 (R4). 꾹 눌러 순서 바꾸기는 뺐다(2026-11-10 사용자 결정 — 스크롤과 엉켜 동작하지 않았다, city-ai-course.md §5). */
 @Composable
 private fun PlanDayList(
     day: Int,
     stops: List<PlaceSummary>,
-    onMove: (Int, Int) -> Unit,
+    peekId: Long?,
     onSwap: (Int) -> Unit,
     onRemove: (Int) -> Unit,
 ) {
-    var dragging by remember { mutableStateOf<Long?>(null) }
-    var offset by remember { mutableFloatStateOf(0f) }
-    // 놓은 카드가 0.16초에 제자리로 돌아간다(MZ2AZ-547 M13) — 놓은 자리(dropFrom)에서 1→0.
-    var dropping by remember { mutableStateOf<Long?>(null) }
-    var dropFrom by remember { mutableFloatStateOf(0f) }
-    val drop = remember { Animatable(0f) }
-    val dropScope = rememberCoroutineScope()
-    val heights = remember { mutableStateMapOf<Long, Float>() }
-    val latestStops by rememberUpdatedState(stops)
-    val latestMove by rememberUpdatedState(onMove)
-    val haptic = LocalHapticFeedback.current
-    val density = LocalDensity.current
-    val gap = with(density) { CARD_GAP.toPx() }
-    val slop = with(density) { HoldReorderRules.SLOP_DP.dp.toPx() }
-    val lift = with(density) { 10.dp.toPx() }
-
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.semantics(mergeDescendants = true) { heading() },
         ) {
-            Text(tr("%d일차").format(day + 1), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = IOS.label)
-            Text(tr("%d곳").format(stops.size), fontSize = 13.sp, color = IOS.secondaryLabel, modifier = Modifier.padding(bottom = 1.dp))
+            // 날 사이가 카드에 묻히지 않게 크게(2026-11-10 사용자 요청, iOS 17 → 24).
+            Text(tr("%d일차").format(day + 1), fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = IOS.label)
+            Text(tr("%d곳").format(stops.size), fontSize = 15.sp, color = IOS.secondaryLabel, modifier = Modifier.padding(bottom = 3.dp))
         }
-        Column(verticalArrangement = Arrangement.spacedBy(CARD_GAP)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             stops.forEachIndexed { index, place ->
+                // 장소마다 열쇠를 둔다 — 「다른 곳으로 바꾸기」 로 카드가 바뀌면 사진 칸이 앞면으로 돌아간다(§6).
                 key(place.id) {
-                    val lifted = dragging == place.id
-                    val coords = remember { arrayOfNulls<LayoutCoordinates>(1) }
-                    val up = tr("위로 옮기기")
-                    val down = tr("아래로 옮기기")
                     PlanSpotCard(
                         place = place,
                         number = index + 1,
+                        peek = place.id == peekId,
                         onSwap = { onSwap(index) },
                         onRemove = { onRemove(index) },
-                        modifier =
-                            Modifier
-                                .zIndex(if (lifted) 2f else 0f)
-                                .onGloballyPositioned {
-                                    coords[0] = it
-                                    heights[place.id] = it.size.height.toFloat()
-                                }.pointerInput(place.id) {
-                                    awaitEachGesture {
-                                        val first = awaitFirstDown(requireUnconsumed = false)
-                                        // 0.3초 안에 떼거나, 8dp 넘게 움직이거나, 바깥 스크롤이 가져가면 꾹 누르기가 아니다(null 이 아니면 놓아 준다).
-                                        val released =
-                                            withTimeoutOrNull(HoldReorderRules.HOLD_MILLIS) {
-                                                var gone = false
-                                                while (!gone) {
-                                                    val change = awaitPointerEvent().changes.firstOrNull { it.id == first.id }
-                                                    gone = change == null ||
-                                                        !change.pressed ||
-                                                        change.isConsumed ||
-                                                        (change.position - first.position).getDistance() > slop
-                                                }
-                                                true
-                                            }
-                                        if (released != null) return@awaitEachGesture
-                                        val startY = coords[0]?.localToRoot(first.position)?.y ?: return@awaitEachGesture
-                                        var consumed = 0f
-                                        dragging = place.id
-                                        offset = 0f
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        drag(first.id) { change ->
-                                            change.consume()
-                                            val y = coords[0]?.localToRoot(change.position)?.y ?: return@drag
-                                            val list = latestStops
-                                            val at = list.indexOfFirst { it.id == place.id }
-                                            if (at < 0) return@drag
-                                            val below = list.getOrNull(at + 1)?.let { heights[it.id] }?.plus(gap)
-                                            val above = list.getOrNull(at - 1)?.let { heights[it.id] }?.plus(gap)
-                                            val dy = (y - startY) - consumed
-                                            val step = HoldReorderRules.step(at, list.size, dy, below, above)
-                                            if (step.to != at) {
-                                                consumed += dy - step.offset
-                                                latestMove(at, step.to)
-                                            }
-                                            offset = step.offset
-                                        }
-                                        dropFrom = offset
-                                        dropping = place.id
-                                        dragging = null
-                                        offset = 0f
-                                        dropScope.launch {
-                                            drop.snapTo(1f)
-                                            drop.animateTo(0f, tween(DROP_MILLIS))
-                                            if (dropping == place.id) dropping = null
-                                        }
-                                    }
-                                }.graphicsLayer {
-                                    // 들린 카드는 손가락을 따르고, 놓은 카드는 놓은 자리에서 제자리로 돌아간다.
-                                    val r =
-                                        when {
-                                            lifted -> 1f
-                                            dropping == place.id -> drop.value
-                                            else -> 0f
-                                        }
-                                    translationY = if (lifted) offset else dropFrom * r
-                                    val scale = 1f + 0.02f * r
-                                    scaleX = scale
-                                    scaleY = scale
-                                    shadowElevation = lift * r
-                                    shape = RoundedCornerShape(NewCourseStyle.radiusL)
-                                }.semantics {
-                                    customActions =
-                                        buildList {
-                                            if (index > 0) add(CustomAccessibilityAction(up) { onMove(index, index - 1).let { true } })
-                                            if (index < stops.size - 1) {
-                                                add(CustomAccessibilityAction(down) { onMove(index, index + 1).let { true } })
-                                            }
-                                        }
-                                },
                     )
                 }
             }
@@ -340,21 +232,21 @@ private fun PlanDayList(
 private fun PlanSpotCard(
     place: PlaceSummary,
     number: Int,
+    peek: Boolean,
     onSwap: () -> Unit,
     onRemove: () -> Unit,
-    modifier: Modifier,
 ) {
     val shape = RoundedCornerShape(NewCourseStyle.radiusL)
     Column(
         modifier =
-            modifier
+            Modifier
                 .fillMaxWidth()
                 .shadow(2.dp, shape)
                 .clip(shape)
                 .background(IOS.systemBackground),
     ) {
         Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
-            NewCoursePhoto(place.imageUrl?.toString(), Modifier.fillMaxSize(), edge = 720)
+            SceneFlipPhoto(place, peek, Modifier.fillMaxSize())
             Text(
                 "$number",
                 fontSize = 13.sp,

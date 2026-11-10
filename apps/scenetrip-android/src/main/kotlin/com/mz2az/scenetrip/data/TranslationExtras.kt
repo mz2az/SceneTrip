@@ -16,6 +16,9 @@ internal val TRANSLATIONS_EN_EXTRA =
         "이 기기에 로그인된 구글 계정이 없어요. 기기 설정에서 계정을 추가해 주세요" to "No Google account is signed in on this device. Add one in Settings.",
         "뒤로" to "Back",
         "빼기" to "Remove",
+        // 프로필 코스 고르기 시트 — iOS 에서 문구가 빠져 생성 표에서 사라졌다(MZ2AZ-548 때 다시 생성).
+        "코스 목록을 받아오는 중입니다" to "Loading courses…",
+        "코스 목록을 받지 못했습니다" to "Couldn't load courses",
         // 이용 통계 꼬리말 (MZ2AZ-475) — iOS 문구에서 ATT(광고 추적 허용) 문장만 뺐다.
         "꺼도 앱 기능은 그대로예요." to "Everything still works when this is off.",
         // 홈 사진 카드·떠 있는 단추 (MZ2AZ-547 P2) — iOS `en.lproj` 의 같은 문구. 다음 `just android-translations` 때 생성 표로 옮겨 간다.
