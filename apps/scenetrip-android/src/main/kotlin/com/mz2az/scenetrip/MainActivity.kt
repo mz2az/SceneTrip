@@ -114,6 +114,13 @@ class MainActivity : ComponentActivity() {
             results = intent.getStringExtra("editorResults")
         }
         TabRouter.applyFreshBackdoor(intent.getBooleanExtra("freshCourse", false))
+        // 처음 안내(MZ2AZ-547 P6, iOS `-coachReset 1`·`-coachStep 2`, 웹 `?coach=reset`).
+        // `--ez coachReset true` 면 본 기록을 지우고 처음부터, `--ei coachStep 2` 면 안내를 둘째 단계부터 띄운다(화면 확인용).
+        com.mz2az.scenetrip.coach.CoachCenter.install(
+            context = this,
+            reset = intent.getBooleanExtra("coachReset", false),
+            step = intent.getIntExtra("coachStep", 0),
+        )
         TabRouter.applyNewCourseBackdoor(
             newCourse = intent.getStringExtra("newCourse"),
             cityFlow = intent.getStringExtra("cityFlow"),
@@ -146,6 +153,11 @@ fun SceneTripApp() {
             // 로그인 시트 — 어느 화면·덮개 위에서든 올라온다.
             SignInSheetHost()
             NicknameSheetHost()
+            // 처음 안내의 덮개(앱 창 몫)와 단추 자리 재기 — 맨 위에 둔다. 시트 안의 단추는 그 시트가 따로 그린다(`CoachLayer`).
+            com.mz2az.scenetrip.coach
+                .CoachOverlayHost(layer = 0)
+            com.mz2az.scenetrip.coach
+                .CoachFollower()
         }
     }
 }
@@ -181,6 +193,8 @@ private fun AppRoot() {
     val onboardingFlag = remember { OnboardingFlag(context) }
     val language = remember(context) { AppLanguage.getInstance(context) }
     var stage by remember { mutableStateOf(AppStage.SPLASH) }
+    // 스플래시·언어·사용법이 덮고 있는 동안은 밑에 깔린 홈 단추를 가리키지 않는다(처음 안내 C2).
+    androidx.compose.runtime.LaunchedEffect(stage) { com.mz2az.scenetrip.coach.CoachCenter.appReady = stage == AppStage.APP }
 
     val afterLanguage = if (onboardingFlag.hasSeen) AppStage.APP else AppStage.LESSONS
 

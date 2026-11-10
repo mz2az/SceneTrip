@@ -166,6 +166,8 @@ fun HomeTabScreen() {
             // 「새 여행 코스」 시트(F1, [TabRouter.startNewCourse]).
             onNew = { TabRouter.startNewCourse(null) },
             initiallyOpen = HomeDebug.floatOpen,
+            // 홈이 다른 탭·덮개·시트에 가려져 있으면 처음 안내(C2)를 띄우지 않는다(iOS `coachCovered`).
+            coachCovered = TabRouter.cover != null || TabRouter.newCourseSheet || TabRouter.selected != RootTab.HOME,
             // 단추 아래끝이 탭바 위 약 18 — 웹 `탭바 + 22` 자리.
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = clearance + 12.dp),
         )

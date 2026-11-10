@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.mz2az.scenetrip.coach.coachTarget
 import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
@@ -276,6 +277,8 @@ fun CourseAddFab(
                 contentAlignment = Alignment.Center,
                 modifier =
                     Modifier
+                        // 처음 안내(C4) 셋째 단계가 가리킨다.
+                        .coachTarget("editor-add")
                         .size(46.dp)
                         .shadow(8.dp, CircleShape)
                         .clip(CircleShape)

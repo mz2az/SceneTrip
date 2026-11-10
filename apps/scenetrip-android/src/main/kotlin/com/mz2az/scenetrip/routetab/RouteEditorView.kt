@@ -69,6 +69,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.auth.AuthStore
+import com.mz2az.scenetrip.coach.CoachRules
+import com.mz2az.scenetrip.coach.CoachTour
+import com.mz2az.scenetrip.coach.CoachTourEffect
+import com.mz2az.scenetrip.coach.coachTarget
 import com.mz2az.scenetrip.data.AIConsentGate
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.CartLoadState
@@ -1151,7 +1155,8 @@ private fun RouteEditorContent(
             }
         }
         val saveAction: @Composable () -> Unit = {
-            Box(contentAlignment = Alignment.CenterEnd, modifier = Modifier.heightIn(min = 44.dp)) {
+            // 처음 안내(C4) 마지막 단계가 가리킨다.
+            Box(contentAlignment = Alignment.CenterEnd, modifier = Modifier.coachTarget("editor-save").heightIn(min = 44.dp)) {
                 if (saving) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                 } else {
@@ -1827,6 +1832,21 @@ private fun RouteEditorContent(
             }
         }
     }
+    // 처음 안내(MZ2AZ-547 C4·C5) — 처음 만든 코스의 지도·해태·＋·저장, 지도를 처음 펼칠 때 🔍·칩.
+    CoachTourEffect(
+        CoachTour.editorFirst,
+        active =
+            CoachRules.editorFirstActive(
+                editing = mode == RouteEditorMode.EDITING,
+                isNew = isNew,
+                fresh = fresh,
+                confirming = confirmingLeave || discarding || confirmingRevert,
+            ),
+    )
+    CoachTourEffect(
+        CoachTour.mapSearch,
+        active = CoachRules.mapSearchActive(barShown = showsMapPoiBar, searching = mapPoi.searching, resultsOpen = mapPoi.results.isOpen),
+    )
     // 떠 있는 ＋ — 해태 동그라미 바로 위, 편집 중에만(E8). 가이드 창·핀 찍기·여행 중에는 없다.
     if (editTools && !showGuide && !pinning && !trip.isActive && !mapResultsOpen) {
         CourseAddFab(

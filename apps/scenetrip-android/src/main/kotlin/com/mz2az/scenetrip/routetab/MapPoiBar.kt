@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.coach.coachTarget
 import com.mz2az.scenetrip.data.RoutePoiTone
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.PoiCategoryGroup
@@ -71,7 +72,7 @@ internal fun MapPoiBar(
                     .padding(horizontal = 10.dp, vertical = 5.dp),
         ) {
             SearchCircle(onSearch)
-            ChipFace(on = chips.allOn, fill = IOS.homePurple, onClick = onAll) {
+            ChipFace(on = chips.allOn, fill = IOS.homePurple, onClick = onAll, modifier = Modifier.coachTarget("map-chips")) {
                 Text(tr("전체"), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (chips.allOn) Color.White else IOS.label)
             }
             MapPoiChips.ORDER.forEach { group ->
@@ -121,6 +122,8 @@ private fun SearchCircle(onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
         modifier =
             Modifier
+                // 처음 안내(C5)가 가리킨다.
+                .coachTarget("map-search")
                 .size(34.dp)
                 .shadow(3.dp, CircleShape)
                 .clip(CircleShape)
@@ -138,13 +141,14 @@ private fun ChipFace(
     on: Boolean,
     fill: Color,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier =
-            Modifier
+            modifier
                 .height(34.dp)
                 .shadow(3.dp, RoundedCornerShape(50))
                 .clip(RoundedCornerShape(50))

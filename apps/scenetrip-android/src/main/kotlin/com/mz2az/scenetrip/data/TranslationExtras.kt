@@ -151,4 +151,28 @@ internal val TRANSLATIONS_EN_EXTRA =
         "검색 끝내기" to "End search",
         "목록 줄이기" to "Shrink list",
         "목록 키우기" to "Expand list",
+        // 처음 안내(코치 마크, MZ2AZ-547 P6 C1–C5) — iOS `en.lproj` 의 같은 문구.
+        "알겠어요" to "Got it",
+        "첫 여행 계획을 짜 보세요" to "Plan your first trip",
+        "여기를 누르면 도시·작품·담은 곳 중 하나로 여행 코스를 만들 수 있어요." to "Tap here to build a trip from a city, your favorite shows, or places you saved.",
+        "어디로, 며칠 가는지만 고르면 그 도시 인기 촬영지를 동선대로 이어 코스를 바로 만들어 드려요." to
+            "Pick where and for how long. We link the most popular filming spots there into a ready-made route.",
+        "좋아하는 드라마·영화를 고르면 AI 가 그 작품들의 촬영지로 코스를 짜 줘요." to
+            "Choose dramas or movies you love and AI plans a route through their filming spots.",
+        "보관함에 담아 둔 곳을 날마다 나눠 넣어요. 담은 곳이 없으면 빈 코스에서 하나씩 직접 넣어요." to
+            "Your saved places are split by day. With none saved, you start empty and add spots yourself.",
+        "눌러서 코스를 지도로 펼쳐 동선을 확인해요. 다시 누르면 목록만 봐요." to "Open the route on a map to check the path. Tap again for the list only.",
+        "해태 AI" to "Haetae AI",
+        "「하루 줄여 줘」 「카페 하나 넣어 줘」처럼 말로 부탁하면 코스를 고쳐 줘요." to
+            "Ask in plain words — \"make it one day shorter\", \"add a café\" — and it edits the route.",
+        "장소 검색해서 담기" to "Search and add places",
+        "지금은 편집 중이라 장소를 검색해서 더 넣을 수 있어요. 보관함에 담아 둔 곳도 여기서 넣어요." to
+            "You're editing, so you can search for places and add them. Saved places are here too.",
+        "다 고쳤으면 저장" to "Save when done",
+        "저장해야 코스가 남아요. 저장하지 않고 나가면 한 번 더 물어봐요." to "Save to keep the course. If you leave without saving, we'll ask first.",
+        "지도에서 검색" to "Search on the map",
+        "촬영지가 아닌 가게·장소를 찾아요 — 맛집·카페·숙소·명소를 이름으로 검색해 「코스에 담기」 로 바로 넣어요." to
+            "Find places beyond filming spots — search restaurants, cafés, stays and sights by name, then add them to your course.",
+        "주변 둘러보기" to "Browse nearby",
+        "전체·음식·관광지·숙소 칩을 누르면 지금 보이는 지도 안의 장소가 핀으로 떠요." to "Tap All, Food, Sights or Stays to pin places in the area you are looking at.",
     )

@@ -30,6 +30,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.coach.CoachTour
+import com.mz2az.scenetrip.coach.CoachTourEffect
+import com.mz2az.scenetrip.coach.coachTarget
 import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.tr
@@ -84,6 +87,8 @@ fun NewCourseSheet(
         containerColor = NewCourseStyle.grouped,
         onDismiss = onDismiss,
     ) {
+        // 처음 안내(MZ2AZ-547 C3) — 세 갈래를 하나씩 짚는다. 시트가 다 올라온 뒤에(0.55초).
+        CoachTourEffect(CoachTour.forkOptions, active = true)
         Column(
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 18.dp),
@@ -104,17 +109,20 @@ fun NewCourseSheet(
             Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(IOS.systemBackground)) {
                 ForkRow(
                     first = true,
+                    modifier = Modifier.coachTarget("fork-city"),
                     art = { CityPhoto(cityPhoto, Modifier.size(52.dp)) },
                     title = tr("도시로 시작"),
                     caption = tr("어디로·며칠만 고르면 코스 완성"),
                 ) { onChoose(NewCourseStart.City(null)) }
                 ForkRow(
+                    modifier = Modifier.coachTarget("fork-shows"),
                     art = { ArtOrIcon(poster) { SparklesIcon(Color.White, Modifier.size(20.dp)) } },
                     title = tr("작품으로"),
                     tag = "AI",
                     caption = tr("좋아하는 작품을 고르면 촬영지를 이어 줘요"),
                 ) { onChoose(NewCourseStart.Works) }
                 ForkRow(
+                    modifier = Modifier.coachTarget("fork-saved"),
                     art = { ArtOrIcon(savedPhoto) { BagIcon(Color.White, Modifier.size(20.dp)) } },
                     title = tr("담은 곳으로"),
                     caption = NewCourseText.savedCaption(saved.size),
@@ -140,6 +148,7 @@ private fun ArtOrIcon(
 @Composable
 private fun ForkRow(
     first: Boolean = false,
+    modifier: Modifier = Modifier,
     art: @Composable () -> Unit,
     title: String,
     tag: String? = null,
@@ -150,7 +159,7 @@ private fun ForkRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .height(IntrinsicSize.Min)
                 .clickable(onClick = onClick)

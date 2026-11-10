@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.R
+import com.mz2az.scenetrip.coach.coachTarget
 import com.mz2az.scenetrip.data.AIConsentGate
 import com.mz2az.scenetrip.data.AIConsentStore
 import com.mz2az.scenetrip.data.CoordinateSource
@@ -148,6 +149,8 @@ fun RouteGuideFloatingChip(
         modifier =
             modifier
                 .offset { IntOffset(shownX().roundToInt(), shownY().roundToInt()) }
+                // 처음 안내(C4)가 가리킨다 — 옮긴(`offset`) 뒤에 붙여야 옮긴 자리를 따라간다.
+                .coachTarget("editor-guide")
                 .scale(if (lifted) 1.08f else 1f)
                 .pointerInput(Unit) {
                     detectDragGesturesAfterLongPress(

@@ -84,6 +84,7 @@ kt_jvm_library(
         "tests/AIConsentTests.kt",
         "tests/AccountAndImageTests.kt",
         "tests/ClientRulesTests.kt",
+        "tests/CoachRulesTests.kt",
         "tests/CommunityBlogTests.kt",
         "tests/CommunityTests.kt",
         "tests/ContentPlacePagesTests.kt",

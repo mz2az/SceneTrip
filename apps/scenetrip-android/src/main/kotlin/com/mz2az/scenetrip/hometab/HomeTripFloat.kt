@@ -45,6 +45,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.coach.CoachRules
+import com.mz2az.scenetrip.coach.CoachTour
+import com.mz2az.scenetrip.coach.CoachTourEffect
+import com.mz2az.scenetrip.coach.coachTarget
 import com.mz2az.scenetrip.data.RouteStore
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.CourseStatus
@@ -87,8 +91,19 @@ fun HomeTripFloat(
     onNew: () -> Unit,
     modifier: Modifier = Modifier,
     initiallyOpen: Boolean = false,
+    coachCovered: Boolean = false,
 ) {
     var open by rememberSaveable { mutableStateOf(initiallyOpen) }
+    // 처음 안내(MZ2AZ-547 C2) — 여행 중이 아니고 줄이 접혀 있고 홈이 가려져 있지 않을 때 「여행 코스 짜기」 를 짚는다.
+    CoachTourEffect(
+        CoachTour.homePlanTrip,
+        active =
+            CoachRules.homeActive(
+                running = HomeTripFloatRules.collapsed(courses) is HomeTripFloatRules.Collapsed.Running,
+                floatOpen = open,
+                covered = coachCovered,
+            ),
+    )
     val reduceMotion = rememberReduceMotion()
     // 줄은 펼쳐 있거나 접히는 중에만 그린다 — 안 보이는 가로 목록이 밑의 홈 목록 터치를 가로채지 않게.
     var rowMounted by remember { mutableStateOf(open) }
@@ -194,6 +209,7 @@ private fun Collapsed(
                 running = false,
                 enabled = enabled,
                 label = tr("여행 코스 짜기"),
+                modifier = Modifier.coachTarget("plan-trip"),
             ) {
                 when (HomeTripFloatRules.planTap(courseList, courses.size)) {
                     HomeTripFloatRules.PlanTap.NEW_COURSE -> onNew()
@@ -225,9 +241,17 @@ private fun MainPill(
     running: Boolean,
     enabled: Boolean,
     label: String,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    PressablePill(shape = RoundedCornerShape(percent = 50), fill = IOS.homePurple, enabled = enabled, label = label, onClick = onClick) {
+    PressablePill(
+        shape = RoundedCornerShape(percent = 50),
+        fill = IOS.homePurple,
+        enabled = enabled,
+        label = label,
+        modifier = modifier,
+        onClick = onClick,
+    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(7.dp),
@@ -344,6 +368,7 @@ private fun PressablePill(
     enabled: Boolean,
     label: String?,
     width: Dp? = null,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
     content: @Composable () -> Unit,
 ) {
@@ -352,7 +377,7 @@ private fun PressablePill(
     Box(
         contentAlignment = Alignment.Center,
         modifier =
-            Modifier
+            modifier
                 .height(44.dp)
                 .then(if (width != null) Modifier.size(width) else Modifier)
                 .graphicsLayer { alpha = if (pressed) 0.7f else 1f }

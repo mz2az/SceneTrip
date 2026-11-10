@@ -19,7 +19,13 @@ import androidx.compose.ui.window.DialogWindowProvider
  * 창을 직접 만지는 것은 마지막 수단이지만, Compose 가 다른 길을 주지 않는다.
  */
 @Composable
-fun DisableDialogDim() {
+fun DisableDialogDim(coachLayer: Boolean = true) {
+    // 모든 대화창이 이것을 부른다 — 그래서 여기서 「창이 하나 더 떴다」를 처음 안내에 알린다(그 밑의 단추는 가려진 것이다).
+    // 안내가 가리킬 단추를 품는 시트(`IOSSheet`)는 `CoachLayer` 로 따로 알리므로 false 를 준다.
+    if (coachLayer) {
+        com.mz2az.scenetrip.coach
+            .CoachWindowLayer()
+    }
     val view = LocalView.current
     SideEffect {
         val window = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect

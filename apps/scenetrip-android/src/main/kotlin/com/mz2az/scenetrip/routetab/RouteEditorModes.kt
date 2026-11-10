@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.mz2az.scenetrip.coach.coachTarget
 import com.mz2az.scenetrip.data.API_BASE
 import com.mz2az.scenetrip.data.CartStore
 import com.mz2az.scenetrip.data.apiResult
@@ -139,6 +140,8 @@ internal fun RouteMapPill(
         modifier =
             modifier
                 .padding(16.dp)
+                // 처음 안내(C4) 첫 단계가 가리킨다 — 여백 안쪽 알약만.
+                .coachTarget("editor-map")
                 .height(44.dp)
                 .shadow(10.dp, RoundedCornerShape(50))
                 .clip(RoundedCornerShape(50))
