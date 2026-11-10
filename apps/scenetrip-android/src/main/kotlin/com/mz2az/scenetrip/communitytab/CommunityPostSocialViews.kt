@@ -63,6 +63,8 @@ import com.mz2az.scenetrip.reviews.rememberModerationController
 import com.mz2az.scenetrip.sceneapi.client.model.ReportTargetType
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostComment
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.ProtoMotion
+import com.mz2az.scenetrip.ui.pressClickable
 import kotlinx.coroutines.launch
 
 /**
@@ -80,21 +82,22 @@ internal fun CommunityLikeButton(
     Box(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp), contentAlignment = Alignment.Center) {
         Row(
             Modifier
-                .heightIn(min = 44.dp)
+                .pressClickable {
+                    if (AuthStore.signedIn) {
+                        // 0.32초에 1→1.3→1, 구간마다 살짝 튀는 곡선(MZ2AZ-547 M16, 웹 `.proto-heart-pop` 40% 지점 1.3).
+                        scope.launch {
+                            pop.snapTo(1f)
+                            pop.animateTo(1.3f, tween(128, easing = ProtoMotion.Overshoot))
+                            pop.animateTo(1f, tween(192, easing = ProtoMotion.Overshoot))
+                        }
+                    }
+                    scope.launch { if (social.toggleLike() == PostSocialModel.Outcome.NEEDS_SIGN_IN) AuthStore.promptSignIn() }
+                }.heightIn(min = 44.dp)
                 .background(fill, RoundedCornerShape(50))
                 .border(1.dp, if (state.liked) Color.Transparent else IOS.systemGray4, RoundedCornerShape(50))
                 .semantics { selected = state.liked }
                 .testTag("community-like")
-                .clickable {
-                    if (AuthStore.signedIn) {
-                        scope.launch {
-                            pop.snapTo(1f)
-                            pop.animateTo(1.3f, tween(90))
-                            pop.animateTo(1f, tween(140))
-                        }
-                    }
-                    scope.launch { if (social.toggleLike() == PostSocialModel.Outcome.NEEDS_SIGN_IN) AuthStore.promptSignIn() }
-                }.padding(horizontal = 18.dp),
+                .padding(horizontal = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {

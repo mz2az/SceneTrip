@@ -1,5 +1,8 @@
 package com.mz2az.scenetrip.communitytab
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -33,6 +37,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
@@ -52,9 +57,14 @@ import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostBoard
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.MagnifierIcon
+import com.mz2az.scenetrip.ui.ProtoMotion
 import com.mz2az.scenetrip.ui.SquarePencilIcon
 import com.mz2az.scenetrip.ui.XmarkIcon
+import com.mz2az.scenetrip.ui.appearIn
+import com.mz2az.scenetrip.ui.pressClickable
+import com.mz2az.scenetrip.ui.reveal
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * 확인용 뒷문(iOS `-communityBoard free`·`-communitySearch 서울`·`-communityOpen post|compose`, `-e initialTab community` 와 함께) —
@@ -174,12 +184,12 @@ private fun TitleRow(
             Modifier
                 .size(44.dp)
                 .semantics { contentDescription = tr("글 검색") }
-                .clickable(onClick = onSearch)
+                .pressClickable(onClick = onSearch)
                 .testTag("community-search"),
             contentAlignment = Alignment.Center,
         ) { MagnifierIcon(IOS.pinDeep, Modifier.size(20.dp)) }
         Box(
-            Modifier.heightIn(min = 44.dp).clickable(onClick = onCompose).testTag("community-compose"),
+            Modifier.heightIn(min = 44.dp).pressClickable(onClick = onCompose).testTag("community-compose"),
             contentAlignment = Alignment.Center,
         ) {
             Row(
@@ -206,6 +216,24 @@ private fun SearchRow(
     val focus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    // 오른쪽 돋보기 자리에서 왼쪽으로 0.3초에 길어지고, 닫을 때는 0.2초에 줄어든 뒤 제목 줄로 돌아간다.
+    // 「취소」 는 0.08초 늦게 떠오르고 닫을 때 0.15초에 사라진다(MZ2AZ-547 M14, 웹 `.proto-search-open-left`).
+    val reveal = remember { Animatable(0f) }
+    val cancelAlpha = remember { Animatable(1f) }
+    var closing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) { reveal.animateTo(1f, tween(300, easing = ProtoMotion.EaseOutSheet)) }
+    val close: () -> Unit = {
+        if (!closing) {
+            closing = true
+            focusManager.clearFocus()
+            scope.launch {
+                launch { cancelAlpha.animateTo(0f, tween(150)) }
+                reveal.animateTo(0f, tween(200, easing = ProtoMotion.EaseIn))
+                onSearch(null)
+            }
+        }
+    }
     Row(
         Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(start = 16.dp, end = 8.dp, top = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -214,6 +242,7 @@ private fun SearchRow(
         Row(
             Modifier
                 .weight(1f)
+                .reveal({ reveal.value }, collapsed = 38.dp, fromStart = false)
                 .height(38.dp)
                 .clip(RoundedCornerShape(50))
                 .background(IOS.systemGray6)
@@ -263,11 +292,11 @@ private fun SearchRow(
             color = IOS.pinDeep,
             modifier =
                 Modifier
+                    .appearIn()
+                    .graphicsLayer { alpha = cancelAlpha.value }
                     .heightIn(min = 44.dp)
-                    .clickable {
-                        focusManager.clearFocus()
-                        onSearch(null)
-                    }.padding(horizontal = 8.dp, vertical = 11.dp),
+                    .pressClickable(onClick = close)
+                    .padding(horizontal = 8.dp, vertical = 11.dp),
         )
     }
 }
@@ -281,16 +310,18 @@ private fun BoardTabs(
     Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         CommunityFeedRules.boards.forEach { item ->
             val on = item == board
+            // 고른 게시판 글자색이 0.18초에 옮겨 간다(MZ2AZ-547 M15, 웹 `transition: color 180ms ease-out`).
+            val tint by animateColorAsState(if (on) IOS.label else IOS.systemGray3, tween(180), label = "boardTint")
             Text(
                 tr(CommunityFeedRules.boardLabelKey(item)),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = if (on) IOS.label else IOS.systemGray3,
+                color = tint,
                 modifier =
                     Modifier
                         .heightIn(min = 44.dp)
                         .semantics { selected = on }
-                        .clickable { onBoard(item) }
+                        .pressClickable(role = null) { onBoard(item) }
                         .padding(vertical = 10.dp)
                         .testTag("community-board-${item.value}"),
             )

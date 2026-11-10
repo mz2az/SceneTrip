@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -56,6 +58,7 @@ import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSAction
 import com.mz2az.scenetrip.ui.IOSAlert
 import com.mz2az.scenetrip.ui.IOSRole
+import com.mz2az.scenetrip.ui.pressClickable
 import kotlinx.coroutines.launch
 
 /**
@@ -154,7 +157,7 @@ private fun ComposeBoardChip(draft: CommunityComposeState) {
                 Modifier
                     .heightIn(min = 44.dp)
                     .semantics { contentDescription = tr("게시판: %s").format(label) }
-                    .clickable(enabled = !draft.locked) { open = true }
+                    .pressClickable(enabled = !draft.locked, role = null) { open = true }
                     .testTag("community-board-picker"),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -168,7 +171,9 @@ private fun ComposeBoardChip(draft: CommunityComposeState) {
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = IOS.pinDeep)
-                    ChevronRightIcon(IOS.pinDeep, Modifier.size(9.dp).rotate(90f), weight = 0.2f)
+                    // 목록이 열리면 화살표가 0.18초에 위로 돈다(MZ2AZ-547 M15).
+                    val turn by animateFloatAsState(if (open) 270f else 90f, tween(180), label = "boardChevron")
+                    ChevronRightIcon(IOS.pinDeep, Modifier.size(9.dp).rotate(turn), weight = 0.2f)
                 }
             }
             DropdownMenu(open, { open = false }, Modifier.background(IOS.systemBackground)) {

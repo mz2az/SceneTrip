@@ -1,5 +1,7 @@
 package com.mz2az.scenetrip.communitytab
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -29,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,6 +75,7 @@ import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.PhotosIcon
 import com.mz2az.scenetrip.ui.WarningTriangleIcon
 import com.mz2az.scenetrip.ui.XMarkIcon
+import kotlinx.coroutines.launch
 import java.util.UUID
 
 /** 사진을 꾹 누르고 있어야 옮기기가 시작되는 시간(웹·iOS 0.3초). 시스템 길게 누르기(0.4–0.5초)보다 짧아 직접 잰다. */
@@ -97,6 +101,11 @@ internal fun CommunityArticleEditor(
     var caret by remember { mutableStateOf<CommunityDraftCaret?>(null) }
     var dragging by remember { mutableStateOf<UUID?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
+    // 놓은 사진이 0.16초에 제자리로 돌아간다(MZ2AZ-547 M13). 놓은 순간 손가락이 있던 위(부모 안)에서 새 자리로 1→0.
+    var dropping by remember { mutableStateOf<UUID?>(null) }
+    var dropTop by remember { mutableFloatStateOf(0f) }
+    val dropAnim = remember { Animatable(0f) }
+    val dropScope = rememberCoroutineScope()
     // 항목마다 위·높이(부모 안, 픽셀) — 놓은 자리를 셀 때만 읽는다.
     val frames = remember { HashMap<UUID, Pair<Float, Float>>() }
     val haptic = LocalHapticFeedback.current
@@ -162,11 +171,20 @@ internal fun CommunityArticleEditor(
                                 positioned
                                     .zIndex(if (lifted) 2f else 0f)
                                     .graphicsLayer {
-                                        translationY = if (lifted) dragOffset else 0f
-                                        scaleX = if (lifted) 1.02f else 1f
-                                        scaleY = if (lifted) 1.02f else 1f
-                                    }.shadow(if (lifted) 10.dp else 0.dp, RoundedCornerShape(14.dp), clip = false)
-                                    .pointerInput(item.id, locked) {
+                                        val r =
+                                            when {
+                                                lifted -> 1f
+                                                dropping == item.id -> dropAnim.value
+                                                else -> 0f
+                                            }
+                                        val nowTop = frames[item.id]?.first ?: dropTop
+                                        translationY = if (lifted) dragOffset else (dropTop - nowTop) * r
+                                        scaleX = 1f + 0.02f * r
+                                        scaleY = 1f + 0.02f * r
+                                        shadowElevation = 10.dp.toPx() * r
+                                        shape = RoundedCornerShape(14.dp)
+                                        clip = false
+                                    }.pointerInput(item.id, locked) {
                                         if (locked) return@pointerInput
                                         awaitEachGesture {
                                             val down = awaitFirstDown(requireUnconsumed = false)
@@ -196,9 +214,17 @@ internal fun CommunityArticleEditor(
                                                 change.consume()
                                                 dragOffset = total
                                             }
+                                            dropTop = (frames[item.id]?.first ?: 0f) + total
+                                            dropping = item.id
                                             drop(item.id, total)
                                             dragging = null
                                             dragOffset = 0f
+                                            val dropped = item.id
+                                            dropScope.launch {
+                                                dropAnim.snapTo(1f)
+                                                dropAnim.animateTo(0f, tween(160))
+                                                if (dropping == dropped) dropping = null
+                                            }
                                         }
                                     }.testTag("community-draft-photo-$index"),
                         )
