@@ -214,6 +214,32 @@ class 일정초안(unittest.TestCase):
                 )
                 validate_def(plan_to_api(plan), "guidePlan", SCHEMA)
 
+    def test_사진과_작품이_실린_일정도_guidePlan_이다(self):
+        """1.28.0 — 줄마다 `imageUrl`(문자열 또는 null)·`contents`(contentId·title)."""
+        book = numbered_book()
+        want_image = {}
+        for i, p in enumerate(book.catalog["도깨비"]):
+            p.image_url = "" if i % 2 else f"https://img.test/{p.place_id}.jpg"
+            want_image[int(p.place_id)] = p.image_url or None
+            p.content_refs = [
+                {"contentId": 31, "title": "도깨비"},
+                {"contentId": 100 + i, "title": f"작품{i}"},
+            ]
+        for days in (1, 2):
+            with self.subTest(days=days):
+                wire = plan_to_api(
+                    make_plan(book, PlanRequest(titles=["도깨비"], days=days))
+                )
+                validate_def(wire, "guidePlan", SCHEMA)
+                stops = [s for d in wire["days"] for s in d["stops"]]
+                self.assertTrue(stops)
+                # 비어 있으면 검사가 아무것도 지키지 않는다 — 실제로 실렸는지 본다.
+                self.assertTrue(all(len(s["contents"]) == 2 for s in stops))
+                self.assertEqual(
+                    [s["imageUrl"] for s in stops],
+                    [want_image[s["placeId"]] for s in stops],
+                )
+
     def test_id_없는_창구의_일정도_guidePlan_이다(self):
         """CSV 창구의 일정은 `placeId` 가 null 이다 — 그래도 모양은 맞아야 한다."""
         book = FakeBook(

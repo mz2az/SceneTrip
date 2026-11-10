@@ -129,7 +129,18 @@ class SceneApiPlaceBook(PlaceSource):
             selected=False,
             mentions=0,
             scenes=scenes,
+            content_refs=SceneApiPlaceBook._content_refs(item.get("contents")),
         )
+
+    @staticmethod
+    def _content_refs(raw: Any) -> list[dict]:
+        """작품 표를 (contentId, title) 짝으로, 서버 순서 그대로(MZ2AZ-548). 번호가 정수가 아니거나 제목이 글이 아닌 항목은 건너뛴다."""
+        out: list[dict] = []
+        for ref in raw or []:
+            cid, title = ref.get("contentId"), ref.get("title")
+            if type(cid) is int and isinstance(title, str):
+                out.append({"contentId": cid, "title": title})
+        return out
 
     # ── 질의 ──────────────────────────────────────────────────────────────────
 

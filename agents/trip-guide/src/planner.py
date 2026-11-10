@@ -1214,6 +1214,9 @@ def plan_to_api(plan: Plan) -> dict[str, Any]:
                     "dwellMinutes": leg.dwell,
                     "titles": list(leg.titles or place.titles[:3]),
                     "sceneDescription": scene or None,
+                    # 앱이 도시 일정 카드를 목록 없이 그리게(1.28.0, MZ2AZ-548). 작품은 요청으로 거르지 않는다.
+                    "imageUrl": place.image_url or None,
+                    "contents": list(place.content_refs),
                     "mealAfter": leg.meal_after,
                     "metersToNext": leg.meters_to_next or None,
                 }
