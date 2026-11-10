@@ -22,6 +22,8 @@ struct CityPlanPreview: View {
     @State private var plan: [[PlaceSummary]]?
     @State private var busy = false
     @State private var failed = false
+    /// 카드 하나를 꾹 눌러 들고 있나 — 그동안만 스크롤을 멈춘다(`PlanHoldingKey`).
+    @State private var holding = false
 
     private var cityName: String {
         store.city(cityKey)?.name ?? cityKey
@@ -35,6 +37,8 @@ struct CityPlanPreview: View {
         Group {
             if let plan {
                 preview(plan)
+                    .scrollDisabled(holding)
+                    .onPreferenceChange(PlanHoldingKey.self) { holding = $0 }
             } else {
                 planning
             }
@@ -196,7 +200,10 @@ private struct PlanDayList: View {
         .offset(y: lifted ? offset : 0)
         .zIndex(lifted ? 2 : 0)
         .animation(lifted ? nil : .easeOut(duration: 0.16), value: stops.map(\.id))
-        .gesture(hold(place.id))
+        .simultaneousGesture(hold(place.id))
+        // 손가락이 카드를 꾹 눌러 들면 스크롤을 멈추게 위로 알린다. 그 전에는 스크롤이 먼저다 — 손짓을 `gesture` 로 붙였을 때
+        // 카드가 화면을 꽉 채워 스크롤을 잡을 틈이 없었다(2026-11-10 사용자 지적).
+        .preference(key: PlanHoldingKey.self, value: dragging == place.id)
         .accessibilityActions {
             if index > 0 {
                 Button(tr("위로 옮기기")) { onMove(index, index - 1) }
@@ -308,5 +315,14 @@ struct PlanSpotCard: View {
         .shadow(color: .black.opacity(0.08), radius: 5, y: 2)
         .contentShape(.rect)
         .accessibilityElement(children: .contain)
+    }
+}
+
+/// 추천 코스 카드를 꾹 눌러 들고 있나 — 카드 줄이 화면(`CityPlanPreview`)에 알린다. 하나라도 들려 있으면 참.
+struct PlanHoldingKey: PreferenceKey {
+    static let defaultValue = false
+
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = value || nextValue()
     }
 }
