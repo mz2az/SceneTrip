@@ -106,6 +106,8 @@ kt_jvm_library(
         "tests/MapInsetsTests.kt",
         "tests/MapPoiRulesTests.kt",
         "tests/MapSearchRulesTests.kt",
+        # 작품 쪽 넘김·검색, 결과 서랍 끌기 (MZ2AZ-547 motion-works-drawer-parity)
+        "tests/MapSearchDrawerRulesTests.kt",
         "tests/ModerationTests.kt",
         "tests/MyReviewDetailsTests.kt",
         "tests/NetworkTests.kt",
@@ -131,6 +133,7 @@ kt_jvm_library(
         "tests/UsageStatisticsTests.kt",
         "tests/VisitSyncTests.kt",
         "tests/VisualParityRulesTests.kt",
+        "tests/WorksBrowseRulesTests.kt",
         "tests/WebParityTabBarHomeTests.kt",
         "tests/WebParityTrendingTests.kt",
         # 웹 시안 반영 P8 커뮤니티 (MZ2AZ-547)
