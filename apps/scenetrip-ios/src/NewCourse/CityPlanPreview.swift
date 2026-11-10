@@ -161,8 +161,9 @@ private struct PlanDayList: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(String(format: tr("%lld일차"), day + 1)).font(.system(size: 17, weight: .heavy))
-                Text(String(format: tr("%lld곳"), stops.count)).font(.system(size: 13)).foregroundStyle(.secondary)
+                // 날 사이가 카드에 묻히지 않게 크게(2026-11-10 사용자 요청, 17 → 24).
+                Text(String(format: tr("%lld일차"), day + 1)).font(.system(size: 24, weight: .heavy))
+                Text(String(format: tr("%lld곳"), stops.count)).font(.system(size: 15)).foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
