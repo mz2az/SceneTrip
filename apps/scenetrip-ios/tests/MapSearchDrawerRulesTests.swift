@@ -101,7 +101,7 @@ final class MapSearchDrawerRulesTests: XCTestCase {
     }
 
     func testTapAgreesWithResultsState() {
-        var results = MapSearchResults(query: "카페", wide: false)
+        var results = MapSearchResults(query: "카페")
         XCTAssertEqual(MapSearchDrawerRules.tappedShare(results.drawerShare), 0.78)
         results.toggleDrawer()
         XCTAssertEqual(results.drawerShare, 0.78)
