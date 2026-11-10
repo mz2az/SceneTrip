@@ -251,6 +251,32 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 - 글 화면에서 바뀐 좋아요·댓글 수는 목록·내 글의 같은 줄에도 맞춘다(`CommunityStore.updateSocial`). 올린 글은 보던 게시판·검색 없음일 때만 목록 맨 앞에 넣는다.
 - 확인용 뒷문(iOS 와 같은 이름, `-e initialTab community` 와 함께): `-e communityBoard free`, `-e communitySearch 글자`, `-e communityOpen post|compose`.
 
+## 움직임·작품 고르기·검색 서랍 맞추기 (2026-11-10, MZ2AZ-547)
+
+기준은 [계획](../../docs/project/plans/motion-works-drawer-parity.md) 과 웹 시안 `proto.css` 다. 순수 규칙은 JVM 시험이 선다
+(`tests/WorksBrowseRulesTests.kt`·`tests/MapSearchDrawerRulesTests.kt`). 움직임 자체는 단위 시험 대상이 아니라 에뮬레이터 연속 캡처로 본다.
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `newcourse/WorksBrowseRules.kt` · `WorksPlanView.kt` · `data/RouteStore.kt` | 작품 고르기: 서버 작품 **전부**를 30개씩(`loadMoreWorks`, 마지막 줄이 보이면 다음 쪽, `total` 에서 멈춤). 안내 글 아래 「작품 이름으로 찾기」 — 0.3초 멈추면 `GET /contents?q=`, 없으면 「「q」 에 맞는 작품이 없어요」. 고른 작품은 검색·쪽 넘김과 상관없이 기억해 AI 요청 제목에 쓴다(`requestTitles`, 안 고르면 인기 앞 3개). `RouteStore.works`·`loadWorks` 는 그대로 첫 쪽이다 |
+| `routetab/MapSearchPanel.kt` · `MapSearchResults.kt` · `MapSearchDrawerRules.kt` | 가게 줄 왼쪽 40×40 칸·갈래 점을 뺐다(글·구분선 왼쪽 16). 결과 서랍은 손잡이를 끌거나 목록 맨 위에서 아래로 끌면 따라오고(42% 아래·78% 위는 고무줄), 떼면 42%/78% 로 0.28초에 붙는다(초당 600dp 넘게 튕기면 그 방향) |
+| `ui/PressScale.kt` | 시안 단추 누름 — 누르는 동안 0.97배·0.12초(`pressScale`·`pressClickable`). 탭바·떠 있는 단추·새 코스 단추·카드·커뮤니티 머리줄·좋아요. 예전 흐려짐(0.7)은 뺐다 |
+| `ui/ProtoMotion.kt` | 공용 곡선(`cubic-bezier(.32,.72,0,1)` 등) · `CoverHost`(덮는 화면 아래에서 0.3초 오르내림) · `reveal`(알약 모양으로 잘라 보이는 폭만 넓힘) · `appearIn`(0.08초 뒤 6dp 비켜 있다 0.22초에 나타남) |
+
+| # | 어디 | 안드로이드 |
+| --- | --- | --- |
+| M2 | 홈 「여행 코스 짜기」 펼침 | 알약마다 0 에서 시작(`Animatable`) — 오른쪽 28dp·0.92배에서 0.42초, 흐림 0.28초, 45ms 간격. 예전엔 줄이 펼친 뒤에야 그려져 처음 값이 곧 목표라 안 움직였다 |
+| M3 | 덮는 화면(`RootTabs` 의 덮개, 코스 편집) | `CoverHost` |
+| M4–M6 | 계획 화면 「지도」/「목록만」 | `BottomSheet(enterFraction, animationSpec)` — 켜면 맨 위에서 그린 뒤 중간(60%)으로 0.32초, 끄면 맨 위로 0.32초 올라간 뒤 목록(그동안 「지도」·＋ 숨김). 코드가 바꾸는 높이도 같은 곡선. 검색 결과를 닫으면 결과 서랍 높이에서 제 단으로. 검색 탭 서랍은 예전 스프링 그대로 |
+| M7·M8 | 지도 🔍 검색칸·목록·결과 서랍 | 46dp 동그라미에서 오른쪽으로 0.28초(닫힘 0.2초), 목록·결과 서랍은 `appearIn` |
+| M9 | 짜는 중 포스터 | 2.4초 주기 8dp, 장마다 0.25초 늦게 |
+| M10 | 처음 안내 | 말풍선 단계마다 6dp 아래에서 0.22초, 구멍 0.2초 |
+| M11·M12·M13 | ＋ 단추 · 확인 창 · 꾹 눌러 옮긴 카드/사진 | 45° 0.2초 · 딤과 카드 0.18초 · 놓은 자리에서 0.16초에 제자리 |
+| M14–M16 | 커뮤니티 | 검색칸 돋보기 자리에서 왼쪽으로 0.3초(닫힘 0.2초, 「취소」 늦게 나타나고 0.15초에 사라짐) · 게시판 글자색 0.18초 · 글쓰기 게시판 화살표 0.18초 · 좋아요 1→1.3→1 0.32초 살짝 튐 |
+
+- 시스템 「애니메이션 제거」(애니메이터 배율 0) 이면 Compose 가 끝 값으로 바로 간다. 홈 알약·처음 안내는 예전처럼 `rememberReduceMotion` 을 직접 본다.
+- 글쓰기 게시판 목록의 「내려옴」 은 Material `DropdownMenu` 의 기본 등장 움직임을 그대로 쓴다(따로 만들지 않았다).
+
 ## 인터페이스
 
 2026-10-13 동기화는 [계획](../../docs/project/plans/android-ios-sync-2026-10.md)과
