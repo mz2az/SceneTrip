@@ -89,7 +89,8 @@ struct SceneFlipPhoto: View {
                 .rotation3DEffect(.degrees(reduceMotion ? 0 : 180), axis: (x: 0, y: 1, z: 0))
                 .opacity(showingBack ? 1 : 0)
         }
-        .overlay(alignment: .bottomLeading) { pill }
+        // 알약은 카드와 함께 돈다 — 뒷면에서는 좌우가 뒤바뀌므로 반대쪽에 붙여야 돌고 난 뒤 왼쪽에 온다(2026-11-10 사용자 지적).
+        .overlay(alignment: showingBack && !reduceMotion ? .bottomTrailing : .bottomLeading) { pill }
         .rotation3DEffect(.degrees(reduceMotion ? 0 : angle), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
         .contentShape(.rect)
         .onTapGesture(perform: toggle)
