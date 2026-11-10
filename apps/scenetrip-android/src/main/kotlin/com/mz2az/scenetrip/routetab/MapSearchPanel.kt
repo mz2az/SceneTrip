@@ -1,21 +1,17 @@
 package com.mz2az.scenetrip.routetab
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -40,7 +36,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -52,7 +47,6 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mz2az.scenetrip.data.RoutePoiTone
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.PoiSummary
 import com.mz2az.scenetrip.ui.ChevronLeftIcon
@@ -233,6 +227,9 @@ internal fun MapSearchPanel(
     }
 }
 
+/** 가게 줄의 왼쪽 여백 — 구분선도 같은 들여쓰기. */
+internal val MapShopRowInset = 16.dp
+
 /** 검색 목록·결과 서랍이 함께 쓰는 문구. */
 internal object MapSearchText {
     /** 검색칸 — 「가게·장소 이름」. */
@@ -251,7 +248,7 @@ internal object MapSearchText {
         }
 }
 
-/** 가게 한 줄 — 갈래 색 점 · 이름 · 분류·주소. */
+/** 가게 한 줄 — 이름 · 분류·주소. 왼쪽 칸·갈래 점은 뺐다 — 글이 줄 왼쪽 여백(16)에서 시작한다(MZ2AZ-547 §2). */
 @Composable
 internal fun MapShopRow(
     place: PoiSummary,
@@ -259,26 +256,12 @@ internal fun MapShopRow(
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier.fillMaxWidth().padding(horizontal = 14.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .padding(start = MapShopRowInset, end = 14.dp, top = 8.dp, bottom = 8.dp),
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier =
-                Modifier
-                    .padding(vertical = 8.dp)
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(IOS.systemGray6),
-        ) {
-            Box(
-                Modifier
-                    .size(12.dp)
-                    .clip(CircleShape)
-                    .background(RoutePoiTone.of(place.categoryGroup.toRoutePoiGroup()))
-                    .border(2.dp, Color.White, CircleShape),
-            )
-        }
-        Spacer(Modifier.width(12.dp))
         val label = remember(place, com.mz2az.scenetrip.data.AppLanguage.current) { place.asGuidePlace().label() }
         Column(Modifier.weight(1f)) {
             Text(
