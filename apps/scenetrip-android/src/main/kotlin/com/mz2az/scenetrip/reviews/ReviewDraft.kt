@@ -113,6 +113,17 @@ class ReviewDraft(
         if (ReviewPhotoRules.shouldResume(states)) start()
     }
 
+    /**
+     * 칸 순서를 [ids] 순서로 맞춘다(커뮤니티 글쓰기 — 본문에 놓인 순서가 사진 순서다, MZ2AZ-547 K11, iOS `reorder`).
+     * [ids] 에 없는 칸은 원래 순서대로 뒤에 남는다. 없는 id 는 무시한다.
+     */
+    fun reorder(ids: List<UUID>) {
+        val next =
+            com.mz2az.scenetrip.data.CommunityDraft
+                .reorder(photos, ids) { it.id }
+        if (next.map { it.id } != photos.map { it.id }) photos = next
+    }
+
     /** 실패한 칸을 다시 올린다. 다시 해도 같은 실패(너무 큼·못 읽음)는 단추가 없다. */
     fun retry(id: UUID) {
         val slot = photos.firstOrNull { it.id == id } ?: return

@@ -192,6 +192,29 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 - 단추 자리는 안내가 떠 있는 동안 매 화면 다시 잰다(시트가 올라오거나 해태가 비켜 서도 따라간다). 애니메이션 제거(`ui/ReduceMotion.kt`)면 나타남·옮김이 움직이지 않는다.
 - 확인용 뒷문(iOS `-coachReset 1`·`-coachStep 2` 와 짝): `--ez coachReset true`(본 기록을 지우고 처음부터), `--ei coachStep 2`(둘째 단계부터).
 
+## 웹 시안 반영 P8 — 커뮤니티 게시판·검색·좋아요·댓글·블로그형 글쓰기 (2026-11-10, MZ2AZ-547)
+
+체크리스트 K1–K11 을 iOS `CommunityTab/`(P8) 그대로 옮겼다. 순수 규칙은 `data/CommunityFeedRules.kt`(게시판·검색·다음 쪽·빈 화면·수),
+`data/CommunityDraft.kt`(블로그형 초안), `data/PostSocial.kt`(좋아요·댓글 상태)에 있고 JVM 시험이 선다(`tests/CommunityFeedRulesParityTests.kt`·`CommunityDraftParityTests.kt`·`PostSocialParityTests.kt`·`CommunityFeedSessionTests.kt` 100개).
+
+| 항목 | 화면에서 보이는 것 | 코드 |
+| --- | --- | --- |
+| 머리·게시판 (K1·K3) | 왼쪽 「커뮤니티」 · 🔍 · 보라 「✎ 글쓰기」 알약, 밑에 글자 탭 「여행후기 · 자유게시판」(밑줄·구분선 없음). 서버가 `board=review｜free` 로 거른다 | `communitytab/CommunityTabScreen.kt` |
+| 검색 (K2) | 🔍 → 제목 줄이 검색칸 「제목·내용으로 찾기」. 두 글자부터 0.35초 멈추면 `GET /posts?board&q`, 없으면 「「q」 에 맞는 글이 없어요」. 탭을 떠나면 지운다 | `CommunityFeedRules.searchTerm`·`CommunityStore.resetFilterInBackground` |
+| 끊김 없는 목록 (K4) | 끝에서 다섯 줄 안이 보이면 다음 쪽(`cursor=nextCursor`, 없으면 offset). 「더 보기」 없음(「내가 쓴 글」 시트는 그대로) | `CommunityList.kt`·`CommunitySession.refresh` |
+| 목록 줄 (K5) | 작성자·날짜가 맨 아래, 사진 밑 「👍 N 💬 M」(누른 글은 보라 엄지, 사진 없으면 작성자 줄 끝, 수가 없으면 안 그림) | `CommunityPostCounts` |
+| 새 화면 (K6) | 글 읽기·글쓰기는 오른쪽에서 밀려 들어와 **탭바까지 덮는다**. 글 화면 머리 「‹ 여행후기」, ✕ 없음, 하드웨어 뒤로 = 뒤로 | `CommunityNav.kt`(탭바 위 `RootTabs` 에 그린다) |
+| 사진 중복 (K7) | 글 화면·미리보기 맨 위 대표 사진을 따로 그리지 않는다. 블록이 가리키지 않는 사진은 끝에 붙고, 같은 사진은 한 번만 | `CommunityArticle.readingBlocks` |
+| 좋아요 (K8) | 글 끝 가운데 「👍 좋아요 N」. 누르면 바로 보라(실패하면 되돌림), 비로그인은 로그인 안내. `PUT/DELETE /posts/{id}/like` | `PostSocialModel.toggleLike` |
+| 댓글 (K9) | 「댓글 N」, 오래된 순. 내 댓글 「지우기」, 남의 댓글 「⋯」 신고·차단(`ReportTargetType.comment`, 차단 뒤 다시 받기). 입력칸은 글 끝에 붙는다(500자) | `CommunityPostSocialViews.kt` |
+| 글쓰기 (K10) | 머리 「글쓰기」 + 게시판 칩(처음 값은 보던 게시판, `TripPostCreate.board`). 비로그인도 화면은 열리고 사진 넣기·올리기에서 로그인 | `CommunityComposeView.kt` |
+| 블로그형 본문 (K11) | 글 조각과 사진이 쓴 순서대로. 「사진 넣기 N/8」 은 커서 자리에서 문단을 나눠 넣는다. 사진은 4:3 · 「대표」 · ✕ · 설명 · 「출처·AI 표시 더하기」, 0.3초 꾹 눌러 위아래로 옮긴다(시스템 길게 누르기보다 짧아 직접 잰다), 첫 사진 = 대표 | `CommunityArticleEditor.kt` |
+
+- 저장 형식은 그대로다 — 초안 목록에서 본문(`body`)과 사진마다 「몇 번째 문단 뒤」를 계산해 `bodyBlocks` 를 만든다. 사진 칸 순서는 본문에 놓인 순서로 맞춘다(`ReviewDraft.reorder`).
+  예전의 「사진 배치」 고르기(`CommunityPlacementEditor.kt`)와 위쪽 사진 줄은 없앴다.
+- 글 화면에서 바뀐 좋아요·댓글 수는 목록·내 글의 같은 줄에도 맞춘다(`CommunityStore.updateSocial`). 올린 글은 보던 게시판·검색 없음일 때만 목록 맨 앞에 넣는다.
+- 확인용 뒷문(iOS 와 같은 이름, `-e initialTab community` 와 함께): `-e communityBoard free`, `-e communitySearch 글자`, `-e communityOpen post|compose`.
+
 ## 인터페이스
 
 2026-10-13 동기화는 [계획](../../docs/project/plans/android-ios-sync-2026-10.md)과

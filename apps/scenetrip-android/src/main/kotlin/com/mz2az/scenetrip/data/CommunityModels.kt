@@ -7,6 +7,7 @@ import com.mz2az.scenetrip.routetab.RouteStop
 import com.mz2az.scenetrip.sceneapi.client.model.Lang
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostBlock
+import com.mz2az.scenetrip.sceneapi.client.model.TripPostBoard
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostCourse
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostDetail
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostSummary
@@ -158,6 +159,12 @@ data class CommunityPost(
     val remotePhotos: List<String> = emptyList(),
     val detailLoaded: Boolean = false,
     val bodyBlocks: List<TripPostBlock>? = null,
+    /** 서버 게시판(1.24.0). 없으면 여행후기다([CommunityFeedRules.board]). */
+    val serverBoard: TripPostBoard? = null,
+    /** 좋아요·댓글 수와 내가 눌렀는지(1.24.0). 서버가 주지 않은 글(옛 서버·기기 옛 글)은 null — 목록에 수를 그리지 않는다. */
+    val likeCount: Int? = null,
+    val commentCount: Int? = null,
+    val liked: Boolean? = null,
 ) {
     val isMine: Boolean get() = serverIsMine ?: (author == null)
 
@@ -180,6 +187,10 @@ data class CommunityPost(
                 author = summary.author?.nickname,
                 serverIsMine = summary.isMine,
                 remotePhotos = listOfNotNull(summary.coverPhotoUrl?.toString()),
+                serverBoard = summary.board,
+                likeCount = summary.likeCount,
+                commentCount = summary.commentCount,
+                liked = summary.liked,
             )
 
         fun from(detail: TripPostDetail): CommunityPost =
@@ -195,6 +206,10 @@ data class CommunityPost(
                 remotePhotos = detail.photoUrls.map { it.toString() },
                 detailLoaded = true,
                 bodyBlocks = detail.bodyBlocks,
+                serverBoard = detail.board,
+                likeCount = detail.likeCount,
+                commentCount = detail.commentCount,
+                liked = detail.liked,
             )
     }
 }

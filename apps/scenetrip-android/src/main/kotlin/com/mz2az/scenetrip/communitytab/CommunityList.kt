@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.auth.AuthStore
 import com.mz2az.scenetrip.data.AppLanguage
+import com.mz2az.scenetrip.data.CommunityFeedRules
 import com.mz2az.scenetrip.data.CommunityPhotoRefresh
 import com.mz2az.scenetrip.data.CommunityPost
 import com.mz2az.scenetrip.data.CommunityStore
@@ -59,6 +62,7 @@ import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.reviews.ModerationMenu
 import com.mz2az.scenetrip.reviews.ModerationSheets
 import com.mz2az.scenetrip.reviews.rememberModerationController
+import com.mz2az.scenetrip.sceneapi.client.model.TripPostBoard
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.BubblesIcon
 import com.mz2az.scenetrip.ui.IOS
@@ -81,12 +85,18 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
-/** 서버 목록의 새로고침·페이지 이동·소유자 삭제와 비공개 옛 글을 함께 다룬다. */
+/**
+ * 서버 목록의 새로고침·끊김 없는 다음 쪽·소유자 삭제와 비공개 옛 글을 함께 다룬다.
+ * 탭 목록([mine] 아님)은 게시판·검색어([board]·[term])에 맞춘 빈 화면을 보이고, 끝에 닿기 전에 다음 쪽을 저절로 받는다(K4).
+ * 글은 오른쪽에서 밀려 들어오는 새 화면으로 연다(K6). 「내가 쓴 글」 시트는 예전처럼 「더 보기」 와 시트다.
+ */
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 internal fun CommunityPostList(
     store: CommunityStore,
     mine: Boolean = false,
+    board: TripPostBoard = TripPostBoard.review,
+    term: String? = null,
 ) {
     val scope = rememberCoroutineScope()
     // 남의 후기의 신고·차단(MZ2AZ-461).
@@ -94,6 +104,8 @@ internal fun CommunityPostList(
     var reading by remember { mutableStateOf<CommunityPost?>(null) }
     var deleting by remember { mutableStateOf<CommunityPost?>(null) }
     val state = store.state
+    // 탭 목록의 글은 오른쪽에서 밀려 들어오는 새 화면으로, 「내가 쓴 글」 은 예전처럼 시트로 연다.
+    val open = { post: CommunityPost -> if (mine) reading = post else CommunityNav.open(CommunityPage.Post(post)) }
     val posts = if (mine) state.mine else state.posts
     val loading = if (mine) state.mineLoading else state.loading
     val total = if (mine) state.mineTotal else state.total
@@ -140,10 +152,12 @@ internal fun CommunityPostList(
                 }
             }
             // 기기에만 있던 옛 글은 목록 맨 위에 구역으로 보인다 — 눌러서 읽는다 (iOS `CommunityTabView`, MZ2AZ-396·423).
-            if (!mine && store.legacyPosts.isNotEmpty()) {
+            // 옛 글은 모두 여행후기다 — 자유게시판·검색 중에는 숨긴다.
+            val showsLegacy = !mine && term == null && board == TripPostBoard.review && store.legacyPosts.isNotEmpty()
+            if (showsLegacy) {
                 item(key = "legacy-title") { SectionTitle("이 기기에만 저장된 옛 글") }
                 items(store.legacyPosts, key = { "legacy:" + it.id }) { post ->
-                    CommunityPostRow(store, post, false, moderation) { reading = post }
+                    CommunityPostRow(store, post, false, moderation) { open(post) }
                     IOSListDivider(start = 16.dp)
                 }
                 item(key = "legacy-footer") {
@@ -168,10 +182,28 @@ internal fun CommunityPostList(
                     IOSListDivider(start = 16.dp, color = MyPostsDivider)
                 }
             }
-            if (!mine && posts.isEmpty() && store.legacyPosts.isEmpty() && !loading && state.message == null) {
-                item { CommunityEmptyState() }
+            if (!mine) {
+                CommunityFeedRules
+                    .emptyState(
+                        board,
+                        term,
+                        posts.size,
+                        if (board == TripPostBoard.review) store.legacyPosts.size else 0,
+                        loading,
+                        state.message != null,
+                    )?.let { empty -> item(key = "empty") { CommunityEmptyState(empty) } }
             }
-            items(posts, key = { it.id }) { post ->
+            itemsIndexed(posts, key = { _, post -> post.id }) { index, post ->
+                // 줄이 화면에 들어오면 끝에서 다섯 줄 안인지 본다 — 그러면 다음 쪽을 미리 받는다(iOS `onAppear`).
+                if (!mine) {
+                    LaunchedEffect(post.id, posts.size) {
+                        val now = store.state
+                        // 목록 범위에서 받는다 — 줄이 화면 밖으로 나가도 받던 쪽을 끊지 않는다.
+                        if (CommunityFeedRules.shouldLoadMore(index, now.posts.size, now.total, now.loading, now.message != null)) {
+                            scope.launch { store.refresh(more = true) }
+                        }
+                    }
+                }
                 val swipe =
                     rememberSwipeToDismissBoxState(confirmValueChange = {
                         if (it == SwipeToDismissBoxValue.EndToStart) deleting = post
@@ -186,12 +218,19 @@ internal fun CommunityPostList(
                             Text(tr("지우기"), color = Color.White)
                         }
                     },
-                ) { CommunityPostRow(store, post, mine, moderation) { reading = post } }
+                ) { CommunityPostRow(store, post, mine, moderation) { open(post) } }
                 IOSListDivider(start = 16.dp, overlay = !mine)
             }
-            if (posts.size < total) {
+            if (!mine && loading && posts.isNotEmpty()) {
+                item(key = "more-loading") {
+                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(Modifier.size(22.dp), color = IOS.accent, strokeWidth = 2.dp)
+                    }
+                }
+            }
+            if (mine && posts.size < total) {
                 item {
-                    CommunityListButton("더 보기", !loading, plainRow = mine) { scope.launch { store.refresh(mine, more = true) } }
+                    CommunityListButton("더 보기", !loading, plainRow = true) { scope.launch { store.refresh(mine, more = true) } }
                 }
             }
             if (mine && store.legacyPosts.isNotEmpty()) {
@@ -228,6 +267,9 @@ internal fun CommunityPostList(
 
 // 「내가 쓴 글」 시트 구분선 — iOS 는 유리 위라 #d3d3d6 으로 보인다(8차 S-4: 기본 #e5e5ea 는 옅었다).
 private val MyPostsDivider = Color(0xFFD3D3D6)
+
+/** 목록 줄의 대표 사진 한 변. */
+private val COVER_SIZE = 76.dp
 
 @Composable
 private fun SectionTitle(
@@ -286,24 +328,28 @@ internal fun CommunityListButton(
 }
 
 @Composable
-private fun CommunityEmptyState() {
+private fun CommunityEmptyState(empty: CommunityFeedRules.EmptyState) {
+    if (empty is CommunityFeedRules.EmptyState.NoMatch) {
+        Text(
+            tr("「%s」 에 맞는 글이 없어요").format(empty.term),
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold,
+            color = IOS.label,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 60.dp, horizontal = 32.dp),
+        )
+        return
+    }
+    val free = empty == CommunityFeedRules.EmptyState.FreeBoard
     Column(Modifier.fillMaxWidth().padding(top = 54.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         BubblesIcon(IOS.secondaryLabel, Modifier.padding(bottom = 14.dp).size(66.dp, 52.dp))
-        Text(tr("아직 후기가 없습니다"), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IOS.label)
+        Text(tr(if (free) "아직 글이 없어요" else "아직 후기가 없습니다"), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = IOS.label)
         Text(
-            tr("다녀온 코스와 사진으로 첫 후기를 남겨 보세요"),
+            tr(if (free) "여행 이야기·질문을 자유롭게 남겨 보세요" else "다녀온 코스와 사진으로 첫 후기를 남겨 보세요"),
             fontSize = 15.sp,
             color = IOS.secondaryLabel,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 4.dp).padding(horizontal = 20.dp),
-        )
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .padding(top = 44.dp)
-                .padding(start = 60.dp, end = 16.dp)
-                .height(0.5.dp)
-                .background(IOS.separator),
         )
     }
 }
@@ -337,33 +383,45 @@ private fun CommunityPostRow(
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 5.dp)) {
-                // 줄 칸은 iOS 줄 높이(15pt 17.9 · 12pt 14.3 · 11pt 13.1)로 고정한다 — 7차 감사 C1: 글꼴 제 높이라 본문 +5.1, 글쓴이 +7.6 아래였다.
-                if (compact) {
+            if (compact) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(post.title, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, color = IOS.label)
-                } else {
-                    IOSLinedText(
-                        post.title,
-                        lineDp = 17.9f,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = IOS.label,
-                        maxLines = 2,
-                    )
-                }
-                if (compact) {
                     Text(formatDateTime(post.createdAt), fontSize = 11.sp, color = IOS.tertiaryLabel)
-                } else {
-                    if (post.body.isNotEmpty()) {
+                }
+            }
+            if (!compact) {
+                // 줄(K5) — 왼쪽에 제목·본문·코스, 맨 아래 작성자·날짜. 오른쪽 대표 사진 밑에 「👍 N 💬 M」(사진 없으면 작성자 줄 끝).
+                val remote = post.remotePhotos.firstOrNull()
+                val bitmap = post.photos?.firstOrNull()?.let { remember(it) { store.photo(it) } }
+                val hasPhoto = remote != null || bitmap != null
+                Column(
+                    Modifier.weight(1f).heightIn(min = if (hasPhoto) COVER_SIZE else 0.dp),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         IOSLinedText(
-                            post.body,
-                            lineDp = 14.3f,
-                            fontSize = 12.sp,
-                            color = IOS.secondaryLabel,
+                            post.title,
+                            lineDp = 17.9f,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = IOS.label,
                             maxLines = 2,
                         )
+                        if (post.body.isNotEmpty()) {
+                            IOSLinedText(post.body, lineDp = 14.3f, fontSize = 12.sp, color = IOS.secondaryLabel, maxLines = 2)
+                        }
+                        (post.course?.title ?: post.courseTitle)?.let { title ->
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                RouteCurveIcon(IOS.pinDeep, Modifier.size(10.dp))
+                                Text(title, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = IOS.pinDeep, maxLines = 1)
+                            }
+                        }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         Text(
                             post.authorName(AuthStore.me?.nickname),
                             fontSize = 11.sp,
@@ -371,23 +429,22 @@ private fun CommunityPostRow(
                             modifier = Modifier.sfLine(11f),
                         )
                         Text(relativeTime(post.createdAt), fontSize = 11.sp, color = IOS.tertiaryLabel, modifier = Modifier.sfLine(11f))
-                    }
-                    (post.course?.title ?: post.courseTitle)?.let { title ->
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                            RouteCurveIcon(IOS.pinDeep, Modifier.size(10.dp))
-                            Text(title, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = IOS.pinDeep, maxLines = 1)
+                        if (!hasPhoto) {
+                            Spacer(Modifier.weight(1f))
+                            CommunityPostCounts(post.likeCount, post.commentCount, post.liked)
                         }
                     }
                 }
-            }
-            if (!compact) {
-                val remote = post.remotePhotos.firstOrNull()
-                val bitmap = post.photos?.firstOrNull()?.let { remember(it) { store.photo(it) } }
-                val photoModifier = Modifier.size(76.dp).clip(RoundedCornerShape(12.dp))
-                if (remote != null) {
-                    CommunityCoverPhoto(post, store, photoModifier)
-                } else if (bitmap != null) {
-                    Image(bitmap.asImageBitmap(), null, photoModifier, contentScale = ContentScale.Crop)
+                if (hasPhoto) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        val photoModifier = Modifier.size(COVER_SIZE).clip(RoundedCornerShape(12.dp))
+                        if (remote != null) {
+                            CommunityCoverPhoto(post, store, photoModifier)
+                        } else if (bitmap != null) {
+                            Image(bitmap.asImageBitmap(), null, photoModifier, contentScale = ContentScale.Crop)
+                        }
+                        CommunityPostCounts(post.likeCount, post.commentCount, post.liked)
+                    }
                 }
             }
         }

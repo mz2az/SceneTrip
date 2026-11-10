@@ -19,6 +19,7 @@ import com.mz2az.scenetrip.communitytab.CommunityPhotoSource
 import com.mz2az.scenetrip.communitytab.CommunityPostView
 import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.data.CommunityArticle
+import com.mz2az.scenetrip.data.CommunityDraftItem
 import com.mz2az.scenetrip.data.CommunityPhotoPlacement
 import com.mz2az.scenetrip.data.CommunityPost
 import com.mz2az.scenetrip.data.CommunityStore
@@ -71,14 +72,20 @@ class CommunityBlogQaActivity : ComponentActivity() {
                 remember {
                     CommunityComposeState(this, scope, store).apply {
                         title = "QA 블로그 제목"
-                        this.story = story
                         photos.load(
                             listOf(
                                 ReviewPhoto("uploads/tmp/qa-first.jpg", URI(url)),
                                 ReviewPhoto("uploads/tmp/qa-second.jpg", URI("http://10.0.2.2:8898/photo.png")),
                             ),
                         )
-                        placements = mapOf(photos.photos.first().id to CommunityPhotoPlacement(1, "QA 사진", "QA 원본 출처 · 합성 사진", true))
+                        // 블로그형 글쓰기(MZ2AZ-547 K11) — 본문 첫 조각 뒤에 첫 사진, 끝에 둘째 사진.
+                        items =
+                            listOf(
+                                CommunityDraftItem.Text(java.util.UUID.randomUUID(), story),
+                                CommunityDraftItem.Photo(photos.photos[0].id),
+                                CommunityDraftItem.Photo(photos.photos[1].id),
+                            )
+                        meta = mapOf(photos.photos.first().id to CommunityPhotoPlacement(1, "QA 사진", "QA 원본 출처 · 합성 사진", true))
                     }
                 }
             SceneTripTheme {

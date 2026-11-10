@@ -33,19 +33,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.PostCourse
 import com.mz2az.scenetrip.data.tr
-import com.mz2az.scenetrip.reviews.ReviewDraft
-import com.mz2az.scenetrip.reviews.ReviewPhotoStrip
 import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.RouteCurveIcon
 import com.mz2az.scenetrip.ui.XMarkIcon
-
-@Composable
-internal fun CommunityPhotoStrip(
-    draft: ReviewDraft,
-    locked: Boolean,
-    onAdd: () -> Unit,
-) = ReviewPhotoStrip(draft, locked, onAdd, showsCover = true, horizontalPadding = 20.dp)
 
 @Composable
 fun PostCourseBadge(size: Dp = 34.dp) {
