@@ -1,0 +1,92 @@
+import SceneApiClient
+@testable import SceneTrip
+import XCTest
+
+/// 추천 코스 카드 뒤집기 — 뒷면 장면 그림 고르기·처음 한 번 살짝 돌기
+/// (계획 docs/project/plans/motion-works-drawer-parity.md §6).
+final class SceneFlipRulesTests: XCTestCase {
+    private func scene(_ contentId: Int64, _ urls: [String]) -> SceneApiClient.Scene {
+        SceneApiClient.Scene(contentId: contentId, contentTitle: "작품\(contentId)", sceneImageUrls: urls)
+    }
+
+    private func detail(_ scenes: [SceneApiClient.Scene]?) -> PlaceDetail {
+        PlaceDetail(id: 1, name: "촬영지", latitude: 37.5, longitude: 127, scenes: scenes)
+    }
+
+    // MARK: 숫자
+
+    func testConstantsMatchSpec() {
+        XCTAssertEqual(SceneFlipRules.flipDuration, 0.45, accuracy: 0.0001)
+        XCTAssertEqual(SceneFlipRules.peekDelay, 0.6, accuracy: 0.0001)
+        XCTAssertEqual(SceneFlipRules.peekAngle, 25, accuracy: 0.0001)
+        XCTAssertEqual(SceneFlipRules.maxConcurrentDetailFetches, 4)
+    }
+
+    // MARK: 장면 그림 고르기
+
+    func testPicksFirstPictureOfCardWorkScene() {
+        let d = detail([scene(1, ["a1"]), scene(2, ["b1", "b2"]), scene(3, ["c1"])])
+        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: d, workId: 2), "b1")
+    }
+
+    func testCardWorkSceneWinsEvenWhenNotFirst() {
+        let d = detail([scene(1, ["a1", "a2"]), scene(9, ["z1"])])
+        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: d, workId: 9), "z1")
+    }
+
+    func testMultiplePicturesTakesFirst() {
+        let d = detail([scene(5, ["first", "second", "third"])])
+        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: d, workId: 5), "first")
+    }
+
+    func testCardWorkSceneWithoutPicturesFallsBackToFirstSceneWithPictures() {
+        let d = detail([scene(1, []), scene(2, []), scene(3, ["c1", "c2"]), scene(4, ["d1"])])
+        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: d, workId: 2), "c1")
+    }
+
+    func testMissingWorkIdFallsBackToFirstSceneWithPictures() {
+        let d = detail([scene(1, []), scene(2, ["b1"]), scene(3, ["c1"])])
+        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: d, workId: nil), "b1")
+    }
+
+    func testWorkNotAmongScenesFallsBackToFirstSceneWithPictures() {
+        let d = detail([scene(1, ["a1"]), scene(2, ["b1"])])
+        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: d, workId: 77), "a1")
+    }
+
+    func testNoPicturesAnywhereIsNil() {
+        XCTAssertNil(SceneFlipRules.sceneImageUrl(detail: detail([scene(1, []), scene(2, [])]), workId: 1))
+        XCTAssertNil(SceneFlipRules.sceneImageUrl(detail: detail([scene(1, []), scene(2, [])]), workId: nil))
+    }
+
+    func testEmptyOrMissingScenesIsNil() {
+        XCTAssertNil(SceneFlipRules.sceneImageUrl(detail: detail([]), workId: 1))
+        XCTAssertNil(SceneFlipRules.sceneImageUrl(detail: detail(nil), workId: 1))
+        XCTAssertNil(SceneFlipRules.sceneImageUrl(detail: detail(nil), workId: nil))
+    }
+
+    // MARK: 처음 한 번 살짝 돌기
+
+    func testPeeksFirstFlippableCard() {
+        XCTAssertEqual(SceneFlipRules.peekIndex(flippable: [true, true, false], hasFlipped: false, reduceMotion: false), 0)
+    }
+
+    func testPeeksFirstFlippableEvenWhenNotAtStart() {
+        XCTAssertEqual(SceneFlipRules.peekIndex(flippable: [false, false, true, true], hasFlipped: false, reduceMotion: false), 2)
+        XCTAssertEqual(SceneFlipRules.peekIndex(flippable: [false, true], hasFlipped: false, reduceMotion: false), 1)
+    }
+
+    func testNoPeekAfterUserHasFlipped() {
+        XCTAssertNil(SceneFlipRules.peekIndex(flippable: [true, true], hasFlipped: true, reduceMotion: false))
+    }
+
+    func testNoPeekWithReduceMotion() {
+        XCTAssertNil(SceneFlipRules.peekIndex(flippable: [true, true], hasFlipped: false, reduceMotion: true))
+        XCTAssertNil(SceneFlipRules.peekIndex(flippable: [true], hasFlipped: true, reduceMotion: true))
+    }
+
+    func testNoPeekWithoutFlippableCards() {
+        XCTAssertNil(SceneFlipRules.peekIndex(flippable: [false, false, false], hasFlipped: false, reduceMotion: false))
+        XCTAssertNil(SceneFlipRules.peekIndex(flippable: [], hasFlipped: false, reduceMotion: false))
+    }
+}

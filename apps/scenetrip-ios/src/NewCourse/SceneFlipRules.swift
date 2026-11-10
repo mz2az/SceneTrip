@@ -1,0 +1,30 @@
+import Foundation
+import SceneApiClient
+
+// 추천 코스 카드 — 사진을 누르면 뒤집혀 장면 그림 (MZ2AZ-547, 계획 docs/project/plans/motion-works-drawer-parity.md §6).
+// 어떤 장면 그림을 뒷면에 둘지, 화면이 처음 뜰 때 어느 카드가 한 번 살짝 돌지(알려 주기)를 정한다.
+// 움직임 자체는 화면 쪽에서 그린다 — 여기는 숫자와 고르기 규칙만.
+
+enum SceneFlipRules {
+    /// 앞면 ↔ 뒷면 뒤집기 시간(초).
+    static let flipDuration: Double = 0
+    /// 화면이 처음 뜬 뒤 살짝 돌기까지 기다리는 시간(초).
+    static let peekDelay: Double = 0
+    /// 살짝 돌기 각도(도).
+    static let peekAngle: Double = 0
+    /// 장소 상세(`GET /places/{placeId}`)를 동시에 받는 최대 수.
+    static let maxConcurrentDetailFetches = 0
+
+    /// 카드 뒷면의 장면 그림.
+    /// 카드 작품(`workId`, 카드 장소의 `contents[0]`)과 `contentId` 가 같은 장면의 `sceneImageUrls` 첫 장.
+    /// 그 장면에 그림이 없거나 작품을 모르면 그림이 있는 첫 장면의 첫 장. 아무 데도 없으면 nil(뒤집히지 않는다).
+    static func sceneImageUrl(detail: PlaceDetail, workId: Int64?) -> String? {
+        nil // 시험 먼저(TEST 단계) — 구현 전 자리.
+    }
+
+    /// 화면이 처음 뜰 때 한 번 살짝 돌 카드의 자리(0부터).
+    /// 뒤집히는 첫 카드. 사용자가 한 번이라도 뒤집었거나(`hasFlipped`) 동작 줄이기면 nil. 뒤집히는 카드가 없어도 nil.
+    static func peekIndex(flippable: [Bool], hasFlipped: Bool, reduceMotion: Bool) -> Int? {
+        nil // 시험 먼저(TEST 단계) — 구현 전 자리.
+    }
+}
