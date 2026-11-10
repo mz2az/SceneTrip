@@ -371,14 +371,8 @@ struct RouteMapView: UIViewRepresentable {
                         self.fitTrip(to: navTarget, legs: legs, on: mapView)
                     }
                 }
-                // 목적지 사본의 visited 는 낡을 수 있다(도착 직후) — 목록의 최신 값으로 본다.
-                let targetVisited = stops.first { $0.id == navTarget.id }?.visited ?? navTarget.visited
-                updateHalo(
-                    style: .brand,
-                    at: NMGLatLng(lat: navTarget.place.latitude, lng: navTarget.place.longitude),
-                    lift: targetVisited ? 0 : 30, // 도착했으면 발바닥 핀 — 자리 위에
-                    on: mapView
-                )
+                // 고리는 그리지 않는다 — 목적지는 큰 번호 핀으로 충분하다(2026-11-10 사용자 결정).
+                updateHalo(style: .brand, at: nil, on: mapView)
                 return
             }
             lastTripCameraKey = ""
@@ -392,18 +386,8 @@ struct RouteMapView: UIViewRepresentable {
             //
             // 한 곳을 **콕 집어 골랐을 때만** 예외다. 그때는 그 곳(또는 나와 그 곳)만
             // 크게 본다.
-            // 헤일로 대상: 목록에서 누른 코스 장소. 없으면 끈다. 고른 가게는 큰 아이콘만 —
-            // 빨간 고리는 뺐다(2026-11-10 사용자 결정).
-            if pickedGuide == nil, let focused {
-                updateHalo(
-                    style: .brand,
-                    at: NMGLatLng(lat: focused.place.latitude, lng: focused.place.longitude),
-                    lift: (stops.first { $0.id == focused.id }?.visited ?? focused.visited) ? 0 : 30,
-                    on: mapView
-                )
-            } else {
-                updateHalo(style: .brand, at: nil, on: mapView)
-            }
+            // 고른 곳은 핀을 크게 그리는 것만 — 빨간·파란 고리는 뺐다(2026-11-10 사용자 결정).
+            updateHalo(style: .brand, at: nil, on: mapView)
 
             // 카메라 열쇠는 **칩으로 거른 목록을 보지 않는다** — 핀을 다시 그리는 열쇠(`key`)와
             // 갈라 둔 이유다. 칩을 켜고 꺼도 화면은 그 자리에 있어야 한다.

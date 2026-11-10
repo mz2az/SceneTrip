@@ -11,7 +11,7 @@ import SwiftUI
 ///
 /// | 핀 | 무엇 | 누르면 |
 /// | --- | --- | --- |
-/// | 번호·해태·발바닥 | 코스의 정지점 | 성지 카드 |
+/// | 번호(고른 곳은 크게)·발바닥 | 코스의 정지점 | 성지 카드 |
 /// | 빨간 해태(미리보기) | 담을까 보는 곳(검색·장바구니) | 성지 카드 |
 /// | **작은 해태** | 챗봇이 찾아 준 곳 — 「AI 장소」 | 편의시설 카드 |
 /// | 파문 | 내 자리 | — |
@@ -37,8 +37,9 @@ extension RouteMapView.Coordinator {
                 marker.anchor = CGPoint(x: 0.5, y: 0.5)
                 marker.zIndex = 8
             } else if stop.id == focused?.id || stop.id == navTarget?.id {
-                // 고른 곳과 **지금 안내 중인 목적지**는 해태다.
-                marker.iconImage = PinoPin.marker(.normal)
+                // 고른 곳과 **지금 안내 중인 목적지**는 같은 번호 핀을 크게(2026-11-10 사용자 결정 — 해태·파란 고리 뺌).
+                marker.iconImage = RouteNumberPin.image(index + 1, large: true)
+                marker.anchor = RouteNumberPin.anchor
                 // 다른 핀에 가리지 않게 위로 올린다.
                 marker.zIndex = 10
             } else {
