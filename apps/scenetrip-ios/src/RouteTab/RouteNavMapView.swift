@@ -234,8 +234,8 @@ struct RouteNavMapView: UIViewRepresentable {
                     position: NMGLatLng(lat: place.latitude, lng: place.longitude)
                 )
                 let isPicked = place.id == picked?.id
-                marker.iconImage = isPicked ? PinoPin.marker(.picked) : PinoPin.guideDot(for: place)
-                marker.anchor = isPicked ? CGPoint(x: 0.5, y: 1) : CGPoint(x: 0.5, y: 0.5)
+                marker.iconImage = PinoPin.guideDot(for: place, picked: isPicked)
+                marker.anchor = CGPoint(x: 0.5, y: 0.5)
                 marker.captionText = place.label.caption
                 marker.captionMinZoom = 14
                 marker.zIndex = isPicked ? 30 : 5
@@ -247,16 +247,8 @@ struct RouteNavMapView: UIViewRepresentable {
                 markers.append(marker)
             }
 
-            // 헤일로 — 고른 가게가 있으면 거기(빨강), 아니면 목적지(파랑).
-            if let picked {
-                updateHalo(
-                    style: .picked,
-                    at: NMGLatLng(lat: picked.latitude, lng: picked.longitude),
-                    on: mapView
-                )
-            } else {
-                updateHalo(style: .brand, at: target, on: mapView)
-            }
+            // 헤일로는 목적지(파랑)만. 고른 가게는 큰 아이콘으로 충분하다(2026-11-10 사용자 결정, 빨간 고리 뺌).
+            updateHalo(style: .brand, at: target, on: mapView)
 
             // 경로 전체가 보이게 맞춘다. 좌표가 없으면 출발지·목적지 둘만으로.
             // 카메라의 우선순위 —

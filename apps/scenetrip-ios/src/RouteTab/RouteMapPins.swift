@@ -87,8 +87,9 @@ extension RouteMapView.Coordinator {
                 position: NMGLatLng(lat: place.latitude, lng: place.longitude)
             )
             let isPicked = place.id == pickedGuide?.id
-            marker.iconImage = PinoPin.marker(isPicked ? .picked : .ai)
-            marker.anchor = CGPoint(x: 0.5, y: 1) // 핀 끝이 그 자리다
+            // 고른 곳은 해태 대신 갈래 아이콘을 크게(2026-11-10 사용자 결정) — 가운데가 그 자리다.
+            marker.iconImage = isPicked ? PinoPin.guideDot(for: place, picked: true) : PinoPin.marker(.ai)
+            marker.anchor = isPicked ? CGPoint(x: 0.5, y: 0.5) : CGPoint(x: 0.5, y: 1) // 해태는 핀 끝이 그 자리다
             PinoPin.caption(marker, name: place.label.caption, picked: isPicked, ambient: false)
             marker.zIndex = isPicked ? 30 : 15
             marker.touchHandler = { [weak self] _ in

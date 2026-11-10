@@ -392,14 +392,9 @@ struct RouteMapView: UIViewRepresentable {
             //
             // 한 곳을 **콕 집어 골랐을 때만** 예외다. 그때는 그 곳(또는 나와 그 곳)만
             // 크게 본다.
-            // 헤일로 대상: 고른 가게 > 목록에서 누른 코스 장소. 없으면 끈다.
-            if let pickedGuide {
-                updateHalo(
-                    style: .picked,
-                    at: NMGLatLng(lat: pickedGuide.latitude, lng: pickedGuide.longitude),
-                    on: mapView
-                )
-            } else if let focused {
+            // 헤일로 대상: 목록에서 누른 코스 장소. 없으면 끈다. 고른 가게는 큰 아이콘만 —
+            // 빨간 고리는 뺐다(2026-11-10 사용자 결정).
+            if pickedGuide == nil, let focused {
                 updateHalo(
                     style: .brand,
                     at: NMGLatLng(lat: focused.place.latitude, lng: focused.place.longitude),
