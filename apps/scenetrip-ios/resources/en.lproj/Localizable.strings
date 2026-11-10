@@ -946,3 +946,7 @@
 "촬영지가 아닌 가게·장소를 찾아요 — 맛집·카페·숙소·명소를 이름으로 검색해 「코스에 담기」 로 바로 넣어요." = "Find places beyond filming spots — search restaurants, cafés, stays and sights by name, then add them to your course.";
 "주변 둘러보기" = "Browse nearby";
 "전체·음식·관광지·숙소 칩을 누르면 지금 보이는 지도 안의 장소가 핀으로 떠요." = "Tap All, Food, Sights or Stays to pin places in the area you are looking at.";
+
+/* 작품 고르기 — 작품 검색칸 (MZ2AZ-547) */
+"작품 이름으로 찾기" = "Search by title";
+"「%@」 에 맞는 작품이 없어요" = "No shows match “%@”";

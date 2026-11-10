@@ -14,15 +14,21 @@ struct WorksPlanView: View {
 
     private enum Step { case trip, works }
 
-    /// 확인용 뒷문 — `-worksStep works` 면 작품 고르기(A2)부터.
+    /// 확인용 뒷문 — `-worksStep works` 면 작품 고르기(A2)부터, `-worksStep planning` 이면 짜는 중 화면(서버에 묻지 않는다,
+    /// 포스터 떠오르기 M9 확인용 — 시뮬레이터에 합성 탭이 닿지 않는다).
     @State private var step = UserDefaults.standard.string(forKey: "worksStep") == "works" ? Step.works : Step.trip
     @State private var span = RouteSpan.oneNight
     @State private var date: Date?
     @State private var pace = RoutePace.loose
     @State private var workIds: Set<Int64> = []
+    /// 고른 작품의 기억 — 검색 결과·지금 목록에 없어도 남는다(`WorksBrowseRules.keptPicks`).
+    @State private var keptWorks: [ContentSummary] = []
+    @State private var searchText = ""
+    /// 서버의 작품 전부 — 30개씩 이어 받고 검색칸으로 찾는다(MZ2AZ-547 §1).
+    @StateObject private var browse = WorksBrowseModel()
     @State private var preset = false
     @State private var tooMany = false
-    @State private var planning = false
+    @State private var planning = UserDefaults.standard.string(forKey: "worksStep") == "planning"
     /// 「그만두기」 를 누르면 올라가는 번호 — 늦게 온 응답이 이미 닫은 짜는 중 화면을 열지 않게.
     @State private var run = 0
     @State private var draft: RouteCourse?
@@ -47,18 +53,29 @@ struct WorksPlanView: View {
             questions
                 .task {
                     locator.start()
-                    await store.refreshMaterials()
+                    // 작품 목록 먼저(화면에 보이는 것), 촬영지 재료는 그 뒤(AI 초안의 장소 찾기에 쓴다).
+                    // `async let` 으로 둘을 함께 돌렸더니 시뮬레이터에서 덮개가 아예 뜨지 않았다(2026-11-10 실측) — 차례로 받는다.
+                    await browse.start()
                     presetLiked()
+                    await store.refreshMaterials()
                 }
-                .onChange(of: store.sortedWorks.count) { _, _ in presetLiked() }
+                .onChange(of: browse.popular.count) { _, _ in presetLiked() }
         }
     }
 
     /// 찜한 작품을 미리 골라 둔다 — 작품 목록이 온 뒤 한 번만(사람이 고친 것을 덮지 않게).
+    /// 찜 목록의 요약(`likedWorks`)도 함께 본다 — 첫 30편 밖의 찜도 전처럼 미리 골라진다.
     private func presetLiked() {
-        guard !preset, !store.sortedWorks.isEmpty else { return }
+        guard !preset, !browse.popular.isEmpty else { return }
         preset = true
-        workIds = WorkPickRules.preselect(works: store.sortedWorks, liked: likes.contentIds)
+        let source = Paging.merged(likes.likedWorks, with: browse.popular, by: \.id)
+        workIds = WorkPickRules.preselect(works: source, liked: likes.contentIds)
+        keptWorks = WorksBrowseRules.keptPicks(selected: workIds, kept: [], shown: source)
+    }
+
+    /// 화면에 그릴 순서 — 받은 것 안에서 찜 먼저, 그다음 서버 순서.
+    private var shownWorks: [ContentSummary] {
+        WorksBrowseRules.ordered(browse.items, liked: likes.contentIds)
     }
 
     private var questions: some View {
@@ -115,17 +132,29 @@ struct WorksPlanView: View {
             Text("여러 개 골라도 돼요. 안 고르면 인기 작품으로 짜요")
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
+            WorksSearchField(text: $searchText)
+                .onChange(of: searchText) { _, text in browse.search(text) }
+            if let query = browse.query, !browse.loadingFirst, !browse.failed, browse.items.isEmpty {
+                Text(verbatim: String(format: tr("「%@」 에 맞는 작품이 없어요"), query))
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24)
+            }
             PosterGrid(
-                works: store.sortedWorks,
+                works: shownWorks,
                 selected: workIds,
                 liked: likes.contentIds,
                 onToggle: { id in
                     let next = WorkPickRules.toggle(workIds, id)
                     workIds = next.selected
                     tooMany = next.tooMany
+                    keptWorks = WorksBrowseRules.keptPicks(selected: workIds, kept: keptWorks, shown: shownWorks)
                 },
-                onLike: { store.toggleFavorite($0) }
+                onLike: { store.toggleFavorite($0) },
+                onAppear: { browse.appeared(index: $0, columns: PosterGrid.columns) }
             )
+            pageFooter
         } footer: {
             VStack(spacing: 8) {
                 Text(verbatim: chosen.isEmpty
@@ -143,12 +172,29 @@ struct WorksPlanView: View {
         }
     }
 
+    /// 쪽을 받는 중이면 작은 스피너, 못 받았으면 다시 시도.
+    @ViewBuilder private var pageFooter: some View {
+        if browse.loadingFirst || browse.loadingMore {
+            ProgressView().frame(maxWidth: .infinity).padding(.vertical, 12)
+        } else if browse.failed {
+            Button { browse.loadMore() } label: {
+                Text("더 불러오지 못했어요 · 다시 시도")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(NewCourseStyle.purple)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.press)
+        }
+    }
+
+    /// 고른 작품 — 고른 순서(먼저 기억한 것, 그다음 지금 목록에서 새로 고른 것).
     private var chosen: [ContentSummary] {
-        store.sortedWorks.filter { workIds.contains($0.id) }
+        WorksBrowseRules.keptPicks(selected: workIds, kept: keptWorks, shown: shownWorks)
     }
 
     private var posters: [String] {
-        let source = chosen.isEmpty ? Array(store.sortedWorks.prefix(3)) : chosen
+        let source = chosen.isEmpty ? Array(browse.popular.prefix(WorksBrowseRules.popularFallbackCount)) : chosen
         return source.compactMap(\.posterUrl).filter(NewCoursePhoto.usable)
     }
 
@@ -178,7 +224,9 @@ struct WorksPlanView: View {
         planning = true
         Task {
             let result = await store.guideDraft(
-                span: span, startDate: date, workIds: workIds, pace: pace,
+                span: span, startDate: date,
+                titles: WorksBrowseRules.requestTitles(picked: chosen, popular: browse.popular),
+                picked: chosen.map(\.title), pace: pace,
                 near: LocationConsentStore.shared.isAllowed ? here : nil
             )
             guard mine == run else { return }
@@ -199,11 +247,18 @@ private struct PosterGrid: View {
     let liked: Set<Int64>
     let onToggle: (Int64) -> Void
     let onLike: (Int64) -> Void
+    /// 포스터가 화면에 나타났다(자리 번호) — 마지막 한 줄이면 다음 쪽을 받는다.
+    var onAppear: (Int) -> Void = { _ in }
+
+    static let columns = 3
 
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), alignment: .leading, spacing: 14) {
-            ForEach(works, id: \.id) { work in
-                cell(work)
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: Self.columns),
+            alignment: .leading, spacing: 14
+        ) {
+            ForEach(Array(works.enumerated()), id: \.element.id) { index, work in
+                cell(work).onAppear { onAppear(index) }
             }
         }
     }
@@ -248,7 +303,7 @@ private struct PosterGrid: View {
                 }
                 .contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.press)
             .accessibilityAddTraits(on ? .isSelected : [])
 
             Button { onLike(work.id) } label: {
@@ -260,7 +315,7 @@ private struct PosterGrid: View {
                     .frame(width: 44, height: 44)
                     .contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.press)
             .offset(x: -6, y: -6)
             .disabled(!UnavailableItem.canToggle(delisted: work.delisted, saved: heart))
             .accessibilityLabel(String(format: tr("%@ 찜"), work.title))
@@ -310,7 +365,7 @@ struct PlanningScreen: View {
                     .overlay(RoundedRectangle(cornerRadius: NewCourseStyle.radiusM).strokeBorder(Color(.separator), lineWidth: 1))
                     .contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.press)
         }
         .onAppear { started = Date() }
     }
@@ -330,6 +385,7 @@ struct PlanningScreen: View {
                     .clipShape(RoundedRectangle(cornerRadius: NewCourseStyle.radiusS))
                     .shadow(color: .black.opacity(0.14), radius: 10, y: 6)
                     .rotationEffect(.degrees(shift * 9))
+                    .modifier(PlanningFloat(index: index))
                     .offset(x: shift * 46, y: abs(shift) * 8)
             }
         }
