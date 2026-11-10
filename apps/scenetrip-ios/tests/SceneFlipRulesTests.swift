@@ -89,4 +89,63 @@ final class SceneFlipRulesTests: XCTestCase {
         XCTAssertNil(SceneFlipRules.peekIndex(flippable: [false, false, false], hasFlipped: false, reduceMotion: false))
         XCTAssertNil(SceneFlipRules.peekIndex(flippable: [], hasFlipped: false, reduceMotion: false))
     }
+
+    // MARK: 카드 사진 칸의 두 면(장소 사진이 없는 카드 포함)
+
+    private let photo = "https://img.example.com/place.jpg"
+    private let sceneArt = "https://img.example.com/scene.png"
+
+    func testPhotoAndSceneFlipsPhotoToScene() {
+        XCTAssertEqual(
+            SceneFlipRules.faces(photoUrl: photo, sceneUrl: sceneArt),
+            SceneFlipFaces(front: photo, back: sceneArt, frontIsScene: false)
+        )
+    }
+
+    func testPhotoWithoutSceneHasNoBack() {
+        XCTAssertEqual(
+            SceneFlipRules.faces(photoUrl: photo, sceneUrl: nil),
+            SceneFlipFaces(front: photo, back: nil, frontIsScene: false)
+        )
+    }
+
+    func testHttpPhotoCountsAsPhoto() {
+        let plain = "http://img.example.com/place.jpg"
+        XCTAssertEqual(
+            SceneFlipRules.faces(photoUrl: plain, sceneUrl: sceneArt),
+            SceneFlipFaces(front: plain, back: sceneArt, frontIsScene: false)
+        )
+    }
+
+    func testNoPhotoShowsSceneOnFrontWithoutFlip() {
+        XCTAssertEqual(
+            SceneFlipRules.faces(photoUrl: nil, sceneUrl: sceneArt),
+            SceneFlipFaces(front: sceneArt, back: nil, frontIsScene: true)
+        )
+    }
+
+    func testEmptyPhotoTreatedAsMissing() {
+        XCTAssertEqual(
+            SceneFlipRules.faces(photoUrl: "", sceneUrl: sceneArt),
+            SceneFlipFaces(front: sceneArt, back: nil, frontIsScene: true)
+        )
+    }
+
+    func testUnusablePhotoAddressTreatedAsMissing() {
+        // http(s) 가 아니거나 주인(host)이 없는 주소는 쓸 수 없는 사진 — 없는 것과 같다.
+        for bad in ["ftp://img.example.com/place.jpg", "file:///tmp/place.jpg", "place.jpg", "https://", "not a url"] {
+            XCTAssertEqual(
+                SceneFlipRules.faces(photoUrl: bad, sceneUrl: sceneArt),
+                SceneFlipFaces(front: sceneArt, back: nil, frontIsScene: true),
+                "사진 주소 \(bad)"
+            )
+        }
+    }
+
+    func testNoPhotoNoSceneIsEmpty() {
+        let empty = SceneFlipFaces(front: nil, back: nil, frontIsScene: false)
+        XCTAssertEqual(SceneFlipRules.faces(photoUrl: nil, sceneUrl: nil), empty)
+        XCTAssertEqual(SceneFlipRules.faces(photoUrl: "", sceneUrl: nil), empty)
+        XCTAssertEqual(SceneFlipRules.faces(photoUrl: "ftp://img.example.com/a.jpg", sceneUrl: nil), empty)
+    }
 }
