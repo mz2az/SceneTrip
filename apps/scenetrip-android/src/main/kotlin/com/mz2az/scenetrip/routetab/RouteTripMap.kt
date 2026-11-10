@@ -26,7 +26,7 @@ import java.util.UUID
  * | 정지점 | 핀 |
  * | --- | --- |
  * | 다녀온 곳 | **발바닥 핀** — 번호 핀을 통째로 갈음한다. 자리 위에 얹는다 |
- * | 고른 곳 · 안내 중인 목적지 | **해태 핀**(다른 핀에 가리지 않게 위로) |
+ * | 고른 곳 · 안내 중인 목적지 | **같은 번호 핀을 1.4배로**(다른 핀에 가리지 않게 위로) — 해태·파란 고리는 뺐다(2026-11-10, 계획 §9·§10-1) |
  * | 그 밖 | 번호 핀 |
  */
 @Composable
@@ -56,9 +56,9 @@ fun CourseStopPins(
                         }
 
                         stop.id == focusedId || stop.id == targetId -> {
-                            // 고른 곳과 **지금 안내 중인 목적지**는 해태다.
-                            icon = images.focusMascot()
-                            anchor = PointF(0.5f, 1f)
+                            // 고른 곳과 **지금 안내 중인 목적지**는 같은 번호 핀을 크게(2026-11-10 사용자 결정 — 해태·파란 고리 뺌).
+                            icon = RouteNumberPin.image(index + 1, metrics, large = true)
+                            anchor = PointF(RouteNumberPinSpec.anchorX, RouteNumberPinSpec.anchorY)
                             zIndex = 10
                         }
 
@@ -83,7 +83,8 @@ fun CourseStopPins(
 }
 
 /**
- * 담을까 보는 곳(검색·장바구니에서 체크한 것) — **빨간 해태.** 코스 핀보다 위에 올려 가리지 않게 한다 (iOS `previews`).
+ * 담을까 보는 곳(검색·장바구니에서 체크한 것) — **번호 없는 보라 핀**(코스 번호 핀과 같은 모양, 2026-11-10 사용자 결정 — 해태 뺌,
+ * 계획 §10-1). 코스 핀보다 위에 올려 가리지 않게 한다 (iOS `previews`).
  * 눌러야 한다 — 손잡이가 없으면 카드를 볼 길이 없다.
  */
 @Composable
@@ -96,13 +97,13 @@ fun PreviewPins(
     val context = LocalContext.current
     val select by rememberUpdatedState(onTap)
     DisposableEffect(map, places) {
-        val image = PoiPinImage(context).mascot(picked = true)
+        val image = RouteNumberPin.plain(context.resources.displayMetrics)
         val markers =
             places.map { place ->
                 Marker().apply {
                     position = LatLng(place.latitude, place.longitude)
                     icon = image
-                    anchor = PointF(0.5f, 1f)
+                    anchor = PointF(RouteNumberPinSpec.anchorX, RouteNumberPinSpec.anchorY)
                     captionText = place.name
                     captionMinZoom = 10.0
                     zIndex = 20

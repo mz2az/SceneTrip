@@ -16,12 +16,43 @@ import com.naver.maps.map.overlay.OverlayImage
  * dp 로 굽는다 — 밀도가 무엇이든 논리 크기가 iOS 의 pt 와 같다(`PinImage` 의 같은 주석).
  */
 object RouteNumberPin {
-    private val cache = mutableMapOf<Triple<Int, Boolean, Float>, OverlayImage>()
+    /** 무엇을 가운데에 그리나 — 번호, 흰 점(검색 탭), 아무것도(번호 없는 보라 핀). */
+    private sealed interface Face {
+        data class Number(
+            val value: Int,
+        ) : Face
 
+        data object Dot : Face
+
+        data object Blank : Face
+    }
+
+    private data class Key(
+        val face: Face,
+        val scale: Float,
+        val density: Float,
+    )
+
+    private val cache = mutableMapOf<Key, OverlayImage>()
+
+    /**
+     * 코스 지도의 번호 핀. [large] 면 같은 그림을 [RouteNumberPinSpec.LARGE_SCALE](1.4)배로 — 코스 편집 지도에서 고른 정지점과
+     * 안내 중인 목적지(2026-11-10 사용자 결정: 해태·파란 고리 대신 「핀 크기만 키워 줘」, 계획 §9·§10-1, iOS `RouteNumberPin.image(_:large:)`).
+     * 기준점은 비율이라 그대로 꼬리 끝이다.
+     */
     fun image(
         number: Int,
         metrics: DisplayMetrics,
-    ): OverlayImage = image(number, metrics, selected = false)
+        large: Boolean = false,
+    ): OverlayImage = render(Face.Number(number), metrics, RouteNumberPinSpec.largeScale(large))
+
+    /**
+     * 번호 없는 같은 핀 — 코스 밖의 한 곳(담을까 보는 곳, [large] 면 「핀 찍기」 로 찍은 자리, 계획 §10-1, iOS `RouteNumberPin.plain`).
+     */
+    fun plain(
+        metrics: DisplayMetrics,
+        large: Boolean = false,
+    ): OverlayImage = render(Face.Blank, metrics, RouteNumberPinSpec.largeScale(large))
 
     /**
      * 검색 탭 지도에도 쓴다(MZ2AZ-547 G1). [number] 가 없으면(목록에 없는 장소를 열어 덧붙인 핀) 번호 대신 흰 점.
@@ -31,11 +62,16 @@ object RouteNumberPin {
         number: Int?,
         metrics: DisplayMetrics,
         selected: Boolean,
+    ): OverlayImage = render(number?.let { Face.Number(it) } ?: Face.Dot, metrics, RouteNumberPinSpec.scale(selected))
+
+    private fun render(
+        face: Face,
+        metrics: DisplayMetrics,
+        scale: Float,
     ): OverlayImage {
         val s = metrics.density
-        val key = Triple(number ?: -1, selected, s)
+        val key = Key(face, scale, s)
         cache[key]?.let { return it }
-        val scale = RouteNumberPinSpec.scale(selected)
         val bitmap =
             Bitmap.createBitmap(
                 (RouteNumberPinSpec.WIDTH * scale * s).toInt(),
@@ -81,11 +117,22 @@ object RouteNumberPin {
         fill.clearShadowLayer()
         canvas.drawPath(seam, fill)
 
-        if (number == null) {
-            val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE }
-            canvas.drawCircle(15f, 14f, 4.5f, dot)
-            return OverlayImage.fromBitmap(bitmap).also { cache[key] = it }
-        }
+        val number =
+            when (face) {
+                is Face.Number -> {
+                    face.value
+                }
+
+                Face.Dot -> {
+                    val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE }
+                    canvas.drawCircle(15f, 14f, 4.5f, dot)
+                    return OverlayImage.fromBitmap(bitmap).also { cache[key] = it }
+                }
+
+                Face.Blank -> {
+                    return OverlayImage.fromBitmap(bitmap).also { cache[key] = it }
+                }
+            }
 
         val text =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {

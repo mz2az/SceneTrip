@@ -2,7 +2,6 @@ package com.mz2az.scenetrip.routetab
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -17,7 +16,6 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
-import com.mz2az.scenetrip.R
 import com.mz2az.scenetrip.data.RoutePoiTone
 import com.mz2az.scenetrip.sceneapi.client.model.GuidePlace
 import com.mz2az.scenetrip.sceneapi.client.model.PoiCategoryGroup
@@ -31,10 +29,20 @@ class PoiPinImage(
 ) {
     private val density = context.resources.displayMetrics.density
 
-    fun dot(place: GuidePlace): OverlayImage {
+    /**
+     * 갈래 아이콘(26dp 동그라미 + 흰 글리프). **고른 곳은 같은 아이콘을 크게**(26→40dp) 그린다 — 빨간 고리·해태 핀은 뺐다
+     * (2026-11-10 사용자 결정, 계획 §9, iOS `PinoPin.guideDot(for:picked:)`). 가운데가 그 자리다.
+     */
+    fun dot(
+        place: GuidePlace,
+        picked: Boolean = false,
+    ): OverlayImage {
         val glyph = PoiGlyph.of(place.categoryGroup, place.category)
-        return cached("dot:${place.categoryGroup}:$glyph") {
-            image(26f, 26f) { canvas ->
+        val size = if (picked) PICKED_DOT else DOT
+        return cached("dot:${place.categoryGroup}:$glyph:$picked") {
+            image(size, size) { canvas ->
+                // 26dp 좌표로 그리고 통째로 키운다 — 테두리·글리프도 같은 비율로.
+                canvas.scale(size / DOT, size / DOT)
                 circle(canvas, 13f, 11f, RoutePoiTone.of(place.categoryGroup.toRoutePoiGroup()).toArgb(), 1.5f)
                 canvas.save()
                 canvas.translate(5f, 5f)
@@ -44,42 +52,8 @@ class PoiPinImage(
         }
     }
 
-    /** 가이드가 찾아 준 곳(작은 해태, 0.85)과 그중 고른 하나(빨간 글로우, 1.1). iOS `PinoPin.marker(.ai/.picked)`. */
-    fun mascot(picked: Boolean): OverlayImage = mascotImage(if (picked) 1.1f else 0.85f, picked)
-
-    /** 지금 고른 정지점과 **안내 중인 목적지** — 보통 크기(1.0)의 해태. iOS `PinoPin.marker(.normal)` (MZ2AZ-478 E7). */
-    fun focusMascot(): OverlayImage = mascotImage(1f, false)
-
-    private fun mascotImage(
-        scale: Float,
-        picked: Boolean,
-    ): OverlayImage =
-        cached("mascot:$scale:$picked") {
-            val source = BitmapFactory.decodeResource(context.resources, R.drawable.haetae_pinhold)
-            val width = 40f * scale
-            val height = width * source.height / source.width
-            image(width + 8f, height + 8f) { canvas ->
-                val scaled = Bitmap.createScaledBitmap(source, (width * density).toInt(), (height * density).toInt(), true)
-                val glow =
-                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                        color = if (picked) Color.rgb(227, 41, 51) else IOS.pinDeep.toArgb()
-                        setShadowLayer(3f * density, 0f, 0f, color)
-                    }
-                val alpha = scaled.extractAlpha()
-                canvas.save()
-                canvas.scale(1f / density, 1f / density)
-                canvas.drawBitmap(alpha, 4f * density, 4f * density, glow)
-                canvas.restore()
-                canvas.drawBitmap(
-                    source,
-                    null,
-                    RectF(4f, 4f, width + 4f, height + 4f),
-                    Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG),
-                )
-                alpha.recycle()
-                if (scaled !== source) scaled.recycle()
-            }
-        }
+    // 지도의 해태 핀(작은 해태·빨간 해태·고른 정지점의 해태)은 모두 뺐다(2026-11-10 사용자 결정, 계획 §10-1) —
+    // 가이드가 찾은 곳은 [dot], 고른 정지점·목적지·담을까 보는 곳·찍은 자리는 [RouteNumberPin].
 
     /**
      * 다녀온 정지점의 **발바닥 핀** — 번호 핀을 통째로 갈음한다 (MZ2AZ-478 E7, iOS `PinoPin.pawPin`). 28dp 하늘→보라 원 +
@@ -161,6 +135,10 @@ class PoiPinImage(
     ): OverlayImage = cache.getOrPut("$density:$key", make)
 
     companion object {
+        /** 갈래 아이콘 지름(dp) — 보통과 고른 곳(§9). */
+        private const val DOT = 26f
+        private const val PICKED_DOT = 40f
+
         private val cache = mutableMapOf<String, OverlayImage>()
     }
 }

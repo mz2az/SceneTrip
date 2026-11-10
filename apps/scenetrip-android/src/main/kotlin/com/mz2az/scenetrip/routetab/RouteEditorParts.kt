@@ -598,7 +598,10 @@ private fun PoiChip(
     }
 }
 
-/** 챗봇이 찾은 곳은 작은 해태, 고른 한 곳은 빨간 테와 항상 보이는 이름표다. */
+/**
+ * 챗봇이 찾은 곳 — 기본 지도와 같은 갈래 아이콘, 고른 한 곳은 크게(26→40)와 항상 보이는 이름표(2026-11-10 사용자 결정 — 해태 뺌,
+ * 계획 §9·§10-1, iOS `RouteMapPins`). 일반 가게와는 「AI 장소」 칩을 켜고 꺼서 가른다.
+ */
 @Composable
 fun AiPlacePins(
     map: NaverMap?,
@@ -618,8 +621,8 @@ fun AiPlacePins(
                     position =
                         com.naver.maps.geometry
                             .LatLng(place.latitude, place.longitude)
-                    icon = images.mascot(selected)
-                    anchor = android.graphics.PointF(0.5f, 1f)
+                    icon = images.dot(place, picked = selected)
+                    anchor = android.graphics.PointF(0.5f, 0.5f) // 동그라미 가운데가 그 자리다
                     captionText = place.label().title
                     captionMinZoom = if (selected) 0.0 else 17.0
                     isHideCollidedCaptions = !selected
@@ -1013,8 +1016,8 @@ fun RouteStaySheet(
 }
 
 /**
- * 지도를 눌러 「이 자리에 추가」 시트가 떠 있는 동안 그 자리에 꽂는 **임시 해태 핀** — iOS
- * `renderPending`(`PinoPin.marker()`: 앞발을 얹은 해태, 폭 40). 없으면 어디를 눌렀는지 시트 뒤에서 안 보인다(2차 대조).
+ * 지도를 눌러 「이 자리에 추가」 시트가 떠 있는 동안 그 자리에 꽂는 **임시 핀** — 번호 없는 보라 핀을 크게(1.4배, 2026-11-10 사용자 결정 —
+ * 해태 뺌, 계획 §10-1, iOS `renderPending`). 없으면 어디를 눌렀는지 시트 뒤에서 안 보인다(2차 대조).
  */
 @Composable
 fun PendingPinMarker(
@@ -1022,18 +1025,15 @@ fun PendingPinMarker(
     pin: RoutePin?,
 ) {
     if (map == null || pin == null) return
-    val density = LocalContext.current.resources.displayMetrics.density
+    val metrics = LocalContext.current.resources.displayMetrics
     DisposableEffect(map, pin) {
         val marker =
             Marker().apply {
                 position =
                     com.naver.maps.geometry
                         .LatLng(pin.latitude, pin.longitude)
-                icon =
-                    com.naver.maps.map.overlay.OverlayImage
-                        .fromResource(com.mz2az.scenetrip.R.drawable.haetae_pinhold)
-                width = (40 * density).toInt()
-                height = (40 * density * 397f / 355f).toInt()
+                icon = RouteNumberPin.plain(metrics, large = true)
+                anchor = android.graphics.PointF(RouteNumberPinSpec.anchorX, RouteNumberPinSpec.anchorY)
                 zIndex = 3
                 this.map = map
             }

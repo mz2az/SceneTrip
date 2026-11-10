@@ -23,6 +23,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.mz2az.scenetrip.data.CoordinateSource
 import com.mz2az.scenetrip.routetab.RouteStopFocus
+import com.mz2az.scenetrip.routetab.withMotion
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.geometry.LatLngBounds
@@ -308,6 +309,8 @@ private val ROUTE_STOP_WITH_ME_PADDING = 56.dp
  * **「내 위치」 토글이 켜져 있고 내 자리를 알며 그곳이 3 km 안일 때만** 둘이 같이 보이는 크기로 맞춘다.
  * 멀리 있으면(서울시청↔인천) 둘을 담은 화면이 일차 전체와 거의 같아 눌러도 지도가 그대로인 것처럼 보였다 —
  * 그때는 그곳만 줌 [RouteStopFocus.ZOOM] 으로 확대한다.
+ *
+ * 가까우면(화면 너비 3배 안) 0.6초 동안 부드럽게, 멀면 한 번에(MZ2AZ-547 §10-3, `routetab/MapCameraMotionNaver.kt`).
  */
 fun NaverMap.focusOnStop(
     place: PlaceSummary,
@@ -323,11 +326,7 @@ fun NaverMap.focusOnStop(
     val tooClose = here != null && maxOf(abs(here.first - there.first), abs(here.second - there.second)) < 0.0006
     if (here == null || tooClose || !RouteStopFocus.showsWithMe(showingMe, here, there)) {
         regionSource.source = CoordinateSource.USER_SELECTED
-        moveCamera(
-            CameraUpdate
-                .scrollAndZoomTo(place.position, RouteStopFocus.ZOOM)
-                .animate(CameraAnimation.Easing, 500L),
-        )
+        moveCamera(CameraUpdate.scrollAndZoomTo(place.position, RouteStopFocus.ZOOM).withMotion(place.position, this))
         return
     }
     val bounds =
@@ -338,7 +337,7 @@ fun NaverMap.focusOnStop(
             .build()
     val padding = with(density) { ROUTE_STOP_WITH_ME_PADDING.roundToPx() }
     regionSource.source = CoordinateSource.DEVICE
-    moveCamera(CameraUpdate.fitBounds(bounds, padding).animate(CameraAnimation.Easing, 400L))
+    moveCamera(CameraUpdate.fitBounds(bounds, padding).withMotion(place.position, this))
 }
 
 /**
