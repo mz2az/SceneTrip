@@ -77,6 +77,17 @@ import com.mz2az.scenetrip.ui.IOSAlert
 import com.mz2az.scenetrip.ui.LikeFailureNotice
 import com.mz2az.scenetrip.ui.LocationConsentSheetHost
 import com.mz2az.scenetrip.ui.SparklesIcon
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.ImeAction
+import com.mz2az.scenetrip.ui.MagnifierIcon
+import com.mz2az.scenetrip.ui.XmarkIcon
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -106,6 +117,11 @@ fun WorksPlanView(
     var date by remember { mutableStateOf<LocalDate?>(null) }
     var pace by remember { mutableStateOf(RoutePace.LOOSE) }
     var workIds by remember { mutableStateOf(emptySet<Long>()) }
+    // 고른 작품의 기억 — 검색·쪽 넘김으로 화면에서 사라져도 제목·포스터를 쓴다(MZ2AZ-547 §1).
+    var remembered by remember { mutableStateOf(emptyMap<Long, ContentSummary>()) }
+    // 작품 검색칸(「작품 이름으로 찾기」) — 글, 서버에 보낸 q, 그 결과.
+    var searchText by remember { mutableStateOf("") }
+    val search = remember { WorksSearch() }
     var preset by remember { mutableStateOf(false) }
     var tooMany by remember { mutableStateOf(false) }
     var planning by remember { mutableStateOf(false) }
@@ -140,7 +156,16 @@ fun WorksPlanView(
         planning = true
         val near = here.takeIf { locationStore.isAllowed }
         scope.launch {
-            val result = routes.guideDraft(workIds, span, date, pace, latitude = near?.first, longitude = near?.second)
+            val result =
+                routes.guideDraft(
+                    workIds,
+                    span,
+                    date,
+                    pace,
+                    latitude = near?.first,
+                    longitude = near?.second,
+                    remembered = remembered,
+                )
             if (mine != run) return@launch
             planning = false
             if (result != null) draft = RouteEditorDraft(result) else failed = true
@@ -156,8 +181,25 @@ fun WorksPlanView(
     AIConsentSheetHost(consent)
     LocationConsentSheetHost(locationConsent, onCancel = { plan() })
 
+    val liked = routes.works.map { it.id }.filter { routes.isFavoriteWork(it) }.toSet() +
+        search.items.map { it.id }.filter { routes.isFavoriteWork(it) }
     val sorted = routes.sortedWorks
-    val chosen = sorted.filter { it.id in workIds }
+    // 지금 격자에 보일 것 — 검색 중이면 검색 결과, 아니면 받은 작품 전부. 둘 다 찜 먼저.
+    val shown = if (search.query == null) sorted else WorksBrowseRules.ordered(search.items, liked)
+    LaunchedEffect(workIds, shown) { remembered = WorksBrowseRules.rememberPicked(remembered, workIds, shown + sorted) }
+    // 0.3초 멈추면 묻는다. 비우면 원래 목록으로.
+    LaunchedEffect(searchText) {
+        val q = WorksBrowseRules.searchQuery(searchText)
+        if (q == null) {
+            search.reset()
+            return@LaunchedEffect
+        }
+        if (q == search.query) return@LaunchedEffect
+        delay(WorksBrowseRules.SEARCH_DEBOUNCE_MILLIS)
+        search.start(q)
+        search.load(routes)
+    }
+    val chosen = workIds.mapNotNull { remembered[it] ?: sorted.firstOrNull { w -> w.id == it } }
     when {
         planning -> {
             val posters =
@@ -225,8 +267,23 @@ fun WorksPlanView(
             ) {
                 NewCourseTitle(tr("누구의 장면을 따라갈까요?"))
                 Text(tr("여러 개 골라도 돼요. 안 고르면 인기 작품으로 짜요"), fontSize = 14.sp, color = IOS.secondaryLabel)
+                WorksSearchField(searchText, onChange = { searchText = it })
+                val q = search.query
+                if (q != null && search.loaded && search.items.isEmpty() && !search.failed) {
+                    Text(
+                        WorksBrowseRules.noMatch(q),
+                        fontSize = 14.sp,
+                        color = IOS.secondaryLabel,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                    )
+                }
                 PosterGrid(
-                    works = sorted,
+                    works = shown,
+                    onNearEnd = { lastVisible ->
+                        if (!WorksBrowseRules.nearEnd(lastVisible, shown.size)) return@PosterGrid
+                        scope.launch { if (search.query == null) routes.loadMoreWorks() else search.load(routes) }
+                    },
                     selected = workIds,
                     liked = { routes.isFavoriteWork(it) },
                     onToggle = { id ->
@@ -236,6 +293,26 @@ fun WorksPlanView(
                     },
                     onLike = { routes.toggleFavoriteWork(it) },
                 )
+                val loadingMore = if (search.query == null) routes.worksLoadingMore else search.loading
+                val moreFailed = if (search.query == null) routes.worksMoreFailed else search.failed && search.loaded
+                if (loadingMore || (search.query != null && !search.loaded && !search.failed)) {
+                    Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(Modifier.size(20.dp), color = IOS.secondaryLabel, strokeWidth = 2.dp)
+                    }
+                } else if (moreFailed || (search.query != null && search.failed)) {
+                    Text(
+                        tr("작품을 더 불러오지 못했어요 · 다시 시도"),
+                        fontSize = 14.sp,
+                        color = IOS.accent,
+                        textAlign = TextAlign.Center,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    scope.launch { if (search.query == null) routes.loadMoreWorks() else search.load(routes) }
+                                }.padding(vertical = 12.dp),
+                    )
+                }
             }
         }
     }
@@ -280,19 +357,143 @@ internal fun DraftEditor(
     }
 }
 
+/** 작품 검색의 상태 — 지금 q, 받은 결과, 총수. 쪽 넘김은 [WorksBrowseRules] 를 따른다. */
+@Stable
+private class WorksSearch {
+    var query by mutableStateOf<String?>(null)
+        private set
+    var items by mutableStateOf<List<ContentSummary>>(emptyList())
+        private set
+    var total by mutableStateOf<Int?>(null)
+        private set
+
+    /** 첫 쪽을 받았다(결과가 0개여도). 「맞는 작품이 없어요」 는 받은 뒤에만. */
+    var loaded by mutableStateOf(false)
+        private set
+    var loading by mutableStateOf(false)
+        private set
+    var failed by mutableStateOf(false)
+        private set
+
+    // 검색어가 바뀐 뒤 늦게 온 응답을 버리려는 번호.
+    private var generation = 0
+
+    fun reset() {
+        generation += 1
+        query = null
+        items = emptyList()
+        total = null
+        loaded = false
+        loading = false
+        failed = false
+    }
+
+    fun start(q: String) {
+        reset()
+        query = q
+    }
+
+    /** 다음 쪽(처음이면 첫 쪽). 이미 받는 중이거나 총수에 닿았으면 묻지 않는다. */
+    suspend fun load(routes: RouteStore) {
+        val q = query ?: return
+        if (loading) return
+        val offset = WorksBrowseRules.nextOffset(items.size, total) ?: return
+        val mine = generation
+        loading = true
+        failed = false
+        val page = routes.searchWorks(q, offset)
+        if (mine != generation) return
+        loading = false
+        if (page == null) {
+            failed = true
+            return
+        }
+        items = WorksBrowseRules.appended(items, page.items)
+        total = if (page.items.isEmpty()) items.size else page.total
+        loaded = true
+    }
+}
+
+/** 안내 글 아래 검색칸 「작품 이름으로 찾기」 — 커뮤니티 검색칸과 같은 모양(돋보기·지우기). */
+@Composable
+private fun WorksSearchField(
+    text: String,
+    onChange: (String) -> Unit,
+) {
+    val shape = RoundedCornerShape(10.dp)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 40.dp)
+                .clip(shape)
+                .background(IOS.systemBackground)
+                .padding(horizontal = 12.dp),
+    ) {
+        MagnifierIcon(IOS.secondaryLabel, Modifier.size(16.dp))
+        BasicTextField(
+            text,
+            onChange,
+            singleLine = true,
+            textStyle = IOS.body.copy(fontSize = 16.sp, color = IOS.label),
+            cursorBrush = SolidColor(IOS.accent),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .semantics { contentDescription = tr("작품 이름으로 찾기") }
+                    .testTag("works-search-field"),
+            decorationBox = { inner ->
+                Box(contentAlignment = Alignment.CenterStart) {
+                    if (text.isEmpty()) Text(tr("작품 이름으로 찾기"), fontSize = 16.sp, color = IOS.tertiaryLabel)
+                    inner()
+                }
+            },
+        )
+        if (text.isNotEmpty()) {
+            Box(
+                Modifier.size(28.dp).semantics { contentDescription = tr("지우기") }.clickable { onChange("") },
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier.size(16.dp).clip(CircleShape).background(IOS.systemGray3),
+                    contentAlignment = Alignment.Center,
+                ) { XmarkIcon(Color.White, Modifier.size(7.dp)) }
+            }
+        }
+    }
+}
+
 /** 작품 포스터 3열 — 포스터를 누르면 고름(보라 테두리·✓), 왼쪽 위 하트는 찜 (A2). 하트는 포스터 단추 **밖의 형제 단추**다. */
 @Composable
 private fun PosterGrid(
     works: List<ContentSummary>,
+    onNearEnd: (lastVisibleIndex: Int) -> Unit,
     selected: Set<Long>,
     liked: (Long) -> Boolean,
     onToggle: (Long) -> Unit,
     onLike: (Long) -> Unit,
 ) {
     // 바깥이 세로 스크롤이라 지연 격자 대신 줄을 직접 짠다.
+    // 마지막 줄이 화면에 들어오면(바깥 스크롤에 잘리지 않은 높이가 생기면) 다음 쪽을 묻는다(MZ2AZ-547 §1).
+    val rows = works.chunked(WorksBrowseRules.COLUMNS)
+    val latestNearEnd by rememberUpdatedState(onNearEnd)
+    var lastRowVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(lastRowVisible, works.size) { if (lastRowVisible) latestNearEnd(works.lastIndex) }
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        works.chunked(3).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        rows.forEachIndexed { index, row ->
+            val last = index == rows.lastIndex
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier =
+                    if (last) {
+                        Modifier.onGloballyPositioned { lastRowVisible = it.boundsInWindow().height > 0f }
+                    } else {
+                        Modifier
+                    },
+            ) {
                 row.forEach { work -> Box(Modifier.weight(1f)) { PosterCell(work, work.id in selected, liked(work.id), onToggle, onLike) } }
                 repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
             }

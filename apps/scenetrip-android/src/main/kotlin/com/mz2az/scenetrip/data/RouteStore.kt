@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.mz2az.scenetrip.analytics.AppAnalytics
 import com.mz2az.scenetrip.analytics.AppEvent
+import com.mz2az.scenetrip.newcourse.WorksBrowseRules
 import com.mz2az.scenetrip.routetab.RouteBridge
 import com.mz2az.scenetrip.routetab.RouteCourse
 import com.mz2az.scenetrip.routetab.RouteDay
@@ -18,6 +19,7 @@ import com.mz2az.scenetrip.sceneapi.client.api.ContentsApi
 import com.mz2az.scenetrip.sceneapi.client.api.CoursesApi
 import com.mz2az.scenetrip.sceneapi.client.api.GuideApi
 import com.mz2az.scenetrip.sceneapi.client.api.PlacesApi
+import com.mz2az.scenetrip.sceneapi.client.model.ContentList
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
 import com.mz2az.scenetrip.sceneapi.client.model.CourseCreate
 import com.mz2az.scenetrip.sceneapi.client.model.CourseDetail
@@ -83,8 +85,20 @@ class RouteStore(
     var courseList by mutableStateOf(CourseListState.UNKNOWN)
         private set
 
-    /** 질문 흐름이 쓰는 작품 목록 — [loadWorks]가 채운다. */
+    /** 질문 흐름이 쓰는 작품 목록 — [loadWorks]가 첫 쪽을, [loadMoreWorks]가 다음 쪽을 채운다. */
     var works by mutableStateOf<List<ContentSummary>>(emptyList())
+        private set
+
+    /** 서버의 작품 총수(`ContentList.total`). 모르면 null — [WorksBrowseRules.nextOffset] 이 멈출 곳을 정한다. */
+    var worksTotal by mutableStateOf<Int?>(null)
+        private set
+
+    /** 다음 쪽을 받는 중 — 같은 쪽을 두 번 묻지 않게. */
+    var worksLoadingMore by mutableStateOf(false)
+        private set
+
+    /** 다음 쪽을 못 받았다 — 화면이 「다시 시도」 를 보인다. 첫 쪽은 예전처럼 조용히 둔다. */
+    var worksMoreFailed by mutableStateOf(false)
         private set
 
     /**
@@ -134,11 +148,53 @@ class RouteStore(
     private val likeStore = LikeStore.getInstance(context)
     private val locationConsent = LocationConsentStore.getInstance(context)
 
-    /** [works]를 채운다. 마법사가 작품 선택 단계에 들어갈 때 부른다. */
+    /** [works]의 첫 쪽(30개)을 채운다. 새 코스 시트·작품 고르기 단계가 부른다. */
     suspend fun loadWorks() {
-        runCatching { withContext(Dispatchers.IO) { contentsApi.listContents(limit = 30) } }
-            .onSuccess { works = it.items }
+        runCatching { withContext(Dispatchers.IO) { contentsApi.listContents(limit = WorksBrowseRules.PAGE_SIZE) } }
+            .onSuccess {
+                works = it.items
+                worksTotal = it.total
+                worksMoreFailed = false
+            }
     }
+
+    /**
+     * [works] 의 다음 쪽(`offset` = 받은 수)을 뒤에 붙인다 — 목록 끝에서 한 줄 안이 보일 때(MZ2AZ-547 §1).
+     * [worksTotal] 에 닿았거나 이미 받는 중이면 묻지 않는다. 첫 쪽을 아직 못 받았으면 첫 쪽부터.
+     */
+    suspend fun loadMoreWorks() {
+        if (worksLoadingMore) return
+        if (works.isEmpty()) {
+            loadWorks()
+            return
+        }
+        val offset = WorksBrowseRules.nextOffset(works.size, worksTotal) ?: return
+        worksLoadingMore = true
+        try {
+            runCatching {
+                withContext(Dispatchers.IO) { contentsApi.listContents(limit = WorksBrowseRules.PAGE_SIZE, offset = offset) }
+            }.onSuccess { page ->
+                works = WorksBrowseRules.appended(works, page.items)
+                // 빈 쪽이 오면 더 받을 것이 없다 — 받은 수에서 멈춘다(무한 반복 방지).
+                worksTotal = if (page.items.isEmpty()) works.size else page.total
+                worksMoreFailed = false
+            }.onFailure { worksMoreFailed = true }
+        } finally {
+            worksLoadingMore = false
+        }
+    }
+
+    /**
+     * 작품 검색 한 쪽(`GET /contents?q=…&limit=30&offset=…`). 검색 결과는 화면이 들고 있는다 — [works] 는 건드리지 않는다.
+     * 실패하면 null.
+     */
+    suspend fun searchWorks(
+        q: String,
+        offset: Int,
+    ): ContentList? =
+        runCatching {
+            withContext(Dispatchers.IO) { contentsApi.listContents(q = q, limit = WorksBrowseRules.PAGE_SIZE, offset = offset) }
+        }.getOrNull()
 
     /** [places]를 채운다. 이미 있으면 다시 부르지 않는다 — 검색·장바구니를 열 때마다 부른다. */
     suspend fun loadPlaces() {
@@ -300,12 +356,15 @@ class RouteStore(
         // 발견: 안 넘겼을 때 1일차 정지점 순서가 iOS와 거꾸로 나왔다).
         latitude: Double? = null,
         longitude: Double? = null,
+        // 고른 작품의 기억 — 검색 결과·다음 쪽에서 사라진 작품도 제목을 쓴다(MZ2AZ-547 §1, [WorksBrowseRules.rememberPicked]).
+        remembered: Map<Long, ContentSummary> = emptyMap(),
     ): RouteCourse? =
         withContext(Dispatchers.IO) {
             planFailure = null
             runCatching {
-                val chosenTitles = works.filter { workIds.contains(it.id) }.map { it.title }
-                val requestTitles = chosenTitles.ifEmpty { sortedWorks.take(3).map { it.title } }
+                val known = works.filter { workIds.contains(it.id) }.associateBy { it.id } + remembered
+                val chosenTitles = workIds.mapNotNull { known[it]?.title }
+                val requestTitles = WorksBrowseRules.requestTitles(workIds, known, sortedWorks)
                 // 인기 작품조차 못 불러왔으면 보낼 제목이 없다 — 계약이 titles 를 최소 하나 요구한다(iOS `.badRequest`).
                 if (requestTitles.isEmpty()) return@runCatching null
                 val request =

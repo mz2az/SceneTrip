@@ -221,4 +221,8 @@ internal val TRANSLATIONS_EN_EXTRA =
         "쓰던 글을 버릴까요?" to "Discard this post?",
         "게시판" to "Board",
         "게시판: %s" to "Board: %s",
+        // 작품 고르기 검색·쪽 넘김 (MZ2AZ-547 motion-works-drawer-parity §1).
+        "작품 이름으로 찾기" to "Search shows by title",
+        "「%s」 에 맞는 작품이 없어요" to "No shows match “%s”",
+        "작품을 더 불러오지 못했어요 · 다시 시도" to "Couldn't load more shows · Retry",
     )
