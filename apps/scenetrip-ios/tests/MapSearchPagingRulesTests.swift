@@ -125,4 +125,74 @@ final class MapSearchPagingRulesTests: XCTestCase {
         XCTAssertFalse(MapSearchPagingRules.fitsMap(offset: 20))
         XCTAssertFalse(MapSearchPagingRules.fitsMap(offset: 40))
     }
+
+    // MARK: 핀 상한 (§8-2)
+
+    private func viewport(source: LocationCoordinateSource) -> MapViewport {
+        // 수원 화성 언저리 — 가운데가 네모 꼭짓점의 한가운데가 아니어도 받은 가운데 값을 그대로 쓴다.
+        MapViewport(
+            south: 37.26, west: 126.99, north: 37.30, east: 127.04,
+            centerLat: 37.2871, centerLng: 127.0152, zoom: 14, source: source
+        )
+    }
+
+    func testPinLimitIsOneHundred() {
+        XCTAssertEqual(MapSearchPagingRules.pinLimit, 100)
+    }
+
+    func testPinsEveryResultWhenShorterThanLimit() {
+        let list = shops((0 ..< 37).map { "s\($0)" })
+        XCTAssertEqual(MapSearchPagingRules.pinnedResults(list), list)
+    }
+
+    func testPinsEveryResultWhenExactlyAtLimit() {
+        let list = shops((0 ..< 100).map { "s\($0)" })
+        XCTAssertEqual(MapSearchPagingRules.pinnedResults(list), list)
+    }
+
+    func testPinsOnlyFirstHundredWhenLongerThanLimit() {
+        // 목록은 250개까지 늘었어도 지도에는 앞(가까운) 100곳만.
+        let list = shops((0 ..< 250).map { "s\($0)" })
+        let pinned = MapSearchPagingRules.pinnedResults(list)
+        XCTAssertEqual(pinned.count, 100)
+        XCTAssertEqual(pinned, Array(list.prefix(100)))
+    }
+
+    func testPinnedResultsKeepListOrder() {
+        // 가까운 순으로 받은 차례를 바꾸지 않는다(이름순으로 다시 늘어놓지 않음).
+        let list = shops(["z", "a", "m", "b"])
+        XCTAssertEqual(MapSearchPagingRules.pinnedResults(list).map(\.id), ["z", "a", "m", "b"])
+    }
+
+    func testNoPinsForEmptyList() {
+        XCTAssertTrue(MapSearchPagingRules.pinnedResults([Shop]()).isEmpty)
+    }
+
+    // MARK: 기준점 (§8-1)
+
+    func testOriginIsViewportCentre() {
+        let origin = MapSearchPagingRules.origin(viewport: viewport(source: .userSelected))
+        XCTAssertEqual(origin?.lat, 37.2871)
+        XCTAssertEqual(origin?.lng, 127.0152)
+    }
+
+    func testOriginCarriesUserSelectedSource() {
+        XCTAssertEqual(
+            MapSearchPagingRules.origin(viewport: viewport(source: .userSelected)),
+            MapSearchOrigin(lat: 37.2871, lng: 127.0152, source: .userSelected)
+        )
+    }
+
+    func testOriginCarriesDeviceSource() {
+        // 내 위치로 맞춘 지도면 기준점도 기기 위치에서 온 것으로 알린다(위치 동의).
+        XCTAssertEqual(
+            MapSearchPagingRules.origin(viewport: viewport(source: .device)),
+            MapSearchOrigin(lat: 37.2871, lng: 127.0152, source: .device)
+        )
+    }
+
+    func testNoOriginWithoutViewport() {
+        // 지도가 아직 없으면 기준점 없이 묻는다(서버 기본 이름순).
+        XCTAssertNil(MapSearchPagingRules.origin(viewport: nil))
+    }
 }
