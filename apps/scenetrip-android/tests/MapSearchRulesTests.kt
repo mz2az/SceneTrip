@@ -19,6 +19,9 @@ import org.junit.jupiter.api.Test
 /**
  * 지도 검색 규칙 (MZ2AZ-547 P5, 계획서 `docs/project/plans/ios-web-parity.md` M6·M7 — 2026-11-10 부터 가게·장소(`GET /pois?q`)만 찾는다).
  * iOS `MapSearchRulesTests` 를 하나씩 옮겼다. Kotlin 쪽은 값을 바꾸지 않고 새 값을 돌려주고, 시각은 epoch ms 다.
+ *
+ * 2026-11-10 계획 `docs/project/plans/motion-works-drawer-parity.md` §7·§10 으로 바뀌었다 — 검색은 범위 없이 화면 가운데에서
+ * 가까운 순 하나, 「이 지역엔 없어요」·「이 지역 밖에서도 찾기」 를 없앴고, 목록 맨 위에 「‘q’ 검색」, 결과 서랍은 20개씩 더 받는다.
  */
 class MapSearchRulesTests {
     // ── 도움 ──
@@ -84,12 +87,10 @@ class MapSearchRulesTests {
         assertFalse(MapSearchRules.canCommit("   "))
     }
 
-    /** 「이 지역 밖에서도」 면 범위 없음, 아니면 지금 지도(서쪽,남쪽,동쪽,북쪽). */
+    /** 지도 범위의 `bbox` 는 서쪽,남쪽,동쪽,북쪽 — 검색은 더는 쓰지 않지만(§10-2) 기본 지도 편의시설이 쓴다. */
     @Test
-    fun bboxForWideOrHere() {
-        assertEquals("126.900000,37.400000,127.100000,37.600000", MapSearchRules.bbox(wide = false, viewport = viewport))
-        assertNull(MapSearchRules.bbox(wide = true, viewport = viewport))
-        assertNull(MapSearchRules.bbox(wide = false, viewport = null))
+    fun viewportBboxOrder() {
+        assertEquals("126.900000,37.400000,127.100000,37.600000", viewport.bbox)
     }
 
     /** 2글자 안 됨·받는 중·실패. */
@@ -107,53 +108,89 @@ class MapSearchRulesTests {
         assertEquals(16.0, MapSearchRules.FOCUS_MIN_ZOOM)
     }
 
-    // ── 목록 줄 — 가게·장소만(촬영지는 찾지 않는다) ──
+    // ── 목록 줄 — 가게·장소만, 범위 없이 가까운 순(§10-2) ──
 
-    /** 이 지역 — 가게·장소 제목 → 가게 → 그 아래 「이 지역 밖에서도 찾기」. */
+    /** 찾았으면 「가게·장소 · 가까운 순」 제목 → 가게. 「이 지역 밖에서도 찾기」 줄은 없다. */
     @Test
-    fun rowsHereWithResults() {
-        val rows = MapSearchRules.rows(MapSearchPhase.Done(shops = listOf(poi(1), poi(2)), wide = false))
+    fun rowsDoneWithShops() {
+        val rows = MapSearchRules.rows(MapSearchPhase.Done(shops = listOf(poi(1), poi(2))))
         assertEquals(
             listOf(
-                MapSearchRow.Title(MapSearchTitle.SHOPS_HERE),
+                MapSearchRow.Title(MapSearchTitle.SHOPS_NEARBY),
                 MapSearchRow.Shop(poi(1)),
                 MapSearchRow.Shop(poi(2)),
-                MapSearchRow.SearchEverywhere,
             ),
             rows,
         )
     }
 
-    /** 이 지역에 없으면 「이 지역엔 없어요」, 그래도 「이 지역 밖에서도 찾기」. */
+    /** 숙소 하나만 찾아도 같은 제목 하나. */
     @Test
-    fun rowsHereEmpty() {
-        val rows = MapSearchRules.rows(MapSearchPhase.Done(shops = emptyList(), wide = false))
+    fun rowsDoneWithOneStay() {
+        val shop = poi(7, PoiCategoryGroup.stay)
+        val rows = MapSearchRules.rows(MapSearchPhase.Done(shops = listOf(shop)))
+        assertEquals(listOf(MapSearchRow.Title(MapSearchTitle.SHOPS_NEARBY), MapSearchRow.Shop(shop)), rows)
+    }
+
+    /** 하나도 없으면 「찾는 곳이 없어요」 — 「이 지역엔 없어요」·「이 지역 밖에서도 찾기」 는 없다. */
+    @Test
+    fun rowsDoneEmpty() {
+        val rows = MapSearchRules.rows(MapSearchPhase.Done(shops = emptyList()))
+        assertEquals(
+            listOf(MapSearchRow.Title(MapSearchTitle.SHOPS_NEARBY), MapSearchRow.Empty(MapSearchEmpty.NO_PLACES)),
+            rows,
+        )
+    }
+
+    // ── 검색칸 아래 목록 전체 — 맨 위 「‘q’ 검색」(§7-2) ──
+
+    /** 2글자 이상이면 맨 위 줄은 「‘q’ 검색」(다듬은 검색어), 그 아래 가게 목록. */
+    @Test
+    fun panelRowsStartWithCommitRow() {
+        val rows = MapSearchRules.panelRows("  국밥 ", MapSearchPhase.Done(shops = listOf(poi(1))))
         assertEquals(
             listOf(
-                MapSearchRow.Title(MapSearchTitle.SHOPS_HERE),
-                MapSearchRow.Empty(MapSearchEmpty.NONE_HERE),
-                MapSearchRow.SearchEverywhere,
+                MapSearchRow.Commit("국밥"),
+                MapSearchRow.Title(MapSearchTitle.SHOPS_NEARBY),
+                MapSearchRow.Shop(poi(1)),
             ),
             rows,
         )
     }
 
-    /** 전체에서 찾았으면 「이 지역 밖에서도 찾기」 가 없다. */
+    /** 받는 동안·못 찾았을 때·하나도 없을 때도 맨 위 「‘q’ 검색」 은 있다(눌러 결과 서랍을 열 수 있게). */
     @Test
-    fun rowsWideWithResults() {
-        val shop = poi(7, PoiCategoryGroup.stay)
-        val rows = MapSearchRules.rows(MapSearchPhase.Done(shops = listOf(shop), wide = true))
-        assertEquals(listOf(MapSearchRow.Title(MapSearchTitle.SHOPS_EVERYWHERE), MapSearchRow.Shop(shop)), rows)
+    fun panelRowsKeepCommitRowWhileLoadingFailedOrEmpty() {
+        assertEquals(
+            listOf(MapSearchRow.Commit("국밥"), MapSearchRow.Loading),
+            MapSearchRules.panelRows("국밥", MapSearchPhase.Loading),
+        )
+        assertEquals(
+            listOf(MapSearchRow.Commit("국밥"), MapSearchRow.Failed),
+            MapSearchRules.panelRows("국밥", MapSearchPhase.Failed),
+        )
+        assertEquals(
+            listOf(
+                MapSearchRow.Commit("국밥"),
+                MapSearchRow.Title(MapSearchTitle.SHOPS_NEARBY),
+                MapSearchRow.Empty(MapSearchEmpty.NO_PLACES),
+            ),
+            MapSearchRules.panelRows("국밥", MapSearchPhase.Done(shops = emptyList())),
+        )
     }
 
-    /** 전체에서도 없으면 「찾는 곳이 없어요」. */
+    /** 2글자가 안 되면 아무 줄도 없다. */
     @Test
-    fun rowsWideEmpty() {
-        val rows = MapSearchRules.rows(MapSearchPhase.Done(shops = emptyList(), wide = true))
-        assertEquals(
-            listOf(MapSearchRow.Title(MapSearchTitle.SHOPS_EVERYWHERE), MapSearchRow.Empty(MapSearchEmpty.NO_PLACES)),
-            rows,
-        )
+    fun panelRowsEmptyBelowTwoCharacters() {
+        assertEquals(emptyList<MapSearchRow>(), MapSearchRules.panelRows("국", MapSearchPhase.Idle))
+        assertEquals(emptyList<MapSearchRow>(), MapSearchRules.panelRows("   ", MapSearchPhase.Idle))
+    }
+
+    /** 맨 위 줄의 검색어는 100자에서 자른 것 — 엔터와 같은 검색어. */
+    @Test
+    fun panelRowsCommitUsesTruncatedQuery() {
+        val rows = MapSearchRules.panelRows("가".repeat(150), MapSearchPhase.Loading)
+        assertEquals(MapSearchRow.Commit("가".repeat(100)), rows.firstOrNull())
     }
 
     // ── 검색하는 동안 지도에 남길 점 ──
@@ -161,7 +198,7 @@ class MapSearchRulesTests {
     /** 결과가 오면 그것으로 바꾼다. */
     @Test
     fun pinnedReplacedByDoneShops() {
-        val pinned = MapSearchRules.pinned(listOf(poi(1)), MapSearchPhase.Done(shops = listOf(poi(2), poi(3)), wide = false))
+        val pinned = MapSearchRules.pinned(listOf(poi(1)), MapSearchPhase.Done(shops = listOf(poi(2), poi(3))))
         assertEquals(listOf(2L, 3L), ids(pinned))
     }
 
@@ -277,7 +314,7 @@ class MapSearchRulesTests {
     /** 서랍은 42% 에서 시작해 손잡이로 78% ↔ 42%. */
     @Test
     fun drawerToggles() {
-        val short = MapSearchResults(query = "남산", wide = false)
+        val short = MapSearchResults(query = "남산")
         assertEquals(0.42, short.drawerShare, 0.0001)
         val tall = short.toggleDrawer()
         assertTrue(tall.tall)
@@ -290,7 +327,7 @@ class MapSearchRulesTests {
     /** 검색어 알약의 「N곳」 — 받기 전 null. */
     @Test
     fun count() {
-        val results = MapSearchResults(query = "남산", wide = false)
+        val results = MapSearchResults(query = "남산")
         assertNull(results.shops)
         assertNull(results.count)
         assertEquals(3, results.received(listOf(poi(1), poi(2), poi(3))).count)
@@ -300,7 +337,7 @@ class MapSearchRulesTests {
     /** 받으면 목록을 두고 실패를 거둔다. */
     @Test
     fun receivedStoresShopsAndClearsFailed() {
-        val failed = MapSearchResults(query = "남산", wide = false).searchFailed()
+        val failed = MapSearchResults(query = "남산").searchFailed()
         assertTrue(failed.failed)
         val got = failed.received(listOf(poi(1)))
         assertEquals(listOf(poi(1)), got.shops)
@@ -310,7 +347,7 @@ class MapSearchRulesTests {
     /** 새로 받기 시작하면 목록을 비우고 실패·「다시 찾기」 를 거둔다. */
     @Test
     fun beginClearsState() {
-        val messy = MapSearchResults(query = "남산", wide = false).received(listOf(poi(1))).cameraIdle(start).searchFailed()
+        val messy = MapSearchResults(query = "남산").received(listOf(poi(1))).cameraIdle(start).searchFailed()
         assertNotNull(messy.shops)
         assertTrue(messy.failed)
         assertTrue(messy.stale)
@@ -320,22 +357,13 @@ class MapSearchRulesTests {
         assertFalse(fresh.stale)
     }
 
-    /** 「이 지역에서 다시 찾기」 — 범위를 지금 지도로, 다시 받는다. */
+    /** 「↻ 이 지역에서 다시 찾기」 — 새 화면 가운데를 기준으로 처음 쪽부터 다시 묻는다(§10-2). 누를 때마다 새 물음. */
     @Test
-    fun searchHere() {
-        val results = MapSearchResults(query = "남산", wide = true)
-        val here = results.searchHere()
-        assertFalse(here.wide)
-        assertEquals(results.ask + 1, here.ask)
-    }
-
-    /** 「이 지역 밖에서도 찾기」 — 범위 없이, 다시 받는다. */
-    @Test
-    fun searchEverywhere() {
-        val results = MapSearchResults(query = "남산", wide = false)
-        val everywhere = results.searchEverywhere()
-        assertTrue(everywhere.wide)
-        assertEquals(results.ask + 1, everywhere.ask)
+    fun searchHereStartsNewAsk() {
+        val results = MapSearchResults(query = "남산")
+        val once = results.searchHere()
+        assertEquals(results.ask + 1, once.ask)
+        assertEquals(results.ask + 2, once.searchHere().ask)
     }
 
     // ── 「다시 찾기」 ──
@@ -343,7 +371,7 @@ class MapSearchRulesTests {
     /** 받기 전에는 지도를 옮겨도 없다. 받은 뒤 사람이 지도를 옮기면 「다시 찾기」, 새로 받으면 거둔다. */
     @Test
     fun cameraIdleAfterReceivedShowsRefresh() {
-        val before = MapSearchResults(query = "남산", wide = false).cameraIdle(start)
+        val before = MapSearchResults(query = "남산").cameraIdle(start)
         assertFalse(before.stale)
         assertFalse(before.showsRefresh)
         val moved = before.received(listOf(poi(1))).cameraIdle(start)
@@ -357,7 +385,7 @@ class MapSearchRulesTests {
     /** 앱이 카메라를 옮긴 직후(0.9초 안)의 멈춤은 사람이 옮긴 것이 아니다. */
     @Test
     fun selfMoveWithinGraceIsIgnored() {
-        val marked = MapSearchResults(query = "남산", wide = false).received(listOf(poi(1))).markSelfMove(start)
+        val marked = MapSearchResults(query = "남산").received(listOf(poi(1))).markSelfMove(start)
         val soon = marked.cameraIdle(start + 500)
         assertFalse(soon.stale)
         val later = soon.cameraIdle(start + 1_000)
@@ -367,7 +395,7 @@ class MapSearchRulesTests {
     /** 새로 받는 동안(가게 null)에는 「다시 찾기」 를 보이지 않는다. */
     @Test
     fun noRefreshWhileShopsNotReceived() {
-        val moved = MapSearchResults(query = "남산", wide = false).received(listOf(poi(1))).cameraIdle(start)
+        val moved = MapSearchResults(query = "남산").received(listOf(poi(1))).cameraIdle(start)
         assertTrue(moved.showsRefresh)
         assertFalse(moved.begin().showsRefresh)
     }
@@ -377,7 +405,7 @@ class MapSearchRulesTests {
     /** 받기 전엔 받는 중, 받으면 가게 목록. */
     @Test
     fun bodyLoadingThenShops() {
-        val results = MapSearchResults(query = "남산", wide = false)
+        val results = MapSearchResults(query = "남산")
         assertEquals(MapSearchResults.Body.Loading, results.body)
         assertEquals(MapSearchResults.Body.Shops(listOf(poi(1), poi(2))), results.received(listOf(poi(1), poi(2))).body)
     }
@@ -385,22 +413,188 @@ class MapSearchRulesTests {
     /** 실패하면 실패 문구. */
     @Test
     fun bodyFailed() {
-        val failed = MapSearchResults(query = "남산", wide = false).searchFailed()
+        val failed = MapSearchResults(query = "남산").searchFailed()
         assertTrue(failed.failed)
         assertEquals(MapSearchResults.Body.Failed, failed.body)
     }
 
-    /** 이 지역에 없으면 「이 지역엔 없어요」 + 「이 지역 밖에서도 찾기」 단추. */
+    /** 하나도 없으면 「찾는 곳이 없어요」 — 「이 지역 밖에서도 찾기」 단추는 없다(§10-2). */
     @Test
-    fun bodyEmptyHereOffersEverywhere() {
-        val results = MapSearchResults(query = "남산", wide = false).received(emptyList())
-        assertEquals(MapSearchResults.Body.Empty(MapSearchEmpty.NONE_HERE, offerEverywhere = true), results.body)
+    fun bodyEmptyShowsNoPlaces() {
+        val results = MapSearchResults(query = "남산").received(emptyList())
+        assertEquals(MapSearchResults.Body.Empty(MapSearchEmpty.NO_PLACES), results.body)
     }
 
-    /** 전체에서도 없으면 「찾는 곳이 없어요」, 단추 없음. */
+    /** 받는 동안은 받는 중, 다 받았는데 비었으면 「찾는 곳이 없어요」. */
     @Test
-    fun bodyEmptyWide() {
-        val results = MapSearchResults(query = "남산", wide = true).received(emptyList())
-        assertEquals(MapSearchResults.Body.Empty(MapSearchEmpty.NO_PLACES, offerEverywhere = false), results.body)
+    fun bodyLoadingThenEmpty() {
+        val results = MapSearchResults(query = "남산")
+        assertEquals(MapSearchResults.Body.Loading, results.body)
+        assertEquals(MapSearchResults.Body.Empty(MapSearchEmpty.NO_PLACES), results.received(emptyList()).body)
+    }
+
+    // ── 결과 서랍 더 받기(§7-4) — iOS `MapSearchResults` 의 쪽 상태를 옮겼다 ──
+
+    private fun page(range: IntRange): List<PoiSummary> = range.map { poi(it.toLong()) }
+
+    /** 받기 전에는 다음 쪽이 없다(처음 쪽은 begin 으로 따로 묻는다). */
+    @Test
+    fun nextOffsetNullBeforeFirstPage() {
+        assertNull(MapSearchResults(query = "국밥").nextOffset)
+    }
+
+    /** 처음 20개를 받았고 전체가 55면 다음은 20 부터. */
+    @Test
+    fun nextOffsetAfterFirstPageBelowTotal() {
+        val results = MapSearchResults(query = "국밥").received(page(1..20), total = 55)
+        assertEquals(20, results.nextOffset)
+    }
+
+    /** 전체 개수를 몰라도 받은 수에서 이어 묻는다. */
+    @Test
+    fun nextOffsetWithUnknownTotal() {
+        val results = MapSearchResults(query = "국밥").received(page(1..20), total = null)
+        assertEquals(20, results.nextOffset)
+    }
+
+    /** 처음 쪽이 비었으면 더 묻지 않는다. */
+    @Test
+    fun nextOffsetNullAfterEmptyFirstPage() {
+        assertNull(MapSearchResults(query = "국밥").received(emptyList(), total = null).nextOffset)
+    }
+
+    /** 전체에 닿으면 멈춘다 — 20개뿐이면 더 묻지 않는다. */
+    @Test
+    fun nextOffsetNullWhenFirstPageReachesTotal() {
+        assertNull(MapSearchResults(query = "국밥").received(page(1..20), total = 20).nextOffset)
+    }
+
+    /** 받는 중에는 또 묻지 않는다 — 받는 줄이 돈다. */
+    @Test
+    fun beginMoreBlocksNextOffset() {
+        val loading = MapSearchResults(query = "국밥").received(page(1..20), total = 55).beginMore()
+        assertTrue(loading.loadingMore)
+        assertNull(loading.nextOffset)
+    }
+
+    /** 다음 쪽을 받으면 뒤에 붙고(같은 id 는 빼고), 받는 중을 거두고, 다음 offset 은 받은 수. */
+    @Test
+    fun receivedMoreMergesWithoutDuplicates() {
+        val more =
+            MapSearchResults(query = "국밥")
+                .received(page(1..20), total = 55)
+                .beginMore()
+                .receivedMore(page(19..38), total = 55)
+        assertEquals((1L..38L).toList(), ids(more.shops.orEmpty()))
+        assertFalse(more.loadingMore)
+        assertEquals(38, more.nextOffset)
+    }
+
+    /** 다음 쪽이 total 을 알려 주지 않으면 앞의 total 을 둔다. */
+    @Test
+    fun receivedMoreKeepsTotalWhenMissing() {
+        val more =
+            MapSearchResults(query = "국밥")
+                .received(page(1..20), total = 55)
+                .beginMore()
+                .receivedMore(page(21..40), total = null)
+        assertEquals(55, more.total)
+        assertEquals(55, more.headerCount)
+    }
+
+    /** 다음 쪽이 새 total 을 알려 주면 그것으로 바꾼다. */
+    @Test
+    fun receivedMoreUpdatesTotal() {
+        val more =
+            MapSearchResults(query = "국밥")
+                .received(page(1..20), total = 55)
+                .beginMore()
+                .receivedMore(page(21..40), total = 41)
+        assertEquals(41, more.total)
+        assertEquals(40, more.nextOffset)
+    }
+
+    /** 빈 쪽이 오면 total 이 남았다고 해도 멈춘다. */
+    @Test
+    fun emptyMorePageStops() {
+        val more =
+            MapSearchResults(query = "국밥")
+                .received(page(1..20), total = 60)
+                .beginMore()
+                .receivedMore(emptyList(), total = 60)
+        assertTrue(more.lastPageEmpty)
+        assertNull(more.nextOffset)
+        assertEquals(20, more.shops?.size)
+    }
+
+    /** total 에 닿으면 멈춘다 — 20·20 을 받아 40 이면 끝. */
+    @Test
+    fun reachingTotalStops() {
+        val more =
+            MapSearchResults(query = "국밥")
+                .received(page(1..20), total = 40)
+                .beginMore()
+                .receivedMore(page(21..40), total = 40)
+        assertNull(more.nextOffset)
+    }
+
+    /** 다음 쪽을 못 받으면 「다시 시도」 를 누를 때까지 묻지 않고, 누르면 같은 offset 부터 다시. */
+    @Test
+    fun moreFailureWaitsForRetry() {
+        val failed =
+            MapSearchResults(query = "국밥")
+                .received(page(1..20), total = 55)
+                .beginMore()
+                .moreFailedNow()
+        assertTrue(failed.moreFailed)
+        assertFalse(failed.loadingMore)
+        assertNull(failed.nextOffset)
+        val retried = failed.retryMore()
+        assertFalse(retried.moreFailed)
+        assertEquals(20, retried.nextOffset)
+    }
+
+    /** 더 받기 실패는 서랍 본문을 실패로 바꾸지 않는다 — 받은 목록은 그대로 보인다. */
+    @Test
+    fun moreFailureKeepsShopsBody() {
+        val failed =
+            MapSearchResults(query = "국밥")
+                .received(page(1..20), total = 55)
+                .beginMore()
+                .moreFailedNow()
+        assertEquals(MapSearchResults.Body.Shops(page(1..20)), failed.body)
+    }
+
+    /** 새로 받기 시작하면 쪽 상태(전체 개수·빈 쪽·받는 중·실패)도 비운다. */
+    @Test
+    fun beginClearsPagingState() {
+        val messy =
+            MapSearchResults(query = "국밥")
+                .received(page(1..20), total = 55)
+                .beginMore()
+                .moreFailedNow()
+                .receivedMore(emptyList(), total = 55)
+                .begin()
+        assertNull(messy.shops)
+        assertNull(messy.total)
+        assertFalse(messy.lastPageEmpty)
+        assertFalse(messy.loadingMore)
+        assertFalse(messy.moreFailed)
+    }
+
+    /** 검색어 알약의 「N곳」 — 서버의 전체 개수, 모르면 받은 수, 받기 전이면 null. */
+    @Test
+    fun headerCountPrefersTotal() {
+        val results = MapSearchResults(query = "국밥")
+        assertNull(results.headerCount)
+        assertEquals(55, results.received(page(1..20), total = 55).headerCount)
+        assertEquals(20, results.received(page(1..20), total = null).headerCount)
+        assertEquals(0, results.received(emptyList(), total = 0).headerCount)
+    }
+
+    /** 처음 쪽을 받을 때 전체 개수를 둔다. */
+    @Test
+    fun receivedStoresTotal() {
+        assertEquals(55, MapSearchResults(query = "국밥").received(page(1..20), total = 55).total)
     }
 }

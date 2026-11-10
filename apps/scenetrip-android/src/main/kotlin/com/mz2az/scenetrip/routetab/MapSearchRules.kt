@@ -21,11 +21,15 @@ sealed interface MapSearchPhase {
     /** [wide] — 「이 지역 밖에서도」(범위 없이) 찾은 것. */
     data class Done(
         val shops: List<PoiSummary>,
-        val wide: Boolean,
+        // TODO(§10-2): 범위 없이 가까운 순 하나로 바뀌어 없앤다 — 시험을 먼저 쓰려고 기본값만 두었다.
+        val wide: Boolean = false,
     ) : MapSearchPhase
 }
 
 enum class MapSearchTitle {
+    /** 「가게·장소 · 가까운 순」(§10-2) */
+    SHOPS_NEARBY,
+
     /** 「가게·장소 · 이 지역」 */
     SHOPS_HERE,
 
@@ -62,6 +66,11 @@ sealed interface MapSearchRow {
 
     /** 「이 지역 밖에서도 찾기」 */
     data object SearchEverywhere : MapSearchRow
+
+    /** 목록 맨 위 「‘q’ 검색」 — 누르면 이 검색어로 결과 서랍을 연다(키보드 검색과 같다, §7-2). */
+    data class Commit(
+        val query: String,
+    ) : MapSearchRow
 }
 
 object MapSearchRules {
@@ -137,6 +146,16 @@ object MapSearchRules {
             }
         }
 
+    /**
+     * 검색칸 아래 목록 전체 — 2글자 이상이면 맨 위 「‘q’ 검색」([MapSearchRow.Commit], 다듬은 검색어) 다음에 [rows].
+     * 지금은 시험을 먼저 쓰려고 둔 자리표시다(맨 위 줄이 없다).
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun panelRows(
+        text: String,
+        phase: MapSearchPhase,
+    ): List<MapSearchRow> = rows(phase)
+
     /** 목록이 떠 있는 동안 지도에 찍어 둘 곳 — 새 결과가 올 때까지는 앞의 것을 둔다. 2글자 아래로 지웠거나 못 찾았으면 비운다. */
     fun pinned(
         previous: List<PoiSummary>,
@@ -186,8 +205,8 @@ object MapSearchRules {
 /** 결과 지도의 상태 (M7) — 서랍 높이·받은 것·「다시 찾기」. 값을 바꾸지 않고 다음 값을 돌려준다. */
 data class MapSearchResults(
     val query: String,
-    /** 범위 없이 찾나(「이 지역 밖에서도」). */
-    val wide: Boolean,
+    /** 범위 없이 찾나(「이 지역 밖에서도」). TODO(§10-2): 없앤다 — 시험을 먼저 쓰려고 기본값만 두었다. */
+    val wide: Boolean = false,
     val tall: Boolean = false,
     /** 찾은 가게·장소 — 받기 전이면 null. */
     val shops: List<PoiSummary>? = null,
@@ -197,6 +216,14 @@ data class MapSearchResults(
     val ask: Int = 0,
     /** 앱이 카메라를 옮긴 때(ms) — 그 직후의 멈춤은 사람이 옮긴 것이 아니다. */
     val selfMoveAt: Long? = null,
+    /** 서버가 알려 준 전체 개수(`PoiList.total`) — 머리의 「N곳」 과 더 받기의 멈춤(§7-4). */
+    val total: Int? = null,
+    /** 마지막으로 받은 쪽이 비어 왔나 — 그러면 더 묻지 않는다. */
+    val lastPageEmpty: Boolean = false,
+    /** 다음 쪽을 받는 중 — 목록 끝에 도는 줄. */
+    val loadingMore: Boolean = false,
+    /** 다음 쪽을 못 받았다 — 「더 불러오지 못했어요 · 다시 시도」 줄. 누를 때까지 더 묻지 않는다. */
+    val moreFailed: Boolean = false,
 ) {
     /** 서랍 본문. */
     sealed interface Body {
@@ -207,7 +234,8 @@ data class MapSearchResults(
         /** [offerEverywhere] — 「이 지역 밖에서도 찾기」 단추를 보인다. */
         data class Empty(
             val empty: MapSearchEmpty,
-            val offerEverywhere: Boolean,
+            // TODO(§10-2): 단추가 없어져 없앤다 — 시험을 먼저 쓰려고 기본값만 두었다.
+            val offerEverywhere: Boolean = false,
         ) : Body
 
         data class Shops(
@@ -222,8 +250,36 @@ data class MapSearchResults(
     /** 새로 받기 시작 — 목록을 비운다. */
     fun begin(): MapSearchResults = copy(shops = null, failed = false, stale = false)
 
-    /** 받았다 — 「다시 찾기」 를 거둔다. */
-    fun received(shops: List<PoiSummary>): MapSearchResults = copy(shops = shops, failed = false, stale = false)
+    /** 처음 쪽을 받았다 — 「다시 찾기」 를 거둔다. [total] 은 서버의 전체 개수(모르면 null). */
+    @Suppress("UNUSED_PARAMETER")
+    fun received(
+        shops: List<PoiSummary>,
+        total: Int? = null,
+    ): MapSearchResults = copy(shops = shops, failed = false, stale = false)
+
+    // ── 더 받기(§7-4) — 지금은 시험을 먼저 쓰려고 둔 자리표시다 ──
+
+    /** 다음에 물을 offset — 받은 것이 없거나, 받는 중·실패한 채이거나, 끝에 닿았으면 null. */
+    val nextOffset: Int? get() = null
+
+    /** 다음 쪽을 받기 시작. */
+    fun beginMore(): MapSearchResults = this
+
+    /** 다음 쪽을 받았다 — 이미 있는 가게는 다시 넣지 않는다. [total] 이 null 이면 앞의 값을 둔다. */
+    @Suppress("UNUSED_PARAMETER")
+    fun receivedMore(
+        shops: List<PoiSummary>,
+        total: Int?,
+    ): MapSearchResults = this
+
+    /** 다음 쪽을 못 받았다. */
+    fun moreFailedNow(): MapSearchResults = this
+
+    /** 「다시 시도」 — 실패 표시를 거두고 다시 물을 수 있게. */
+    fun retryMore(): MapSearchResults = this
+
+    /** 검색어 알약의 「N곳」 — 서버의 전체 개수(모르면 받은 수). 받기 전이면 null. */
+    val headerCount: Int? get() = null
 
     fun searchFailed(): MapSearchResults = copy(failed = true)
 

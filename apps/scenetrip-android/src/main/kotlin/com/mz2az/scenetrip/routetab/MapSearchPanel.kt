@@ -186,6 +186,9 @@ internal fun MapSearchPanel(
             ) {
                 rows.forEach { row ->
                     when (row) {
+                        // TODO(§7-2): 「‘q’ 검색」 줄 — 아직 rows 가 내지 않는다(시험 먼저).
+                        is MapSearchRow.Commit -> {}
+
                         MapSearchRow.Loading -> {
                             Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                                 CircularProgressIndicator(strokeWidth = 2.dp, color = IOS.secondaryLabel, modifier = Modifier.size(20.dp))
@@ -261,6 +264,7 @@ internal object MapSearchText {
 
     fun title(title: MapSearchTitle): String =
         when (title) {
+            MapSearchTitle.SHOPS_NEARBY -> tr("가게·장소 · 가까운 순")
             MapSearchTitle.SHOPS_HERE -> tr("가게·장소 · 이 지역")
             MapSearchTitle.SHOPS_EVERYWHERE -> tr("가게·장소 · 전체")
         }

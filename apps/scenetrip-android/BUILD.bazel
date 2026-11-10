@@ -104,7 +104,9 @@ kt_jvm_library(
         "tests/LocationConsentTests.kt",
         "tests/LocationFixTests.kt",
         "tests/MapInsetsTests.kt",
+        "tests/MapCameraMotionRulesTests.kt",
         "tests/MapPoiRulesTests.kt",
+        "tests/MapSearchPagingRulesTests.kt",
         "tests/MapSearchRulesTests.kt",
         # 작품 쪽 넘김·검색, 결과 서랍 끌기 (MZ2AZ-547 motion-works-drawer-parity)
         "tests/MapSearchDrawerRulesTests.kt",

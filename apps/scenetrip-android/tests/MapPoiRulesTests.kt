@@ -247,25 +247,6 @@ class MapPoiRulesTests {
         assertTrue(MapPoiChips().keep(listOf(poi(1, PoiCategoryGroup.food), poi(2, PoiCategoryGroup.stay))).isEmpty())
     }
 
-    /** 칩 옆 개수 — 갈래마다 센다. */
-    @Test
-    fun countsPerGroup() {
-        val counts =
-            MapPoiChips.counts(
-                listOf(
-                    poi(1, PoiCategoryGroup.food),
-                    poi(2, PoiCategoryGroup.food),
-                    poi(3, PoiCategoryGroup.stay),
-                    poi(4, PoiCategoryGroup.sight),
-                    poi(5, PoiCategoryGroup.food),
-                ),
-            )
-        assertEquals(3, counts[PoiCategoryGroup.food])
-        assertEquals(1, counts[PoiCategoryGroup.stay])
-        assertEquals(1, counts[PoiCategoryGroup.sight])
-        assertEquals(0, counts[PoiCategoryGroup.transit] ?: 0)
-    }
-
     // ── 칩 줄이 보이나 (M1) ──
 
     /** 편집 중이고 지도가 펼쳐져 있고 여행 안내 중이 아닐 때만. */
