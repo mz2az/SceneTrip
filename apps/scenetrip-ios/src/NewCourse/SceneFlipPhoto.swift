@@ -82,7 +82,7 @@ struct SceneFlipPhoto: View {
 
     var body: some View {
         ZStack {
-            NewCoursePhoto(url: faces.front)
+            front
                 .opacity(showingBack ? 0 : 1)
             back
                 // 뒷면은 미리 뒤집어 둔다 — 돌고 나면 바로 보인다.
@@ -100,6 +100,15 @@ struct SceneFlipPhoto: View {
         .accessibilityAction { toggle() }
         .onAppear { store.load(place) }
         .task(id: peek) { await peekOnce() }
+    }
+
+    /// 앞면 — 그림이 하나도 없으면(장소 사진·장면 그림 둘 다 없음) 빈 칸 대신 「장소 사진이 아직 없어요」(2026-11-10 사용자 지적: 매축지마을).
+    @ViewBuilder private var front: some View {
+        if let url = faces.front {
+            NewCoursePhoto(url: url)
+        } else {
+            missing(tr("장소 사진이 아직 없어요"))
+        }
     }
 
     @ViewBuilder private var back: some View {
