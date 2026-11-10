@@ -365,7 +365,7 @@ class RouteStore(
                 val known = works.filter { workIds.contains(it.id) }.associateBy { it.id } + remembered
                 val chosenTitles = workIds.mapNotNull { known[it]?.title }
                 val requestTitles = WorksBrowseRules.requestTitles(workIds, known, sortedWorks)
-                // 인기 작품조차 못 불러왔으면 보낼 제목이 없다 — 계약이 titles 를 최소 하나 요구한다(iOS `.badRequest`).
+                // 인기 작품조차 못 불러왔으면 보낼 제목이 없다 — 계약이 작품 또는 도시 중 하나를 요구한다(iOS `.badRequest`).
                 if (requestTitles.isEmpty()) return@runCatching null
                 val request =
                     GuidePlanRequest(
@@ -377,7 +377,7 @@ class RouteStore(
                         longitude = longitude.takeIf { locationConsent.isAllowed },
                     )
                 val reply = guideApi.planWithGuide(request)
-                AppAnalytics.log(AppEvent.GeneratePlan(span.days, request.titles.size))
+                AppAnalytics.log(AppEvent.GeneratePlan(span.days, request.titles.orEmpty().size))
                 RouteGuidePlan.course(reply.plan, courseTitle(chosenTitles, span), startDate, pace)
             }
         }.fold(

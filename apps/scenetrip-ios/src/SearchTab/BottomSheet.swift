@@ -25,6 +25,10 @@ struct BottomSheet<Content: View>: View {
     /// 값을 안 주면 아무것도 달라지지 않는다.
     var mediumFraction: CGFloat?
 
+    /// 화면 바닥에서 떠 있는 탭바가 차지하는 높이(MZ2AZ-547 T3). 서랍은 그 뒤까지 내려가고, 접힘·중간 단은 그 위에
+    /// 보이는 몫으로 재며, 내용은 바닥을 그만큼 비운다(스크롤 목록은 알약 뒤로 비치며 내려간다). 탭 밖(경로 편집)은 0.
+    var bottomClearance: CGFloat = 0
+
     /// 지금 덮고 있는 **실제 높이(pt)**. 지도가 로고·축척을 이 위에 올려 두는 데 쓴다.
     /// 끄는 중에도 계속 바뀌므로 손을 떼기 전에도 따라간다.
     var onHeightChange: (CGFloat) -> Void = { _ in }
@@ -40,7 +44,7 @@ struct BottomSheet<Content: View>: View {
             // 실제로 터졌다(2026-08-27, "Range requires lowerBound <= upperBound").
             // 검색 탭에서는 지오메트리가 0 으로 오는 순간이 없어 드러나지 않았을 뿐,
             // 여기서 막는 것이 맞다.
-            let maxH = max(80, geo.size.height - topInset)
+            let maxH = BottomSheetRules.maxHeight(total: geo.size.height, topInset: topInset)
             let height = (heightFor(detent, total: geo.size.height, maxH: maxH) - drag)
                 .clamped(to: 80 ... maxH)
 
@@ -51,6 +55,7 @@ struct BottomSheet<Content: View>: View {
                     .padding(.top, 8)
                     .padding(.bottom, 6)
                 content()
+                    .safeAreaPadding(.bottom, bottomClearance)
             }
             .frame(width: geo.size.width, height: height, alignment: .top)
             .background(
@@ -78,11 +83,11 @@ struct BottomSheet<Content: View>: View {
     }
 
     private func heightFor(_ detent: Detent, total: CGFloat, maxH: CGFloat) -> CGFloat {
-        switch detent {
-        case .expanded: maxH
-        case .medium: total * (mediumFraction ?? Detent.medium.rawValue)
-        case .collapsed: total * Detent.collapsed.rawValue
-        }
+        let fraction = detent == .medium ? (mediumFraction ?? Detent.medium.rawValue) : detent.rawValue
+        return min(maxH, BottomSheetRules.height(
+            fraction: fraction, isExpanded: detent == .expanded,
+            total: total, topInset: total - maxH, bottomClearance: bottomClearance
+        ))
     }
 
     private func nearest(to height: CGFloat, total: CGFloat, maxH: CGFloat) -> Detent {

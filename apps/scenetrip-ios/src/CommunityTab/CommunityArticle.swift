@@ -124,6 +124,25 @@ enum CommunityArticle {
         return out
     }
 
+    /// 읽는 화면(글 화면·미리보기)의 블록 — 맨 위 대표 사진을 따로 그리지 않는다(K7, 본문 블록에 이미 있다).
+    /// 서버 `bodyBlocks` 가 있으면 그것, 없으면 `legacy`. 어느 블록도 가리키지 않는 사진은 끝에 붙여 빠뜨리지 않고,
+    /// 범위 밖(photoIndex >= photoCount)이거나 두 번째로 같은 사진을 가리키는 사진 블록은 뺀다 — 사진은 한 번씩만 보인다.
+    static func readingBlocks(bodyBlocks: [TripPostBlock]?, body: String, photoCount: Int) -> [TripPostBlock] {
+        guard let bodyBlocks, !bodyBlocks.isEmpty else { return legacy(body: body, photoCount: photoCount) }
+        var seen = Set<Int>()
+        var out: [TripPostBlock] = []
+        for block in bodyBlocks {
+            if block.kind == .photo {
+                guard let index = block.photoIndex, (0 ..< photoCount).contains(index), seen.insert(index).inserted else { continue }
+            }
+            out.append(block)
+        }
+        for index in 0 ..< max(0, photoCount) where !seen.contains(index) {
+            out.append(TripPostBlock(kind: .photo, photoIndex: index))
+        }
+        return out
+    }
+
     /// 옛 본문·사진은 읽을 때만 배치한다. 저장된 원문이나 사진을 다시 쓰지 않는다.
     static func legacy(body: String, photoCount: Int) -> [TripPostBlock] {
         let parts = paragraphs(body)

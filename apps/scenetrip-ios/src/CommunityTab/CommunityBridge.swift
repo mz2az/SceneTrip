@@ -8,6 +8,10 @@ extension CommunityPost {
             author: summary.author?.nickname, serverId: summary.id, serverIsMine: summary.isMine,
             remotePhotos: summary.coverPhotoUrl.map { [$0] }, detailLoaded: false
         )
+        serverBoard = summary.board
+        likeCount = summary.likeCount
+        commentCount = summary.commentCount
+        liked = summary.liked
     }
 
     init(detail: TripPostDetail) {
@@ -17,6 +21,10 @@ extension CommunityPost {
             author: detail.author?.nickname, serverId: detail.id, serverIsMine: detail.isMine,
             remotePhotos: detail.photoUrls, detailLoaded: true, bodyBlocks: detail.bodyBlocks
         )
+        serverBoard = detail.board
+        likeCount = detail.likeCount
+        commentCount = detail.commentCount
+        liked = detail.liked
     }
 }
 

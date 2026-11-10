@@ -83,16 +83,19 @@ enum PinoPin {
     /// 그 전엔 발바닥이었는데, 색만으로는 카페와 식당·지하철과 공항이 안 갈렸다
     /// (사용자 요청). 글리프가 붙으니 점이 조금 커졌다(20→26 pt) — 12 pt 글리프가
     /// 알아볼 수 있는 최소 크기다.
-    static func guideDot(for place: RouteGuide.Place) -> NMFOverlayImage {
-        guideDot(group: place.poiGroup, symbol: place.poiSymbol)
+    ///
+    /// **고른 곳은 같은 아이콘을 크게**(26→40 pt) 그린다 — 빨간 고리·해태 핀은 뺐다(2026-11-10 사용자 결정, 계획 §9).
+    static func guideDot(for place: RouteGuide.Place, picked: Bool = false) -> NMFOverlayImage {
+        guideDot(group: place.poiGroup, symbol: place.poiSymbol, picked: picked)
     }
 
-    static func guideDot(group: RoutePoiGroup, symbol: String) -> NMFOverlayImage {
-        let key = DotKey(group: group, symbol: symbol)
+    static func guideDot(group: RoutePoiGroup, symbol: String, picked: Bool = false) -> NMFOverlayImage {
+        let key = DotKey(group: group, symbol: symbol, picked: picked)
         if let found = cachedDots[key] {
             return found
         }
-        let size: CGFloat = 26
+        let size: CGFloat = picked ? 40 : 26
+        let grow = size / 26
         let image = UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { context in
             let tone = UIColor(RoutePoiTone.of(group))
 
@@ -104,16 +107,16 @@ enum PinoPin {
             tone.setFill()
             circle.fill()
             UIColor.white.setStroke()
-            circle.lineWidth = 1.5
+            circle.lineWidth = 1.5 * grow
             circle.stroke()
             context.cgContext.setShadow(offset: .zero, blur: 0, color: nil)
 
             // 흰 글리프를 가운데에. 심볼이 없는 이름이면(OS 가 낮거나 오타) 점만 남긴다.
-            let config = UIImage.SymbolConfiguration(pointSize: 12, weight: .bold)
+            let config = UIImage.SymbolConfiguration(pointSize: 12 * grow, weight: .bold)
             guard let glyph = UIImage(systemName: symbol, withConfiguration: config)?
                 .withTintColor(.white, renderingMode: .alwaysOriginal)
             else { return }
-            let box: CGFloat = 14
+            let box: CGFloat = 14 * grow
             let scale = min(box / glyph.size.width, box / glyph.size.height)
             let drawn = CGSize(width: glyph.size.width * scale, height: glyph.size.height * scale)
             glyph.draw(in: CGRect(
@@ -228,6 +231,7 @@ enum PinoPin {
     private struct DotKey: Hashable {
         let group: RoutePoiGroup
         let symbol: String
+        let picked: Bool
     }
 
     private static var cachedDots: [DotKey: NMFOverlayImage] = [:]

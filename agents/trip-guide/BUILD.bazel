@@ -7,6 +7,7 @@ package(default_visibility = ["//visibility:public"])
 SOURCES = [
     "src/__init__.py",
     "src/agent.py",
+    "src/city_planner.py",
     "src/cli.py",
     "src/model_client.py",
     "src/internal_server.py",
@@ -28,6 +29,7 @@ RESOURCES = [
     "config/place_scores.json",
     "config/planner.json",
     "config/source.json",
+    "prompts/plan_city.txt",
     "prompts/plan_intent.txt",
     "prompts/plan_llm.txt",
     "prompts/plan_narrate.txt",
@@ -42,6 +44,7 @@ TESTS = [
     "tests/fixtures.py",
     "tests/run.py",
     "tests/test_chunked_body.py",
+    "tests/test_city_planner.py",
     "tests/test_contract_120.py",
     "tests/test_effects_contract.py",
     "tests/test_llm_planner.py",
@@ -101,6 +104,22 @@ py_binary(
     srcs = ["scripts/extract_place_scores.py"],
     legacy_create_init = 0,
     main = "scripts/extract_place_scores.py",
+)
+
+# 도시 AI 일정 실측(MZ2AZ-548) — **실제 모델과 로컬 scene-api 를 부른다.** 어떤 게이트에도 없다. `just agent-city-eval-live`.
+py_binary(
+    name = "city_plan_live",
+    srcs = [
+        "evals/__init__.py",
+        "evals/city_plan_live.py",
+    ],
+    legacy_create_init = 0,
+    main = "evals/city_plan_live.py",
+    tags = [
+        "manual",
+        "requires-network",
+    ],
+    deps = [":trip-guide"],
 )
 
 # AI 일정 생성 실측 — **실제 모델을 부른다.** 비용이 들고 어떤 게이트에도 없다.

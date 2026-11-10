@@ -5,5 +5,6 @@
 | 문서 | 무엇을 쟀나 |
 | --- | --- |
 | [trip-guide-2026-10-15.md](trip-guide-2026-10-15.md) | 챗봇 「근처 촬영지」 — 빈 기준 위치, 반경 자동 넓히기 (MZ2AZ-454) |
+| [trip-guide-2026-11-10-city.md](trip-guide-2026-11-10-city.md) | 도시 AI 일정 — 계산·추려서 넘기기·전부 넘기기 비교 (MZ2AZ-548) |
 | [trip-guide-2026-10-15-region.md](trip-guide-2026-10-15-region.md) | 챗봇 지역 촬영지 검색 — 다른 지역 섞임, 「성지」 가 붙으면 0건 (MZ2AZ-457) |
 | [../../../agents/trip-guide/docs/design/scope-filter.md](../../../agents/trip-guide/docs/design/scope-filter.md) | 챗봇 여행 범위 필터 — 기능 테스트 목록 16 항목 전후 (MZ2AZ-398) |

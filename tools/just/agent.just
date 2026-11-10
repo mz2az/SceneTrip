@@ -21,6 +21,11 @@ agent-eval-live name:
         --test_tag_filters=requires-network \
         --nocache_test_results --test_output=streamed
 
+# 도시 AI 일정 실측 — 로컬 scene-api 와 실제 모델(Bedrock)을 부른다. 비용이 들고 어떤 게이트에도 없다. 결과 JSON 경로를 줄 수 있다.
+[group('agent')]
+agent-city-eval-live out="":
+    {{BAZEL}} run //agents/trip-guide:city_plan_live -- {{out}}
+
 # 모든 에이전트 모듈을 오프라인으로 평가
 [group('agent')]
 agent-eval-all:

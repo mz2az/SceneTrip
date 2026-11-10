@@ -145,7 +145,7 @@ extension RouteEditorView {
         // 갈래는 끄고 「AI 장소」만 켠다. 주변 점 서른 개 사이에서는 방금 추천받은 곳을 못 찾는다.
         // 갈래는 칩으로 다시 켤 수 있다.
         if !answer.places.isEmpty {
-            poiGroupsOn = []
+            mapChips.reset()
             aiPlacesOn = true
         }
     }
@@ -188,7 +188,7 @@ extension RouteEditorView {
             guide.picked = places.first { $0.serverId == id }
         case let .courseOpen(day):
             openDay(day)
-            panelDetent = .medium
+            withAnimation(Self.sheetMotion) { panelDetent = .medium }
         case let .courseFocus(day, changed):
             openDay(day)
             // 바뀐 줄을 잠깐 강조 — 무엇이 바뀌었는지 눈에 보여야 바뀐 줄 안다. 고른 줄 표시
