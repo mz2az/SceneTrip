@@ -9,6 +9,8 @@ import com.mz2az.scenetrip.routetab.RouteStop
 import com.mz2az.scenetrip.sceneapi.client.model.CartItem
 import com.mz2az.scenetrip.sceneapi.client.model.ContentRef
 import com.mz2az.scenetrip.sceneapi.client.model.ContentSummary
+import com.mz2az.scenetrip.sceneapi.client.model.GuidePlan
+import com.mz2az.scenetrip.sceneapi.client.model.GuidePlanRequest
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.TripPace
 
@@ -152,18 +154,42 @@ object CityPlanRules {
         return best
     }
 
-    /** [day] 일의 [index] 번째를 [nearestUnused] 로 바꾼 계획. 범위 밖이거나 바꿀 곳이 없으면 그대로. */
+    /**
+     * 「다른 곳으로 바꾸기」 — [day] 일의 [index] 번째를 [nearby] 가운데 코스에 아직 없는 **첫 곳**으로 바꾼 계획. 없거나 범위 밖이면 그대로.
+     * [nearby] 는 누를 때 서버에 물은 그 자리 근처 촬영지, 가까운 순(`GET /places?city&lat&lng&sort=distance&limit=10`,
+     * 계획 city-ai-course.md §5). 거리를 다시 재지 않고 받은 차례를 그대로 쓴다.
+     */
+    @Suppress("UNUSED_PARAMETER")
     fun swapped(
         plan: List<List<PlaceSummary>>,
         day: Int,
         index: Int,
-        places: List<PlaceSummary>,
+        nearby: List<PlaceSummary>,
     ): List<List<PlaceSummary>> {
-        val stops = plan.getOrNull(day) ?: return plan
-        val target = stops.getOrNull(index) ?: return plan
-        val used = plan.flatten().map { it.id }.toSet()
-        val next = nearestUnused(target, places, used) ?: return plan
-        return plan.mapIndexed { at, each -> if (at == day) each.toMutableList().also { it[index] = next } else each }
+        // TODO(MZ2AZ-548): 시험 먼저 — 일부러 틀린 값. 구현에서 바꾼다.
+        return emptyList()
+    }
+
+    /** 서버 AI 일정 요청(MZ2AZ-548, 계획 city-ai-course.md §5) — 도시·일수·속도만. 작품은 보내지 않는다. */
+    @Suppress("UNUSED_PARAMETER")
+    fun aiRequest(
+        city: String,
+        days: Int,
+        pace: TripPace,
+    ): GuidePlanRequest {
+        // TODO(MZ2AZ-548): 시험 먼저 — 일부러 틀린 값. 구현에서 바꾼다.
+        return GuidePlanRequest(titles = listOf("stub"), days = 0, pace = GuidePlanRequest.Pace.packed)
+    }
+
+    /**
+     * 서버가 준 일정을 카드로 — 응답만으로 그린다(도시 촬영지 목록 없이, 계획 city-ai-course.md §5). 정지점은 `order` 순,
+     * 번호(`placeId`)나 좌표가 없는 줄은 빼고, 빈 날도 뺀다. 사진·작품은 정지점의 `imageUrl`·`contents`
+     * (`imageUrl` 이 주소로 읽히지 않으면 사진 없음).
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun fromGuide(plan: GuidePlan): List<List<PlaceSummary>> {
+        // TODO(MZ2AZ-548): 시험 먼저 — 일부러 틀린 값. 구현에서 바꾼다.
+        return listOf(emptyList())
     }
 
     /** [day] 일의 [index] 번째를 뺀 계획(그날이 비어도 날은 남긴다). 범위 밖이면 그대로. */

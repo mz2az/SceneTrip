@@ -83,6 +83,8 @@ kt_jvm_library(
     srcs = [
         "tests/AIConsentTests.kt",
         "tests/AccountAndImageTests.kt",
+        # 도시 추천 코스는 서버만 — 요청·응답으로 카드·다른 곳으로 바꾸기 (MZ2AZ-548)
+        "tests/CityAiCourseRulesTests.kt",
         "tests/ClientRulesTests.kt",
         "tests/CoachRulesTests.kt",
         "tests/CommunityBlogTests.kt",
@@ -126,6 +128,8 @@ kt_jvm_library(
         "tests/SavedPlanRulesTests.kt",
         # 추천 코스 카드 장면 그림 뒤집기 (MZ2AZ-547 motion-works-drawer-parity §6)
         "tests/SceneFlipRulesTests.kt",
+        # 카드 사진 칸 두 면 — 모든 카드가 뒤집힌다 (MZ2AZ-547 §6)
+        "tests/SceneFlipFacesTests.kt",
         "tests/ScenePhotoGalleryTests.kt",
         # 검색 탭 — 보관함 핀·길찾기 (MZ2AZ-547 P9)
         "tests/SearchMapPinsTests.kt",

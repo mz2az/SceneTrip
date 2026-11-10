@@ -4,8 +4,6 @@ import com.mz2az.scenetrip.newcourse.CityListRules
 import com.mz2az.scenetrip.newcourse.CityPlanRules
 import com.mz2az.scenetrip.newcourse.CityQuestionFlow
 import com.mz2az.scenetrip.newcourse.CityStep
-import com.mz2az.scenetrip.newcourse.HoldReorderRules
-import com.mz2az.scenetrip.newcourse.HoldReorderStep
 import com.mz2az.scenetrip.newcourse.NewCourseText
 import com.mz2az.scenetrip.newcourse.PlanningStages
 import com.mz2az.scenetrip.newcourse.ServerTrip
@@ -189,7 +187,9 @@ class NewCourseRulesTests {
         assertTrue(days != null && days.back() == null, "며칠에서 뒤로는 닫기")
     }
 
-    // ── R1 하루 몇 곳·가까운 곳 잇기 ──
+    // ── R1 하루 몇 곳 ──
+    // 앱 안 도시 계산(chain·plan)·가장 가까운 곳 바꾸기·꾹 눌러 옮기기 시험은 뺐다 — 도시 추천 코스는 서버만 짠다
+    // (MZ2AZ-548, city-ai-course.md §5). 요청·응답·바꾸기는 CityAiCourseRulesTests.
 
     @Test
     fun stopsPerDayByPace() {
@@ -198,131 +198,7 @@ class NewCourseRulesTests {
         assertEquals(7, CityPlanRules.stopsPerDay(TripPace.packed))
     }
 
-    /** 첫 곳은 목록 맨 앞(가장 인기)이고, 그다음부터는 바로 앞 곳에서 가장 가까운 곳. */
-    @Test
-    fun chainStartsAtMostPopularAndFollowsNearest() {
-        assertEquals(
-            b.ids(listOf(b.haeundae, b.gwangalli, b.busanStation, b.jagalchi, b.gamcheon, b.taejongdae, b.yonggungsa)),
-            b.ids(CityPlanRules.chain(b.popular)),
-        )
-        assertEquals(listOf(b.gamcheon.id), b.ids(CityPlanRules.chain(listOf(b.gamcheon))))
-        assertEquals(emptyList<Long>(), b.ids(CityPlanRules.chain(emptyList())))
-    }
-
-    /** 첫 곳은 거리로 고르지 않는다 — 목록 맨 앞이 외딴 곳이어도 거기서 시작한다. */
-    @Test
-    fun chainKeepsFirstEvenIfRemote() {
-        val chained = CityPlanRules.chain(listOf(b.yonggungsa, b.jagalchi, b.haeundae))
-        assertEquals(b.ids(listOf(b.yonggungsa, b.haeundae, b.jagalchi)), b.ids(chained))
-    }
-
-    /** 거리가 같으면 앞의 것 — 같은 위도에서 경도 ±0.5 인 두 곳은 정확히 같은 거리다. */
-    @Test
-    fun chainTieKeepsEarlierCandidate() {
-        val origin = b.spot(10, "가운데", 35.0, 129.0)
-        val west = b.spot(11, "서쪽", 35.0, 128.5)
-        val far = b.spot(12, "멀리 북쪽", 36.0, 129.0)
-        val east = b.spot(13, "동쪽", 35.0, 129.5)
-        // 가운데 → 서쪽(동쪽과 같은 거리지만 앞) → 동쪽(약 91km, 북쪽보다 가깝다) → 북쪽.
-        assertEquals(listOf(10L, 11L, 13L, 12L), b.ids(CityPlanRules.chain(listOf(origin, west, far, east))))
-    }
-
-    // ── R1 계획 ──
-
-    /** 널널하게 이틀 — 하루 3곳 × 2일 = 6곳을 이은 순서대로 3곳씩. */
-    @Test
-    fun planSlicesChainPerDay() {
-        val plan = CityPlanRules.plan(b.popular, days = 2, pace = TripPace.relaxed)
-        assertEquals(
-            b.idPlan(listOf(listOf(b.haeundae, b.gwangalli, b.busanStation), listOf(b.jagalchi, b.gamcheon, b.taejongdae))),
-            b.idPlan(plan),
-        )
-    }
-
-    /** 후보는 인기순 앞에서 `want * 2` 개만 — 일곱째인 동백섬은 해운대 바로 옆이어도 후보가 아니다(당일·널널 → want 3, 후보 6). */
-    @Test
-    fun planOnlyChainsFirstTwiceWantCandidates() {
-        val places = b.popular.take(6) + b.dongbaek
-        val plan = CityPlanRules.plan(places, days = 1, pace = TripPace.relaxed)
-        assertEquals(listOf(b.ids(listOf(b.haeundae, b.gwangalli, b.busanStation))), b.idPlan(plan))
-    }
-
-    /** 후보 안에 있으면 가까운 곳이 먼저 붙는다(같은 동백섬, 하루 5곳 → 후보 10). */
-    @Test
-    fun planUsesNearCandidateWhenWithinLimit() {
-        val places = b.popular.take(6) + b.dongbaek
-        val plan = CityPlanRules.plan(places, days = 1, pace = TripPace.normal)
-        assertEquals(1, plan.size)
-        assertEquals(listOf(b.haeundae.id, b.dongbaek.id, b.gwangalli.id), b.ids(plan[0]).take(3))
-        assertEquals(5, plan[0].size)
-    }
-
-    @Test
-    fun planPackedTakesSevenADay() {
-        assertEquals(listOf(7), CityPlanRules.plan(b.popular, days = 1, pace = TripPace.packed).map { it.size })
-    }
-
-    /** 촬영지가 모자라면 뒷날이 덜 차고, 빈 날은 뺀다. */
-    @Test
-    fun planDropsEmptyDaysWhenPlacesRunOut() {
-        val places = listOf(b.haeundae, b.gamcheon, b.gwangalli, b.busanStation)
-        val plan = CityPlanRules.plan(places, days = 3, pace = TripPace.relaxed)
-        assertEquals(
-            b.idPlan(listOf(listOf(b.haeundae, b.gwangalli, b.busanStation), listOf(b.gamcheon))),
-            b.idPlan(plan),
-        )
-        assertEquals(0, CityPlanRules.plan(emptyList(), days = 2, pace = TripPace.normal).size)
-    }
-
-    // ── R3 다른 곳으로 바꾸기 ──
-
-    @Test
-    fun nearestUnusedSkipsUsed() {
-        val next = CityPlanRules.nearestUnused(b.jagalchi, b.popular, setOf(b.jagalchi.id, b.gamcheon.id))
-        assertEquals(b.busanStation.id, next?.id)
-        // 모두 쓰였으면 없다.
-        assertNull(CityPlanRules.nearestUnused(b.haeundae, b.popular, b.ids(b.popular).toSet()))
-    }
-
-    /** 거리가 같으면 앞의 것. */
-    @Test
-    fun nearestUnusedTieKeepsEarlier() {
-        val origin = b.spot(10, "가운데", 35.0, 129.0)
-        val east = b.spot(13, "동쪽", 35.0, 129.5)
-        val west = b.spot(11, "서쪽", 35.0, 128.5)
-        assertEquals(13L, CityPlanRules.nearestUnused(origin, listOf(east, west), emptySet())?.id)
-        assertEquals(11L, CityPlanRules.nearestUnused(origin, listOf(west, east), emptySet())?.id)
-    }
-
-    @Test
-    fun swappedReplacesWithNearestUnused() {
-        val plan = listOf(listOf(b.haeundae, b.gwangalli), listOf(b.jagalchi))
-        val next = CityPlanRules.swapped(plan, day = 1, index = 0, places = b.popular)
-        assertEquals(b.idPlan(listOf(listOf(b.haeundae, b.gwangalli), listOf(b.gamcheon))), b.idPlan(next))
-    }
-
-    /** 다른 날에 들어 있는 곳도 「이미 코스에 있는 곳」 이다 — 해운대 옆 광안리(둘째 날)를 건너뛰고 용궁사. */
-    @Test
-    fun swappedTreatsOtherDaysAsUsed() {
-        val plan = listOf(listOf(b.haeundae), listOf(b.gwangalli))
-        val next = CityPlanRules.swapped(plan, day = 0, index = 0, places = b.popular)
-        assertEquals(b.idPlan(listOf(listOf(b.yonggungsa), listOf(b.gwangalli))), b.idPlan(next))
-    }
-
-    /** 바꿀 곳이 없거나 범위 밖이면 그대로 — 그래도 바꿀 곳이 있으면 바꾼다. */
-    @Test
-    fun swappedUnchangedWhenNothingLeftOrOutOfRange() {
-        val plan = listOf(listOf(b.haeundae, b.gwangalli))
-        assertEquals(b.idPlan(plan), b.idPlan(CityPlanRules.swapped(plan, 0, 1, listOf(b.haeundae, b.gwangalli))))
-        assertEquals(b.idPlan(plan), b.idPlan(CityPlanRules.swapped(plan, 3, 0, b.popular)))
-        assertEquals(b.idPlan(plan), b.idPlan(CityPlanRules.swapped(plan, 0, 5, b.popular)))
-        assertEquals(
-            b.idPlan(listOf(listOf(b.haeundae, b.busanStation))),
-            b.idPlan(CityPlanRules.swapped(plan, 0, 1, listOf(b.haeundae, b.gwangalli, b.busanStation))),
-        )
-    }
-
-    // ── R3·R4 빼기·옮기기 ──
+    // ── R3 빼기 ──
 
     @Test
     fun removedTakesOutOneStop() {
@@ -344,37 +220,6 @@ class NewCourseRulesTests {
         assertEquals(b.idPlan(plan), b.idPlan(CityPlanRules.removed(plan, day = 2, index = 0)))
         assertEquals(b.idPlan(plan), b.idPlan(CityPlanRules.removed(plan, day = 1, index = 1)))
         assertEquals(b.idPlan(plan), b.idPlan(CityPlanRules.removed(plan, day = -1, index = 0)))
-    }
-
-    /** 꾹 끌기는 이웃과 한 칸씩 바꾼다. */
-    @Test
-    fun movedSwapsNeighbours() {
-        val plan = listOf(listOf(b.haeundae, b.gwangalli, b.busanStation), listOf(b.jagalchi, b.gamcheon))
-        assertEquals(
-            b.idPlan(listOf(listOf(b.gwangalli, b.haeundae, b.busanStation), listOf(b.jagalchi, b.gamcheon))),
-            b.idPlan(CityPlanRules.moved(plan, day = 0, from = 0, to = 1)),
-        )
-        assertEquals(
-            b.idPlan(listOf(listOf(b.haeundae, b.gwangalli, b.busanStation), listOf(b.gamcheon, b.jagalchi))),
-            b.idPlan(CityPlanRules.moved(plan, day = 1, from = 1, to = 0)),
-        )
-    }
-
-    /** 멀리 옮기기 — 웹 `moveTo` 처럼 `from` 에서 빼서 `to` 자리에 끼운다. 범위 밖이면 그대로. */
-    @Test
-    fun movedTakesOutAndInsertsAtToAndIgnoresOutOfRange() {
-        val plan = listOf(listOf(b.haeundae, b.gwangalli, b.busanStation))
-        assertEquals(
-            listOf(b.ids(listOf(b.gwangalli, b.busanStation, b.haeundae))),
-            b.idPlan(CityPlanRules.moved(plan, day = 0, from = 0, to = 2)),
-        )
-        assertEquals(
-            listOf(b.ids(listOf(b.busanStation, b.haeundae, b.gwangalli))),
-            b.idPlan(CityPlanRules.moved(plan, day = 0, from = 2, to = 0)),
-        )
-        assertEquals(b.idPlan(plan), b.idPlan(CityPlanRules.moved(plan, day = 0, from = 0, to = 3)))
-        assertEquals(b.idPlan(plan), b.idPlan(CityPlanRules.moved(plan, day = 0, from = 3, to = 0)))
-        assertEquals(b.idPlan(plan), b.idPlan(CityPlanRules.moved(plan, day = 1, from = 0, to = 1)))
     }
 
     // ── S1 며칠로 나누기 (웹 `splitDays`) ──
@@ -426,54 +271,6 @@ class NewCourseRulesTests {
         assertEquals(RoutePace.TIGHT, course.pace)
         assertFalse(course.madeByAI)
         assertEquals(1, course.days.size)
-    }
-
-    // ── R4 꾹 눌러 끌기 ──
-
-    @Test
-    fun holdAndSlop() {
-        assertEquals(300L, HoldReorderRules.HOLD_MILLIS)
-        assertEquals(8f, HoldReorderRules.SLOP_DP, 0.0001f)
-    }
-
-    @Test
-    fun downPastHalfOfBelowSwapsAndSubtractsHeight() {
-        assertEquals(HoldReorderStep(1, -40f), HoldReorderRules.step(0, 3, 60f, below = 100f, above = null))
-    }
-
-    @Test
-    fun downExactlyHalfStays() {
-        assertEquals(HoldReorderStep(0, 50f), HoldReorderRules.step(0, 3, 50f, below = 100f, above = null))
-    }
-
-    @Test
-    fun upPastHalfOfAboveSwapsAndAddsHeight() {
-        assertEquals(HoldReorderStep(1, 50f), HoldReorderRules.step(2, 3, -70f, below = null, above = 120f))
-    }
-
-    @Test
-    fun upNotPastHalfStays() {
-        assertEquals(HoldReorderStep(2, -50f), HoldReorderRules.step(2, 3, -50f, below = null, above = 120f))
-    }
-
-    /** 맨 끝 카드는 더 내려가지 않고, 맨 앞 카드는 더 올라가지 않는다. */
-    @Test
-    fun edgesDoNotMove() {
-        assertEquals(HoldReorderStep(2, 200f), HoldReorderRules.step(2, 3, 200f, below = 100f, above = 100f))
-        assertEquals(HoldReorderStep(0, -200f), HoldReorderRules.step(0, 3, -200f, below = 100f, above = 100f))
-    }
-
-    /** 이웃 높이를 모르면(null 또는 0) 바꾸지 않는다. */
-    @Test
-    fun unknownNeighbourHeightStays() {
-        assertEquals(HoldReorderStep(1, 80f), HoldReorderRules.step(1, 3, 80f, below = null, above = 100f))
-        assertEquals(HoldReorderStep(1, 80f), HoldReorderRules.step(1, 3, 80f, below = 0f, above = 100f))
-    }
-
-    /** 아래로 끄는 중에는 위 이웃을 보지 않는다. */
-    @Test
-    fun directionPicksNeighbour() {
-        assertEquals(HoldReorderStep(1, 30f), HoldReorderRules.step(1, 3, 30f, below = 200f, above = 40f))
     }
 
     // ── A2 작품 고르기·A3 짜는 중 ──
