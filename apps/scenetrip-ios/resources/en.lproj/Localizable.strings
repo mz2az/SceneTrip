@@ -927,6 +927,8 @@
 "검색 끝내기" = "End search";
 "목록 줄이기" = "Shrink list";
 "목록 키우기" = "Expand list";
+"‘%@’ 검색" = "Search “%@”";
+"더 불러오지 못했어요 · 다시 시도" = "Couldn't load more · Try again";
 
 /* 처음 안내(코치 마크) — MZ2AZ-547 P6 C1–C5, 웹 proto/CoachTour.tsx 의 say(ko, en) */
 "알겠어요" = "Got it";

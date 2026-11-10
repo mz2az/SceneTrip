@@ -5,8 +5,9 @@ import SwiftUI
 ///
 /// 위에 검색어 알약(누르면 고쳐 쓰기) + ✕, 지도를 옮긴 뒤에만 「이 지역에서 다시 찾기」, 아래 서랍(42% ↔ 78%)에
 /// 찾은 가게·장소. 촬영지는 찾지 않는다(2026-11-10 사용자 요청) — 「촬영지 N」 탭·사진 핀·일차 고르기 창을 뺐다.
-/// 줄이나 지도 점을 누르면 그곳으로 가서 정보 카드(「코스에 담기」). 지도 점은 `RouteMapView` 가 그린다(`MapSearchPinRenderer`).
-/// 상태 규칙은 `MapSearchResults`.
+/// 줄이나 지도 핀을 누르면 그곳으로 가서 정보 카드(「코스에 담기」). 지도 핀(갈래 아이콘)은 `RouteMapView` 가 그린다(`MapSearchPinRenderer`).
+/// 목록 끝에서 한 줄 안이 보이면 같은 범위로 다음 20개(§7-4) — 받는 동안 도는 줄, 못 받으면 「다시 시도」 줄.
+/// 상태 규칙은 `MapSearchResults`·`MapSearchPagingRules`.
 struct MapSearchResultsView: View {
     @ObservedObject var model: MapSearchResultsModel
     /// 서랍이 서는 영역의 높이(지도 전체).
@@ -56,7 +57,7 @@ struct MapSearchResultsView: View {
             Button { onEdit(state.query) } label: {
                 HStack(spacing: 6) {
                     Text("“\(state.query)”").font(.system(size: 16, weight: .semibold)).lineLimit(1)
-                    if let count = state.count {
+                    if let count = state.headerCount {
                         Text(String(format: tr("%lld곳"), count)).font(.system(size: 14)).foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)
@@ -176,19 +177,40 @@ struct MapSearchResultsView: View {
             }
             .padding(.vertical, 24).padding(.horizontal, 12)
         case let .shops(shops):
-            LazyVStack(spacing: 0) {
-                ForEach(Array(shops.enumerated()), id: \.element.id) { index, place in
-                    Button { onPick(place) } label: { MapShopRow(place: place) }
-                        .buttonStyle(.plain)
-                        .overlay(alignment: .top) {
-                            if index > 0 {
-                                Divider().padding(.leading, MapShopRow.leadingInset)
+            VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(shops.enumerated()), id: \.element.id) { index, place in
+                        Button { onPick(place) } label: { MapShopRow(place: place) }
+                            .buttonStyle(.plain)
+                            .overlay(alignment: .top) {
+                                if index > 0 {
+                                    Divider().padding(.leading, MapShopRow.leadingInset)
+                                }
                             }
-                        }
+                            // 끝에서 한 줄 안이 보이면 다음 쪽(§7-4). 짧은 목록은 처음부터 다 보이니 바로 이어 받는다.
+                            .onAppear { model.rowAppeared(index) }
+                    }
                 }
+                .background(RoundedRectangle(cornerRadius: 14).fill(Color(.systemBackground)))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                moreRow(state)
             }
-            .background(RoundedRectangle(cornerRadius: 14).fill(Color(.systemBackground)))
-            .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
+    }
+
+    /// 목록 끝 — 받는 중이면 도는 줄, 못 받았으면 「더 불러오지 못했어요 · 다시 시도」.
+    @ViewBuilder
+    private func moreRow(_ state: MapSearchResults) -> some View {
+        if state.loadingMore {
+            ProgressView().frame(maxWidth: .infinity).padding(14)
+        } else if state.moreFailed {
+            Button { model.retryMore() } label: {
+                Text("더 불러오지 못했어요 · 다시 시도")
+                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(TabBar.homePurple)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 8)
         }
     }
 }

@@ -6,9 +6,9 @@ import SwiftUI
 /// 가게·장소(편의시설)만 이름으로 찾는다 — 촬영지는 찾지 않는다(2026-11-10 사용자 요청, 웹 72f87416).
 /// 먼저 지금 지도 범위에서 찾고, 더 보고 싶으면 「이 지역 밖에서도 찾기」. 검색 중에는 갈래 칩을 숨긴다
 /// (검색어와 칩 필터가 겹치면 「왜 안 나오지?」 가 생긴다). 엔터 → 결과를 지도에 펼친다(`MapSearchResultsView`).
-/// 목록이 떠 있는 동안 찾은 곳은 지도에도 점으로 찍힌다 — 점은 계획 화면 지도가 `model.pinned` 로 그린다.
+/// 글자 치는 동안은 목록만 — 지도에는 아무것도 찍지 않는다(§7 구글처럼). 목록 맨 위 「‘q’ 검색」 은 키보드 검색과 같다.
 struct MapSearchPanel: View {
-    /// 목록 상태 — 계획 화면이 들고 있다(지도가 같은 결과를 점으로 그린다).
+    /// 목록 상태 — 계획 화면이 들고 있다.
     @ObservedObject var model: MapSearchModel
     let viewport: MapViewport?
     /// 목록에서 하나를 골랐다 — 지도가 그곳으로 가고 정보 카드가 뜬다.
@@ -71,6 +71,22 @@ struct MapSearchPanel: View {
 
     private var rows: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // 맨 위 줄 — 이 검색어로 결과 서랍을 연다(키보드 검색과 같다, §7-2).
+            if let query = MapSearchRules.query(text) {
+                Button { onCommit(query, wide) } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "magnifyingglass").font(.system(size: 15))
+                        Text(String(format: tr("‘%@’ 검색"), query))
+                            .font(.system(size: 15, weight: .semibold)).lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .foregroundStyle(TabBar.homePurple)
+                    .padding(.horizontal, 16)
+                    .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+            }
             ForEach(Array(MapSearchRules.rows(model.phase).enumerated()), id: \.offset) { _, row in
                 rowView(row)
             }
