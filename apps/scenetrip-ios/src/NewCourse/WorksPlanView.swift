@@ -33,6 +33,9 @@ struct WorksPlanView: View {
     @State private var run = 0
     @State private var draft: RouteCourse?
     @State private var failure: RouteGuideFailure?
+    /// 마지막 단계 넘김이 앞으로였나 — 넘김 방향(계획 §5).
+    @State private var forward = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @StateObject private var consentGate = AIConsentGate()
     @StateObject private var locationGate = AIConsentGate(store: LocationConsentStore.shared)
@@ -79,17 +82,24 @@ struct WorksPlanView: View {
     }
 
     private var questions: some View {
-        Group {
-            if planning {
-                PlanningScreen(posters: posters, summary: summary) {
-                    run += 1
-                    planning = false
+        ZStack {
+            Group {
+                if planning {
+                    PlanningScreen(posters: posters, summary: summary) {
+                        run += 1
+                        go(forward: false) { planning = false }
+                    }
+                } else if step == .trip {
+                    tripStep
+                } else {
+                    worksStep
                 }
-            } else if step == .trip {
-                tripStep
-            } else {
-                worksStep
             }
+            .transition(StepMotion.transition(forward: forward, reduceMotion: reduceMotion))
+        }
+        .environment(\.stepDotsOutside, true)
+        .overlay(alignment: .top) {
+            StepDotsOverlay(step: planning ? nil : (at: step == .trip ? 1 : 2, of: 2))
         }
         .likeFailureNotice()
         .aiConsentSheet(consentGate)
@@ -120,14 +130,14 @@ struct WorksPlanView: View {
                 PaceRows(pace: $pace)
             }
         } footer: {
-            NewCoursePrimaryButton(tr("다음")) { step = .works }
+            NewCoursePrimaryButton(tr("다음")) { go(forward: true) { step = .works } }
         }
     }
 
     // MARK: A2
 
     private var worksStep: some View {
-        NewCourseScreen(step: (at: 2, of: 2), onBack: { step = .trip }) {
+        NewCourseScreen(step: (at: 2, of: 2), onBack: { go(forward: false) { step = .trip } }) {
             NewCourseTitle(text: tr("누구의 장면을 따라갈까요?"))
             Text("여러 개 골라도 돼요. 안 고르면 인기 작품으로 짜요")
                 .font(.system(size: 14))
@@ -217,11 +227,16 @@ struct WorksPlanView: View {
         }
     }
 
+    /// 단계 넘김 — 앞으로면 오른쪽에서, 뒤로면 왼쪽에서 들어온다(계획 §5).
+    private func go(forward next: Bool, _ change: @escaping () -> Void) {
+        StepMotion.go(forward: next, direction: $forward, reduceMotion: reduceMotion, change)
+    }
+
     private func plan() {
         guard !planning else { return }
         run += 1
         let mine = run
-        planning = true
+        go(forward: true) { planning = true }
         Task {
             let result = await store.guideDraft(
                 span: span, startDate: date,
@@ -230,7 +245,12 @@ struct WorksPlanView: View {
                 near: LocationConsentStore.shared.isAllowed ? here : nil
             )
             guard mine == run else { return }
-            planning = false
+            // 실패면 작품 고르기로 돌아간다(뒤로 넘김). 초안이 오면 편집 화면으로 바로 바뀐다.
+            if case .failure = result {
+                go(forward: false) { planning = false }
+            } else {
+                planning = false
+            }
             switch result {
             case let .success(course): draft = course
             case let .failure(reason): failure = reason

@@ -9,6 +9,9 @@ struct CityQuestionView: View {
 
     @State private var flow: CityQuestionFlow
     @ObservedObject private var store = CityPlacesStore.shared
+    /// 마지막 단계 넘김이 앞으로였나 — 넘김 방향(계획 §5).
+    @State private var forward = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(startCity: String?, onClose: @escaping () -> Void) {
         var flow = CityQuestionFlow(startCity: startCity)
@@ -32,14 +35,21 @@ struct CityQuestionView: View {
     }
 
     var body: some View {
-        Group {
-            switch flow.step {
-            case .city: cityStep
-            case .days: daysStep
-            case .how: howStep
-            case .plan: planStep
-            case .pick: pickStep
+        ZStack {
+            Group {
+                switch flow.step {
+                case .city: cityStep
+                case .days: daysStep
+                case .how: howStep
+                case .plan: planStep
+                case .pick: pickStep
+                }
             }
+            .transition(StepMotion.transition(forward: forward, reduceMotion: reduceMotion))
+        }
+        .environment(\.stepDotsOutside, true)
+        .overlay(alignment: .top) {
+            StepDotsOverlay(step: stepDots, onPhoto: flow.step == .city)
         }
         .task { await store.loadCities() }
         // 고른 도시의 촬영지는 미리 받아 둔다 — 「며칠?」·「어떻게?」 에 답하는 동안이면 넉넉하다.
@@ -51,8 +61,33 @@ struct CityQuestionView: View {
     }
 
     private func back() {
-        if flow.back() {
+        var next = flow
+        if next.back() {
             onClose()
+            return
+        }
+        move(to: next)
+    }
+
+    /// 단계 넘김 — 바뀐 단계가 앞이면 오른쪽에서, 뒤면 왼쪽에서 들어온다(계획 §5).
+    private func move(_ change: (inout CityQuestionFlow) -> Void) {
+        var next = flow
+        change(&next)
+        move(to: next)
+    }
+
+    private func move(to next: CityQuestionFlow) {
+        guard next != flow else { return }
+        let ahead = Self.order(next.step) >= Self.order(flow.step)
+        StepMotion.go(forward: ahead, direction: $forward, reduceMotion: reduceMotion) { flow = next }
+    }
+
+    private static func order(_ step: CityQuestionFlow.Step) -> Int {
+        switch step {
+        case .city: 0
+        case .days: 1
+        case .how: 2
+        case .plan, .pick: 3
         }
     }
 
@@ -85,7 +120,7 @@ struct CityQuestionView: View {
                     loading: store.status == .idle || store.status == .loading,
                     photo: { store.photo($0) }
                 ) { key in
-                    withAnimation(.easeOut(duration: 0.2)) { flow.pickCity(key) }
+                    move { $0.pickCity(key) }
                 }
             }
             Button(action: onClose) {
@@ -111,7 +146,7 @@ struct CityQuestionView: View {
             VStack(spacing: 10) {
                 ForEach(CityQuestionFlow.dayOptions, id: \.self) { count in
                     choice(NewCourseText.days(count), on: flow.days == count) {
-                        withAnimation(.easeOut(duration: 0.2)) { flow.pickDays(count) }
+                        move { $0.pickDays(count) }
                     }
                 }
             }
@@ -151,7 +186,7 @@ struct CityQuestionView: View {
                     format: tr("%@ 인기 촬영지를 동선대로 이어 %@ 코스를 바로 만들어요. 빼고 바꾸는 건 그다음에."),
                     cityName, NewCourseText.days(days)
                 )
-            ) { withAnimation(.easeOut(duration: 0.2)) { flow.planForMe() } }
+            ) { move { $0.planForMe() } }
             HowCard(
                 primary: false,
                 symbol: "checkmark.circle.fill",
@@ -160,7 +195,7 @@ struct CityQuestionView: View {
                     format: tr("%@ 촬영지 %@곳을 보고 가고 싶은 곳만 담아요."),
                     cityName, count.map(String.init) ?? ""
                 )
-            ) { withAnimation(.easeOut(duration: 0.2)) { flow.pickMyself() } }
+            ) { move { $0.pickMyself() } }
         }
     }
 
