@@ -528,6 +528,8 @@ navi-proto 의 홈 재편(`cd8debd`)과 편의시설 점을 옮겼다. 홈은 �
 | --- | --- |
 | `NewCourse/NewCourseSheet.swift` | 「새 여행 코스」 시트 — ① 도시로 시작 ② 작품으로 [AI] ③ 담은 곳으로. 홈(`RootTabs`)·코스 목록이 띄우고, 고른 갈래는 시트가 닫힌 뒤 덮개 `TabRouter.Cover.newCourse` 로 연다 |
 | `NewCourse/CityQuestionView.swift` | 도시(사진 머리 + 도시 칸 2열) → 며칠(1~4일) → 어떻게(알아서 / 직접). 단계는 `CityQuestionFlow` |
+| `NewCourse/NewCourseStepMotion.swift` | 질문 단계 넘김(도시로·작품으로 공통) — 앞으로는 새 단계가 오른쪽 24pt 에서, 뒤로는 왼쪽에서 0.28초(`cubic-bezier(.32,.72,0,1)`) 밀려 들어오며 나타난다. 단계 점은 흐름이 한 번만 그려 제자리에서 늘고 준다. 동작 줄이기면 0.2초 서서히만 |
+| `NewCourse/SceneFlipRules.swift` | 추천 코스 카드 뒷면 장면 그림 고르기·처음 한 번 살짝 돌기 규칙(계획 §6). **아직 화면에서 쓰지 않는다** — 카드 뒤집기 화면은 보류 |
 | `NewCourse/CityPlanPreview.swift` | 추천 코스 — `GET /places?city=` 를 **앱 안에서** 잇는다(`CityPlanRules.plan`, 하루 5곳). 큰 사진 카드, 꾹 0.3초 들어 그날 안 순서 바꾸기, ↻ 가장 가까운 다른 곳 · ✕ 빼기. 「이 코스로 만들기」 → 저장 → `PUT /me/trip` → `TabRouter.courseCreated` 가 계획 화면을 열고 6초 안내 띠 |
 | `NewCourse/CityPickView.swift` | 직접 고르기 — 도시 촬영지 30곳 담기/빼기(진짜 보관함) → 날마다 나눠 「{도시} 여행」 으로 저장 |
 | `NewCourse/WorksPlanView.swift` | 작품으로 — 일정·속도 → 포스터 3열(찜한 작품 최대 5 미리 고름) → 짜는 중 화면 → 저장 전 초안 편집(isNew). 예전 `RouteWizardView` 를 대신한다 |
