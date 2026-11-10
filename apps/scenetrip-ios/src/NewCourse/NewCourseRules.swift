@@ -181,6 +181,20 @@ enum CityPlanRules {
         return (0 ..< days).map { day in Array(items.dropFirst(day * per).prefix(per)) }
     }
 
+    /// 서버 AI 일정 요청(MZ2AZ-548, 계획 city-ai-course.md §5) — 도시·일수·속도만. 작품은 보내지 않는다.
+    static func aiRequest(city: String, days: Int, pace: TripPace) -> GuidePlanRequest {
+        GuidePlanRequest(city: city, days: days, pace: GuidePlanRequest.Pace(rawValue: pace.rawValue) ?? .normal)
+    }
+
+    /// 서버가 준 일정을 그 도시 촬영지 카드로 — 정지점은 `order` 순, `placeId` 로 `places` 에서 찾는다.
+    /// 번호가 없거나 `places` 에 없는 곳은 빼고, 빈 날도 뺀다.
+    static func fromGuide(_ plan: GuidePlan, places: [PlaceSummary]) -> [[PlaceSummary]] {
+        let byId = Dictionary(places.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return plan.days
+            .map { day in day.stops.sorted { $0.order < $1.order }.compactMap { $0.placeId.flatMap { byId[$0] } } }
+            .filter { !$0.isEmpty }
+    }
+
     /// 서버 코스의 속도 — `packed` 만 빡빡하게, 나머지는 널널하게(웹 `saveCourse`).
     static func routePace(_ pace: TripPace) -> RoutePace {
         pace == .packed ? .tight : .loose

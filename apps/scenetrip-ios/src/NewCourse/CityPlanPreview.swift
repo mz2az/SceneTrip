@@ -3,7 +3,8 @@ import SwiftUI
 
 /// 「알아서 짜 주세요」 — 도시 추천 코스 미리보기 (MZ2AZ-547 R1–R5, 웹 `proto/ProtoScreens.tsx` `PlanPreview`).
 ///
-/// 그 도시 촬영지(인기순)를 받아 **앱 안에서** 잇는다(`CityPlanRules.plan`, 서버 창구 없음). 카드를 꾹 눌러 그날 안에서 순서를 바꾸고,
+/// 그 도시 촬영지(인기순)를 받고 서버 AI 일정(`POST /guide/plan {city}`, MZ2AZ-548)을 그 촬영지 카드로 그린다. 서버가 못 주면
+/// **앱 안에서** 잇는다(`CityPlanRules.plan`). 카드를 꾹 눌러 그날 안에서 순서를 바꾸고,
 /// 사진 위 작은 단추로 다른 곳으로 바꾸거나 뺀다. 「이 코스로 만들기」 → 서버에 저장(`POST`+`PUT`) → 정한 여행에 코스 번호 →
 /// 방금 만든 코스로 표시하고 계획 화면을 편집 상태로 연다(R5·R6).
 struct CityPlanPreview: View {
@@ -47,10 +48,8 @@ struct CityPlanPreview: View {
             await store.loadPlaces(cityKey)
             return
         }
-        // 「짜는 중」 을 잠깐 보인다 — 바로 바뀌면 무엇이 일어났는지 모른다(웹과 같은 0.9초).
-        try? await Task.sleep(for: .milliseconds(900))
+        let made = await aiPlan(places: places) ?? CityPlanRules.plan(places: places, days: days, pace: Self.pace)
         guard !Task.isCancelled else { return }
-        let made = CityPlanRules.plan(places: places, days: days, pace: Self.pace)
         plan = made
         // 확인용 뒷문 — `-cityAutoSave 1` 이면 짜자마자 「이 코스로 만들기」 를 누른 것처럼 저장한다(프로세스에 한 번, 서버에 코스가 생긴다).
         if UserDefaults.standard.bool(forKey: "cityAutoSave"), !Self.autoSaved {
@@ -60,6 +59,14 @@ struct CityPlanPreview: View {
     }
 
     private static var autoSaved = false
+
+    /// 서버 AI 일정 — 못 받거나(503·시간 초과·네트워크) 카드로 옮길 곳이 하나도 없으면 nil(앱 계산으로 대신, 계획 §5).
+    private func aiPlan(places: [PlaceSummary]) async -> [[PlaceSummary]]? {
+        let request = CityPlanRules.aiRequest(city: cityKey, days: days, pace: Self.pace)
+        guard let reply = try? await GuideAPI.planWithGuide(guidePlanRequest: request) else { return nil }
+        let made = CityPlanRules.fromGuide(reply.plan, places: places)
+        return made.isEmpty ? nil : made
+    }
 
     private var planning: some View {
         NewCourseScreen(onBack: onBack) {
@@ -74,7 +81,7 @@ struct CityPlanPreview: View {
             } else {
                 HStack(spacing: 10) {
                     ProgressView()
-                    Text("촬영지를 동선대로 잇고 있어요").font(.system(size: 15)).foregroundStyle(.secondary)
+                    Text("AI 가 동선을 짜고 있어요").font(.system(size: 15)).foregroundStyle(.secondary)
                 }
             }
         }
