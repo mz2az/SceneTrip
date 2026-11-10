@@ -28,10 +28,28 @@ enum SceneFlipRules {
         return scenes.lazy.compactMap(\.sceneImageUrls.first).first
     }
 
+    /// 카드 사진 칸의 두 면 — 장소 사진(`photoUrl`, 쓸 수 없는 주소면 없는 것으로)과 장면 그림(`sceneUrl`).
+    /// 장소 사진이 있으면 앞면 사진·뒷면 장면 그림(없으면 뒷면 없음). 장소 사진이 없으면 앞면에 장면 그림, 뒷면 없음(뒤집지 않는다).
+    static func faces(photoUrl: String?, sceneUrl: String?) -> SceneFlipFaces {
+        let photo = photoUrl.flatMap { NewCoursePhoto.usable($0) ? $0 : nil }
+        guard let photo else {
+            return SceneFlipFaces(front: sceneUrl, back: nil, frontIsScene: sceneUrl != nil)
+        }
+        return SceneFlipFaces(front: photo, back: sceneUrl, frontIsScene: false)
+    }
+
     /// 화면이 처음 뜰 때 한 번 살짝 돌 카드의 자리(0부터).
     /// 뒤집히는 첫 카드. 사용자가 한 번이라도 뒤집었거나(`hasFlipped`) 동작 줄이기면 nil. 뒤집히는 카드가 없어도 nil.
     static func peekIndex(flippable: [Bool], hasFlipped: Bool, reduceMotion: Bool) -> Int? {
         guard !hasFlipped, !reduceMotion else { return nil }
         return flippable.firstIndex(of: true)
     }
+}
+
+/// 카드 사진 칸의 두 면. `back` 이 있을 때만 뒤집힌다.
+struct SceneFlipFaces: Equatable {
+    let front: String?
+    let back: String?
+    /// 앞면이 장면 그림인가(장소 사진이 없어 대신 보일 때) — 알약을 「「작품」 속 장면」 으로.
+    let frontIsScene: Bool
 }

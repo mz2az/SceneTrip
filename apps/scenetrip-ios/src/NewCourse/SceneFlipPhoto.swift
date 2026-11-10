@@ -30,9 +30,14 @@ final class SceneFlipStore: ObservableObject {
         pump()
     }
 
-    /// 뒤집을 수 있나(그림을 받아 두었나).
-    func flippable(_ id: Int64) -> Bool {
-        images[id].flatMap { $0 } != nil
+    /// 두 면 — 장소 사진과 받아 둔 장면 그림(`SceneFlipRules.faces`).
+    func faces(_ place: PlaceSummary) -> SceneFlipFaces {
+        SceneFlipRules.faces(photoUrl: place.imageUrl, sceneUrl: images[place.id].flatMap { $0 })
+    }
+
+    /// 뒤집을 수 있나 — 장소 사진과 장면 그림이 둘 다 있을 때만.
+    func flippable(_ place: PlaceSummary) -> Bool {
+        faces(place).back != nil
     }
 
     private func pump() {
@@ -63,8 +68,13 @@ struct SceneFlipPhoto: View {
     @State private var peekAngle: Double = 0
     @State private var peeked = false
 
+    private var faces: SceneFlipFaces {
+        store.faces(place)
+    }
+
+    /// 뒷면(장면 그림) — 있을 때만 뒤집힌다. 장소 사진이 없으면 장면 그림이 앞면에 오고 뒷면은 없다.
     private var sceneUrl: String? {
-        store.images[place.id].flatMap { $0 }
+        faces.back
     }
 
     private var work: String? {
@@ -82,7 +92,7 @@ struct SceneFlipPhoto: View {
 
     var body: some View {
         ZStack {
-            NewCoursePhoto(url: place.imageUrl)
+            NewCoursePhoto(url: faces.front)
                 .opacity(showingBack ? 0 : 1)
             if let sceneUrl {
                 NewCoursePhoto(url: sceneUrl)
@@ -103,13 +113,13 @@ struct SceneFlipPhoto: View {
         .task(id: peek) { await peekOnce() }
     }
 
-    /// 뒤집히는 카드에만 — 앞면 「장면 보기」, 뒷면 「「작품」 속 장면」.
+    /// 뒤집히는 카드에만 — 앞면 「장면 보기」, 뒷면 「「작품」 속 장면」. 장소 사진 대신 장면 그림이 앞면이면 「「작품」 속 장면」.
     @ViewBuilder private var pill: some View {
-        if sceneUrl != nil {
+        if sceneUrl != nil || faces.frontIsScene {
             HStack(spacing: 5) {
-                Image(systemName: showingBack ? "photo" : "arrow.triangle.2.circlepath")
+                Image(systemName: showingBack || faces.frontIsScene ? "photo" : "arrow.triangle.2.circlepath")
                     .font(.system(size: 11, weight: .bold))
-                Text(showingBack ? backLabel : tr("장면 보기"))
+                Text(showingBack || faces.frontIsScene ? backLabel : tr("장면 보기"))
                     .font(.system(size: 12, weight: .semibold))
                     .lineLimit(1)
             }
