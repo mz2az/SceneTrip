@@ -28,10 +28,40 @@ enum SceneFlipRules {
         return scenes.lazy.compactMap(\.sceneImageUrls.first).first
     }
 
+    /// 카드 사진 칸의 두 면 — 장소 사진(`photoUrl`, 쓸 수 없는 주소면 없는 것으로)과 장면 그림(`sceneUrl`). 모든 카드가 뒤집힌다.
+    /// 앞면은 장소 사진, 없으면 장면 그림, 둘 다 없으면 빈 칸. 뒷면은 앞면에 쓰지 않은 쪽, 없으면 「없음」 면(§6 표).
+    static func faces(photoUrl: String?, sceneUrl: String?) -> SceneFlipFaces {
+        let photo = photoUrl.flatMap { NewCoursePhoto.usable($0) ? $0 : nil }
+        switch (photo, sceneUrl) {
+        case let (photo?, scene?): return SceneFlipFaces(front: photo, back: .scene(scene), frontIsScene: false)
+        case let (nil, scene?): return SceneFlipFaces(front: scene, back: .noPhoto, frontIsScene: true)
+        case let (photo, nil): return SceneFlipFaces(front: photo, back: .noScene, frontIsScene: false)
+        }
+    }
+
     /// 화면이 처음 뜰 때 한 번 살짝 돌 카드의 자리(0부터).
     /// 뒤집히는 첫 카드. 사용자가 한 번이라도 뒤집었거나(`hasFlipped`) 동작 줄이기면 nil. 뒤집히는 카드가 없어도 nil.
     static func peekIndex(flippable: [Bool], hasFlipped: Bool, reduceMotion: Bool) -> Int? {
         guard !hasFlipped, !reduceMotion else { return nil }
         return flippable.firstIndex(of: true)
     }
+}
+
+/// 카드 사진 칸의 두 면.
+struct SceneFlipFaces: Equatable {
+    /// 앞면 그림 주소 — 없으면 빈 칸.
+    let front: String?
+    let back: SceneFlipBack
+    /// 앞면이 장면 그림인가(장소 사진이 없어 대신 보일 때) — 알약을 「「작품」 속 장면」 으로.
+    let frontIsScene: Bool
+}
+
+/// 카드 뒷면.
+enum SceneFlipBack: Equatable {
+    /// 장면 그림.
+    case scene(String)
+    /// 「장소 사진이 아직 없어요」 — 장면 그림이 앞면에 갔을 때.
+    case noPhoto
+    /// 「장면 그림이 아직 없어요」.
+    case noScene
 }

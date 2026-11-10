@@ -133,25 +133,12 @@ enum CityPlanRules {
             .filter { !$0.isEmpty }
     }
 
-    /// 「다른 곳으로 바꾸기」 — 코스에 아직 없는 곳 가운데 바꿀 곳에서 가장 가까운 곳.
-    static func nearestUnused(to target: PlaceSummary, among places: [PlaceSummary], used: Set<Int64>) -> PlaceSummary? {
-        var best: PlaceSummary?
-        for place in places where !used.contains(place.id) {
-            if let current = best,
-               RouteGeometry.kilometers(target, place) >= RouteGeometry.kilometers(target, current)
-            {
-                continue
-            }
-            best = place
-        }
-        return best
-    }
-
-    /// `day` 일의 `index` 번째를 `nearestUnused` 로 바꾼 계획. 바꿀 곳이 없으면 그대로.
-    static func swapped(_ plan: [[PlaceSummary]], day: Int, index: Int, among places: [PlaceSummary]) -> [[PlaceSummary]] {
+    /// 「다른 곳으로 바꾸기」 — `day` 일의 `index` 번째를 `nearby` 가운데 코스에 아직 없는 **첫 곳**으로 바꾼 계획. 없으면 그대로.
+    /// `nearby` 는 누를 때 서버에 물은 그 자리 근처 촬영지, 가까운 순(`GET /places?city&lat&lng&sort=distance`, 계획 city-ai-course.md §5).
+    static func swapped(_ plan: [[PlaceSummary]], day: Int, index: Int, among nearby: [PlaceSummary]) -> [[PlaceSummary]] {
         guard plan.indices.contains(day), plan[day].indices.contains(index) else { return plan }
         let used = Set(plan.flatMap { $0.map(\.id) })
-        guard let next = nearestUnused(to: plan[day][index], among: places, used: used) else { return plan }
+        guard let next = nearby.first(where: { !used.contains($0.id) }) else { return plan }
         var out = plan
         out[day][index] = next
         return out
@@ -165,20 +152,32 @@ enum CityPlanRules {
         return out
     }
 
-    /// 그날 안에서 순서 바꾸기.
-    static func moved(_ plan: [[PlaceSummary]], day: Int, from: Int, to: Int) -> [[PlaceSummary]] {
-        guard plan.indices.contains(day), plan[day].indices.contains(from), plan[day].indices.contains(to) else { return plan }
-        var out = plan
-        let item = out[day].remove(at: from)
-        out[day].insert(item, at: to)
-        return out
-    }
-
     /// 고른 곳을 며칠로 나눈다(직접 고르기 S1) — 하루 `ceil(n / days)` 곳씩 담은 순서대로. 길이는 언제나 `days`.
     static func splitDays<T>(_ items: [T], days: Int) -> [[T]] {
         guard days > 0 else { return [] }
         let per = max(1, Int((Double(items.count) / Double(days)).rounded(.up)))
         return (0 ..< days).map { day in Array(items.dropFirst(day * per).prefix(per)) }
+    }
+
+    /// 서버 AI 일정 요청(MZ2AZ-548, 계획 city-ai-course.md §5) — 도시·일수·속도만. 작품은 보내지 않는다.
+    static func aiRequest(city: String, days: Int, pace: TripPace) -> GuidePlanRequest {
+        GuidePlanRequest(city: city, days: days, pace: GuidePlanRequest.Pace(rawValue: pace.rawValue) ?? .normal)
+    }
+
+    /// 서버가 준 일정을 카드로 — 응답만으로 그린다(도시 촬영지 목록 없이, 계획 city-ai-course.md §5). 정지점은 `order` 순,
+    /// 번호(`placeId`)나 좌표가 없는 줄은 빼고, 빈 날도 뺀다. 사진·작품은 정지점의 `imageUrl`·`contents`.
+    static func fromGuide(_ plan: GuidePlan) -> [[PlaceSummary]] {
+        plan.days
+            .map { day in
+                day.stops.sorted { $0.order < $1.order }.compactMap { stop -> PlaceSummary? in
+                    guard let id = stop.placeId, let lat = stop.latitude, let lng = stop.longitude else { return nil }
+                    return PlaceSummary(
+                        id: id, name: stop.name, address: stop.address, latitude: lat, longitude: lng,
+                        imageUrl: stop.imageUrl, contents: stop.contents, sceneDescription: stop.sceneDescription
+                    )
+                }
+            }
+            .filter { !$0.isEmpty }
     }
 
     /// 서버 코스의 속도 — `packed` 만 빡빡하게, 나머지는 널널하게(웹 `saveCourse`).
@@ -196,38 +195,6 @@ enum CityPlanRules {
         course.madeByAI = madeByAI
         return course
     }
-}
-
-/// 꾹 눌러 끌어 순서 바꾸기 (R4, 웹 `useHoldReorder.ts`).
-enum HoldReorderRules {
-    /// 이만큼 꾹 눌러야 들린다(초).
-    static let holdDuration: Double = 0.3
-    /// 들리기 전에 이만큼 움직이면 꾹 누르기가 아니라 넘기기다(pt).
-    static let slop: Double = 8
-
-    /// 끄는 중 한 걸음 — 이웃 카드 높이의 절반을 넘으면 자리를 바꾸고 남은 거리를 돌려준다.
-    /// - Parameters:
-    ///   - index: 지금 끌고 있는 카드의 자리.
-    ///   - count: 그날 카드 수.
-    ///   - offset: 손가락이 처음 자리에서 움직인 세로 거리(아래가 +).
-    ///   - below: 아래 이웃 카드의 높이(없으면 nil).
-    ///   - above: 위 이웃 카드의 높이(없으면 nil).
-    static func step(index: Int, count: Int, offset: Double, below: Double?, above: Double?) -> HoldReorderStep {
-        if offset > 0, index < count - 1, let below, below > 0, offset > below / 2 {
-            return HoldReorderStep(to: index + 1, offset: offset - below)
-        }
-        if offset < 0, index > 0, let above, above > 0, -offset > above / 2 {
-            return HoldReorderStep(to: index - 1, offset: offset + above)
-        }
-        return HoldReorderStep(to: index, offset: offset)
-    }
-}
-
-struct HoldReorderStep: Equatable {
-    /// 옮긴 뒤의 자리(그대로면 `index`).
-    let to: Int
-    /// 옮긴 만큼 덜어 낸 남은 거리.
-    let offset: Double
 }
 
 // MARK: - 담은 곳으로 (A4) — 웹 `ProtoPlanFlows.tsx` `arrange`·`splitEven`

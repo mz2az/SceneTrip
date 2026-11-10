@@ -75,6 +75,8 @@ class PlanRequest:
     start_label: str = ""
     must: list[str] = field(default_factory=list)
     avoid: list[str] = field(default_factory=list)
+    # 작품 대신 도시로 짠다(MZ2AZ-548) — `GET /places/cities` 의 key. 이때 `titles` 는 비어 있다.
+    city: str | None = None
 
 
 @dataclass
@@ -1212,6 +1214,9 @@ def plan_to_api(plan: Plan) -> dict[str, Any]:
                     "dwellMinutes": leg.dwell,
                     "titles": list(leg.titles or place.titles[:3]),
                     "sceneDescription": scene or None,
+                    # 앱이 도시 일정 카드를 목록 없이 그리게(1.28.0, MZ2AZ-548). 작품은 요청으로 거르지 않는다.
+                    "imageUrl": place.image_url or None,
+                    "contents": list(place.content_refs),
                     "mealAfter": leg.meal_after,
                     "metersToNext": leg.meters_to_next or None,
                 }

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from typing import ClassVar
 
 from src.planner import (
     PlanError,
@@ -332,6 +333,77 @@ def _stop(order, name, lat, lng, **ids):
         "dwellMinutes": 40,
         **ids,
     }
+
+
+class 정지점의_사진과_작품(unittest.TestCase):
+    """일정 줄마다 `imageUrl` 과 `contents` 가 실린다(1.28.0, MZ2AZ-548).
+
+    앱이 도시 촬영지 목록을 따로 받지 않고 일정 카드를 그리게 한다. `contents` 는
+    `titles` 와 달리 요청한 작품으로 거르지 않고 서버 순서 그대로다.
+    """
+
+    REFS: ClassVar[dict[str, list[dict]]] = {
+        "1187": [
+            {"contentId": 31, "title": "도깨비"},
+            {"contentId": 7, "title": "이태원 클라쓰"},
+        ],
+        "2201": [{"contentId": 31, "title": "도깨비"}],
+        "2202": [
+            {"contentId": 120, "title": "더 글로리"},
+            {"contentId": 31, "title": "도깨비"},
+        ],
+        "2203": [{"contentId": 31, "title": "도깨비"}],
+    }
+
+    def setUp(self):
+        self.book = numbered_book()
+        for p in self.book.catalog["도깨비"]:
+            # 2201 은 사진이 없다.
+            p.image_url = (
+                "" if p.place_id == "2201" else f"https://img.test/{p.place_id}.jpg"
+            )
+            p.content_refs = [dict(r) for r in self.REFS[p.place_id]]
+        self.wire = plan_to_api(
+            make_plan(self.book, PlanRequest(titles=["도깨비"], days=1))
+        )
+        self.stops = [s for d in self.wire["days"] for s in d["stops"]]
+
+    def test_줄마다_imageUrl_과_contents_가_있다(self):
+        self.assertTrue(self.stops)
+        for s in self.stops:
+            with self.subTest(placeId=s["placeId"]):
+                self.assertIn("imageUrl", s)
+                self.assertIn("contents", s)
+
+    def test_사진은_문자열이고_없으면_null(self):
+        for s in self.stops:
+            pid = str(s["placeId"])
+            with self.subTest(placeId=pid):
+                want = None if pid == "2201" else f"https://img.test/{pid}.jpg"
+                self.assertEqual(s["imageUrl"], want)
+
+    def test_작품은_요청으로_거르지_않고_서버_순서_그대로(self):
+        for s in self.stops:
+            pid = str(s["placeId"])
+            with self.subTest(placeId=pid):
+                self.assertEqual(s["contents"], self.REFS[pid])
+
+    def test_JSON_으로_그대로_나간다(self):
+        back = json.loads(json.dumps(self.wire, ensure_ascii=False))
+        self.assertEqual(
+            [s["contents"] for d in back["days"] for s in d["stops"]],
+            [s["contents"] for s in self.stops],
+        )
+
+    def test_촬영지가_아닌_줄은_작품이_비고_사진은_null(self):
+        wire = 정지점의_정체().wire()
+        back = plan_to_api(plan_from_api(wire, 정지점의_정체().book()))
+        cafe, pin = back["days"][0]["stops"][1:3]
+        for s in (cafe, pin):
+            with self.subTest(name=s["name"]):
+                self.assertIn("imageUrl", s)
+                self.assertIsNone(s["imageUrl"])
+                self.assertEqual(s.get("contents", []), [])
 
 
 if __name__ == "__main__":

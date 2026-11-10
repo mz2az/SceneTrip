@@ -129,7 +129,18 @@ class SceneApiPlaceBook(PlaceSource):
             selected=False,
             mentions=0,
             scenes=scenes,
+            content_refs=SceneApiPlaceBook._content_refs(item.get("contents")),
         )
+
+    @staticmethod
+    def _content_refs(raw: Any) -> list[dict]:
+        """작품 표를 (contentId, title) 짝으로, 서버 순서 그대로(MZ2AZ-548). 번호가 정수가 아니거나 제목이 글이 아닌 항목은 건너뛴다."""
+        out: list[dict] = []
+        for ref in raw or []:
+            cid, title = ref.get("contentId"), ref.get("title")
+            if type(cid) is int and isinstance(title, str):
+                out.append({"contentId": cid, "title": title})
+        return out
 
     # ── 질의 ──────────────────────────────────────────────────────────────────
 
@@ -162,6 +173,11 @@ class SceneApiPlaceBook(PlaceSource):
 
         data = self._get(f"/contents/{best['id']}/places", {"limit": limit})
         return best.get("title"), [self._to_place(i) for i in data.get("items", [])]
+
+    def by_city(self, city: str, limit: int = 200) -> list[Place]:
+        """`GET /places?city=` — 서버의 기본 정렬(인기도 내림차순) 그대로(MZ2AZ-548)."""
+        data = self._get("/places", {"city": city, "limit": limit})
+        return [self._to_place(i) for i in data.get("items", [])]
 
     def near(
         self,

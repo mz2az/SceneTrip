@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.27.0
+  version: 1.28.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -2867,8 +2867,12 @@ paths:
     post:
       tags: [guide]
       operationId: planWithGuide
-      summary: 일정짜기 마법사 — 작품과 기간으로 일정 초안을 받는다
+      summary: 일정짜기 마법사 — 작품 또는 도시와 기간으로 일정 초안을 받는다
       description: |
+        **작품 대신 도시로도 짠다**(1.28.0, MZ2AZ-548). `titles` 와 `city` 중 정확히 하나를 보낸다. 도시면 에이전트가
+        그 도시 촬영지를 인기순으로 받아 앞에서 필요한 만큼만(하루 곳 수 × 일수 × 3, 적어도 15곳) 모델에 넘기고,
+        모델이 답을 못 주면 「인기순 → 가까운 곳 잇기」 계산으로 짠다. 응답의 `plan.titles` 는 일정에 든 작품들이다.
+
         마법사는 「도깨비 / 2박 3일 / 여유롭게」를 **이미 구조화된 값**으로 들고 있다 — 문장을
         해석하는 단계는 없다. 서버는 에이전트의 계산 창구(`POST /plan`)에 그대로 넘긴다
         ([ADR 0013](../../docs/architecture/adr/0013-guide-chat-is-served-by-the-python-agent.md)).
@@ -2912,6 +2916,7 @@ paths:
           description: |
             `code` 는 `INVALID_PARAMETER`. 작품을 하나도 못 찾았거나(`titles` 가 데이터에 없다),
             일수·작품 수가 범위 밖이거나, 좌표 있는 촬영지가 하나도 없어 동선을 만들 수 없을 때.
+            `titles` 와 `city` 를 둘 다 보냈거나 둘 다 안 보냈을 때, 모르는 도시이거나 그 도시에 좌표 있는 촬영지가 없을 때(1.28.0).
             `message` 에 어느 것인지 적힌다.
           content:
             application/json:
@@ -6399,6 +6404,18 @@ components:
           type: string
           nullable: true
           description: 그 작품의 어떤 장면이었나
+        imageUrl:
+          type: string
+          nullable: true
+          description: |
+            그 장소의 대표 사진 — `PlaceSummary.imageUrl` 과 같은 값(1.28.0, MZ2AZ-548). 앱이 일정 카드를 도시 촬영지 목록 없이 그리게 한다.
+        contents:
+          type: array
+          description: |
+            그 장소가 나온 작품들, 서버 순서(1.28.0, MZ2AZ-548). `titles` 와 달리 요청한 작품으로 거르지 않고 번호(`contentId`)가 있다 —
+            도시로 짠 일정은 요청한 작품이 없다. 촬영지가 아니면 빠진다.
+          items:
+            $ref: "#/components/schemas/ContentRef"
         mealAfter:
           type: boolean
           description: 이 정지점 뒤에 식사 시간이 들어갔는가. 식당은 고르지 않는다 — 맛집 데이터가 없다
@@ -6426,15 +6443,25 @@ components:
       description: |
         마법사 화면에서 고른 값 그대로. 챗봇 도구 `plan_course` 의 인자와 같은 항목이다 —
         챗봇 경로에서는 모델이 사용자의 말에서 이것을 읽어 내고, 여기서는 앱이 직접 보낸다.
-      required: [titles, days]
+        **`titles` 와 `city` 중 정확히 하나**(1.28.0) — 둘 다 오거나 둘 다 없으면 400.
+      required: [days]
       properties:
         titles:
           type: array
-          minItems: 1
           maxItems: 5
-          description: 돌 작품들. **장소가 아니라 작품 기준이다** — 같은 장소가 여러 작품에 나오므로 장소만으로는 작품을 되짚을 수 없다(MZ2AZ-200)
+          description: |
+            돌 작품들. **장소가 아니라 작품 기준이다** — 같은 장소가 여러 작품에 나오므로 장소만으로는 작품을 되짚을 수 없다(MZ2AZ-200).
+            `city` 와 함께 보내지 않는다. **빈 목록은 보내지 않은 것으로 본다**(1.28.0 에서 `minItems: 1` 을 뺐다 — 생성된 서버
+            요청 객체가 빠진 목록을 빈 목록으로 채워, 도시만 보낸 요청을 크기 검사가 막았다).
           items:
             type: string
+        city:
+          type: string
+          minLength: 1
+          maxLength: 40
+          description: |
+            이 도시의 촬영지로 짠다(1.28.0, MZ2AZ-548). 값은 `GET /places/cities` 의 `key`(예: `서울`, `경기 광주`) 그대로.
+            `titles` 와 함께 보내지 않는다.
         days:
           type: integer
           minimum: 1
