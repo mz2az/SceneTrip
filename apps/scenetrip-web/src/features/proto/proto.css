@@ -129,3 +129,24 @@
   .proto-coach-bubble { animation: none; }
   .proto-coach-hole { transition: none; }
 }
+
+/*
+ * 질문 단계 넘김(protoParts StepTransition) — 앞으로: 새 단계가 오른쪽 24px 에서 들어오고 이전 단계는 왼쪽으로 밀리며 사라진다. 뒤로: 반대.
+ * 계획 docs/project/plans/motion-works-drawer-parity.md §5. 동작 줄이기면 밀림 없이 0.2초 서서히만 —
+ * design/global.css 의 전역 규칙(0.01ms !important)보다 이 클래스 규칙이 더 구체적이라 이긴다.
+ */
+.proto-step-in-fwd { animation: proto-step-in-right 0.28s cubic-bezier(0.32, 0.72, 0, 1) both; }
+.proto-step-out-fwd { animation: proto-step-out-left 0.28s cubic-bezier(0.32, 0.72, 0, 1) both; }
+.proto-step-in-back { animation: proto-step-in-left 0.28s cubic-bezier(0.32, 0.72, 0, 1) both; }
+.proto-step-out-back { animation: proto-step-out-right 0.28s cubic-bezier(0.32, 0.72, 0, 1) both; }
+
+@keyframes proto-step-in-right { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@keyframes proto-step-in-left { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+@keyframes proto-step-out-left { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(-24px); } }
+@keyframes proto-step-out-right { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(24px); } }
+@keyframes proto-step-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .proto-step-in-fwd, .proto-step-in-back { animation: proto-step-fade-in 0.2s ease both !important; }
+  .proto-step-out-fwd, .proto-step-out-back { animation: proto-fade-out 0.2s ease both !important; }
+}

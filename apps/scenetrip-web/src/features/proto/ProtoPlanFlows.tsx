@@ -30,7 +30,7 @@ import { Calendar } from '@/features/route/wizard/Calendar'
 import { tr, trAt } from '@/i18n'
 import { type CartItem, useCart } from '@/state/cart'
 import { likeActions, useLikes } from '@/state/likes'
-import { PrimaryButton, ProtoScreen } from './protoParts'
+import { PrimaryButton, ProtoScreen, StepTransition } from './protoParts'
 import { ProtoWorkStep } from './ProtoWizardSteps'
 import { daysLabel, say } from './protoState'
 import { color, radius, shadow } from './protoTokens'
@@ -298,6 +298,8 @@ export function ProtoAIPlan({ onClose }: { onClose: () => void }) {
 
   return (
     <div style={{ position: 'relative', height: '100%' }}>
+      {/* 단계가 바뀔 때 밀려 들어오고 나간다(계획 motion-works-drawer-parity.md §5) — 여행 정보 → 작품 → 짜는 중. 「그만두기」 는 뒤로. */}
+      <StepTransition step={planning ? 'planning' : step} order={planning ? 2 : step === 'works' ? 1 : 0}>
       {planning ? (
         <PlanningScreen posters={posters} summary={summary} onCancel={() => { run.current++; setPlanning(false) }} />
       ) : step === 'trip' ? (
@@ -347,6 +349,7 @@ export function ProtoAIPlan({ onClose }: { onClose: () => void }) {
           />
         </ProtoScreen>
       )}
+      </StepTransition>
 
       <GlassDialog
         open={tooMany}

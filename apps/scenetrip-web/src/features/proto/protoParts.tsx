@@ -166,14 +166,79 @@ export function ProtoScreen({ title, onBack, children, footer, step, hero, label
   )
 }
 
+/**
+ * 화면에 떠 있는 단계 점의 마지막 값. 단계가 바뀌면 새 화면의 점이 새로 그려지므로, 아직 떠 있는(나가는 중인) 이전 화면의 값에서 시작해
+ * 0.28초 동안 늘거나 준다(계획 motion-works-drawer-parity.md §5). 이전 화면이 이미 없으면(질문을 새로 열 때) 바로 그 값으로 그린다.
+ */
+let liveDots: { of: number; at: number } | null = null
+
 /** 질문 단계 점 — 지금 단계만 길고 진하게. 화면 읽기에는 「1/3단계」. */
 function StepDots({ at, of, onPhoto }: { at: number; of: number; onPhoto?: boolean }) {
+  const [shown, setShown] = useState(() => (liveDots && liveDots.of === of ? liveDots.at : at))
+  useEffect(() => {
+    const mine = { of, at }
+    liveDots = mine
+    const frame = requestAnimationFrame(() => setShown(at))
+    return () => {
+      cancelAnimationFrame(frame)
+      if (liveDots === mine) liveDots = null
+    }
+  }, [at, of])
   return (
     <HStack spacing={6} role="img" aria-label={say(`${of}단계 중 ${at}단계`, `Step ${at} of ${of}`)}>
       {Array.from({ length: of }, (_, i) => (
-        <div key={i} style={{ width: i + 1 === at ? 20 : 7, height: 7, borderRadius: radius.pill, background: onPhoto ? (i + 1 <= at ? color.onPhoto : 'rgba(255,255,255,0.45)') : i + 1 <= at ? color.primary : 'var(--system-gray4)', transition: 'width 0.2s' }} />
+        <div key={i} style={{ width: i + 1 === shown ? 20 : 7, height: 7, borderRadius: radius.pill, background: onPhoto ? (i + 1 <= shown ? color.onPhoto : 'rgba(255,255,255,0.45)') : i + 1 <= shown ? color.primary : 'var(--system-gray4)', transition: 'width 0.28s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.28s' }} />
       ))}
     </HStack>
+  )
+}
+
+/**
+ * 질문 단계 넘김 — 새 단계가 오른쪽 24px 에서 밀려 들어오며 나타나고 이전 단계는 왼쪽으로 조금 밀리며 사라진다. 뒤로 가면 반대(0.28초).
+ * 동작 줄이기면 0.2초 서서히만(proto.css). 계획 docs/project/plans/motion-works-drawer-parity.md §5.
+ *
+ * `step` 이 바뀌면 직전 화면을 그대로 둔 채(같은 열쇠라 다시 만들지 않는다) 나가는 움직임을 주고, 끝나면 뗀다. `order` 가 커지면 앞으로다.
+ * 나가는 화면은 `inert` 라 누르거나 초점이 가지 않는다.
+ */
+export function StepTransition({ step, order, children }: { step: string; order: number; children: ReactNode }) {
+  const [current, setCurrent] = useState({ step, order })
+  const [leaving, setLeaving] = useState<{ step: string; node: ReactNode } | null>(null)
+  const [dir, setDir] = useState<'fwd' | 'back' | null>(null)
+  /** 마지막으로 화면에 올린 내용 — 단계가 바뀐 그 그리기에서는 아직 이전 단계의 것이다. */
+  const committed = useRef<ReactNode>(children)
+  if (step !== current.step) {
+    setLeaving({ step: current.step, node: committed.current })
+    setDir(order >= current.order ? 'fwd' : 'back')
+    setCurrent({ step, order })
+  }
+  useEffect(() => {
+    committed.current = children
+  })
+  // animationend 를 못 받는 경우(탭이 숨겨진 동안 등)에도 나가는 화면이 남지 않게.
+  useEffect(() => {
+    if (!leaving) return
+    const t = window.setTimeout(() => setLeaving(null), 450)
+    return () => window.clearTimeout(t)
+  }, [leaving])
+  const layer: CSSProperties = { position: 'absolute', inset: 0 }
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: z.screen, overflow: 'hidden' }}>
+      {leaving && (
+        <div
+          key={leaving.step}
+          inert
+          aria-hidden
+          className={`proto-step-out-${dir}`}
+          style={{ ...layer, pointerEvents: 'none' }}
+          onAnimationEnd={(e) => { if (e.target === e.currentTarget) setLeaving(null) }}
+        >
+          {leaving.node}
+        </div>
+      )}
+      <div key={current.step} className={dir ? `proto-step-in-${dir}` : undefined} style={layer}>
+        {children}
+      </div>
+    </div>
   )
 }
 

@@ -2,7 +2,7 @@
  * 시안 화면 — A 질문 카드(홈 맨 위), B·C 질문 화면(전체 화면), C 코스 초안 미리보기, B·C 여행 카드(두 번째부터의 홈 맨 위), 시안 바꾸기 단추.
  * 계획: docs/project/plans/web-trip-first-prototypes.md
  */
-import { type CSSProperties, useEffect, useRef, useState } from 'react'
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react'
 import type { components } from '@/api/generated/schema'
 import { paths } from '@/app/routes'
 import { useTabRouter } from '@/app/tabRouter'
@@ -20,7 +20,7 @@ import { useHoldReorder } from './useHoldReorder'
 import { CoachTour } from './CoachTour'
 import {
   ASK_CITIES, ChoiceRow, CityGrid, CityHero, SlideImages, useCitySlides, CityPicker, DAY_OPTIONS, MockBadge, PrimaryButton, ProtoScreen, SecondaryButton, cityByKey, daysLabel,
-  saveCourse, useCities,
+  StepTransition, saveCourse, useCities,
 } from './protoParts'
 import { type Pace, type Proto, markFreshCourse, protoActions, protoStore, say, tripLength } from './protoState'
 import { showsPrototypeMarks } from './protoGate'
@@ -81,6 +81,7 @@ export function AskCard() {
 // ---------------------------------------------------------------- B — 질문 화면(도시 → 며칠 → 어떻게)
 
 type Step = 'city' | 'days' | 'how' | 'plan'
+const STEP_ORDER: Record<Step, number> = { city: 0, days: 1, how: 2, plan: 3 }
 
 function QuestionFlow() {
   const { cities, loading, failed, retry } = useCities()
@@ -90,80 +91,84 @@ function QuestionFlow() {
   const [days, setDays] = useState<number | null>(null)
   const close = () => protoActions.ask(false)
 
-  if (step === 'city') {
-    return (
-      <ProtoScreen
-        step={[1, 3]}
-        onBack={close}
-        title={null}
-        label={say('한국 어디로 여행 가세요?', 'Where in Korea are you going?')}
-        hero={
-          <CityHero>
+  const content = ((): ReactNode => {
+    if (step === 'city') {
+      return (
+        <ProtoScreen
+          step={[1, 3]}
+          onBack={close}
+          title={null}
+          label={say('한국 어디로 여행 가세요?', 'Where in Korea are you going?')}
+          hero={
+            <CityHero>
+              <VStack spacing={10} align="start">
+                <HStack spacing={8}>
+                  <PinoMascot width={40} />
+                  <Txt size={14} weight="semibold" style={{ color: color.onPhoto, textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{say('드라마·영화 촬영지로 짜는 한국 여행', 'Korea trips through K-drama & film spots')}</Txt>
+                </HStack>
+                <Txt as="h1" size={32} weight="heavy" style={{ ...heading, color: color.onPhoto, lineHeight: 1.12, textShadow: '0 2px 10px rgba(0,0,0,0.35)' }}>{say('한국 어디로 여행 가세요?', 'Where in Korea are you going?')}</Txt>
+              </VStack>
+            </CityHero>
+          }
+        >
+          {failed ? (
             <VStack spacing={10} align="start">
-              <HStack spacing={8}>
-                <PinoMascot width={40} />
-                <Txt size={14} weight="semibold" style={{ color: color.onPhoto, textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{say('드라마·영화 촬영지로 짜는 한국 여행', 'Korea trips through K-drama & film spots')}</Txt>
-              </HStack>
-              <Txt as="h1" size={32} weight="heavy" style={{ ...heading, color: color.onPhoto, lineHeight: 1.12, textShadow: '0 2px 10px rgba(0,0,0,0.35)' }}>{say('한국 어디로 여행 가세요?', 'Where in Korea are you going?')}</Txt>
+              <Txt size={15} color="secondary">{say('도시 목록을 못 불러왔어요', "Couldn't load the cities")}</Txt>
+              <SecondaryButton onClick={retry}>{say('다시 시도', 'Try again')}</SecondaryButton>
             </VStack>
-          </CityHero>
-        }
-      >
-        {failed ? (
-          <VStack spacing={10} align="start">
-            <Txt size={15} color="secondary">{say('도시 목록을 못 불러왔어요', "Couldn't load the cities")}</Txt>
-            <SecondaryButton onClick={retry}>{say('다시 시도', 'Try again')}</SecondaryButton>
-          </VStack>
-        ) : (
-          <CityGrid cities={cities} loading={loading} selected={city} onPick={(k) => { setCity(k); setStep('days') }} />
-        )}
-        <Pressable plain className="proto-press" onClick={() => protoActions.ask(false)} style={{ alignSelf: 'center', padding: '12px 16px', minHeight: 44 }}>
-          <Txt size={15} color="secondary">{say('아직 몰라요. 그냥 둘러볼게요', 'Not sure yet, just browsing')}</Txt>
-        </Pressable>
-      </ProtoScreen>
-    )
-  }
+          ) : (
+            <CityGrid cities={cities} loading={loading} selected={city} onPick={(k) => { setCity(k); setStep('days') }} />
+          )}
+          <Pressable plain className="proto-press" onClick={() => protoActions.ask(false)} style={{ alignSelf: 'center', padding: '12px 16px', minHeight: 44 }}>
+            <Txt size={15} color="secondary">{say('아직 몰라요. 그냥 둘러볼게요', 'Not sure yet, just browsing')}</Txt>
+          </Pressable>
+        </ProtoScreen>
+      )
+    }
 
-  const found = cityByKey(cities, city)
-  const cityName = found?.name ?? city ?? ''
-  if (step === 'days') {
-    return (
-      <ProtoScreen step={[2, 3]} onBack={startCity ? close : () => setStep('city')} title={say(`${cityName}에서 며칠 머무세요?`, `How long in ${cityName}?`)}>
-        <ChoiceRow options={DAY_OPTIONS} value={days} label={daysLabel} onPick={(n) => { setDays(n); setStep('how') }} />
-      </ProtoScreen>
-    )
-  }
+    const found = cityByKey(cities, city)
+    const cityName = found?.name ?? city ?? ''
+    if (step === 'days') {
+      return (
+        <ProtoScreen step={[2, 3]} onBack={startCity ? close : () => setStep('city')} title={say(`${cityName}에서 며칠 머무세요?`, `How long in ${cityName}?`)}>
+          <ChoiceRow options={DAY_OPTIONS} value={days} label={daysLabel} onPick={(n) => { setDays(n); setStep('how') }} />
+        </ProtoScreen>
+      )
+    }
 
-  if (step === 'how') {
-    return (
-      <ProtoScreen
-        step={[3, 3]}
-        onBack={() => setStep('days')}
-        title={say('코스를 어떻게 짤까요?', 'How should we plan it?')}
-      >
-        {/* 두 갈래를 같은 크기의 카드로 — 무엇을 하게 되는지 한 줄씩. 처음 온 사람에게 부담이 적은 「알아서」 를 위에 채운 색으로(결정 3). */}
-        <HowCard
-          primary
-          icon="sparkles"
-          title={say('알아서 짜 주세요', 'Plan it for me')}
-          detail={say(`${cityName} 인기 촬영지를 동선대로 이어 ${daysLabel(days!)} 코스를 바로 만들어요. 빼고 바꾸는 건 그다음에.`, `We'll link ${cityName}'s top filming spots into a ${tripLength(days!)} route right away. Tweak it after.`)}
-          onClick={() => setStep('plan')}
-        />
-        <HowCard
-          icon="checkmark.circle.fill"
-          title={say('직접 고를게요', "I'll pick the spots")}
-          detail={say(`${cityName} 촬영지 ${found ? cityCount(found) : ''}곳을 보고 가고 싶은 곳만 담아요.`, `Browse ${found ? cityCount(found) : ''} spots in ${cityName} and add the ones you like.`)}
-          onClick={() => {
-            protoActions.setTrip({ city: city!, days: days!, pace: 'normal', courseId: null })
-            protoActions.ask(false)
-            protoActions.pick(city)
-          }}
-        />
-      </ProtoScreen>
-    )
-  }
+    if (step === 'how') {
+      return (
+        <ProtoScreen
+          step={[3, 3]}
+          onBack={() => setStep('days')}
+          title={say('코스를 어떻게 짤까요?', 'How should we plan it?')}
+        >
+          {/* 두 갈래를 같은 크기의 카드로 — 무엇을 하게 되는지 한 줄씩. 처음 온 사람에게 부담이 적은 「알아서」 를 위에 채운 색으로(결정 3). */}
+          <HowCard
+            primary
+            icon="sparkles"
+            title={say('알아서 짜 주세요', 'Plan it for me')}
+            detail={say(`${cityName} 인기 촬영지를 동선대로 이어 ${daysLabel(days!)} 코스를 바로 만들어요. 빼고 바꾸는 건 그다음에.`, `We'll link ${cityName}'s top filming spots into a ${tripLength(days!)} route right away. Tweak it after.`)}
+            onClick={() => setStep('plan')}
+          />
+          <HowCard
+            icon="checkmark.circle.fill"
+            title={say('직접 고를게요', "I'll pick the spots")}
+            detail={say(`${cityName} 촬영지 ${found ? cityCount(found) : ''}곳을 보고 가고 싶은 곳만 담아요.`, `Browse ${found ? cityCount(found) : ''} spots in ${cityName} and add the ones you like.`)}
+            onClick={() => {
+              protoActions.setTrip({ city: city!, days: days!, pace: 'normal', courseId: null })
+              protoActions.ask(false)
+              protoActions.pick(city)
+            }}
+          />
+        </ProtoScreen>
+      )
+    }
 
-  return <PlanPreview city={found} days={days!} pace="normal" onBack={() => setStep('how')} />
+    return <PlanPreview city={found} days={days!} pace="normal" onBack={() => setStep('how')} />
+  })()
+  // 단계가 바뀔 때 밀려 들어오고 나간다(§5) — 열쇠는 단계 이름, 순서는 도시 → 며칠 → 어떻게 → 추천 코스.
+  return <StepTransition step={step} order={STEP_ORDER[step]}>{content}</StepTransition>
 }
 
 function HowCard({ primary, icon, title, detail, onClick }: { primary?: boolean; icon: string; title: string; detail: string; onClick: () => void }) {
