@@ -18,7 +18,8 @@ extension NMFCameraUpdate {
         }
     }
 
-    private static func meters(_ from: NMGLatLng, _ to: NMGLatLng) -> Double {
-        CLLocation(latitude: from.lat, longitude: from.lng).distance(from: CLLocation(latitude: to.lat, longitude: to.lng))
+    private static func meters(_ start: NMGLatLng, _ end: NMGLatLng) -> Double {
+        let here = CLLocation(latitude: start.lat, longitude: start.lng)
+        return here.distance(from: CLLocation(latitude: end.lat, longitude: end.lng))
     }
 }
