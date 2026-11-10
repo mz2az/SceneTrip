@@ -25,7 +25,7 @@ enum SceneFlipRules {
         if let workId, let own = scenes.first(where: { $0.contentId == workId })?.sceneImageUrls.first {
             return own
         }
-        return scenes.lazy.compactMap { $0.sceneImageUrls.first }.first
+        return scenes.lazy.compactMap(\.sceneImageUrls.first).first
     }
 
     /// 화면이 처음 뜰 때 한 번 살짝 돌 카드의 자리(0부터).
