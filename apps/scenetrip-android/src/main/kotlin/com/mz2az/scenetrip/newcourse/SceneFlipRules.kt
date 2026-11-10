@@ -37,6 +37,23 @@ object SceneFlipRules {
     }
 
     /**
+     * 카드 사진 칸의 두 면 — 장소 사진([photoUrl], 쓸 수 없는 주소면 없는 것으로 — [NewCourseText.usablePhoto])과 장면 그림([sceneUrl]).
+     * 모든 카드가 뒤집힌다. 앞면은 장소 사진, 없으면 장면 그림, 둘 다 없으면 빈 칸(「장소 사진이 아직 없어요」).
+     * 뒷면은 앞면에 쓰지 않은 쪽, 없으면 「없음」 면(§6 표).
+     */
+    fun faces(
+        photoUrl: String?,
+        sceneUrl: String?,
+    ): SceneFlipFaces {
+        val photo = photoUrl?.takeIf { NewCourseText.usablePhoto(it) }
+        return when {
+            photo != null && sceneUrl != null -> SceneFlipFaces(front = photo, back = SceneFlipBack.Scene(sceneUrl), frontIsScene = false)
+            sceneUrl != null -> SceneFlipFaces(front = sceneUrl, back = SceneFlipBack.NoPhoto, frontIsScene = true)
+            else -> SceneFlipFaces(front = photo, back = SceneFlipBack.NoScene, frontIsScene = false)
+        }
+    }
+
+    /**
      * 처음 한 번 살짝 돌 카드의 자리. [flippable] 은 카드 순서대로 뒤집힐 수 있는지.
      * 한 번이라도 뒤집었으면([hasFlipped]), 동작 줄이기면([reduceMotion]), 뒤집히는 카드가 없으면 null.
      */
@@ -48,4 +65,27 @@ object SceneFlipRules {
         if (hasFlipped || reduceMotion) return null
         return flippable.indexOf(true).takeIf { it >= 0 }
     }
+}
+
+/** 카드 사진 칸의 두 면. */
+data class SceneFlipFaces(
+    /** 앞면 그림 주소 — 없으면 빈 칸(「장소 사진이 아직 없어요」). */
+    val front: String?,
+    val back: SceneFlipBack,
+    /** 앞면이 장면 그림인가(장소 사진이 없어 대신 보일 때) — 알약을 「「작품」 속 장면」 으로. */
+    val frontIsScene: Boolean,
+)
+
+/** 카드 뒷면. */
+sealed class SceneFlipBack {
+    /** 장면 그림. */
+    data class Scene(
+        val url: String,
+    ) : SceneFlipBack()
+
+    /** 「장소 사진이 아직 없어요」 — 장면 그림이 앞면에 갔을 때. */
+    data object NoPhoto : SceneFlipBack()
+
+    /** 「장면 그림이 아직 없어요」. */
+    data object NoScene : SceneFlipBack()
 }

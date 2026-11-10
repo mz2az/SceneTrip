@@ -113,7 +113,7 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 | --- | --- |
 | `NewCourseSheet.kt` | 「새 여행 코스」 시트(높이 380·회색 바탕): ① 도시로 시작 ② 작품으로 [AI] ③ 담은 곳으로(「담아 둔 N곳을 날마다 나눠 넣어요」/0곳이면 「빈 코스에서 하나씩 넣어요」). 홈 떠 있는 줄 「+ 새 코스」(`TabRouter.newCourseSheet`)와 코스 목록 머리의 「+ 새 코스」(P7)가 연다 |
 | `CityQuestionView.kt` | 전체 덮개 질문: Q1 도시(사진 머리 min(46%,390)·최소 300, 도시 칸 2열×8, 받는 중 회색 칸, 실패 「다시 시도」 + 15초 뒤 자동 한 번) → Q2 며칠(당일치기~3박 4일) → Q3 「알아서 짜 주세요」/「직접 고를게요」. 홈 도시 칩은 Q2 부터이고 그때 뒤로는 닫기 |
-| `CityPlanPreview.kt` | R1–R6: `GET /places?city=`(200개) 를 **앱 안에서** 잇는다(인기 1위부터 가까운 곳, 하루 5곳). 카드 16:9·번호·↻ 바꾸기·✕ 빼기, **꾹 0.3초 → 들림(1.02·그림자·햅틱), 8dp 넘게 먼저 움직이면 스크롤** — 라이브러리 없이 `pointerInput`+`awaitEachGesture`+`withTimeoutOrNull`, 손가락은 화면 기준으로 잰다. 「이 코스로 만들기」 → `POST`+`PUT /courses`(madeByAI) → `PUT /me/trip` → `TabRouter.courseCreated`(방금 만든 코스 표시 + 6초 안내 띠 + 계획 화면) |
+| `CityPlanPreview.kt` · `SceneFlipPhoto.kt` | R1–R6: 서버 AI 일정 `POST /guide/plan {city, days, pace: normal}`(MZ2AZ-548, `RouteStore.planCity` → `CityPlanRules.fromGuide`)만 쓴다 — 도시 촬영지 목록은 받지 않고, 기다리는 동안 「AI 가 동선을 짜고 있어요」, 못 받으면(503·시간 초과·네트워크·그릴 곳 없음) 앱 계산 없이 「코스를 못 짰어요」 + 「다시 시도」. 날 머리 24sp. 카드 16:9·번호·↻ 바꾸기(그 자리 근처 그 도시 촬영지 10곳 `GET /places?city&lat&lng&sort=distance&limit=10` 가운데 코스에 없는 첫 곳, `CityPlanRules.swapped`)·✕ 빼기. 꾹 눌러 순서 바꾸기는 뺐다. 사진을 누르면 세로 축으로 0.45초 뒤집힌다(§6, 모든 카드): 면은 `SceneFlipRules.faces`, 장면 그림은 `GET /places/{id}`(동시 4개, `SceneFlipStore`), 없는 쪽은 보라 바탕 「장소 사진이 아직 없어요」/「장면 그림이 아직 없어요」, 왼쪽 아래 알약은 뒷면에서 앞면으로 돌아가는 단추, 첫 카드는 처음 한 번 25° 살짝 돌기(한 번 뒤집으면 다시 안 함), 동작 줄이기면 0.2초 서서히. 「이 코스로 만들기」 → `POST`+`PUT /courses`(madeByAI) → `PUT /me/trip` → `TabRouter.courseCreated`(방금 만든 코스 표시 + 6초 안내 띠 + 계획 화면) |
 | `CityPickView.kt` | S1 직접 고르기: 도시 촬영지 30곳, [＋ 담기]/[✓ 담음] 은 진짜 보관함. 「N곳으로 코스 만들기」 는 Q2 의 며칠로 고르게 나눠(`splitDays`) 「{도시} 여행」 으로 저장, R5 와 같은 길 |
 | `WorksPlanView.kt` · `NewCoursePlanParts.kt` | A1 일정(기간 칩 3열·「떠나는 날」 펼치는 달력·「날짜 지우기」)·다니는 속도 → A2 포스터 3열(찜한 작품 미리 고름, 5개 넘으면 경고) → AI 동의·위치 동의 → `POST /guide/plan` → A3 짜는 중(포스터 부채꼴·요약 칩·0/3.5/8초 세 줄·그만두기) → 저장 전 초안 편집(isNew) |
 | `SavedPlanView.kt` | A4: 일정 + 「넣을 곳」(사진 겹침·「담아 둔 곳 N곳」) → 보관함 전부를 시·도 묶음 → 가까운 순으로 잇고 날마다 고르게 나눈 초안 편집 |
@@ -279,7 +279,7 @@ JVM 시험이 먼저 섰다(`tests/MapSearchPagingRulesTests.kt`·`tests/MapCame
 | `ui/PressScale.kt` | 시안 단추 누름 — 누르는 동안 0.97배·0.12초(`pressScale`·`pressClickable`). 탭바·떠 있는 단추·새 코스 단추·카드·커뮤니티 머리줄·좋아요. 예전 흐려짐(0.7)은 뺐다 |
 | `ui/ProtoMotion.kt` | 공용 곡선(`cubic-bezier(.32,.72,0,1)` 등) · `CoverHost`(덮는 화면 아래에서 0.3초 오르내림) · `reveal`(알약 모양으로 잘라 보이는 폭만 넓힘) · `appearIn`(0.08초 뒤 6dp 비켜 있다 0.22초에 나타남) |
 | `ui/StepTransition.kt` · `newcourse/CityQuestionView.kt` · `WorksPlanView.kt` · `NewCourseParts.kt` | §5 질문 단계 넘김: 「도시로 시작」(도시 → 며칠 → 어떻게 → 추천 코스/직접 고르기)과 「작품으로」(여행 정보 → 작품 → 짜는 중). 화면은 제자리에서 0.28초 서서히 바뀌고, 본문·아래 단추(`stepSlide`)만 앞으로면 오른쪽 24dp 에서 들어오고 이전 것은 왼쪽으로 24dp 밀려 나간다(뒤로면 반대, 곡선 `EaseOutSheet`). 위 줄의 단계 점은 밀리지 않고 이전 단계 모양에서 0.28초에 자란다. 동작 줄이기면 밀림·자람 없이 0.2초 서서히. 넘기는 동안 두 화면이 반투명이어도 아래 홈이 비치지 않게 바탕색을 깐다 |
-| `newcourse/SceneFlipRules.kt` | §6 추천 코스 카드 장면 그림 뒤집기의 순수 규칙(어떤 그림·처음 한 번 살짝 돌기 카드)만 있다 — 화면에는 아직 쓰지 않는다 |
+| `newcourse/SceneFlipRules.kt` · `SceneFlipPhoto.kt` | §6 추천 코스 카드 뒤집기 — 규칙(두 면·어떤 장면 그림·처음 한 번 살짝 돌기 카드)과 그리기. 위 `CityPlanPreview.kt` 줄 참고 |
 
 | # | 어디 | 안드로이드 |
 | --- | --- | --- |
@@ -289,7 +289,7 @@ JVM 시험이 먼저 섰다(`tests/MapSearchPagingRulesTests.kt`·`tests/MapCame
 | M7·M8 | 지도 🔍 검색칸·목록·결과 서랍 | 46dp 동그라미에서 오른쪽으로 0.28초(닫힘 0.2초), 목록·결과 서랍은 `appearIn` |
 | M9 | 짜는 중 포스터 | 2.4초 주기 8dp, 장마다 0.25초 늦게 |
 | M10 | 처음 안내 | 말풍선 단계마다 6dp 아래에서 0.22초, 구멍 0.2초 |
-| M11·M12·M13 | ＋ 단추 · 확인 창 · 꾹 눌러 옮긴 카드/사진 | 45° 0.2초 · 딤과 카드 0.18초 · 놓은 자리에서 0.16초에 제자리 |
+| M11·M12·M13 | ＋ 단추 · 확인 창 · 꾹 눌러 옮긴 사진(추천 코스 카드 옮기기는 MZ2AZ-548 에서 뺐다) | 45° 0.2초 · 딤과 카드 0.18초 · 놓은 자리에서 0.16초에 제자리 |
 | M14–M16 | 커뮤니티 | 검색칸 돋보기 자리에서 왼쪽으로 0.3초(닫힘 0.2초, 「취소」 늦게 나타나고 0.15초에 사라짐) · 게시판 글자색 0.18초 · 글쓰기 게시판 화살표 0.18초 · 좋아요 1→1.3→1 0.32초 살짝 튐 |
 
 - 시스템 「애니메이션 제거」(애니메이터 배율 0) 이면 Compose 가 끝 값으로 바로 간다. 홈 알약·처음 안내는 예전처럼 `rememberReduceMotion` 을 직접 본다.
