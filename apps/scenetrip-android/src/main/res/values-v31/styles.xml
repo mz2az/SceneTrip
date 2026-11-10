@@ -2,10 +2,9 @@
 <!--
   Android 12+ 시스템 시작 화면 (MZ2AZ-513).
 
-  시스템 시작 화면은 단색 바탕 + 아이콘 하나뿐이다. 앱 안에 이미 해태가 떨어지는 SplashView
+  시스템 시작 화면은 단색 바탕 + 아이콘 하나뿐이다. 앱 안에 이미 해태가 나오는 SplashView
   가 있으므로 여기서 해태를 또 보여 주면 같은 그림이 두 번 나온다 — 그래서 아이콘은 투명으로
-  두고 바탕만 SplashView 의 보라와 맞춘다. 시스템 창이 걷히면 같은 보라 위에서 해태가
-  떨어지기 시작한다.
+  두고 바탕만 SplashView 의 흰색과 맞춘다. 시스템 창이 걷히면 같은 흰 바탕에서 글자가 나타난다(MZ2AZ-549).
 -->
 <resources>
     <style name="Theme.SceneTrip.Starting" parent="Theme.SceneTrip">
