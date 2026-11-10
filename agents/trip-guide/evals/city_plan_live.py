@@ -15,6 +15,8 @@
 | 작품 | 일정에 나온 서로 다른 작품 수 |
 | 곳 | 날마다 넣은 곳 수 |
 | 시간 | 요청에서 답까지(초) |
+
+경우마다 `REPEAT` 번(2) 돌린다 — 모델 답이 매번 달라 한 번은 우연일 수 있다.
 | 대신 | 모델이 실패해 계산으로 짠 사례 |
 
 사용법 (로컬 scene-api 와 모델 키 필요): `just agent-city-eval-live` — 표를 stdout 에, 자세한 결과를 JSON 으로 남긴다.
@@ -26,7 +28,7 @@ import json
 import os
 import sys
 import time
-from itertools import pairwise
+from itertools import pairwise, product
 from pathlib import Path
 
 from src.city_planner import chain_plan, plan_city_with_model
@@ -39,6 +41,8 @@ from src.sceneapi import SceneApiPlaceBook
 CITIES = ["서울", "부산", "제주"]
 DAYS = [1, 2, 3]
 PACES = ["relaxed", "packed"]
+# 경우마다 몇 번 — 모델 답이 매번 달라 한 번은 우연일 수 있다.
+REPEAT = 2
 TOP = 5
 
 
@@ -80,28 +84,27 @@ def main(argv: list[str]) -> int:
             if p.has_coords()
         ]
         top_ids = {p.place_id for p in places[:TOP]}
-        for days in DAYS:
-            for pace in PACES:
-                req = PlanRequest(titles=[], days=days, pace=pace, city=city)
-                row = {"city": city, "days": days, "pace": pace}
-                row["계산"] = measure(chain_plan(places, days, pace, cfg), top_ids)
-                variants = [("추림", cfg)] + (
-                    [("전부", everything)] if city == "서울" else []
+        for days, pace, run in product(DAYS, PACES, range(1, REPEAT + 1)):
+            req = PlanRequest(titles=[], days=days, pace=pace, city=city)
+            row = {"city": city, "days": days, "pace": pace, "run": run}
+            row["계산"] = measure(chain_plan(places, days, pace, cfg), top_ids)
+            variants = [("추림", cfg)] + (
+                [("전부", everything)] if city == "서울" else []
+            )
+            for name, use in variants:
+                started = time.monotonic()
+                plan = plan_city_with_model(book, req, client, cfg=use)
+                took = round(time.monotonic() - started, 1)
+                result = measure(_model_days(plan), top_ids)
+                result.update(
+                    seconds=took,
+                    fallback=not plan.signals.get("llm"),
+                    considered=plan.considered,
                 )
-                for name, use in variants:
-                    started = time.monotonic()
-                    plan = plan_city_with_model(book, req, client, cfg=use)
-                    took = round(time.monotonic() - started, 1)
-                    result = measure(_model_days(plan), top_ids)
-                    result.update(
-                        seconds=took,
-                        fallback=not plan.signals.get("llm"),
-                        considered=plan.considered,
-                    )
-                    row[name] = result
-                    time.sleep(1.2)  # scene-api 한도(분당 60)
-                rows.append(row)
-                print(json.dumps(row, ensure_ascii=False), flush=True)
+                row[name] = result
+                time.sleep(1.2)  # scene-api 한도(분당 60)
+            rows.append(row)
+            print(json.dumps(row, ensure_ascii=False), flush=True)
 
     out = (
         Path(argv[0])

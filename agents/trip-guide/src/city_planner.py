@@ -93,7 +93,7 @@ def build_city_prompt(
     """
     lines: list[str] = []
     count = len(places)
-    zone_of = zones(places, _needed(1, pace, cfg))
+    zone_of = zones(places, _zone_size(pace, cfg))
     for i, p in enumerate(places):
         row: dict[str, Any] = {"id": p.place_id, "name": p.name}
         row["area"] = area(p.address)
@@ -108,6 +108,52 @@ def build_city_prompt(
     return Template(_PROMPT.read_text(encoding="utf-8")).substitute(
         city=city, days=days, pace=pace_text, must=must_text, places="\n".join(lines)
     )
+
+
+def _zone_size(pace: str, cfg: dict[str, Any]) -> int:
+    return _needed(1, pace, cfg) * int(_city_cfg(cfg).get("zone_factor", 1))
+
+
+def fill_days(
+    chosen: list[list[Place]],
+    candidates: list[Place],
+    zone_of: dict[str, str],
+    days: int,
+    per_day: int,
+) -> list[list[Place]]:
+    """모자란 날·빠진 날을 같은 구역의 안 쓴 후보로 채운다(계획 §3 「빈자리 채우기」). `candidates` 는 인기순이다.
+
+    모델은 하루 몫보다 적게 고르거나 날을 빠뜨렸다(2026-11-10 평가: 부산 3일 빡빡에 2일). 채운 곳은 그날 곳들 뒤에 붙고,
+    다른 구역에서는 끌어오지 않는다 — 다른 구역을 섞으면 하루 이동이 다시 길어진다.
+    """
+    out = [list(day) for day in chosen]
+    used = {p.place_id for day in out for p in day}
+
+    def top_up(day: list[Place]) -> None:
+        zone = zone_of.get(day[0].place_id)
+        pool = [
+            p
+            for p in candidates
+            if p.place_id not in used and zone_of.get(p.place_id) == zone
+        ]
+        while len(day) < per_day and pool:
+            best = min(pool, key=lambda c: min(_km(c, p) for p in day))
+            pool.remove(best)
+            used.add(best.place_id)
+            day.append(best)
+
+    for day in out:
+        if day:
+            top_up(day)
+    while len(out) < days:
+        opener = next((p for p in candidates if p.place_id not in used), None)
+        if opener is None:
+            break
+        used.add(opener.place_id)
+        day = [opener]
+        top_up(day)
+        out.append(day)
+    return out
 
 
 def _km(a: Place, b: Place) -> float:
@@ -136,16 +182,16 @@ def chain_plan(
     return [d for d in out if d]
 
 
-def zones(places: list[Place], per_day: int) -> dict[str, str]:
+def zones(places: list[Place], zone_size: int) -> dict[str, str]:
     """후보를 좌표로 묶은 구역 — place_id → 「A」·「B」…(계획 §3 「구역과 순서」). `places` 는 인기순이다.
 
-    구역 수는 올림(곳 수 ÷ (하루 곳 수 × 2)) — 하루가 한 구역 안에서 고를 거리가 남게. 중심은 인기 1등에서 시작해 이미 고른
+    구역 수는 올림(곳 수 ÷ `zone_size`) — 부르는 쪽이 하루 곳 수 × `zone_factor` 를 넘긴다. 중심은 인기 1등에서 시작해 이미 고른
     중심에서 가장 먼 곳을 차례로 더하고(가장 먼 점 고르기), 각 곳을 가장 가까운 중심에 넣고 중심을 무리의 평균으로 옮기기를
     10번 한다. 난수가 없어 같은 입력이면 같은 답이다. 행정 동네(`area`)는 제주처럼 둘뿐인 도시에서 단서가 되지 못했다.
     """
     if not places:
         return {}
-    count = max(1, math.ceil(len(places) / max(per_day * 2, 1)))
+    count = max(1, math.ceil(len(places) / max(zone_size, 1)))
     points = [(p.lat, p.lng) for p in places]
     centers = [points[0]]
     while len(centers) < min(count, len(points)):
@@ -269,10 +315,11 @@ def plan_city_with_model(
             )
             by_id = {p.place_id: p for p in candidates}
             chosen = parse_days(str(reply.get("content") or ""), by_id, req.days)
-            kept = [
-                reorder_day(d)
-                for d in trim_days([d for d in chosen if d], req.pace, cfg)
-            ]
+            kept = trim_days([d for d in chosen if d], req.pace, cfg)
+            zone_of = zones(candidates, _zone_size(req.pace, cfg))
+            per_day = _needed(1, req.pace, cfg)
+            filled = fill_days(kept, candidates, zone_of, req.days, per_day)
+            kept = [reorder_day(d) for d in filled]
             return _plan(req, kept, len(candidates), llm=True)
         except (PlanError, SceneApiError):
             raise
