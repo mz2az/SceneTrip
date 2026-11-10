@@ -52,6 +52,7 @@ npm run dev          # predev 가 npm run gen 을 먼저 돌린다
 개발 서버는 DEV API 의 GET 200 응답을 10분 메모리에 둔다(`vite.config.ts`, DEV 분당 60회 한도 때문. `SCENETRIP_NO_API_CACHE=1` 로 끈다).
 새 화면(시안, `features/proto/`)은 개발 서버에서 `?proto=a|b|off` 로 켜고, 시험용 웹 `dev.scenetrip.io` 에서는 기본으로 켜진다(`features/proto/protoGate.ts`, MZ2AZ-539). 운영 주소에서는 켜지지 않는다. 「시안」 표시·스위치는 개발 서버에서만 보인다. 커뮤니티 게시판·글 검색·좋아요·댓글, 편의시설 「골고루」·이름 검색, 정한 여행 기억은 서버(계약 1.23~1.25)를 부른다 — 계획 `docs/project/plans/web-proto-apply.md`(MZ2AZ-544).
 시안 「작품으로」 의 「누구의 장면을 따라갈까요?」 는 `GET /contents` 를 30개씩 `total` 까지 이어 받고(격자 마지막 줄이 보이면 다음 쪽), 위 검색칸 「작품 이름으로 찾기」 는 0.3초 멈추면 서버 `q` 로 찾는다. 고른 작품은 검색·쪽 넘김과 상관없이 남고 AI 요청은 고른 작품 제목(없으면 인기 앞 3개)을 보낸다(`features/proto/useWorksBrowse.ts`·`worksBrowse.ts`). 코스 편집 지도 검색의 결과 줄은 왼쪽 점 없이 글만, 엔터 뒤 결과 서랍은 손잡이를 끌어 지도의 42%·78% 에 붙인다(빠르게 튕기면 그 방향, `searchDrawer.ts`). 계획 `docs/project/plans/motion-works-drawer-parity.md`(MZ2AZ-547).
+시안 「도시로 시작」(도시 → 며칠 → 어떻게 → 추천 코스)과 「작품으로」(여행 정보 → 작품 → 짜는 중)는 단계가 바뀔 때 새 단계가 오른쪽 24px 에서 밀려 들어오고 이전 단계는 왼쪽으로 밀리며 사라진다(0.28초, 뒤로는 반대). 위 단계 점도 같은 시간에 늘거나 준다. 동작 줄이기면 0.2초 서서히만(`features/proto/protoParts.tsx` 의 `StepTransition`, `proto.css`). 같은 계획 §5.
 
 ## 환경 변수
 

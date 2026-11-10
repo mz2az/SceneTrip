@@ -222,7 +222,8 @@ export function StepTransition({ step, order, children }: { step: string; order:
   }, [leaving])
   const layer: CSSProperties = { position: 'absolute', inset: 0 }
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: z.screen, overflow: 'hidden' }}>
+    // 바탕을 칠해 둔다 — 두 단계가 반쯤 투명한 사이에 뒤의 홈 화면이 비치지 않게.
+    <div style={{ position: 'absolute', inset: 0, zIndex: z.screen, overflow: 'hidden', background: 'var(--grouped-background)' }}>
       {leaving && (
         <div
           key={leaving.step}
