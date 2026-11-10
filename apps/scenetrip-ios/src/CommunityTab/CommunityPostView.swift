@@ -1,7 +1,10 @@
 import SceneApiClient
 import SwiftUI
 
-/// 여행후기 읽기 (MZ2AZ-351) — 블로그 글처럼 **사진이 먼저, 그 아래 글, 끝에 다녀온 코스.**
+/// 글 읽기 (MZ2AZ-351) — 블로그 글처럼 **제목, 글과 사진(쓴 순서대로), 끝에 다녀온 코스.**
+///
+/// 커뮤니티 탭에서는 오른쪽에서 밀려 들어오는 새 화면이다(`page`, 머리 「‹ 여행후기」, ✕ 없음, MZ2AZ-547 K6).
+/// 맨 위 대표 사진은 따로 그리지 않는다 — 본문 블록에 이미 있다(K7). 글 끝에 좋아요 알약과 댓글이 붙는다(K8·K9).
 ///
 /// 붙은 코스는 이름만이 아니라 **일차별 장소까지** 보인다. 「내 코스로 담기」를 누르면 같은
 /// 코스가 내 것으로 하나 생긴다 — 후기를 읽고 「나도 이대로 가야지」가 한 번에 되어야 한다.
@@ -16,10 +19,20 @@ struct CommunityPostView: View {
         photoRefresh.post ?? loaded ?? initialPost
     }
 
-    init(post: CommunityPost) {
+    /// 커뮤니티 탭의 새 화면이면 true — ✕ 대신 뒤로, 머리에 게시판 이름. 마이페이지에서는 시트로 연다(false).
+    let page: Bool
+
+    init(post: CommunityPost, page: Bool = false) {
         initialPost = post
+        self.page = page
         _photoRefresh = StateObject(wrappedValue: CommunityPhotoRefresh(post: post))
+        _social = StateObject(wrappedValue: PostSocialModel(
+            postId: post.serverId ?? 0, liked: post.liked, likeCount: post.likeCount, commentCount: post.commentCount
+        ))
     }
+
+    /// 좋아요·댓글(1.24.0) — 서버 글에만.
+    @StateObject private var social: PostSocialModel
 
     @Environment(\.dismiss) private var dismiss
     /// 내 글의 글쓴이 이름이 닉네임이다 — 글을 연 채로 계정이 바뀌어도 따라가야 한다.
@@ -52,12 +65,6 @@ struct CommunityPostView: View {
                         Button("다시 시도") { Task { await load() } }.disabled(loading)
                     }
                 } else {
-                    if let cover = articlePhotos.first {
-                        CommunityArticlePhoto(source: cover, block: coverBlock, representative: true)
-                            .padding(.horizontal, 20).padding(.top, 14)
-                            .accessibilityIdentifier("community-representative-photo")
-                    }
-
                     VStack(alignment: .leading, spacing: 16) {
                         Text(post.title)
                             .font(.title2.weight(.bold))
@@ -79,13 +86,30 @@ struct CommunityPostView: View {
                             .padding(12)
                             .background(RoundedRectangle(cornerRadius: 14).fill(Color(.systemGray6)))
                         }
+
+                        if post.serverId != nil {
+                            CommunityLikeButton(social: social)
+                            CommunityCommentsSection(social: social)
+                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 18)
                 }
             }
         }
-        .task { await load() }
+        .task {
+            social.onChange = { liked, likes, comments in
+                if let id = initialPost.serverId {
+                    CommunityStore.shared.updateSocial(postId: id, liked: liked, likeCount: likes, commentCount: comments)
+                }
+            }
+            await load()
+        }
+        // 머리 「‹ 여행후기」 — 뒤로 꺾쇠와 게시판 이름. 앞쪽 단추 자리에 글자를 두면 iOS 26 유리 판이 글자를 잘라
+        // (「여…」, 시뮬레이터 실측) 제목 자리에 둔다.
+        .navigationTitle(page ? tr(CommunityFeedRules.boardLabelKey(CommunityFeedRules.board(post.serverBoard))) : "")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(page ? .visible : .hidden, for: .navigationBar)
         .renewsPhotos { forced in Task { await photoRefresh.renew(forced: forced) } }
         .onDisappear {
             loadGeneration += 1
@@ -99,8 +123,12 @@ struct CommunityPostView: View {
             saving = false
             saveFailed = false
             await load()
+            // 「내 댓글」 표시가 계정에 따라 바뀐다.
+            if initialPost.serverId != nil {
+                await social.loadComments()
+            }
         }
-        .signInSheet()
+        .signInSheet(active: !page)
         .moderationSheets(moderation) { target in
             // 차단한 사람의 후기 상세는 이제 404 다 — 목록에서 빼고 닫는다.
             if case let .post(id) = target {
@@ -109,24 +137,30 @@ struct CommunityPostView: View {
             dismiss()
         }
         .overlay(alignment: .topTrailing) {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 32, height: 32)
-                    // 밝은 사진·흰 본문 위에서도 보이게 진하게 깐다.
-                    .background(Circle().fill(.black.opacity(0.62)))
-                    .overlay(Circle().strokeBorder(.white.opacity(0.5), lineWidth: 1))
+            if !page {
+                closeButton
             }
-            .buttonStyle(.plain)
-            .padding(14)
-            .accessibilityLabel("닫기")
         }
         .alert("코스를 담지 못했어요. 잠시 뒤 다시 해 주세요", isPresented: $saveFailed) {
             Button("확인", role: .cancel) {}
         }
+    }
+
+    private var closeButton: some View {
+        Button {
+            dismiss()
+        } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 32, height: 32)
+                // 밝은 사진·흰 본문 위에서도 보이게 진하게 깐다.
+                .background(Circle().fill(.black.opacity(0.62)))
+                .overlay(Circle().strokeBorder(.white.opacity(0.5), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .padding(14)
+        .accessibilityLabel("닫기")
     }
 
     private var articlePhotos: [CommunityPhotoSource] {
@@ -137,11 +171,7 @@ struct CommunityPostView: View {
     }
 
     private var articleBlocks: [TripPostBlock] {
-        post.bodyBlocks ?? CommunityArticle.legacy(body: post.body, photoCount: articlePhotos.count)
-    }
-
-    private var coverBlock: TripPostBlock {
-        articleBlocks.first { $0.kind == .photo && $0.photoIndex == 0 } ?? TripPostBlock(kind: .photo, photoIndex: 0)
+        CommunityArticle.readingBlocks(bodyBlocks: post.bodyBlocks, body: post.body, photoCount: articlePhotos.count)
     }
 
     private var authorRow: some View {
@@ -306,6 +336,7 @@ struct CommunityPostView: View {
             guard !Task.isCancelled, asked.generation == loadGeneration, asked.epoch == auth.epoch else { return }
             loaded = fresh
             photoRefresh.show(fresh)
+            social.sync(liked: fresh.liked, likeCount: fresh.likeCount)
         } catch {
             guard !Task.isCancelled, asked.generation == loadGeneration, asked.epoch == auth.epoch else { return }
             loadMessage = CommunityRules.failureText(error)

@@ -5,10 +5,19 @@ import SceneApiClient
 @MainActor
 protocol CommunityClient {
     func list(mine: Bool, limit: Int, offset: Int) async throws -> TripPostList
+    /// 모두의 목록(1.24.0, MZ2AZ-538) — 게시판·검색어·다음 쪽 커서. 내 글 목록에는 쓰지 않는다.
+    func feed(limit: Int, offset: Int, board: TripPostBoard?, query: String?, cursor: String?) async throws -> TripPostList
     func detail(_ id: Int64) async throws -> TripPostDetail
     func create(_ input: TripPostCreate) async throws -> TripPostDetail
     func delete(_ id: Int64) async throws
     func saveCourse(_ id: Int64) async throws -> CourseDetail
+}
+
+extension CommunityClient {
+    /// 조건을 모르는 가짜(옛 시험)는 옛 길로 받는다.
+    func feed(limit: Int, offset: Int, board _: TripPostBoard?, query _: String?, cursor _: String?) async throws -> TripPostList {
+        try await list(mine: false, limit: limit, offset: offset)
+    }
 }
 
 @MainActor
@@ -19,6 +28,12 @@ struct CommunityServerClient: CommunityClient {
             return try await PostsAPI.listMyPosts(acceptLanguage: AppLanguage.current, limit: limit, offset: offset)
         }
         return try await PostsAPI.listPosts(acceptLanguage: AppLanguage.current, limit: limit, offset: offset)
+    }
+
+    func feed(limit: Int, offset: Int, board: TripPostBoard?, query: String?, cursor: String?) async throws -> TripPostList {
+        await AuthRefresher.refreshIfStale()
+        return try await PostsAPI.listPosts(acceptLanguage: AppLanguage.current, limit: limit, offset: offset,
+                                            board: board, q: query, cursor: cursor)
     }
 
     func detail(_ id: Int64) async throws -> TripPostDetail {

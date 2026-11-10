@@ -38,10 +38,11 @@ extension SearchTabView {
 
             Divider().frame(height: 22)
 
+            // 담은 곳의 이름은 「보관함」이다(MZ2AZ-547 G2, 웹 `SearchTopBar.tsx:65`) — 보라 가방.
             Button { showCart = true } label: {
-                Image(systemName: "cart")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(.primary)
+                Image(systemName: "bag")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(TabBar.homePurple)
                     .overlay(alignment: .topTrailing) {
                         if !cart.items.isEmpty {
                             Text("\(cart.items.count)")
@@ -53,6 +54,7 @@ extension SearchTabView {
                         }
                     }
             }
+            .accessibilityLabel(tr("보관함"))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)

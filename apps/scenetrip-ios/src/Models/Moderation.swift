@@ -6,11 +6,14 @@ import SceneApiClient
 enum ModerationTarget: Hashable, Identifiable {
     case review(Int64)
     case post(Int64)
+    /// 여행후기 댓글(1.24.0, MZ2AZ-538).
+    case comment(Int64)
 
     var id: String {
         switch self {
         case let .review(id): "review-\(id)"
         case let .post(id): "post-\(id)"
+        case let .comment(id): "comment-\(id)"
         }
     }
 
@@ -18,12 +21,13 @@ enum ModerationTarget: Hashable, Identifiable {
         switch self {
         case .review: .review
         case .post: .post
+        case .comment: .comment
         }
     }
 
     var targetId: Int64 {
         switch self {
-        case let .review(id), let .post(id): id
+        case let .review(id), let .post(id), let .comment(id): id
         }
     }
 }
