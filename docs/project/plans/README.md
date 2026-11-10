@@ -90,3 +90,4 @@
 - [앱 업데이트 안내 — 최소·최신 버전과 강제/권장 창](app-update-prompt.md) — MZ2AZ-546, GET /app/versions
 - [iOS — 웹 시안 반영](ios-web-parity.md) — MZ2AZ-547, 웹 변경 전체 목록과 iOS 묶음별 진행
 - [도시 추천 코스를 AI 로 — 후보를 추려서 넘긴다](city-ai-course.md) — MZ2AZ-548, POST /guide/plan 에 city
+- [작품 포스터를 기기에 30일 보관 + 화면 크기로](poster-disk-cache.md) — MZ2AZ-507, iOS·Android 포스터만
