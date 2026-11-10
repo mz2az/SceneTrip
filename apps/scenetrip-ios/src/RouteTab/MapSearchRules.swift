@@ -17,20 +17,16 @@ enum MapSearchPhase: Equatable {
     case idle
     case loading
     case failed
-    /// `wide` — 「이 지역 밖에서도」(범위 없이) 찾은 것.
-    case done(shops: [RouteGuide.Place], wide: Bool)
+    /// 범위 없이 화면 가운데에서 가까운 순으로 찾은 것(§10-2).
+    case done(shops: [RouteGuide.Place])
 }
 
 enum MapSearchTitle: Equatable {
-    /// 「가게·장소 · 이 지역」
-    case shopsHere
-    /// 「가게·장소 · 전체」
-    case shopsEverywhere
+    /// 「가게·장소 · 가까운 순」
+    case shopsNearby
 }
 
 enum MapSearchEmpty: Equatable {
-    /// 「이 지역엔 없어요」
-    case noneHere
     /// 「찾는 곳이 없어요」
     case noPlaces
 }
@@ -43,8 +39,6 @@ enum MapSearchRow: Equatable {
     case title(MapSearchTitle)
     case shop(RouteGuide.Place)
     case empty(MapSearchEmpty)
-    /// 「이 지역 밖에서도 찾기」
-    case searchEverywhere
 }
 
 enum MapSearchRules {
@@ -75,11 +69,6 @@ enum MapSearchRules {
         query(text) != nil
     }
 
-    /// 범위 — 「이 지역 밖에서도」 면 없음, 아니면 지금 지도.
-    static func bbox(wide: Bool, viewport: MapViewport?) -> String? {
-        wide ? nil : viewport?.bbox
-    }
-
     /// 목록 줄 — 가게·장소 제목 → 가게(또는 빈 문구) → 「이 지역 밖에서도 찾기」(이 지역일 때만).
     static func rows(_ phase: MapSearchPhase) -> [MapSearchRow] {
         switch phase {
@@ -89,13 +78,9 @@ enum MapSearchRules {
             return [.loading]
         case .failed:
             return [.failed]
-        case let .done(shops, wide):
-            var rows: [MapSearchRow] = [.title(wide ? .shopsEverywhere : .shopsHere)]
-            rows += shops.isEmpty ? [.empty(wide ? .noPlaces : .noneHere)] : shops.map(MapSearchRow.shop)
-            if !wide {
-                rows.append(.searchEverywhere)
-            }
-            return rows
+        case let .done(shops):
+            let body = shops.isEmpty ? [MapSearchRow.empty(.noPlaces)] : shops.map(MapSearchRow.shop)
+            return [.title(.shopsNearby)] + body
         }
     }
 
@@ -105,7 +90,7 @@ enum MapSearchRules {
         switch phase {
         case .idle, .failed: []
         case .loading: previous
-        case let .done(shops, _): shops
+        case let .done(shops): shops
         }
     }
 
@@ -159,14 +144,11 @@ struct MapSearchResults: Equatable {
     enum Body: Equatable {
         case loading
         case failed
-        /// `offerEverywhere` — 「이 지역 밖에서도 찾기」 단추를 보인다.
-        case empty(MapSearchEmpty, offerEverywhere: Bool)
+        case empty(MapSearchEmpty)
         case shops([RouteGuide.Place])
     }
 
     let query: String
-    /// 범위 없이 찾나(「이 지역 밖에서도」).
-    private(set) var wide: Bool
     private(set) var tall = false
     /// 찾은 가게·장소 — 받기 전이면 nil.
     private(set) var shops: [RouteGuide.Place]?
@@ -184,9 +166,8 @@ struct MapSearchResults: Equatable {
     private(set) var ask = 0
     private var selfMoveAt: Date?
 
-    init(query: String, wide: Bool) {
+    init(query: String) {
         self.query = query
-        self.wide = wide
     }
 
     var drawerShare: Double {
@@ -252,15 +233,8 @@ struct MapSearchResults: Equatable {
         failed = true
     }
 
-    /// 「↻ 이 지역에서 다시 찾기」 — 지금 지도 범위로.
+    /// 「↻ 이 지역에서 다시 찾기」 — 지금 화면 가운데를 기준으로 처음 쪽부터(§10-2).
     mutating func searchHere() {
-        wide = false
-        ask += 1
-    }
-
-    /// 「이 지역 밖에서도 찾기」 — 범위 없이.
-    mutating func searchEverywhere() {
-        wide = true
         ask += 1
     }
 
@@ -300,7 +274,7 @@ struct MapSearchResults: Equatable {
         }
         guard let shops else { return .loading }
         if shops.isEmpty {
-            return wide ? .empty(.noPlaces, offerEverywhere: false) : .empty(.noneHere, offerEverywhere: true)
+            return .empty(.noPlaces)
         }
         return .shops(shops)
     }

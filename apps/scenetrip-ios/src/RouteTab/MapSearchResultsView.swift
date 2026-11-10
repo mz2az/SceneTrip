@@ -162,20 +162,9 @@ struct MapSearchResultsView: View {
         case .failed:
             Text("찾지 못했어요. 잠시 후 다시 해 주세요")
                 .font(.system(size: 14)).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(24)
-        case let .empty(empty, offerEverywhere):
-            VStack(spacing: 10) {
-                Text(MapSearchText.empty(empty)).font(.system(size: 14)).foregroundStyle(.secondary)
-                if offerEverywhere {
-                    Button { model.searchEverywhere(viewport: viewport) } label: {
-                        Text("이 지역 밖에서도 찾기").font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(TabBar.homePurple)
-                            .padding(.horizontal, 16).frame(minHeight: 40)
-                            .background(Capsule().fill(Color(.systemBackground)))
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.vertical, 24).padding(.horizontal, 12)
+        case let .empty(empty):
+            Text(MapSearchText.empty(empty)).font(.system(size: 14)).foregroundStyle(.secondary)
+                .padding(.vertical, 24).padding(.horizontal, 12)
         case let .shops(shops):
             VStack(spacing: 0) {
                 LazyVStack(spacing: 0) {

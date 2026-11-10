@@ -20,17 +20,31 @@ enum RouteNumberPin {
     /// 고른 핀의 배율 — 같은 그림을 크게(2026-11-10 사용자 결정: 해태·파란 고리 대신 「핀 크기만 키워 줘」).
     static let largeScale: CGFloat = 1.4
 
-    private static var cache: [Int: NMFOverlayImage] = [:]
-    private static var largeCache: [Int: NMFOverlayImage] = [:]
+    private struct Key: Hashable {
+        let number: Int?
+        let large: Bool
+    }
+
+    private static var cache: [Key: NMFOverlayImage] = [:]
 
     /// 번호 글자 크기 — 한 자리 13, 두 자리 11.5, 세 자리 이상 9.
     static func fontSize(_ number: Int) -> CGFloat {
         number < 10 ? 13 : number < 100 ? 11.5 : 9
     }
 
+    /// 번호 없는 같은 핀 — 코스 밖의 한 곳(담을까 보는 곳, 길 안내에서 갈아탄 목적지, 계획 §10-1).
+    static func plain(large: Bool = false) -> NMFOverlayImage {
+        render(nil, large: large)
+    }
+
     /// `large` 면 같은 그림을 `largeScale` 배로. 기준점(`anchor`)은 비율이라 그대로 꼬리 끝이다.
     static func image(_ number: Int, large: Bool = false) -> NMFOverlayImage {
-        if let cached = large ? largeCache[number] : cache[number] {
+        render(number, large: large)
+    }
+
+    private static func render(_ number: Int?, large: Bool) -> NMFOverlayImage {
+        let key = Key(number: number, large: large)
+        if let cached = cache[key] {
             return cached
         }
         let scale = large ? largeScale : 1
@@ -66,6 +80,7 @@ enum RouteNumberPin {
             seam.fill()
             cg.endTransparencyLayer()
 
+            guard let number else { return }
             let text = "\(number)"
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: fontSize(number), weight: .heavy),
@@ -75,11 +90,7 @@ enum RouteNumberPin {
             text.draw(at: CGPoint(x: 15 - textSize.width / 2, y: 14.5 - textSize.height / 2), withAttributes: attributes)
         }
         let overlay = NMFOverlayImage(image: image)
-        if large {
-            largeCache[number] = overlay
-        } else {
-            cache[number] = overlay
-        }
+        cache[key] = overlay
         return overlay
     }
 }

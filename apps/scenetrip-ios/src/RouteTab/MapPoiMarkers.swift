@@ -58,8 +58,9 @@ extension RouteMapView.Coordinator {
             lift: MapSearchRules.extraLift(contentInset: mapView.contentInset.bottom),
             metersPerPoint: mapView.projection.metersPerPixel(atLatitude: place.latitude, zoom: zoom)
         )
-        let update = NMFCameraUpdate(scrollTo: NMGLatLng(lat: target.latitude, lng: target.longitude), zoomTo: zoom)
-        update.animation = .easeIn
+        let spot = NMGLatLng(lat: target.latitude, lng: target.longitude)
+        let update = NMFCameraUpdate(scrollTo: spot, zoomTo: zoom)
+        update.applyMotion(toward: spot, on: mapView)
         mapView.moveCamera(update)
     }
 

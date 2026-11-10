@@ -155,11 +155,15 @@ struct RouteNavMapView: UIViewRepresentable {
                 lat: goal?.latitude ?? stop.place.latitude,
                 lng: goal?.longitude ?? stop.place.longitude
             )
+            // 목적지 핀 — 코스 장소면 그 번호를 크게, 갈아탄 곳이거나 번호를 모르면 번호 없이 크게(계획 §10-1).
+            let goalIndex = goal == nil ? dayStops.firstIndex { $0.id == stop.id } : nil
+            let goalPin = goalIndex.map { RouteNumberPin.image($0 + 1, large: true) } ?? RouteNumberPin.plain(large: true)
             // 위치를 못 받았으면 목적지만 보여 준다. 경로선도 파란 점도 없다 —
             // 출발지를 모르는데 선을 그으면 그 선이 거짓말이 된다.
             guard let here else {
                 let only = NMFMarker(position: target)
-                only.iconImage = PinoPin.marker()
+                only.iconImage = goalPin
+                only.anchor = RouteNumberPin.anchor
                 only.mapView = mapView
                 markers.append(only)
                 let update = NMFCameraUpdate(scrollTo: target, zoomTo: 14)
@@ -185,11 +189,10 @@ struct RouteNavMapView: UIViewRepresentable {
                 drawn += points
             }
 
-            // 목적지는 **피노**다. 여기는 목적지가 하나뿐이라 번호가 필요 없어
-            // 얼굴을 넣을 자리가 있다 — 코스 목록 쪽은 ①②③ 이 목록과 지도를 잇는
-            // 끈이라 그대로 둔다(`PinoPin` 머리말).
+            // 목적지는 그 장소의 번호 핀을 크게(2026-11-10 사용자 결정 — 해태·파란 고리 뺌, 계획 §10-1).
             let goal = NMFMarker(position: target)
-            goal.iconImage = PinoPin.marker()
+            goal.iconImage = goalPin
+            goal.anchor = RouteNumberPin.anchor
             goal.zIndex = 20
             goal.mapView = mapView
             markers.append(goal)
@@ -206,7 +209,8 @@ struct RouteNavMapView: UIViewRepresentable {
                 let marker = NMFMarker(position: NMGLatLng(
                     lat: dayStop.place.latitude, lng: dayStop.place.longitude
                 ))
-                marker.iconImage = PinImage.numbered(index + 1)
+                marker.iconImage = RouteNumberPin.image(index + 1)
+                marker.anchor = RouteNumberPin.anchor
                 marker.captionText = PinCaption.text(dayStop.place.name)
                 marker.captionRequestedWidth = PinCaption.width
                 marker.captionMinZoom = 12
@@ -247,8 +251,8 @@ struct RouteNavMapView: UIViewRepresentable {
                 markers.append(marker)
             }
 
-            // 헤일로는 목적지(파랑)만. 고른 가게는 큰 아이콘으로 충분하다(2026-11-10 사용자 결정, 빨간 고리 뺌).
-            updateHalo(style: .brand, at: target, on: mapView)
+            // 고리는 그리지 않는다 — 목적지는 큰 번호 핀, 고른 가게는 큰 아이콘(2026-11-10 사용자 결정).
+            updateHalo(style: .brand, at: nil, on: mapView)
 
             // 경로 전체가 보이게 맞춘다. 좌표가 없으면 출발지·목적지 둘만으로.
             // 카메라의 우선순위 —

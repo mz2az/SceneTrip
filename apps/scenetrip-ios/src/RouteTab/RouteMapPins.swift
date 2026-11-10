@@ -12,8 +12,8 @@ import SwiftUI
 /// | 핀 | 무엇 | 누르면 |
 /// | --- | --- | --- |
 /// | 번호(고른 곳은 크게)·발바닥 | 코스의 정지점 | 성지 카드 |
-/// | 빨간 해태(미리보기) | 담을까 보는 곳(검색·장바구니) | 성지 카드 |
-/// | **작은 해태** | 챗봇이 찾아 준 곳 — 「AI 장소」 | 편의시설 카드 |
+/// | 번호 없는 보라 핀(미리보기) | 담을까 보는 곳(장바구니) | 성지 카드 |
+/// | 갈래 아이콘 | 챗봇이 찾아 준 곳 — 「AI 장소」 | 편의시설 카드 |
 /// | 파문 | 내 자리 | — |
 extension RouteMapView.Coordinator {
     func drawPins(
@@ -59,13 +59,14 @@ extension RouteMapView.Coordinator {
             return marker
         }
 
-        // 담을까 보는 곳(검색·장바구니에서 체크한 것) — 빨간 고양이.
+        // 담을까 보는 곳(장바구니 창에서 체크한 것) — 번호 없는 보라 핀(2026-11-10 사용자 결정, 해태 뺌).
         // 코스 핀보다 위에 올려 가리지 않게 한다.
         markers += previews.map { place in
             let marker = NMFMarker(
                 position: NMGLatLng(lat: place.latitude, lng: place.longitude)
             )
-            marker.iconImage = PinoPin.marker(.picked)
+            marker.iconImage = RouteNumberPin.plain()
+            marker.anchor = RouteNumberPin.anchor
             marker.captionText = PinCaption.text(place.name)
             marker.captionRequestedWidth = PinCaption.width
             marker.captionMinZoom = 10
@@ -80,17 +81,15 @@ extension RouteMapView.Coordinator {
             return marker
         }
 
-        // 가이드가 찾아 준 곳 — **작은 해태, 고른 하나만 빨간 해태**(2026-09-17 사용자 결정).
-        // 갈래 점으로 그렸을 때는 주변 편의시설 점과 안 갈려 「AI 가 골라 준 곳」이 어느 것인지
-        // 알 수 없었다. 주변 점(갈래 칩)과 AI 장소(해태 칩)는 이제 다른 모양·다른 칩이다.
+        // 가이드가 찾아 준 곳 — 기본 지도와 같은 갈래 아이콘, 고른 하나만 크게(2026-11-10 사용자 결정, 해태 뺌).
+        // 일반 가게와는 「AI 장소」 칩을 켜고 꺼서 가른다.
         markers += guidePlaces.map { place in
             let marker = NMFMarker(
                 position: NMGLatLng(lat: place.latitude, lng: place.longitude)
             )
             let isPicked = place.id == pickedGuide?.id
-            // 고른 곳은 해태 대신 갈래 아이콘을 크게(2026-11-10 사용자 결정) — 가운데가 그 자리다.
-            marker.iconImage = isPicked ? PinoPin.guideDot(for: place, picked: true) : PinoPin.marker(.ai)
-            marker.anchor = isPicked ? CGPoint(x: 0.5, y: 0.5) : CGPoint(x: 0.5, y: 1) // 해태는 핀 끝이 그 자리다
+            marker.iconImage = PinoPin.guideDot(for: place, picked: isPicked)
+            marker.anchor = CGPoint(x: 0.5, y: 0.5) // 동그라미 가운데가 그 자리다
             PinoPin.caption(marker, name: place.label.caption, picked: isPicked, ambient: false)
             marker.zIndex = isPicked ? 30 : 15
             marker.touchHandler = { [weak self] _ in

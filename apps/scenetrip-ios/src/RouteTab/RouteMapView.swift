@@ -451,7 +451,7 @@ struct RouteMapView: UIViewRepresentable {
                 // 14 — 고른 곳 둘레의 동네가 보이는 크기. 15 는 골목까지 들어가 주변 가게 핀이
                 // 화면을 덮고 어느 동네인지 알 수 없었다(2026-10-16).
                 let update = NMFCameraUpdate(scrollTo: there, zoomTo: 14)
-                update.animation = .easeIn
+                update.applyMotion(toward: there, on: mapView) // 가까우면 부드럽게, 멀면 한 번에(§10-3)
                 mapView.moveCamera(update)
                 return
             }
@@ -463,8 +463,7 @@ struct RouteMapView: UIViewRepresentable {
             // 여백을 넉넉히 준다 — 파란 점과 핀이 화면 가장자리에 딱 붙으면 잘린
             // 것처럼 보인다.
             let update = NMFCameraUpdate(fit: bounds, padding: 56)
-            update.animation = .easeIn
-            update.animationDuration = 0.4
+            update.applyMotion(toward: there, on: mapView)
             region.source = .device
             mapView.moveCamera(update)
         }
@@ -474,26 +473,25 @@ struct RouteMapView: UIViewRepresentable {
         /// | 무엇 | 그림 |
         /// | --- | --- |
         /// | 코스의 장소 | 번호 핀 ①②③ — 목록과 지도를 잇는 끈이라 그대로 둔다 |
-        /// | 그중 **지금 고른 것** | **파란 고양이** |
-        /// | 시트에서 **담을까 보는 것** | **빨간 고양이** |
+        /// | 그중 **지금 고른 것** | 같은 번호 핀을 크게 |
+        /// | 시트에서 **담을까 보는 것** | 번호 없는 보라 핀 |
         ///
-        /// 색이 갈리는 것이 요점이다 — 파랑은 이미 내 코스에 있는 곳, 빨강은 아직
-        /// 아닌 곳이다. 전부 얼굴로 바꾸면 무엇이 몇 번인지 알 수 없다.
+        /// 해태 핀은 지도에서 뺐다(2026-11-10 사용자 결정, 계획 §10-1).
         private func renderPending(_ pin: RoutePin?, on mapView: NMFMapView) {
             pendingMarker?.mapView = nil
             pendingMarker = nil
             guard let pin else { return }
             let marker = NMFMarker(position: NMGLatLng(lat: pin.latitude, lng: pin.longitude))
-            // 옛 파란 민 핀 대신 진도 핀 — 마스코트 교체 후 파란 물방울은
-            // 지도에서 은퇴했다(2026-08-28).
-            marker.iconImage = PinoPin.marker()
+            // 찍은 자리 — 번호 없는 보라 핀을 크게(2026-11-10 사용자 결정, 해태 뺌).
+            marker.iconImage = RouteNumberPin.plain(large: true)
+            marker.anchor = RouteNumberPin.anchor
             marker.mapView = mapView
             pendingMarker = marker
         }
 
         /// **화면에 있는 것 전부**가 한 화면에 들어오게 맞춘다.
         ///
-        /// 코스의 장소뿐 아니라 **담을까 보는 곳(빨간 고양이)까지** 센다 — 시트에서
+        /// 코스의 장소뿐 아니라 **담을까 보는 곳(번호 없는 보라 핀)까지** 센다 — 시트에서
         /// 고른 곳이 화면 밖이면 고른 보람이 없다.
         ///
         /// 한 점뿐이면 확대한다.

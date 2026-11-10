@@ -13,13 +13,12 @@ struct MapSearchPanel: View {
     let viewport: MapViewport?
     /// 목록에서 하나를 골랐다 — 지도가 그곳으로 가고 정보 카드가 뜬다.
     let onPick: (RouteGuide.Place) -> Void
-    /// 엔터 — 검색어와 「이 지역 밖」 여부.
-    let onCommit: (String, Bool) -> Void
+    /// 엔터 — 검색어.
+    let onCommit: (String) -> Void
     let onClose: () -> Void
     var initialText = ""
 
     @State private var text = ""
-    @State private var wide = false
     @State private var listHeight: CGFloat = 0
     /// 검색칸이 🔍 동그라미(46) 자리에서 오른쪽으로 다 펼쳐졌나(M7, 웹 `.proto-search-open`).
     @State private var revealed = false
@@ -62,18 +61,14 @@ struct MapSearchPanel: View {
         }
         // 닫히면 목록과 지도의 점을 지운다.
         .onDisappear { model.reset() }
-        .onChange(of: text) { _, _ in
-            wide = false
-            model.update(text: text, wide: false, viewport: viewport)
-        }
-        .onChange(of: wide) { _, _ in model.update(text: text, wide: wide, viewport: viewport) }
+        .onChange(of: text) { _, _ in model.update(text: text, viewport: viewport) }
     }
 
     private var rows: some View {
         VStack(alignment: .leading, spacing: 0) {
             // 맨 위 줄 — 이 검색어로 결과 서랍을 연다(키보드 검색과 같다, §7-2).
             if let query = MapSearchRules.query(text) {
-                Button { onCommit(query, wide) } label: {
+                Button { onCommit(query) } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "magnifyingglass").font(.system(size: 15))
                         Text(String(format: tr("‘%@’ 검색"), query))
@@ -110,7 +105,7 @@ struct MapSearchPanel: View {
                 .autocorrectionDisabled()
                 .onSubmit {
                     if let query = MapSearchRules.query(text) {
-                        onCommit(query, wide)
+                        onCommit(query)
                     }
                 }
             if !text.isEmpty {
@@ -171,14 +166,6 @@ struct MapSearchPanel: View {
             Text(MapSearchText.empty(empty))
                 .font(.system(size: 13)).foregroundStyle(.secondary)
                 .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 12)
-        case .searchEverywhere:
-            Button { wide = true } label: {
-                Text("이 지역 밖에서도 찾기")
-                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(TabBar.homePurple)
-                    .frame(maxWidth: .infinity, minHeight: 44)
-            }
-            .buttonStyle(.plain)
-            .overlay(alignment: .top) { Divider() }
         }
     }
 }
@@ -192,14 +179,12 @@ enum MapSearchText {
 
     static func title(_ title: MapSearchTitle) -> String {
         switch title {
-        case .shopsHere: tr("가게·장소 · 이 지역")
-        case .shopsEverywhere: tr("가게·장소 · 전체")
+        case .shopsNearby: tr("가게·장소 · 가까운 순")
         }
     }
 
     static func empty(_ empty: MapSearchEmpty) -> String {
         switch empty {
-        case .noneHere: tr("이 지역엔 없어요")
         case .noPlaces: tr("찾는 곳이 없어요")
         }
     }

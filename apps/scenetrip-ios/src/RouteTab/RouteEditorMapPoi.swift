@@ -65,10 +65,10 @@ extension RouteEditorView {
                         mapSearching = false
                         pickSearchPlace(place)
                     },
-                    onCommit: { query, wide in
+                    onCommit: { query in
                         mapSearching = false
                         guide.picked = nil
-                        mapResults.open(query: query, wide: wide, viewport: mapViewport)
+                        mapResults.open(query: query, viewport: mapViewport)
                     },
                     // 줄어드는 움직임은 검색칸이 한다(M7) — 다 줄어든 뒤 칩 줄로 바로 바꾼다.
                     onClose: { mapSearching = false },
@@ -203,7 +203,7 @@ extension RouteEditorView {
             mapSearching = true
         }
         if let results {
-            mapResults.open(query: results, wide: true, viewport: mapViewport)
+            mapResults.open(query: results, viewport: mapViewport)
             for _ in 0 ..< 50 where mapResults.state?.shops == nil {
                 try? await Task.sleep(for: .milliseconds(100))
             }
