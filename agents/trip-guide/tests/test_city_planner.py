@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import io
 import json
+import math
 import threading
 import unittest
 from contextlib import closing, redirect_stderr
@@ -26,7 +27,9 @@ from src.city_planner import (
     candidate_count,
     chain_plan,
     plan_city_with_model,
+    reorder_day,
     trim_days,
+    zones,
 )
 from src.internal_server import (
     BodyError,
@@ -37,7 +40,7 @@ from src.internal_server import (
 )
 from src.llm_planner import load_config
 from src.model_client import ModelError, ScriptedClient
-from src.places import Scene
+from src.places import Scene, haversine_m
 from src.planner import PlanError, PlanRequest, plan_to_api
 from src.production import RequestBudget
 from src.sceneapi import SceneApiPlaceBook
@@ -376,7 +379,8 @@ class 도시로짜기(unittest.TestCase):
             [_reply([{"day": 1, "place_ids": ["1010", "1003", "1007"]}])]
         )
         plan = self.run_plan(client)
-        self.assertEqual(_ids(plan), [["1010", "1003", "1007"]])
+        # 고른 곳은 그대로, 차례는 첫 곳(1010, 위치 10)에서 가까운 순 — 1007(9) → 1003(1). 계획 §3 「구역과 순서」.
+        self.assertEqual(_ids(plan), [["1010", "1007", "1003"]])
         self.assertEqual(len(client.seen), 1)
 
     def test_모델에게는_추린_후보만_간다(self):
@@ -389,10 +393,11 @@ class 도시로짜기(unittest.TestCase):
 
     def test_모델이_하루_곳_수보다_많이_고르면_앞에서_자른다(self):
         # 당일 보통(5곳)에 8곳 — 모델의 순서대로 앞 5곳. 이어짜기(1000 시작)가 아니다.
+        # 자른 뒤 첫 곳(1010, 위치 10)에서 가까운 순: 1007(9) → 1001(7) → 1012(4) → 1003(1).
         picked = ["1010", "1003", "1007", "1001", "1012", "1005", "1000", "1009"]
         client = ScriptedClient([_reply([{"day": 1, "place_ids": picked}])])
         plan = self.run_plan(client)
-        self.assertEqual(_ids(plan), [picked[:5]])
+        self.assertEqual(_ids(plan), [["1010", "1007", "1001", "1012", "1003"]])
         self.assertEqual(len(client.seen), 1)
 
     def test_당일_여유에_5곳이면_앞_3곳(self):
@@ -400,7 +405,8 @@ class 도시로짜기(unittest.TestCase):
         picked = ["1004", "1011", "1002", "1008", "1006"]
         client = ScriptedClient([_reply([{"day": 1, "place_ids": picked}])])
         plan = self.run_plan(client, _req(pace="relaxed"))
-        self.assertEqual(_ids(plan), [["1004", "1011", "1002"]])
+        # 앞 3곳(위치 8·17·14)을 첫 곳에서 가까운 순으로 — 1004 → 1002(14) → 1011(17).
+        self.assertEqual(_ids(plan), [["1004", "1002", "1011"]])
 
     def test_2일_빡빡에_날마다_넘치면_날마다_7곳(self):
         # 서울 2일 빡빡 실측(13·12곳)과 같은 꼴 — 후보는 도시 전체 20곳.
@@ -421,7 +427,17 @@ class 도시로짜기(unittest.TestCase):
             [_reply([{"day": 1, "place_ids": day1}, {"day": 2, "place_ids": day2}])]
         )
         plan = self.run_plan(client, _req(days=2, pace="packed"))
-        self.assertEqual(_ids(plan), [day1[:7], day2[:7]])
+        got = _ids(plan)
+        # 날마다 앞 7곳만 남고(같은 곳들), 그날 첫 곳에서 가까운 순으로 다시 놓인다.
+        self.assertEqual([sorted(d) for d in got], [sorted(day1[:7]), sorted(day2[:7])])
+        self.assertEqual([d[0] for d in got], [day1[0], day2[0]])
+        by_id = {p.place_id: p for p in self.places}
+        for d in got:
+            _assert_nearest_chain(self, [by_id[i] for i in d])
+        # 둘째 날은 같은 거리가 없어 차례가 하나로 정해진다(위치 7→6→4→3→2→1→18).
+        self.assertEqual(
+            got[1], ["1001", "1018", "1012", "1009", "1006", "1003", "1014"]
+        )
         chained = [
             [p.place_id for p in d] for d in chain_plan(self.places, 2, "packed", CFG)
         ]
@@ -434,7 +450,8 @@ class 도시로짜기(unittest.TestCase):
             [_reply([{"day": 1, "place_ids": day1}, {"day": 2, "place_ids": day2}])]
         )
         plan = self.run_plan(client, _req(days=2, pace="normal"))
-        self.assertEqual(_ids(plan), [day1[:5], day2])
+        # 첫날 앞 5곳(위치 2·7·11·16·14)을 가까운 순으로 → 2·7·11·14·16. 둘째 날 두 곳은 그대로.
+        self.assertEqual(_ids(plan), [["1006", "1001", "1013", "1002", "1008"], day2])
 
     def test_JSON_이_아니면_이어짜기(self):
         client = ScriptedClient(
@@ -518,6 +535,242 @@ class 도시로짜기(unittest.TestCase):
         self.assertEqual(
             plan_to_api(plan)["titles"], ["이태원 클라쓰", "도깨비", "나의 아저씨"]
         )
+
+
+# ── 구역 ──────────────────────────────────────────────────────────────────────
+
+
+def _at(i: int, lat: float, lng: float):
+    """id 1000 + i, 좌표를 직접 준 촬영지."""
+    return make_place(f"{1000 + i}", f"촬영지{i}", lat, lng)
+
+
+def _km_between(a, b) -> float:
+    return haversine_m(a.lat, a.lng, b.lat, b.lng)
+
+
+def _assert_nearest_chain(case: unittest.TestCase, day) -> None:
+    """차례가 「매번 남은 곳 중 가장 가까운 곳」 인지 — 같은 거리는 어느 쪽이든 된다."""
+    for k in range(len(day) - 1):
+        here, nxt, rest = day[k], day[k + 1], day[k + 1 :]
+        best = min(_km_between(here, p) for p in rest)
+        case.assertAlmostEqual(
+            _km_between(here, nxt),
+            best,
+            delta=1e-6,
+            msg=f"{here.place_id} 다음은 가장 가까운 곳이어야 한다: {[p.place_id for p in day]}",
+        )
+
+
+# 서로 멀리 떨어진 세 무리(각 3곳). 서울 종로·부산 해운대·광주 쯤 — 무리 안은 1km 안쪽.
+_FAR = {
+    "북": (37.57, 126.98),
+    "남동": (35.16, 129.16),
+    "남서": (35.15, 126.85),
+}
+
+
+def _cluster(start: int, name: str, n: int = 3):
+    lat, lng = _FAR[name]
+    return [_at(start + k, lat + k * 0.002, lng + k * 0.002) for k in range(n)]
+
+
+class 구역(unittest.TestCase):
+    """계획 §3 「구역과 순서」 1 — 구역 수 = 올림(후보 수 ÷ (하루 곳 수 × 2)), 적어도 1."""
+
+    def test_구역_수는_올림_후보수_나누기_하루곳수_두배(self):
+        places = seoul_city(20)  # 한 줄 위 위치 0~19 가 하나씩
+        for per_day in (3, 5, 7, 10):
+            with self.subTest(per_day=per_day):
+                want = max(1, math.ceil(len(places) / (per_day * 2)))
+                got = zones(places, per_day)
+                self.assertEqual(len(set(got.values())), want, got)
+
+    def test_후보가_적으면_구역은_하나(self):
+        # 3곳, 하루 5곳 → 올림(3 ÷ 10) = 1.
+        got = zones(seoul_city(3), 5)
+        self.assertEqual(set(got.values()), {"A"}, got)
+
+    def test_21곳_하루_5곳은_3구역(self):
+        places = [_spot(i, i) for i in range(21)]
+        got = zones(places, 5)
+        self.assertEqual(sorted(set(got.values())), ["A", "B", "C"], got)
+
+    def test_모든_곳이_구역을_받는다(self):
+        places = seoul_city(20)
+        got = zones(places, 3)
+        self.assertEqual(set(got), {p.place_id for p in places})
+        for pid, z in got.items():
+            self.assertRegex(z, r"^[A-Z]$", pid)
+
+    def test_이름은_A_부터_빈칸_없이(self):
+        got = zones(seoul_city(20), 3)  # 4구역
+        self.assertEqual(sorted(set(got.values())), ["A", "B", "C", "D"], got)
+
+    def test_멀리_떨어진_두_무리는_다른_구역_무리_안은_한_구역(self):
+        north, south = _cluster(0, "북", 5), _cluster(5, "남동", 5)
+        # 인기순은 두 무리를 엇갈려 놓는다. 10곳, 하루 3곳 → 올림(10 ÷ 6) = 2구역.
+        places = [p for pair in zip(north, south) for p in pair]
+        got = zones(places, 3)
+        self.assertEqual(len({got[p.place_id] for p in north}), 1, got)
+        self.assertEqual(len({got[p.place_id] for p in south}), 1, got)
+        self.assertNotEqual(got[north[0].place_id], got[south[0].place_id], got)
+
+    def test_인기_1등이_든_구역이_A(self):
+        north, south = _cluster(0, "북", 5), _cluster(5, "남동", 5)
+        # 1등은 남동 무리.
+        places = [p for pair in zip(south, north) for p in pair]
+        got = zones(places, 3)
+        self.assertEqual(got[south[0].place_id], "A", got)
+        self.assertEqual(got[north[0].place_id], "B", got)
+
+    def test_이름은_인기순으로_처음_나온_무리부터(self):
+        north, se, sw = _cluster(0, "북"), _cluster(3, "남동"), _cluster(6, "남서")
+        # 9곳, 하루 2곳 → 올림(9 ÷ 4) = 3구역. 인기순 처음 나오는 차례: 남서 → 북 → 남동.
+        places = [
+            sw[0],
+            north[0],
+            sw[1],
+            se[0],
+            north[1],
+            se[1],
+            sw[2],
+            north[2],
+            se[2],
+        ]
+        got = zones(places, 2)
+        for group, label in ((sw, "A"), (north, "B"), (se, "C")):
+            with self.subTest(label=label):
+                self.assertEqual({got[p.place_id] for p in group}, {label}, got)
+
+    def test_같은_입력이면_같은_답(self):
+        places = seoul_city(20)
+        first = zones(places, 3)
+        self.assertTrue(first)
+        for _ in range(3):
+            self.assertEqual(zones(list(places), 3), first)
+
+
+# ── 하루 차례 ─────────────────────────────────────────────────────────────────
+
+
+class 하루차례(unittest.TestCase):
+    """계획 §3 「구역과 순서」 2 — 그날 첫 곳에서 시작해 매번 가장 가까운 곳. 고른 곳은 그대로."""
+
+    def test_첫_곳에서_시작해_가까운_곳으로(self):
+        # 위치 10·0·13·3·11·6 → 10 → 11 → 13 → 6 → 3 → 0 (같은 거리 없음).
+        positions = [10, 0, 13, 3, 11, 6]
+        day = [_spot(i, pos) for i, pos in enumerate(positions)]
+        out = reorder_day(day)
+        self.assertEqual(
+            [p.place_id for p in out],
+            ["1000", "1004", "1002", "1005", "1003", "1001"],
+        )
+
+    def test_좌표로_잰_거리를_쓴다(self):
+        # 경도만 보면 b 가 가깝지만 b 는 위도로 멀다(약 11km). c 는 약 2.6km.
+        a = _at(0, 37.50, 127.00)
+        b = _at(1, 37.60, 127.005)
+        c = _at(2, 37.50, 127.03)
+        out = reorder_day([a, b, c])
+        self.assertEqual([p.place_id for p in out], ["1000", "1002", "1001"])
+
+    def test_같은_곳들이_남는다(self):
+        day = [_spot(i, pos) for i, pos in enumerate([7, 2, 9, 0, 5, 12, 1])]
+        out = reorder_day(day)
+        self.assertEqual(
+            sorted(p.place_id for p in out), sorted(p.place_id for p in day)
+        )
+        self.assertEqual(out[0].place_id, day[0].place_id)
+        _assert_nearest_chain(self, out)
+        self.assertNotEqual([p.place_id for p in out], [p.place_id for p in day])
+
+    def test_한두_곳인_날은_그대로(self):
+        for day in ([_spot(0, 5)], [_spot(0, 9), _spot(1, 0)], []):
+            with self.subTest(n=len(day)):
+                self.assertEqual(
+                    [p.place_id for p in reorder_day(list(day))],
+                    [p.place_id for p in day],
+                )
+
+
+# ── 구역이 프롬프트·일정에 ────────────────────────────────────────────────────
+
+
+class 구역프롬프트(unittest.TestCase):
+    def test_줄마다_zone_이_있다(self):
+        places = seoul_city(4)
+        rows = _rows(build_city_prompt("서울", 1, "normal", [], places, CFG))
+        self.assertEqual(len(rows), 4)
+        for row in rows:
+            self.assertIn("zone", row, row)
+        # 4곳, 하루 5곳 → 1구역.
+        self.assertEqual({r["zone"] for r in rows}, {"A"})
+
+    def test_zone_은_속도의_하루_곳_수로_묶은_구역(self):
+        places = seoul_city(20)
+        for pace, per_day in CFG["city"]["stops_per_day"].items():
+            with self.subTest(pace=pace):
+                rows = _rows(build_city_prompt("서울", 1, pace, [], places, CFG))
+                want = zones(places, per_day)
+                self.assertTrue(want)
+                self.assertEqual({r["id"]: r["zone"] for r in rows}, want)
+
+    def test_프롬프트가_zone_을_말한다(self):
+        text = build_city_prompt("서울", 1, "normal", [], seoul_city(4), CFG)
+        prose = "\n".join(
+            line for line in text.splitlines() if not line.strip().startswith("{")
+        )
+        self.assertIn("zone", prose)
+        self.assertIn("구역", prose)
+        self.assertTrue(all("zone" in r for r in _rows(text)))
+
+
+class 도시로짜기_차례(unittest.TestCase):
+    """모델이 고른 날을 자른 뒤 날마다 첫 곳에서 가까운 순으로 다시 놓는다."""
+
+    def setUp(self):
+        self.places = seoul_city(20)
+        self.book = CityBook({"서울": self.places})
+
+    def run_plan(self, client, req=None):
+        with redirect_stderr(io.StringIO()):
+            return plan_city_with_model(self.book, req or _req(), client)
+
+    def test_지그재그로_고른_날이_가까운_순으로_돌아온다(self):
+        # 후보는 앞 15곳(1000~1014). 위치 2·18·1·10·4 → 2 → 1 → 4 → 10 → 18.
+        picked = ["1006", "1014", "1003", "1010", "1012"]
+        client = ScriptedClient([_reply([{"day": 1, "place_ids": picked}])])
+        plan = self.run_plan(client)
+        self.assertEqual(_ids(plan), [["1006", "1003", "1012", "1010", "1014"]])
+        self.assertTrue(plan.signals["llm"])
+
+    def test_자른_뒤에_차례를_잡는다(self):
+        # 보통 5곳에 7곳. 앞 5곳(위치 2·10·16·14·11)만 남고 → 2 → 10 → 11 → 14 → 16.
+        # 뒤의 1003(1)·1009(3)은 첫 곳 옆이지만 잘려 나갔다.
+        picked = ["1006", "1010", "1008", "1002", "1013", "1003", "1009"]
+        client = ScriptedClient([_reply([{"day": 1, "place_ids": picked}])])
+        plan = self.run_plan(client)
+        self.assertEqual(_ids(plan), [["1006", "1010", "1013", "1002", "1008"]])
+
+    def test_날마다_따로_차례를_잡는다(self):
+        day1 = ["1010", "1003", "1007"]  # 10·1·9 → 10·9·1
+        day2 = ["1000", "1012", "1006", "1009"]  # 0·4·2·3 → 0·2·3·4
+        client = ScriptedClient(
+            [_reply([{"day": 1, "place_ids": day1}, {"day": 2, "place_ids": day2}])]
+        )
+        plan = self.run_plan(client, _req(days=2))
+        self.assertEqual(
+            _ids(plan),
+            [["1010", "1007", "1003"], ["1000", "1006", "1009", "1012"]],
+        )
+
+    def test_모델에게_간_줄에_zone_이_있다(self):
+        client = ScriptedClient([_reply([{"day": 1, "place_ids": ["1000"]}])])
+        self.run_plan(client)
+        rows = _rows(client.seen[0][-1]["content"])
+        self.assertEqual(len(rows), 15)
+        self.assertTrue(all("zone" in r for r in rows), rows)
 
 
 # ── scene-api 창구 ────────────────────────────────────────────────────────────
