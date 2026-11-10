@@ -26,6 +26,7 @@ from src.city_planner import (
     build_city_prompt,
     candidate_count,
     chain_plan,
+    fill_days,
     plan_city_with_model,
     reorder_day,
     trim_days,
@@ -378,7 +379,8 @@ class 도시로짜기(unittest.TestCase):
         client = ScriptedClient(
             [_reply([{"day": 1, "place_ids": ["1010", "1003", "1007"]}])]
         )
-        plan = self.run_plan(client)
+        # 당일 여유(3곳)에 3곳 — 꽉 찬 날이라 채우기(계획 §3 「빈자리 채우기」)가 끼지 않는다.
+        plan = self.run_plan(client, _req(pace="relaxed"))
         # 고른 곳은 그대로, 차례는 첫 곳(1010, 위치 10)에서 가까운 순 — 1007(9) → 1003(1). 계획 §3 「구역과 순서」.
         self.assertEqual(_ids(plan), [["1010", "1007", "1003"]])
         self.assertEqual(len(client.seen), 1)
@@ -445,12 +447,13 @@ class 도시로짜기(unittest.TestCase):
 
     def test_한_날만_넘치면_그날만_자른다(self):
         day1 = ["1006", "1001", "1013", "1008", "1002", "1011", "1004"]
-        day2 = ["1003", "1009"]
+        # 둘째 날은 꽉 찬 5곳(위치 0·1·3·4·5)이고 이미 가까운 순이다 — 자르지도 채우지도 않는다.
+        day2 = ["1000", "1003", "1009", "1012", "1015"]
         client = ScriptedClient(
             [_reply([{"day": 1, "place_ids": day1}, {"day": 2, "place_ids": day2}])]
         )
         plan = self.run_plan(client, _req(days=2, pace="normal"))
-        # 첫날 앞 5곳(위치 2·7·11·16·14)을 가까운 순으로 → 2·7·11·14·16. 둘째 날 두 곳은 그대로.
+        # 첫날 앞 5곳(위치 2·7·11·16·14)을 가까운 순으로 → 2·7·11·14·16. 둘째 날은 그대로.
         self.assertEqual(_ids(plan), [["1006", "1001", "1013", "1002", "1008"], day2])
 
     def test_JSON_이_아니면_이어짜기(self):
@@ -502,7 +505,8 @@ class 도시로짜기(unittest.TestCase):
         ids = [r["id"] for r in _rows(client.seen[0][-1]["content"])]
         self.assertNotIn("x0", ids)
         self.assertEqual(ids[0], "1000")
-        self.assertEqual(_ids(plan), [["1000"]])
+        self.assertEqual(_ids(plan)[0][0], "1000")
+        self.assertNotIn("x0", [i for d in _ids(plan) for i in d])
 
     def test_좌표_있는_촬영지가_없는_도시는_PlanError(self):
         self.book.cities["빈도시"] = [make_place("x1", "좌표없음", None, None)]
@@ -576,25 +580,34 @@ def _cluster(start: int, name: str, n: int = 3):
 
 
 class 구역(unittest.TestCase):
-    """계획 §3 「구역과 순서」 1 — 구역 수 = 올림(후보 수 ÷ (하루 곳 수 × 2)), 적어도 1."""
+    """계획 §3 「빈자리 채우기와 더 잘은 구역」 1 — 인자는 구역 크기(하루 곳 수 × zone_factor).
 
-    def test_구역_수는_올림_후보수_나누기_하루곳수_두배(self):
+    구역 수 = 올림(후보 수 ÷ 구역 크기), 적어도 1. (예전 「구역과 순서」 의 × 2 를 바꾼 규칙.)
+    """
+
+    def test_구역_수는_올림_후보수_나누기_구역크기(self):
         places = seoul_city(20)  # 한 줄 위 위치 0~19 가 하나씩
-        for per_day in (3, 5, 7, 10):
-            with self.subTest(per_day=per_day):
-                want = max(1, math.ceil(len(places) / (per_day * 2)))
-                got = zones(places, per_day)
+        for size in (3, 5, 7, 10, 20, 30):
+            with self.subTest(size=size):
+                want = max(1, math.ceil(len(places) / size))
+                got = zones(places, size)
                 self.assertEqual(len(set(got.values())), want, got)
 
     def test_후보가_적으면_구역은_하나(self):
-        # 3곳, 하루 5곳 → 올림(3 ÷ 10) = 1.
+        # 3곳, 구역 크기 5 → 올림(3 ÷ 5) = 1.
         got = zones(seoul_city(3), 5)
         self.assertEqual(set(got.values()), {"A"}, got)
 
-    def test_21곳_하루_5곳은_3구역(self):
+    def test_21곳_구역크기_7은_3구역(self):
+        places = [_spot(i, i) for i in range(21)]
+        got = zones(places, 7)
+        self.assertEqual(sorted(set(got.values())), ["A", "B", "C"], got)
+
+    def test_21곳_구역크기_5는_5구역(self):
+        # 서울 당일 보통(하루 5곳) × zone_factor 1 꼴 — 올림(21 ÷ 5) = 5.
         places = [_spot(i, i) for i in range(21)]
         got = zones(places, 5)
-        self.assertEqual(sorted(set(got.values())), ["A", "B", "C"], got)
+        self.assertEqual(sorted(set(got.values())), ["A", "B", "C", "D", "E"], got)
 
     def test_모든_곳이_구역을_받는다(self):
         places = seoul_city(20)
@@ -604,29 +617,29 @@ class 구역(unittest.TestCase):
             self.assertRegex(z, r"^[A-Z]$", pid)
 
     def test_이름은_A_부터_빈칸_없이(self):
-        got = zones(seoul_city(20), 3)  # 4구역
+        got = zones(seoul_city(20), 5)  # 올림(20 ÷ 5) = 4구역
         self.assertEqual(sorted(set(got.values())), ["A", "B", "C", "D"], got)
 
     def test_멀리_떨어진_두_무리는_다른_구역_무리_안은_한_구역(self):
         north, south = _cluster(0, "북", 5), _cluster(5, "남동", 5)
-        # 인기순은 두 무리를 엇갈려 놓는다. 10곳, 하루 3곳 → 올림(10 ÷ 6) = 2구역.
+        # 인기순은 두 무리를 엇갈려 놓는다. 10곳, 구역 크기 5 → 올림(10 ÷ 5) = 2구역.
         places = [p for pair in zip(north, south) for p in pair]
-        got = zones(places, 3)
+        got = zones(places, 5)
         self.assertEqual(len({got[p.place_id] for p in north}), 1, got)
         self.assertEqual(len({got[p.place_id] for p in south}), 1, got)
         self.assertNotEqual(got[north[0].place_id], got[south[0].place_id], got)
 
     def test_인기_1등이_든_구역이_A(self):
         north, south = _cluster(0, "북", 5), _cluster(5, "남동", 5)
-        # 1등은 남동 무리.
+        # 1등은 남동 무리. 10곳, 구역 크기 5 → 2구역.
         places = [p for pair in zip(south, north) for p in pair]
-        got = zones(places, 3)
+        got = zones(places, 5)
         self.assertEqual(got[south[0].place_id], "A", got)
         self.assertEqual(got[north[0].place_id], "B", got)
 
     def test_이름은_인기순으로_처음_나온_무리부터(self):
         north, se, sw = _cluster(0, "북"), _cluster(3, "남동"), _cluster(6, "남서")
-        # 9곳, 하루 2곳 → 올림(9 ÷ 4) = 3구역. 인기순 처음 나오는 차례: 남서 → 북 → 남동.
+        # 9곳, 구역 크기 3 → 올림(9 ÷ 3) = 3구역. 인기순 처음 나오는 차례: 남서 → 북 → 남동.
         places = [
             sw[0],
             north[0],
@@ -638,7 +651,7 @@ class 구역(unittest.TestCase):
             north[2],
             se[2],
         ]
-        got = zones(places, 2)
+        got = zones(places, 3)
         for group, label in ((sw, "A"), (north, "B"), (se, "C")):
             with self.subTest(label=label):
                 self.assertEqual({got[p.place_id] for p in group}, {label}, got)
@@ -707,14 +720,29 @@ class 구역프롬프트(unittest.TestCase):
         # 4곳, 하루 5곳 → 1구역.
         self.assertEqual({r["zone"] for r in rows}, {"A"})
 
-    def test_zone_은_속도의_하루_곳_수로_묶은_구역(self):
+    def test_zone_은_하루_곳_수_곱하기_zone_factor_크기로_묶은_구역(self):
         places = seoul_city(20)
+        factor = CFG["city"]["zone_factor"]
         for pace, per_day in CFG["city"]["stops_per_day"].items():
             with self.subTest(pace=pace):
                 rows = _rows(build_city_prompt("서울", 1, pace, [], places, CFG))
-                want = zones(places, per_day)
+                want = zones(places, per_day * factor)
                 self.assertTrue(want)
                 self.assertEqual({r["id"]: r["zone"] for r in rows}, want)
+                # 구역 수는 올림(20 ÷ (하루 곳 수 × zone_factor)) — 여유 7·보통 4·빡빡 3 (factor 1).
+                self.assertEqual(
+                    len({r["zone"] for r in rows}),
+                    max(1, math.ceil(len(places) / (per_day * factor))),
+                    rows,
+                )
+
+    def test_zone_factor_를_바꾸면_구역이_커진다(self):
+        places = seoul_city(20)
+        cfg = json.loads(json.dumps(CFG))
+        cfg["city"]["zone_factor"] = 2
+        rows = _rows(build_city_prompt("서울", 1, "normal", [], places, cfg))
+        # 보통 5곳 × 2 = 구역 크기 10 → 올림(20 ÷ 10) = 2구역.
+        self.assertEqual(sorted({r["zone"] for r in rows}), ["A", "B"], rows)
 
     def test_프롬프트가_zone_을_말한다(self):
         text = build_city_prompt("서울", 1, "normal", [], seoul_city(4), CFG)
@@ -754,15 +782,16 @@ class 도시로짜기_차례(unittest.TestCase):
         self.assertEqual(_ids(plan), [["1006", "1010", "1013", "1002", "1008"]])
 
     def test_날마다_따로_차례를_잡는다(self):
+        # 2일 여유(하루 3곳) — 두 날 다 꽉 차서 채우기가 끼지 않는다.
         day1 = ["1010", "1003", "1007"]  # 10·1·9 → 10·9·1
-        day2 = ["1000", "1012", "1006", "1009"]  # 0·4·2·3 → 0·2·3·4
+        day2 = ["1000", "1012", "1006"]  # 0·4·2 → 0·2·4
         client = ScriptedClient(
             [_reply([{"day": 1, "place_ids": day1}, {"day": 2, "place_ids": day2}])]
         )
-        plan = self.run_plan(client, _req(days=2))
+        plan = self.run_plan(client, _req(days=2, pace="relaxed"))
         self.assertEqual(
             _ids(plan),
-            [["1010", "1007", "1003"], ["1000", "1006", "1009", "1012"]],
+            [["1010", "1007", "1003"], ["1000", "1006", "1012"]],
         )
 
     def test_모델에게_간_줄에_zone_이_있다(self):
@@ -771,6 +800,239 @@ class 도시로짜기_차례(unittest.TestCase):
         rows = _rows(client.seen[0][-1]["content"])
         self.assertEqual(len(rows), 15)
         self.assertTrue(all("zone" in r for r in rows), rows)
+
+
+# ── 빈자리 채우기 ─────────────────────────────────────────────────────────────
+
+
+def _zoned(spec):
+    """(i, 위치, 구역) 들 → (인기순 후보, place_id → 구역). 위치는 `_spot` 의 경도 자리(0.01 ≈ 880m)."""
+    places = [_spot(i, pos) for i, pos, _ in spec]
+    return places, {p.place_id: z for p, (_, _, z) in zip(places, spec, strict=True)}
+
+
+def _all_ids(days) -> list[str]:
+    return [p.place_id for d in days for p in d]
+
+
+class 빈자리채우기(unittest.TestCase):
+    """계획 §3 「빈자리 채우기와 더 잘은 구역」 2 — 모자란 날·빠진 날을 같은 구역의 안 쓴 후보로."""
+
+    def test_모자란_날은_같은_구역에서_그날_곳에_가까운_것부터(self):
+        # 그날 곳은 위치 5(A). A 의 안 쓴 후보: 0·3·6·10 → 가까운 둘은 6(1칸)·3(2칸).
+        # B 의 5.5 는 가장 가깝지만 다른 구역이라 쓰지 않는다.
+        cands, zone_of = _zoned(
+            [
+                (0, 5, "A"),
+                (1, 0, "A"),
+                (2, 10, "A"),
+                (3, 5.5, "B"),
+                (4, 3, "A"),
+                (5, 6, "A"),
+            ]
+        )
+        by = {p.place_id: p for p in cands}
+        out = fill_days([[by["1000"]]], cands, zone_of, 1, 3)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0][0].place_id, "1000")  # 그날 곳은 앞에 그대로
+        self.assertEqual(sorted(_pids(out)[0]), ["1000", "1004", "1005"])
+        self.assertNotIn("1003", _pids(out)[0])
+
+    def test_가까운_것부터_하나씩(self):
+        # 위치 0(A) 에 한 곳, 하루 4곳. A 후보: 1·2·3·9 → 1·2·3 이 들고 9 는 남는다.
+        cands, zone_of = _zoned(
+            [(0, 0, "A"), (1, 9, "A"), (2, 3, "A"), (3, 1, "A"), (4, 2, "A")]
+        )
+        out = fill_days([[cands[0]]], cands, zone_of, 1, 4)
+        self.assertEqual(sorted(_pids(out)[0]), ["1000", "1002", "1003", "1004"])
+
+    def test_다른_구역에서는_끌어오지_않는다(self):
+        # A 에 남은 곳이 하나뿐 — 하루 3곳이라도 B 의 곳은 쓰지 않고 두 곳으로 둔다.
+        cands, zone_of = _zoned(
+            [(0, 0, "A"), (1, 1, "B"), (2, 2, "B"), (3, 8, "A"), (4, 0.5, "B")]
+        )
+        out = fill_days([[cands[0]]], cands, zone_of, 1, 3)
+        self.assertEqual(_pids(out), [["1000", "1003"]])
+
+    def test_같은_구역에_채울_곳이_없으면_그대로(self):
+        cands, zone_of = _zoned([(0, 0, "A"), (1, 1, "B"), (2, 2, "B")])
+        out = fill_days([[cands[0]]], cands, zone_of, 1, 3)
+        self.assertEqual(_pids(out), [["1000"]])
+
+    def test_꽉_찬_날은_그대로(self):
+        cands, zone_of = _zoned(
+            [(0, 4, "A"), (1, 0, "A"), (2, 9, "A"), (3, 1, "A"), (4, 2, "A")]
+        )
+        by = {p.place_id: p for p in cands}
+        day = [by["1002"], by["1000"], by["1001"]]  # 순서도 그대로 남아야 한다
+        out = fill_days([list(day)], cands, zone_of, 1, 3)
+        self.assertEqual(_pids(out), [["1002", "1000", "1001"]])
+
+    def test_여러_구역에_걸친_날은_첫_곳의_구역으로(self):
+        # 그날 곳: 위치 0(A)·20(B). 빈자리 하나 — A 의 1 과 B 의 21 이 똑같이 가깝지만 첫 곳의 구역 A 에서.
+        cands, zone_of = _zoned(
+            [(0, 0, "A"), (1, 20, "B"), (2, 21, "B"), (3, 1, "A"), (4, 19, "B")]
+        )
+        by = {p.place_id: p for p in cands}
+        out = fill_days([[by["1000"], by["1001"]]], cands, zone_of, 1, 3)
+        self.assertEqual(sorted(_pids(out)[0]), ["1000", "1001", "1003"])
+
+    def test_여러_구역에_걸친_날_첫_곳이_B_면_B_에서(self):
+        cands, zone_of = _zoned([(0, 0, "A"), (1, 20, "B"), (2, 21, "B"), (3, 1, "A")])
+        by = {p.place_id: p for p in cands}
+        out = fill_days([[by["1001"], by["1000"]]], cands, zone_of, 1, 3)
+        self.assertEqual(sorted(_pids(out)[0]), ["1000", "1001", "1002"])
+
+    def test_빠진_날은_가장_인기_있는_안_쓴_곳으로_열고_그_구역으로_채운다(self):
+        # 인기순: 1000(A, 씀) · 1001(B) · 1002(A) · 1003(B) · 1004(B) · 1005(B).
+        # 둘째 날은 안 쓴 곳 중 1등 1001(B, 위치 20)로 열고, B 에서 가까운 21·22 로 채운다(30 은 남는다).
+        cands, zone_of = _zoned(
+            [
+                (0, 0, "A"),
+                (1, 20, "B"),
+                (2, 1, "A"),
+                (3, 30, "B"),
+                (4, 22, "B"),
+                (5, 21, "B"),
+            ]
+        )
+        by = {p.place_id: p for p in cands}
+        out = fill_days([[by["1000"], by["1002"]]], cands, zone_of, 2, 3)
+        self.assertEqual(len(out), 2)
+        self.assertEqual(sorted(_pids(out)[0]), ["1000", "1002"])  # A 에 남은 곳이 없다
+        self.assertEqual(out[1][0].place_id, "1001")
+        self.assertEqual(sorted(_pids(out)[1]), ["1001", "1004", "1005"])
+
+    def test_여는_곳은_다른_구역이어도_된다(self):
+        # 첫날 구역 A 가 다 찼어도, 빠진 날은 구역과 상관없이 안 쓴 곳 중 1등으로 연다.
+        cands, zone_of = _zoned(
+            [
+                (0, 0, "A"),
+                (1, 1, "A"),
+                (2, 2, "A"),
+                (3, 40, "C"),
+                (4, 20, "B"),
+                (5, 41, "C"),
+            ]
+        )
+        by = {p.place_id: p for p in cands}
+        out = fill_days([[by["1000"], by["1001"], by["1002"]]], cands, zone_of, 2, 3)
+        self.assertEqual(len(out), 2, _pids(out))
+        self.assertEqual(_pids(out)[0], ["1000", "1001", "1002"])
+        self.assertEqual(out[1][0].place_id, "1003")
+        self.assertEqual(
+            sorted(_pids(out)[1]), ["1003", "1005"]
+        )  # C 에 둘뿐 — B 는 끌어오지 않는다
+
+    def test_빠진_날이_여럿이면_차례로_연다(self):
+        # 모델이 한 날만 줬고 3일. 남은 곳 1등부터 날을 연다.
+        cands, zone_of = _zoned(
+            [
+                (0, 0, "A"),
+                (1, 20, "B"),
+                (2, 40, "C"),
+                (3, 1, "A"),
+                (4, 21, "B"),
+                (5, 41, "C"),
+            ]
+        )
+        by = {p.place_id: p for p in cands}
+        out = fill_days([[by["1000"], by["1003"]]], cands, zone_of, 3, 2)
+        self.assertEqual(
+            [sorted(d) for d in _pids(out)],
+            [["1000", "1003"], ["1001", "1004"], ["1002", "1005"]],
+        )
+        self.assertEqual([d[0].place_id for d in out], ["1000", "1001", "1002"])
+
+    def test_새_날을_열_곳이_없으면_날이_모자란_채로(self):
+        # 3곳뿐, 하루 3곳, 2일 — 첫날을 채우고 나면 둘째 날을 열 곳이 없다.
+        cands, zone_of = _zoned([(0, 0, "A"), (1, 1, "A"), (2, 2, "A")])
+        out = fill_days([[cands[0]]], cands, zone_of, 2, 3)
+        self.assertEqual([sorted(d) for d in _pids(out)], [["1000", "1001", "1002"]])
+
+    def test_연_날도_채울_곳이_없으면_짧게_둔다(self):
+        # 4곳, 하루 3곳, 2일 — 첫날이 1001·1002 를 가져가고 둘째 날은 1003 하나로 연다.
+        cands, zone_of = _zoned([(0, 0, "A"), (1, 1, "A"), (2, 2, "A"), (3, 3, "A")])
+        out = fill_days([[cands[0]]], cands, zone_of, 2, 3)
+        self.assertEqual(
+            [sorted(d) for d in _pids(out)], [["1000", "1001", "1002"], ["1003"]]
+        )
+
+    def test_한_곳은_한_번만(self):
+        # 두 날이 같은 구역 A 를 쓰고 둘 다 모자라다 — 채운 곳이 겹치지 않는다.
+        spec = [(i, i, "A" if i < 10 else "B") for i in range(20)]
+        cands, zone_of = _zoned(spec)
+        by = {p.place_id: p for p in cands}
+        chosen = [[by["1000"]], [by["1009"]]]
+        out = fill_days(chosen, cands, zone_of, 3, 4)
+        ids = _all_ids(out)
+        self.assertEqual(len(ids), len(set(ids)), _pids(out))
+        self.assertTrue(set(ids) <= set(by), ids)
+        # A 는 10곳 → 두 날이 4곳씩 가져간다. 셋째 날은 안 쓴 곳 중 1등(1004, A)으로 열고
+        # A 에 남은 1005 하나만 더한다 — B 는 끌어오지 않는다.
+        self.assertEqual([len(d) for d in out], [4, 4, 2], _pids(out))
+        for d in out:
+            self.assertEqual({zone_of[p.place_id] for p in d}, {"A"})
+        self.assertEqual(out[2][0].place_id, "1004")
+        self.assertEqual(sorted(_pids(out)[2]), ["1004", "1005"])
+
+    def test_받은_목록을_바꾸지_않는다(self):
+        cands, zone_of = _zoned([(0, 0, "A"), (1, 1, "A"), (2, 2, "A")])
+        chosen = [[cands[0]]]
+        fill_days(chosen, cands, zone_of, 1, 3)
+        self.assertEqual(_pids(chosen), [["1000"]])
+
+
+class 도시로짜기_채우기(unittest.TestCase):
+    """모델 경로: 고르기 → 자르기 → 채우기 → 날마다 차례(계획 §3)."""
+
+    def setUp(self):
+        # 멀리 떨어진 두 무리(각 5곳). 인기순은 엇갈린다: 북0·남0·북1·남1… → 10곳, 보통 5곳 → 2구역.
+        self.north = _cluster(0, "북", 5)  # 1000~1004
+        self.south = _cluster(5, "남동", 5)  # 1005~1009
+        self.places = [p for pair in zip(self.north, self.south) for p in pair]
+        self.book = CityBook({"서울": self.places})
+
+    def run_plan(self, client, req=None):
+        with redirect_stderr(io.StringIO()):
+            return plan_city_with_model(self.book, req or _req(), client)
+
+    def test_모자란_날은_같은_구역으로_채워진다(self):
+        client = ScriptedClient([_reply([{"day": 1, "place_ids": ["1000", "1001"]}])])
+        plan = self.run_plan(client)
+        got = _ids(plan)
+        self.assertEqual(len(got), 1)
+        self.assertEqual(sorted(got[0]), [f"{1000 + k}" for k in range(5)])
+        self.assertEqual(got[0][0], "1000")
+        self.assertTrue(plan.signals["llm"])
+
+    def test_빠진_날은_다른_무리로_열려_채워진다(self):
+        # 2일 보통 — 모델이 첫날(북 5곳)만 줬다. 둘째 날은 안 쓴 곳 중 1등(1005, 남동)으로 열린다.
+        north_ids = [f"{1000 + k}" for k in range(5)]
+        client = ScriptedClient([_reply([{"day": 1, "place_ids": north_ids}])])
+        plan = self.run_plan(client, _req(days=2))
+        got = _ids(plan)
+        self.assertEqual(len(got), 2, got)
+        self.assertEqual(got[0], north_ids)
+        self.assertEqual(got[1][0], "1005")
+        self.assertEqual(sorted(got[1]), [f"{1005 + k}" for k in range(5)])
+
+    def test_채운_뒤에_차례를_잡는다(self):
+        # 모델은 북4·북0 두 곳 — 채우면 북 다섯 곳. 첫 곳(북4)에서 가까운 순은 4·3·2·1·0.
+        # 채우기 전에 차례를 잡거나 안 잡으면 북0 이 둘째에 온다.
+        client = ScriptedClient([_reply([{"day": 1, "place_ids": ["1004", "1000"]}])])
+        plan = self.run_plan(client)
+        self.assertEqual(_ids(plan), [["1004", "1003", "1002", "1001", "1000"]])
+
+    def test_빠진_날도_차례가_잡힌다(self):
+        north_ids = [f"{1000 + k}" for k in range(5)]
+        client = ScriptedClient([_reply([{"day": 1, "place_ids": north_ids}])])
+        plan = self.run_plan(client, _req(days=2))
+        by_id = {p.place_id: p for p in self.places}
+        got = _ids(plan)
+        self.assertEqual(len(got), 2, got)
+        _assert_nearest_chain(self, [by_id[i] for i in got[1]])
+        self.assertEqual(got[1], [f"{1005 + k}" for k in range(5)])
 
 
 # ── scene-api 창구 ────────────────────────────────────────────────────────────
@@ -886,18 +1148,20 @@ class _CityHttp:
             [
                 _reply(
                     [
-                        {"day": 1, "place_ids": ["1004", "1001"]},
-                        {"day": 2, "place_ids": ["1002"]},
+                        {"day": 1, "place_ids": ["1004", "1001", "1011"]},
+                        {"day": 2, "place_ids": ["1002", "1012", "1006"]},
                     ]
                 )
             ]
         )
-        status, body = self.post({"city": "서울", "days": 2, "pace": "normal"}, client)
+        # 2일 여유(하루 3곳)에 꽉 찬 두 날 — 채우기가 끼지 않는다.
+        # 첫날 위치 8·7·17 은 이미 가까운 순, 둘째 날 14·4·2 → 14 → 4 → 2.
+        status, body = self.post({"city": "서울", "days": 2, "pace": "relaxed"}, client)
         self.assertEqual(status, 200, body)
         plan = body["plan"]
         self.assertEqual(
             [[s["placeId"] for s in d["stops"]] for d in plan["days"]],
-            [[1004, 1001], [1002]],
+            [[1004, 1001, 1011], [1002, 1012, 1006]],
         )
         self.assertEqual(plan["titles"], ["도깨비"])
         validate_def(plan, "guidePlan", load_schema())
