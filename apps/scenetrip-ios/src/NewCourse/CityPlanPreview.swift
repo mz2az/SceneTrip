@@ -140,7 +140,7 @@ struct CityPlanPreview: View {
     private func peekId(_ plan: [[PlaceSummary]]) -> Int64? {
         let cards = plan.flatMap { $0 }
         return SceneFlipRules.peekIndex(
-            flippable: cards.map { flips.flippable($0) },
+            flippable: cards.map { _ in true }, // 모든 카드가 뒤집힌다(§6 표)
             hasFlipped: flips.hasFlipped, reduceMotion: reduceMotion
         ).map { cards[$0].id }
     }

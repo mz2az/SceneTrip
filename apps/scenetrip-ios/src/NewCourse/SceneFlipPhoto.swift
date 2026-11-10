@@ -35,11 +35,6 @@ final class SceneFlipStore: ObservableObject {
         SceneFlipRules.faces(photoUrl: place.imageUrl, sceneUrl: images[place.id].flatMap { $0 })
     }
 
-    /// 뒤집을 수 있나 — 장소 사진과 장면 그림이 둘 다 있을 때만.
-    func flippable(_ place: PlaceSummary) -> Bool {
-        faces(place).back != nil
-    }
-
     private func pump() {
         while running < SceneFlipRules.maxConcurrentDetailFetches, !waiting.isEmpty {
             let place = waiting.removeFirst()
@@ -56,7 +51,7 @@ final class SceneFlipStore: ObservableObject {
     }
 }
 
-/// 사진 칸 — 앞면은 장소 사진, 뒷면은 장면 그림. 그림이 없으면 뒤집히지 않고 알약도 없다.
+/// 사진 칸 — 모든 카드가 뒤집힌다. 앞면은 장소 사진(없으면 장면 그림), 뒷면은 남은 쪽이나 「없음」 면(§6 표, `SceneFlipRules.faces`).
 struct SceneFlipPhoto: View {
     let place: PlaceSummary
     /// 이 화면이 처음 뜰 때 한 번 살짝 돌 카드인가(`SceneFlipRules.peekIndex`).
@@ -70,11 +65,6 @@ struct SceneFlipPhoto: View {
 
     private var faces: SceneFlipFaces {
         store.faces(place)
-    }
-
-    /// 뒷면(장면 그림) — 있을 때만 뒤집힌다. 장소 사진이 없으면 장면 그림이 앞면에 오고 뒷면은 없다.
-    private var sceneUrl: String? {
-        faces.back
     }
 
     private var work: String? {
@@ -94,12 +84,10 @@ struct SceneFlipPhoto: View {
         ZStack {
             NewCoursePhoto(url: faces.front)
                 .opacity(showingBack ? 0 : 1)
-            if let sceneUrl {
-                NewCoursePhoto(url: sceneUrl)
-                    // 뒷면은 미리 뒤집어 둔다 — 돌고 나면 바로 보인다.
-                    .rotation3DEffect(.degrees(reduceMotion ? 0 : 180), axis: (x: 0, y: 1, z: 0))
-                    .opacity(showingBack ? 1 : 0)
-            }
+            back
+                // 뒷면은 미리 뒤집어 둔다 — 돌고 나면 바로 보인다.
+                .rotation3DEffect(.degrees(reduceMotion ? 0 : 180), axis: (x: 0, y: 1, z: 0))
+                .opacity(showingBack ? 1 : 0)
         }
         .overlay(alignment: .bottomLeading) { pill }
         .rotation3DEffect(.degrees(reduceMotion ? 0 : angle), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
@@ -107,19 +95,40 @@ struct SceneFlipPhoto: View {
         .onTapGesture(perform: toggle)
         .accessibilityElement()
         .accessibilityLabel(Text(showingBack ? tr("장소 사진 보기") : tr("장면 그림 보기")))
-        .accessibilityAddTraits(sceneUrl == nil ? [] : .isButton)
+        .accessibilityAddTraits(.isButton)
         .accessibilityAction { toggle() }
         .onAppear { store.load(place) }
         .task(id: peek) { await peekOnce() }
     }
 
-    /// 뒤집히는 카드에만 — 앞면 「장면 보기」, 뒷면 「「작품」 속 장면」. 장소 사진 대신 장면 그림이 앞면이면 「「작품」 속 장면」.
+    @ViewBuilder private var back: some View {
+        switch faces.back {
+        case let .scene(url):
+            NewCoursePhoto(url: url)
+        case .noPhoto:
+            missing(tr("장소 사진이 아직 없어요"))
+        case .noScene:
+            missing(tr("장면 그림이 아직 없어요"))
+        }
+    }
+
+    /// 「없음」 면 — 보라 바탕에 가운데 글.
+    private func missing(_ text: String) -> some View {
+        NewCourseStyle.brandFill
+            .overlay {
+                Text(text)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+    }
+
+    /// 앞면 알약 — 장소 사진이면 「장면 보기」, 장면 그림이 앞면이면 「「작품」 속 장면」. 뒷면은 장면 그림일 때만 「「작품」 속 장면」.
     @ViewBuilder private var pill: some View {
-        if sceneUrl != nil || faces.frontIsScene {
+        if let label = pillLabel {
             HStack(spacing: 5) {
-                Image(systemName: showingBack || faces.frontIsScene ? "photo" : "arrow.triangle.2.circlepath")
+                Image(systemName: label.isScene ? "photo" : "arrow.triangle.2.circlepath")
                     .font(.system(size: 11, weight: .bold))
-                Text(showingBack || faces.frontIsScene ? backLabel : tr("장면 보기"))
+                Text(label.text)
                     .font(.system(size: 12, weight: .semibold))
                     .lineLimit(1)
             }
@@ -133,12 +142,21 @@ struct SceneFlipPhoto: View {
         }
     }
 
-    private var backLabel: String {
+    private var pillLabel: (text: String, isScene: Bool)? {
+        if showingBack {
+            if case .scene = faces.back {
+                return (sceneLabel, true)
+            }
+            return nil
+        }
+        return faces.frontIsScene ? (sceneLabel, true) : (tr("장면 보기"), false)
+    }
+
+    private var sceneLabel: String {
         work.map { String(format: tr("「%@」 속 장면"), $0) } ?? tr("장면 그림")
     }
 
     private func toggle() {
-        guard sceneUrl != nil else { return }
         store.hasFlipped = true
         if reduceMotion {
             withAnimation(.easeInOut(duration: SceneFlipRules.reducedMotionFade)) { flipped.toggle() }
