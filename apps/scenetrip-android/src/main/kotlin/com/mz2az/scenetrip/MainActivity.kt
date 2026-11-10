@@ -99,6 +99,14 @@ class MainActivity : ComponentActivity() {
             worksStep = intent.getStringExtra("worksStep")
             cityAutoSave = intent.getBooleanExtra("cityAutoSave", false)
         }
+        // 계획 화면 확인용(MZ2AZ-547 P4, iOS `-editorMode`·`-editorMap`·`-editorAdd`·`-freshCourse`).
+        // `-e editorMode edit`, `--ez editorMap true`, `-e editorAdd menu|saved|map`, `--ez freshCourse true`(openCourseId 와 함께).
+        com.mz2az.scenetrip.routetab.RouteEditorDebug.apply {
+            mode = intent.getStringExtra("editorMode")
+            mapOpen = intent.getBooleanExtra("editorMap", false)
+            add = intent.getStringExtra("editorAdd")
+        }
+        TabRouter.applyFreshBackdoor(intent.getBooleanExtra("freshCourse", false))
         TabRouter.applyNewCourseBackdoor(
             newCourse = intent.getStringExtra("newCourse"),
             cityFlow = intent.getStringExtra("cityFlow"),

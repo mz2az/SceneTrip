@@ -92,9 +92,13 @@ enum class ListTab {
  * (ADR 0008 · `ui/IOSTheme.kt`).
  *
  * 서버가 정본이다. 검색은 서버가 하고 두 탭이 **같은 `q`** 로 함께 채워진다.
+ *
+ * [embedded] — 계획 화면의 「지도에서 추가」(MZ2AZ-547 E9)가 편집 위에 하나 더 띄운 검색 탭이다. 그때는 홈이 남긴 쪽지
+ * (`TabRouter.pending*`)를 읽지도 지우지도 않는다 — 탭에 있는 진짜 검색 탭의 몫이다. 머리줄은 띄운 쪽이 그리므로 상태바 여백을
+ * 두지 않고, 뒤로는 탭 상태와 상관없이 이 화면 안에서 한 단계씩 돌아간다.
  */
 @Composable
-fun SearchTabScreen() {
+fun SearchTabScreen(embedded: Boolean = false) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -105,7 +109,7 @@ fun SearchTabScreen() {
     // 검색바는 상태바 **아래**에 놓이므로, 시트가 멈출 자리도 그만큼 내려간다.
     // iOS 는 안전영역 안에서 계산해 172pt 에서 멈추는데, 이것을 빼먹어 안드로이드
     // 시트가 66dp 더 올라가 지도 조작 버튼을 덮었다(대조 검사).
-    val statusBar = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val statusBar = if (embedded) 0.dp else WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navigationBar = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val data = remember { SceneData(scope) }
     val cart = remember { CartStore(context) }
@@ -229,13 +233,14 @@ fun SearchTabScreen() {
     }
 
     LaunchedEffect(TabRouter.pendingContent) {
+        if (embedded) return@LaunchedEffect
         TabRouter.pendingContent?.let {
             openContent(it)
             TabRouter.pendingContent = null
         }
     }
     LaunchedEffect(TabRouter.pendingWorkList) {
-        if (TabRouter.pendingWorkList) {
+        if (!embedded && TabRouter.pendingWorkList) {
             selectedContent = null
             selectedPlace = null
             selectedScene = null
@@ -276,6 +281,7 @@ fun SearchTabScreen() {
         }
     }
     LaunchedEffect(TabRouter.pendingPlace) {
+        if (embedded) return@LaunchedEffect
         TabRouter.pendingPlace?.let {
             selectedContent = null
             selectedScene = null
@@ -502,8 +508,7 @@ fun SearchTabScreen() {
     // 목록(맨 위)에서는 가로채지 않아 앱이 닫힌다.
     BackHandler(
         enabled =
-            TabRouter.selected == com.mz2az.scenetrip.data.RootTab.SEARCH &&
-                TabRouter.cover == null &&
+            (embedded || (TabRouter.selected == com.mz2az.scenetrip.data.RootTab.SEARCH && TabRouter.cover == null)) &&
                 (searching || selectedPlace != null || selectedContent != null),
     ) {
         when {
@@ -655,7 +660,7 @@ fun SearchTabScreen() {
             SearchScrim(onDismiss = { endSearching() })
         }
 
-        Column(modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding()) {
+        Column(modifier = Modifier.align(Alignment.TopCenter).then(if (embedded) Modifier else Modifier.statusBarsPadding())) {
             SearchBar(
                 draft = draft,
                 cartCount = cart.items.size,

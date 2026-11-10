@@ -119,11 +119,34 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 | `SavedPlanView.kt` | A4: 일정 + 「넣을 곳」(사진 겹침·「담아 둔 곳 N곳」) → 보관함 전부를 시·도 묶음 → 가까운 순으로 잇고 날마다 고르게 나눈 초안 편집 |
 | `NewCourseData.kt` | `CityPlacesStore`(도시 목록·도시 촬영지를 앱에 하나로 들고 있음, 언어가 바뀌면 다시 받음) · `TripMemoryStore`(정한 여행 Q4: 켤 때 `GET /me/trip` — 서버가 이기고, 서버에 없고 기기에만 있으면 `PUT`; 바꿀 때 `PUT`, 비회원도 설치 id) |
 
-- **계획 화면은 아직 보기/편집으로 나뉘지 않는다**(E1 은 다음 묶음 P4). 그래서 방금 만든 코스도 지금은 늘 고칠 수 있는 화면으로 열린다.
-  `TabRouter.freshCourseId`·`isFreshCourse`·`clearFreshCourse` 는 P4 의 「저장하지 않고 나갈까요?」→`DELETE`(E16)가 쓴다.
+- 방금 만든 코스(`TabRouter.freshCourseId`)는 계획 화면이 편집 상태로 열고, 저장 없이 나가면 묻고 지운다(P4 E16, 아래).
 - `TabRouter` 는 Compose 상태를 들어 JVM 시험에서 만들 수 없다(`android.os.Looper`) — 입구 판단만 `NewCourseEntryRules` 로 떼어 시험한다.
 - 화면 확인용 뒷문(iOS 와 같은 이름): `-e newCourse sheet|city|works|saved`, `-e cityFlow 부산 --ei cityDays 2 -e cityHow plan|pick`,
   `-e worksStep works`, `--ez cityAutoSave true`(짜자마자 저장 — 서버에 코스가 생긴다).
+
+## 웹 시안 반영 P4 — 계획 화면 보기/편집·지도 켜고 끄기·＋ 메뉴 (2026-11-10, MZ2AZ-547)
+
+체크리스트 E1–E17. iOS `RouteEditorRules`·`RouteEditorModes`·`CourseAddViews`·`RouteNumberPin` 을 옮겼다. 순수 규칙은
+`routetab/RouteEditorRules.kt` 하나에 있고 JVM 시험이 선다(`tests/RouteEditorRulesTests.kt` 60개 — iOS 시험 56개 + 번호 핀·여는 중 덮개).
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `RouteEditorRules.kt` | 처음 상태(저장된 코스는 보기, 새 초안·방금 만든 코스는 편집)·「취소」 결정 다섯 갈래·저장 뒤·편집 도구/아래 줄을 보이나·「내 위치」 높이(편집 62·보기 10) · 카메라 규칙(`refits`·`moves`: 일차 바꾸기·장소 넣기·처음 펼치기만 맞춤, 끌기·빼기·최적화·서랍 높이·다시 펼치기·카드 닫기는 그대로, 고른 것을 놓기만 하면 옮기지 않음) · 「지도」 알약 · 보관함 고르기(고른 순서) · 넣기 규칙 · 번호 핀 치수 · 여는 중 덮개 |
+| `RouteEditorModes.kt` | 보기 머리줄(‹ · 이름 · 「편집」) · 「지도」/「목록만」 알약(왼쪽 아래 16) · 줄 사진 ⓘ 로 여는 장소 상세(전체 화면) · 확인용 뒷문 `RouteEditorDebug` |
+| `CourseAddViews.kt` | 떠 있는 ＋(해태 위, 편집 중만) → 「지도에서 추가」(검색 탭을 덮개로 하나 더 — `SearchTabScreen(embedded = true)` 는 홈 쪽지 `TabRouter.pending*` 를 읽지도 지우지도 않는다, 장소 상세 맨 위 「＋ 코스에 추가」/「이미 코스에 있어요」/「✓ N일차에 넣었어요」 → 일차 고르기) · 「보관함에서 추가」(큰 시트, 고른 순서 번호, 「N곳 선택 완료」 → 「몇 일차에 넣을까요?」) |
+| `RouteNumberPin.kt` | 코스 번호 핀 — 보라 단색 동그라미 + 흰 테두리 + 꼬리, 30×38dp, 꼬리 끝 (15, 37) |
+
+- 계획 화면 기본은 **목록 전체**(지도 접힘), 여행 중이면 펼친 채. 처음 펼칠 때만 서랍이 자리를 잡은 뒤 코스 전체에 맞춘다. 줄을 누르거나 핀 찍기를 켜면 펼친다.
+- 동작 줄은 동선 최적화 · 핀 찍기 둘뿐. 「검색」(`PlaceSearchOverlay`)·「장바구니」 단추와 장바구니 첫 안내(`RouteCartHint*`)는 없앴다(iOS 와 같다).
+  가이드 창의 「장바구니 장소 보기」 는 예전 장바구니 시트를 그대로 연다.
+- 보기에서는 일차 ＋/−·동작 줄·끌기·밀어서 빼기·출발/도착 고정·편의시설 칩·＋ 가 없다. 저장된 코스를 고치는 동안은 아래 「코스 시작」 줄을 숨긴다.
+  보기 중에 가이드가 코스를 바꾸면(담기·빼기·초안) 편집으로 넘어간다.
+- 「취소」/뒤로: 새 초안은 닫기(바뀌었으면 「바꾼 내용을 버릴까요?」), 저장된 코스는 편집 전으로 되돌려 보기로(바뀌었으면 묻고),
+  방금 만든 코스는 「저장하지 않고 나갈까요? / 방금 만든 코스가 지워져요.」 → 「나가기」 면 코스 목록(`RouteTabView`)의 범위에서 `DELETE`.
+  저장된 코스의 「저장」 은 닫지 않고 보기로 돌아간다.
+- 코스를 여는 동안(상세 받기) 목록을 덮개와 스피너로 덮고, 실패 띠는 다시 여는 중이 아닐 때만 보인다(E17).
+- 확인용 뒷문(iOS 와 같은 이름): `-e editorMode edit`, `--ez editorMap true`, `-e editorAdd menu|saved|map`,
+  `--el openCourseId N --ez freshCourse true`(그 코스를 방금 만든 코스로 연다 — 나가기를 누르면 서버에서 지워진다).
 
 ## 인터페이스
 

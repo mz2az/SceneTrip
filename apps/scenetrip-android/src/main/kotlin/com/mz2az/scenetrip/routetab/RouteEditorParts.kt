@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -72,6 +73,7 @@ import com.mz2az.scenetrip.searchtab.FilmIcon
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.searchtab.ScopeIcon
 import com.mz2az.scenetrip.ui.ArrowDownIcon
+import com.mz2az.scenetrip.ui.BagIcon
 import com.mz2az.scenetrip.ui.CheckmarkIcon
 import com.mz2az.scenetrip.ui.CircleSignIcon
 import com.mz2az.scenetrip.ui.FlagIcon
@@ -83,6 +85,8 @@ import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.IOSSheetMaterial
 import com.mz2az.scenetrip.ui.IOSSheetToolbar
 import com.mz2az.scenetrip.ui.LocationArrowIcon
+import com.mz2az.scenetrip.ui.MapPinEllipseIcon
+import com.mz2az.scenetrip.ui.PhotosIcon
 import com.mz2az.scenetrip.ui.SheetDetent
 import com.mz2az.scenetrip.ui.ShoeprintsIcon
 import com.mz2az.scenetrip.ui.UnavailableItemNotice
@@ -132,6 +136,10 @@ fun RouteStopRow(
     // 없어(`placeId`·`name`·`address`만 온다) 바깥(`RouteStore.places`)에서
     // 되짚어 넣어 준다.
     works: String = "",
+    // 줄 오른쪽 장소 사진(MZ2AZ-547 E6, 웹 `StopRow.tsx` `StopPhoto`). 없으면 사진 칸이 없다.
+    photo: StopPhoto? = null,
+    // 고칠 수 있는가 — 아니면 손잡이·밀어서 빼기가 없다(보기 상태, E2).
+    movable: Boolean = true,
 ) {
     var rowHeight by remember { mutableStateOf(0) }
     var dragY by remember { mutableStateOf(0f) }
@@ -159,6 +167,7 @@ fun RouteStopRow(
         containerColor = if (isFocused) IOS.accent.copy(alpha = 0.07f).compositeOver(IOS.systemBackground) else IOS.systemBackground,
         revealedColor = IOS.systemGray5,
         allowsFullSwipe = false,
+        swipeEnabled = movable,
     ) {
         Column(
             modifier =
@@ -228,31 +237,34 @@ fun RouteStopRow(
                         }
                     }
                 }
-                // 손잡이 — 끄는 만큼 행이 따라오고, 반 줄을 넘으면 이웃과 자리를 바꾼다.
-                GripLinesIcon(
-                    IOS.tertiaryLabel,
-                    Modifier
-                        .size(12.dp)
-                        .pointerInput(Unit) {
-                            detectVerticalDragGestures(
-                                onDragEnd = { dragY = 0f },
-                                onDragCancel = { dragY = 0f },
-                            ) { change, amount ->
-                                change.consume()
-                                dragY += amount
-                                val half = rowHeight / 2f
-                                val down = moveDown
-                                val up = moveUp
-                                if (dragY > half && down != null) {
-                                    down()
-                                    dragY -= rowHeight
-                                } else if (dragY < -half && up != null) {
-                                    up()
-                                    dragY += rowHeight
+                if (photo != null) StopPhotoView(photo, stop.label().title)
+                // 손잡이 — 끄는 만큼 행이 따라오고, 반 줄을 넘으면 이웃과 자리를 바꾼다. 고칠 때만(E2).
+                if (movable) {
+                    GripLinesIcon(
+                        IOS.tertiaryLabel,
+                        Modifier
+                            .size(12.dp)
+                            .pointerInput(Unit) {
+                                detectVerticalDragGestures(
+                                    onDragEnd = { dragY = 0f },
+                                    onDragCancel = { dragY = 0f },
+                                ) { change, amount ->
+                                    change.consume()
+                                    dragY += amount
+                                    val half = rowHeight / 2f
+                                    val down = moveDown
+                                    val up = moveUp
+                                    if (dragY > half && down != null) {
+                                        down()
+                                        dragY -= rowHeight
+                                    } else if (dragY < -half && up != null) {
+                                        up()
+                                        dragY += rowHeight
+                                    }
                                 }
-                            }
-                        },
-                )
+                            },
+                    )
+                }
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -324,6 +336,84 @@ fun RouteStopRow(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * 줄 사진 — 4:3 92×69. 사진이 없으면 회색 칸에 아이콘. [StopPhoto.onOpen] 이 있으면(촬영지) 사진 전체가 장소 상세로 가는 단추이고
+ * 오른쪽 아래 ⓘ 가 그 표시다 — 줄 전체가 상세로 넘어가면 지도 포커스가 사라진다(웹 2026-11-07 사용자 지적, iOS `RouteStopRow.Photo`).
+ */
+data class StopPhoto(
+    val url: String?,
+    val kind: StopPhotoKind,
+    val onOpen: (() -> Unit)?,
+)
+
+/** 사진이 없을 때 칸에 그리는 아이콘 — 직접 찍은 곳·편의시설·촬영지. */
+enum class StopPhotoKind { PIN, POI, PLACE }
+
+val RouteStop.photoKind: StopPhotoKind
+    get() =
+        when {
+            isPinned -> StopPhotoKind.PIN
+            poiId != null -> StopPhotoKind.POI
+            else -> StopPhotoKind.PLACE
+        }
+
+@Composable
+private fun StopPhotoView(
+    photo: StopPhoto,
+    title: String,
+) {
+    val label = "$title ${tr("자세히 보기")}"
+    Box(
+        modifier =
+            Modifier
+                .size(width = 92.dp, height = 69.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(IOS.systemGray6)
+                .then(
+                    if (photo.onOpen != null) {
+                        Modifier.semantics { contentDescription = label }.clickable(onClick = photo.onOpen)
+                    } else {
+                        Modifier
+                    },
+                ),
+    ) {
+        val icon: @Composable () -> Unit = {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                when (photo.kind) {
+                    StopPhotoKind.PIN -> MapPinEllipseIcon(IOS.tertiaryLabel, Modifier.size(22.dp))
+                    StopPhotoKind.POI -> BagIcon(IOS.tertiaryLabel, Modifier.size(22.dp))
+                    StopPhotoKind.PLACE -> PhotosIcon(IOS.tertiaryLabel, Modifier.size(22.dp))
+                }
+            }
+        }
+        if (photo.url != null) {
+            com.mz2az.scenetrip.searchtab
+                .RemoteImage(url = photo.url, modifier = Modifier.fillMaxSize(), placeholder = icon)
+        } else {
+            icon()
+        }
+        if (photo.onOpen != null) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(5.dp)
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.55f)),
+            ) {
+                Icon(
+                    Icons.Outlined.Info,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp),
+                )
             }
         }
     }
@@ -808,7 +898,7 @@ private fun RouteCartSheetBody(
     }
 }
 
-private fun CartItem.toPlaceSummary(): PlaceSummary? {
+internal fun CartItem.toPlaceSummary(): PlaceSummary? {
     val lat = latitude ?: return null
     val lng = longitude ?: return null
     return PlaceSummary(id = placeId, name = name, type = null, address = address, latitude = lat, longitude = lng, imageUrl = imageUrl)

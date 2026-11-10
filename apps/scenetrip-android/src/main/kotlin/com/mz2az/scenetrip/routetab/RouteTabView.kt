@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -168,7 +169,8 @@ fun RouteTabView(
             }
         }
 
-        if (openingState.failedCourse != null) {
+        // 실패 띠는 다시 여는 중이 아닐 때만(E17, `CourseOpeningRules.showsFailure`).
+        if (CourseOpeningRules.showsFailure(openingState)) {
             DetailLoadError(onRetry = { scope.launch { opening.retry(store::routeCourse) } })
         }
 
@@ -214,6 +216,22 @@ fun RouteTabView(
         )
     }
 
+    // 코스 속을 받는 동안 목록에 멈춘 것처럼 보이지 않게 덮는다(E17, iOS `opening.isLoading` 덮개) — 머리까지 덮어 두 번 누르지 못하게.
+    if (CourseOpeningRules.showsOverlay(openingState)) {
+        val loadingLabel = tr("불러오는 중입니다")
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(IOS.systemGray6.copy(alpha = 0.7f))
+                    .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }
+                    .semantics { contentDescription = loadingLabel },
+        ) {
+            CircularProgressIndicator(Modifier.size(36.dp), color = IOS.secondaryLabel, strokeWidth = 3.dp)
+        }
+    }
+
     val current = openingState.editing
     if (current != null) {
         RouteEditorView(
@@ -223,8 +241,10 @@ fun RouteTabView(
                 opening.close()
                 openPlannerIfAsked()
             },
+            // 방금 만든 코스를 저장 없이 나갔다 — 이 화면의 범위에서 지운다(E16). 편집 화면이 닫혀도 끝까지 간다.
+            onDiscardFresh = { doomedFresh -> scope.launch { store.delete(doomedFresh) } },
         )
-        // 방금 「도시로」 만든 코스의 안내 띠(R6). 편집 화면은 늘 고칠 수 있는 상태로 열린다 — 보기/편집 나누기(E1)는 다음 묶음.
+        // 방금 「도시로」 만든 코스의 안내 띠(R6). 저장된 코스는 보기로, 방금 만든 코스는 편집으로 열린다(E1).
         CreatedCourseBanner()
     }
 }

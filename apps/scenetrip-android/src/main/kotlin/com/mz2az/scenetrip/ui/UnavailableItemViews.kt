@@ -94,7 +94,8 @@ fun UnavailableRemoveButton(
 @Composable
 fun UnavailableNoticeRow(
     item: UnavailableItem,
-    onRemove: () -> Unit,
+    // null 이면 「빼기」 가 없다 — 계획 화면의 보기 상태(MZ2AZ-547 E2).
+    onRemove: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -103,7 +104,7 @@ fun UnavailableNoticeRow(
         modifier = modifier.fillMaxWidth(),
     ) {
         UnavailableItemNotice(item, Modifier.weight(1f))
-        UnavailableRemoveButton(onRemove)
+        if (onRemove != null) UnavailableRemoveButton(onRemove)
     }
 }
 

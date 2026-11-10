@@ -185,9 +185,12 @@ fun RouteEditorView(
     draftState: RouteEditorDraft? = null,
     operationScope: kotlinx.coroutines.CoroutineScope? = null,
     editorDismiss: java.util.concurrent.atomic.AtomicReference<(() -> Unit)?>? = null,
+    // 방금 「도시로」 만든 코스를 저장 없이 나갔다 — 부르는 쪽이 서버에서 지운다(MZ2AZ-547 E16). 편집 화면이 닫히며 범위가 끝나도
+    // 지우기는 끝까지 가야 하므로 바깥(코스 목록)의 범위에서 돈다.
+    onDiscardFresh: ((RouteCourse) -> Unit)? = null,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
-        RouteEditorContent(store, initial, isNew, onClose, inSheet, draftState, operationScope, editorDismiss)
+        RouteEditorContent(store, initial, isNew, onClose, inSheet, draftState, operationScope, editorDismiss, onDiscardFresh)
     }
 }
 
@@ -201,6 +204,7 @@ private fun RouteEditorContent(
     draftState: RouteEditorDraft?,
     operationScope: kotlinx.coroutines.CoroutineScope?,
     editorDismiss: java.util.concurrent.atomic.AtomicReference<(() -> Unit)?>?,
+    onDiscardFresh: ((RouteCourse) -> Unit)?,
 ) {
     val editorDraft = draftState ?: remember { RouteEditorDraft(initial) }
     var course by editorDraft.course
@@ -228,7 +232,6 @@ private fun RouteEditorContent(
     var stayFrame by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     var pinning by remember { mutableStateOf(false) }
     var pendingPin by remember { mutableStateOf<RoutePin?>(null) }
-    var searching by remember { mutableStateOf(false) }
     var showCart by remember { mutableStateOf(false) }
     var showDayStay by remember { mutableStateOf(false) }
     var saving by editorDraft.saving
@@ -253,14 +256,34 @@ private fun RouteEditorContent(
     var poiGroupsOn by remember { mutableStateOf(PoiCategoryGroup.entries.toSet()) }
     var aiPlacesOn by remember { mutableStateOf(true) }
     var showDraftNotes by remember { mutableStateOf(false) }
+
+    // MZ2AZ-547 P4 — 보기/편집(E1), 방금 만든 코스(E16), 지도 켜고 끄기(E4), 장소 넣기(E8–E10), 줄 사진의 장소 상세(E6).
+    // 규칙은 `RouteEditorRules.kt`, 부품은 `RouteEditorModes.kt`·`CourseAddViews.kt`.
+    val isDraft = isNew || initial.serverId == null
+    val debug = remember { RouteEditorDebug.take() }
+    var fresh by remember { mutableStateOf(!isDraft && TabRouter.isFreshCourse(initial.serverId)) }
+    var mode by remember {
+        mutableStateOf(if (debug.first == "edit") RouteEditorMode.EDITING else RouteEditorRules.initialMode(isDraft, fresh))
+    }
+    // 「편집」 을 누른 때의 모습 — 저장된 코스의 「취소」 가 여기로 되돌린다(E3).
+    var beforeEdit by remember { mutableStateOf(initial) }
+    var confirmingRevert by remember { mutableStateOf(false) }
+    var confirmingLeave by remember { mutableStateOf(false) }
+    // 가이드 창의 「AI 로 짜기」 로 나가는 중에 방금 만든 코스를 지울지 묻는다 — 「나가기」 면 마법사를 연다.
+    var leaveForPlannerAfter by remember { mutableStateOf(false) }
+    var mapToggle by remember {
+        mutableStateOf(RouteMapToggle.initial(initial.isRunning).let { if (debug.second) it.open().toggle else it })
+    }
+    var addMenuOpen by remember { mutableStateOf(debug.third == "menu") }
+    var showMapAdd by remember { mutableStateOf(debug.third == "map") }
+    var showSavedAdd by remember { mutableStateOf(debug.third == "saved") }
+    var detailOf by remember { mutableStateOf<PlaceSummary?>(null) }
+    val editTools = RouteEditorRules.showsEditTools(mode)
+    val showsBottomBar = RouteEditorRules.showsBottomBar(mode, isDraft)
     val localScope = rememberCoroutineScope()
     val scope = operationScope ?: localScope
     val context = LocalContext.current
     val cart = remember { CartStore(context) }
-    // 직접 짜기의 새 빈 코스에서 장바구니 버튼을 한 번 알려 준다(MZ2AZ-444).
-    var cartHintState by remember { mutableStateOf(RouteCartHintState()) }
-    val cartHint = remember { RouteCartHint(PreferencesCartHintStorage(context)) { cartHintState = it } }
-    val rootView = androidx.compose.ui.platform.LocalView.current
     // 가이드 대화는 앱에 하나뿐이고 코스의 것이다 — 같은 코스를 다시 열면 이어지고 다른 코스면 새로 시작한다(iOS `guide.bind`).
     val guideSession = remember { RouteGuideSession.shared(context) }
     LaunchedEffect(Unit) { guideSession.bind(RouteGuidePlan.conversationKey(course)) }
@@ -293,10 +316,82 @@ private fun RouteEditorContent(
     // 「마법사를 열어 달라」는 표시는 편집 화면이 실제로 닫힐 때만 올린다 — 알림 창이 onDismiss 를 먼저 부르므로 거기서 만지면 안 된다.
     val plannerExit = remember { PlannerExit { TabRouter.pendingPlanner = it } }
 
+    // 편집을 마치고 보기로 — 핀 찍기·＋ 메뉴·고른 줄을 놓는다(놓기만 하면 지도는 그대로다, `RouteCameraRules.moves`).
+    fun endEditing() {
+        mode = RouteEditorMode.VIEWING
+        pinning = false
+        addMenuOpen = false
+        focusedStopId = null
+        pickedStop = null
+        dayIndex = dayIndex.coerceAtMost((course.days.size - 1).coerceAtLeast(0))
+    }
+
+    fun startEdit() {
+        beforeEdit = course
+        mode = RouteEditorMode.EDITING
+    }
+
+    // 보기 중에 코스가 바뀌는 길(가이드 초안·카드의 「담기」)이 부른다 — 바뀌기 전 모습을 남기고 편집으로 넘어간다.
+    // 안 넘기면 바뀐 것을 저장할 단추가 없다.
+    fun beginEditIfViewing() {
+        if (mode == RouteEditorMode.VIEWING) startEdit()
+    }
+
+    fun revert() {
+        course = beforeEdit
+        endEditing()
+    }
+
+    // 방금 만든 코스를 저장 없이 나간다 — 서버에 만들어 둔 것을 지운다(E16).
+    fun leaveFresh() {
+        TabRouter.clearFreshCourse()
+        if (leaveForPlannerAfter) TabRouter.pendingPlanner = true
+        leaveForPlannerAfter = false
+        onDiscardFresh?.invoke(course)
+        onClose(null)
+    }
+
+    // 「취소」·뒤로. 보기면 그냥 닫고, 편집이면 `RouteEditorRules.cancel` 대로 — 새 초안은 닫고, 저장된 코스는 편집 전으로 되돌려 보기로,
+    // 방금 만든 코스는 지울지 묻는다(E3·E16). [planner] 는 가이드 창의 「AI 로 짜기」 — 화면을 떠나는 길이라 되돌리지 않고 닫는다.
     fun cancel(planner: Boolean = false) {
         if (saving) return
-        val changed = if (initial.serverId == null) !RouteBridge.isBlank(course) else RouteBridge.changed(opened, course)
-        if (plannerExit.request(planner, changed) { onClose(null) }) discarding = true
+        if (mode == RouteEditorMode.VIEWING) {
+            plannerExit.request(planner, changed = false) { onClose(null) }
+            return
+        }
+        if (planner) {
+            if (fresh && !isDraft) {
+                leaveForPlannerAfter = true
+                confirmingLeave = true
+                return
+            }
+            val changedSinceOpen = if (isDraft) !RouteBridge.isBlank(course) else RouteBridge.changed(opened, course)
+            if (plannerExit.request(true, changedSinceOpen) { onClose(null) }) discarding = true
+            return
+        }
+        val changed = if (isDraft) !RouteBridge.isBlank(course) else RouteBridge.changed(RouteBridge.outgoing(beforeEdit), course)
+        when (RouteEditorRules.cancel(isDraft, fresh, changed)) {
+            RouteEditorRules.LeaveDecision.CLOSE -> {
+                plannerExit.request(false, changed = false) { onClose(null) }
+            }
+
+            RouteEditorRules.LeaveDecision.REVERT_TO_VIEW -> {
+                revert()
+            }
+
+            RouteEditorRules.LeaveDecision.CONFIRM_DISCARD_THEN_CLOSE -> {
+                plannerExit.request(false, changed = true) {}
+                discarding = true
+            }
+
+            RouteEditorRules.LeaveDecision.CONFIRM_DISCARD_THEN_REVERT -> {
+                confirmingRevert = true
+            }
+
+            RouteEditorRules.LeaveDecision.CONFIRM_LEAVE_AND_DELETE -> {
+                confirmingLeave = true
+            }
+        }
     }
 
     // 가이드 창의 「AI 로 짜기」 — 이 편집 화면을 「취소」와 같은 길로 닫고(바꾼 것이 있으면 버릴지 묻는다),
@@ -307,24 +402,18 @@ private fun RouteEditorContent(
         cancel(planner = true)
     }
     // 가이드 창이 열려 있으면 뒤로가는 아무것도 안 한다 — iOS 는 접기(X) 단추로만 닫히고 편집 화면은 그 뒤에 그대로 있다(MZ2AZ-513).
-    androidx.activity.compose.BackHandler { if (!showGuide) cancel() }
+    // ＋ 메뉴가 열려 있으면 그것부터 닫는다.
+    androidx.activity.compose.BackHandler {
+        if (addMenuOpen) {
+            addMenuOpen = false
+        } else if (!showGuide) {
+            cancel()
+        }
+    }
     androidx.compose.runtime.SideEffect { editorDismiss?.set { cancel() } }
     androidx.compose.runtime.DisposableEffect(editorDismiss) { onDispose { editorDismiss?.set(null) } }
 
     LaunchedEffect(Unit) { cart.refresh() }
-    // 편집기에 들어서면 링을 바로 켜고, 문구는 장바구니 조회가 끝난 뒤 낭독(TalkBack)과 함께 한 번 보인다.
-    LaunchedEffect(Unit) {
-        cartHint.present(
-            course = course,
-            cart = {
-                val (loadState, isEmpty) =
-                    snapshotFlow { cart.loadState to cart.items.isEmpty() }
-                        .first { it.first == CartLoadState.LOADED || it.first == CartLoadState.FAILED }
-                CartOutcome(loadState, isEmpty)
-            },
-            announce = { rootView.announceForAccessibility(it) },
-        )
-    }
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { trip.end() } }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     androidx.compose.runtime.DisposableEffect(lifecycle, trip) {
@@ -416,7 +505,28 @@ private fun RouteEditorContent(
             saving = false
             // 방금 저장한 이 코스를 다시 열면 가이드 대화가 이어진다.
             saved?.let { guideSession.rekey(RouteGuidePlan.conversationKey(it)) }
-            if (saved != null) onClose(saved) else saveFailure = store.saveFailure
+            if (saved == null) {
+                saveFailure = store.saveFailure
+                return@launch
+            }
+            // 저장했다 — 더는 「방금 만든 코스」 가 아니다(E16).
+            if (fresh) {
+                fresh = false
+                TabRouter.clearFreshCourse()
+            }
+            // 새 초안의 「만들기」 는 닫고, 저장된 코스의 「저장」 은 서버가 준 모습(항목 id 가 붙은)으로 보기로 돌아간다(E3).
+            when (RouteEditorRules.afterSave(isDraft)) {
+                RouteEditorRules.SaveOutcome.CLOSE -> {
+                    onClose(saved)
+                }
+
+                RouteEditorRules.SaveOutcome.VIEW -> {
+                    course = saved
+                    opened = RouteBridge.outgoing(saved)
+                    beforeEdit = saved
+                    endEditing()
+                }
+            }
         }
     }
 
@@ -457,6 +567,7 @@ private fun RouteEditorContent(
     ) {
         val toAdd = RouteDedupe.fresh(newStops, course.stops)
         if (toAdd.isEmpty()) return
+        beginEditIfViewing()
         updateDay(dayIndex) { day ->
             val slot =
                 if (asNext && course.isRunning) {
@@ -470,8 +581,57 @@ private fun RouteEditorContent(
                 }
             day.copy(stops = day.stops.take(slot) + toAdd + day.stops.drop(slot))
         }
-        fitToken += 1
+        if (RouteCameraRules.refits(RouteCameraRules.Change.ADD)) fitToken += 1
         optimizeNudge = course.days[dayIndex].stops.size >= 2
+    }
+
+    // 「지도에서 추가」·「보관함에서 추가」 — 고른 일차의 끝에 고른 순서대로 넣는다. 다른 일차면 그 일차로 옮겨 보여 주고 지도를 맞춘다(E9·E10·E12).
+    fun addToDay(
+        places: List<PlaceSummary>,
+        day: Int,
+    ) {
+        val result = CourseAddRules.adding(places, day, course)
+        if (result.added <= 0) return
+        beginEditIfViewing()
+        course = result.course
+        dayIndex = day
+        focusedStopId = null
+        pickedStop = null
+        if (RouteCameraRules.refits(RouteCameraRules.Change.ADD)) fitToken += 1
+        optimizeNudge = course.days[day].stops.size >= 2
+    }
+
+    // 「지도」 알약(E4) — 처음 펼칠 때만 코스 전체에 맞춘다. **서랍이 자리를 잡은 뒤에**(높이가 정해진 뒤) 맞춘다 — 0 높이에서 맞추면
+    // 크기 0 기준으로 계산돼 한 단계 축소된다(아래 카메라 효과의 같은 함정).
+    fun fitAfterOpening() {
+        if (!RouteCameraRules.refits(RouteCameraRules.Change.MAP_FIRST_OPEN)) return
+        localScope.launch {
+            snapshotFlow { panelHeight }.first { it > 0.dp }
+            delay(320)
+            fitToken += 1
+        }
+    }
+
+    fun toggleMap() {
+        val wasOpen = mapToggle.isOpen
+        val step = mapToggle.toggle()
+        mapToggle = step.toggle
+        if (wasOpen) {
+            pinning = false
+            panelHeight = 0.dp
+        } else {
+            detent = Detent.MEDIUM
+        }
+        if (step.fits) fitAfterOpening()
+    }
+
+    // 줄을 눌렀다·핀 찍기를 켰다 — 접혀 있으면 펼친다(E5).
+    fun revealMap() {
+        val wasOpen = mapToggle.isOpen
+        val step = mapToggle.reveal()
+        mapToggle = step.toggle
+        if (!wasOpen) detent = Detent.MEDIUM
+        if (step.fits) fitAfterOpening()
     }
 
     val day = course.days.getOrNull(dayIndex)
@@ -492,8 +652,7 @@ private fun RouteEditorContent(
         // 번호 핀을 누르면 카드가 뜬다. 목록 행을 누르면 지도만 간다(iOS `onFocus`).
         pickedStop = if (withCard) stop else null
         guideSession.dismiss() // 카드는 한 장만
-        val here = if (trip.isActive) trip.here else myLocation?.let { it.latitude to it.longitude }
-        map?.focusOnStop(stop.place, here, showingMe, density, screenHeight, panelHeight)
+        // 지도는 아래 카메라 효과가 옮긴다 — 고른 줄이 카메라 열쇠에 들어 있다.
     }
 
     // 이 정지점으로 안내를 켠다. 번호는 **그 일차 안의 순서**다(지도·목록의 번호와 같다).
@@ -674,15 +833,31 @@ private fun RouteEditorContent(
     val fitsMe = RouteGeometry.fitHere(myLocation, showingMe, stops) != null
     // 8차 EP4: 미리보기(검색 시트에서 고른 곳)도 맞춤에 든다 — iOS `RouteMapView.fit(stops, previews:)` 는 시트가 열린 채 바로 맞춘다.
     val previewKey = previewPlaces.map { it.id }
-    LaunchedEffect(map, dayIndex, fitToken, showingMe, fitsMe, screenHeight, panelHeight, previewKey) {
+    // **카메라 열쇠**(MZ2AZ-547 E12, `RouteCameraRules.moves`) — 고른 줄과 그 밖의 것(일차·내 위치·미리보기). 서랍 높이·코스 순서는
+    // 열쇠에 없다 — 끌기·빼기·최적화·서랍 높이로는 다시 맞추지 않는다. 일차 바꾸기·장소 넣기·처음 펼치기는 `fitToken` 을 올린다.
+    // 고른 줄을 **놓기만** 한 것(카드 ✕·줄 다시 누르기)도 옮기지 않는다 — 사람이 확대해 둔 화면이 풀렸다(2026-11-10 사용자 지적).
+    val cameraKey =
+        RouteCameraKey(
+            focused = focusedStopId?.toString(),
+            context = "$dayIndex|$showingMe|$fitsMe|${previewKey.joinToString(",")}",
+        )
+    val cameraMemo = remember { CameraMemo() }
+    val cameraReady = screenHeight > 0.dp && (!mapToggle.isOpen || panelHeight > 0.dp)
+    LaunchedEffect(map, cameraKey, fitToken, cameraReady) {
         val target = map ?: return@LaunchedEffect
-        if (screenHeight <= 0.dp || panelHeight <= 0.dp) return@LaunchedEffect
+        if (!cameraReady) return@LaunchedEffect
         delay(MAP_FIT_DEBOUNCE_MILLIS) // 시트 드래그 중 반복 맞추기를 취소하고 마지막 보이는 영역에 맞춘다.
         // `map`이 막 생겼을 때는 `NaverMapCanvas`의 `AndroidView`가 아직 배치되기 전이다
         // — 그 상태로 `fitBounds`를 부르면 크기 0 인 화면 기준으로 계산돼 한 단계 축소된
         // 값이 나온다(실기 확인, searchtab `NaverMap.kt`의 최초 진입 카메라와 같은 함정).
         // 한 프레임 기다리면 풀린다.
         withFrameNanos {}
+        val moves = RouteCameraRules.moves(cameraMemo.key, cameraKey, fitChanged = fitToken != cameraMemo.fit)
+        cameraMemo.key = cameraKey
+        cameraMemo.fit = fitToken
+        if (!moves) return@LaunchedEffect
+        // 지도가 접혀 있으면(목록만) 서랍이 없다(E4).
+        val sheet = if (mapToggle.isOpen) panelHeight else 0.dp
         // 「내 위치」 켜져 있으면 나와 촬영지가 같이 보이게 — 그래야 동선 최적화가
         // 왜 그 순서인지("여기서 가까운 곳이 1번") 알 수 있다(RouteEditorControls.swift).
         // 정지점을 골라 둔 채면 일차 전체가 아니라 그곳을 다시 맞춘다(iOS `RouteMapView.render` 의 `move(to: focused)`).
@@ -690,11 +865,11 @@ private fun RouteEditorContent(
         if (focused != null) {
             target.focusOnStop(
                 focused.place,
-                myLocation?.let { it.latitude to it.longitude },
+                if (trip.isActive) trip.here else myLocation?.let { it.latitude to it.longitude },
                 showingMe,
                 density,
                 screenHeight,
-                panelHeight,
+                sheet,
             )
             return@LaunchedEffect
         }
@@ -706,7 +881,7 @@ private fun RouteEditorContent(
                 toFit,
                 density,
                 screenHeight,
-                panelHeight,
+                sheet,
                 0.dp,
                 com.mz2az.scenetrip.searchtab.MapInsetMode.ROUTE,
                 // 내 위치가 들어간 맞춤은 기기 위치에서 온 범위다(iOS `RouteMapView.fit`).
@@ -812,6 +987,7 @@ private fun RouteEditorContent(
         guideSession.lastEffects.forEach { effect ->
             if (effect.op in listOf("plan.draft", "plan.revise", "plan.move")) {
                 effect.plan?.let { plan ->
+                    beginEditIfViewing()
                     course = RouteGuidePlan.revising(course, plan)
                     dayIndex = dayIndex.coerceAtMost(course.days.lastIndex.coerceAtLeast(0))
                     focusedStopId = null
@@ -939,7 +1115,9 @@ private fun RouteEditorContent(
                 Icon(Icons.Filled.Edit, contentDescription = null, tint = IOS.secondaryLabel, modifier = Modifier.size(12.dp))
             }
         }
-        if (stackTopBar) {
+        if (mode == RouteEditorMode.VIEWING) {
+            RouteViewBar(title = course.title, onBack = { cancel() }, onEdit = { startEdit() })
+        } else if (stackTopBar) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth().background(IOS.systemBackground).padding(horizontal = 16.dp, vertical = 4.dp),
@@ -1021,7 +1199,7 @@ private fun RouteEditorContent(
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             NaverMapCanvas(
                 modifier = Modifier.fillMaxSize().onSizeChanged { screenHeight = with(density) { it.height.toDp() } },
-                sheetHeight = panelHeight,
+                sheetHeight = if (mapToggle.isOpen) panelHeight else 0.dp,
                 searchBarInset = 0.dp,
                 insetMode = com.mz2az.scenetrip.searchtab.MapInsetMode.ROUTE,
                 onMapReady = { map = it },
@@ -1118,7 +1296,8 @@ private fun RouteEditorContent(
                         Modifier
                             .align(Alignment.TopEnd)
                             .padding(top = if (trip.phase == TripSession.Phase.ARRIVED) arrivalHeight else 0.dp)
-                            .padding(10.dp),
+                            // 편집 중엔 칩 줄 아래, 보기면 맨 위(E14).
+                            .padding(start = 10.dp, end = 10.dp, bottom = 10.dp, top = RouteEditorRules.locateTop(mode).dp),
                 ) {
                     RouteLocateButton(
                         on = showingMe,
@@ -1175,16 +1354,9 @@ private fun RouteEditorContent(
                     modifier = Modifier.align(Alignment.TopCenter),
                 )
             }
-            BottomSheet(
-                detent = detent,
-                onDetentChange = { detent = it },
-                topInset = 8.dp,
-                onHeightChange = { panelHeight = it },
-                // 지도 40 : 일정 60 — 액션 줄·"코스 시작" 단추까지 처음부터 보여야
-                // 한다(iOS `RouteEditorView`의 `mediumFraction: 0.60`, 2026-08-28
-                // 사용자 요청: "일정 쪽에 단추가 늘며 좁아졌다").
-                mediumFraction = 0.60f,
-            ) {
+            // 일정 — 지도를 펼치면 끌어 올렸다 내렸다 하는 서랍(지도 40 : 일정 60), 접으면 화면 전체 목록(E4). 지도는 접혀 있어도
+            // 목록 밑에 제 크기로 살아 있다 — 다시 펼칠 때 사람이 맞춰 둔 확대가 남는다.
+            val panel: @Composable () -> Unit = {
                 Column(modifier = Modifier.fillMaxSize()) {
                     if (trip.phase == TripSession.Phase.GUIDING) {
                         TripGuidingBanner(
@@ -1201,16 +1373,21 @@ private fun RouteEditorContent(
                     DayTabs(
                         dayCount = course.days.size,
                         dayIndex = dayIndex,
+                        // 일차 ＋/− 는 고칠 때만(E2).
+                        editable = editTools,
                         onSelect = {
                             dayIndex = it
                             focusedStopId = null
                             pickedStop = null
-                            fitToken += 1
+                            if (RouteCameraRules.refits(RouteCameraRules.Change.DAY_SWITCH)) fitToken += 1
                         },
                         onAddDay = {
                             if (course.days.size < RouteCourse.DAY_LIMIT.last) {
                                 course = course.copy(days = course.days + RouteDay())
                                 dayIndex = course.days.size - 1
+                                focusedStopId = null
+                                pickedStop = null
+                                if (RouteCameraRules.refits(RouteCameraRules.Change.DAY_SWITCH)) fitToken += 1
                             }
                         },
                         onRemoveDay = {
@@ -1225,7 +1402,8 @@ private fun RouteEditorContent(
                             }
                         },
                     )
-                    if (poisForChips.isNotEmpty() || aiPlacesForChip.isNotEmpty()) {
+                    // 볼 때는 내 코스만 — 편의시설 칩은 고칠 때만(E2).
+                    if (editTools && (poisForChips.isNotEmpty() || aiPlacesForChip.isNotEmpty())) {
                         // 감춘 갈래의 고른 핀은 놓는다 — 지도에서 사라진 핀을 카드만 붙잡고
                         // 있으면 안 된다. AI 장소는 제 칩이 따로 놓는다(iOS
                         // `RouteEditorControls.poiFilter` onGroupOff).
@@ -1260,60 +1438,53 @@ private fun RouteEditorContent(
                         )
                     }
                     RouteDaySummary(course.days.getOrNull(dayIndex), onStayFrame = { stayFrame = it }) { showDayStay = true }
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    IOS.systemBackground,
-                                ).padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
-                    ) {
-                        EditorAction(
-                            label = tr("동선 최적화"),
-                            icon = { SwapArrowsIcon(if (optimizeNudge) Color.White else IOS.label, it) },
-                            highlight = optimizeNudge,
-                            modifier = Modifier.weight(1f),
+                    // 동작 줄 — **동선 최적화 · 핀 찍기 둘뿐이다**(E7, 웹 시안). 검색·장바구니는 떠 있는 ＋ 의 「지도에서 추가」·「보관함에서
+                    // 추가」 로 옮겨 갔다. 고칠 때만 보인다(E2).
+                    if (editTools) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .background(IOS.systemBackground)
+                                    .padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
                         ) {
-                            var ordered = stops
-                            var head = pinStart
-                            if (!pinStart) {
-                                val anchor = RouteGeometry.usableAnchor(myLocation, ordered)
-                                if (anchor != null) {
-                                    ordered = RouteGeometry.startingNearest(ordered, anchor)
-                                    head = true
-                                }
-                            }
-                            updateDay(dayIndex) { d -> d.copy(stops = RouteGeometry.optimized(ordered, pinStart = head, pinEnd = pinEnd)) }
-                            focusedStopId = null
-                            pickedStop = null
-                            fitToken += 1
-                            optimizeNudge = false
-                        }
-                        EditorAction(label = tr("검색"), icon = { MagnifierIcon(IOS.label, it) }, modifier = Modifier.weight(1f)) {
-                            searching =
-                                true
-                        }
-                        Box(modifier = Modifier.weight(1f)) {
                             EditorAction(
-                                label = tr("장바구니"),
-                                icon = { BagIcon(IOS.label, it) },
-                                modifier = Modifier.fillMaxWidth(),
+                                label = tr("동선 최적화"),
+                                icon = { SwapArrowsIcon(if (optimizeNudge) Color.White else IOS.label, it) },
+                                highlight = optimizeNudge,
+                                modifier = Modifier.weight(1f),
                             ) {
-                                cartHint.dismiss()
-                                showCart = true
+                                // 현재 위치를 알고 출발이 안 정해졌으면 가장 가까운 곳이 출발이다(2026-09-04). 고정은 이번 계산에만 준다.
+                                // **지도는 그대로 둔다**(E13 — 2026-09-17 의 「코스 전체에 맞춤」 을 뒤집었다, 웹 2026-11-09: 누르면 확대가 다 풀렸다).
+                                var ordered = stops
+                                var head = pinStart
+                                if (!pinStart) {
+                                    val anchor = RouteGeometry.usableAnchor(myLocation, ordered)
+                                    if (anchor != null) {
+                                        ordered = RouteGeometry.startingNearest(ordered, anchor)
+                                        head = true
+                                    }
+                                }
+                                updateDay(
+                                    dayIndex,
+                                ) { d -> d.copy(stops = RouteGeometry.optimized(ordered, pinStart = head, pinEnd = pinEnd)) }
+                                if (RouteCameraRules.refits(RouteCameraRules.Change.OPTIMIZE)) fitToken += 1
+                                optimizeNudge = false
                             }
-                            if (cartHintState.isHighlighted) RouteCartHintRing(Modifier.matchParentSize())
+                            EditorAction(
+                                label = if (pinning) tr("취소") else tr("핀 찍기"),
+                                icon = { MapPinEllipseIcon(IOS.label, it) },
+                                iconHeight = 19.7.dp,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                // 핀은 지도를 눌러 찍는다 — 접혀 있으면 펼친다(E5).
+                                if (!pinning) revealMap()
+                                pinning = !pinning
+                            }
                         }
-                        EditorAction(
-                            label = if (pinning) tr("취소") else tr("핀 찍기"),
-                            icon = { MapPinEllipseIcon(IOS.label, it) },
-                            iconHeight = 19.7.dp,
-                            modifier = Modifier.weight(1f),
-                        ) { pinning = !pinning }
                     }
-                    cartHintState.message?.let { text -> RouteCartHintNotice(text, onDismiss = { cartHint.dismiss() }) }
                     LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
                         itemsIndexed(stops, key = { _, stop -> stop.id }) { index, stop ->
                             RouteStopRow(
@@ -1326,8 +1497,9 @@ private fun RouteEditorContent(
                                 // (iOS 실기 비교로 발견 — Android는 이 가드가 없어서 정지점이
                                 // 하나뿐인 날에도 "출발 고정"이 붙어 있었다).
                                 isArrivalPin = stops.size > 1 && index == stops.lastIndex,
+                                // 보기에서는 고정 단추가 없다(E2).
                                 pinLabel =
-                                    if (stops.size <= 1) {
+                                    if (!editTools || stops.size <= 1) {
                                         null
                                     } else {
                                         when (index) {
@@ -1339,13 +1511,14 @@ private fun RouteEditorContent(
                                 isPinned = if (index == 0) pinStart else pinEnd,
                                 works = workTitles(stop),
                                 onFocus = {
-                                    // 한 번 더 누르면 놓는다 — 안 그러면 한 곳을 고른 뒤
-                                    // 경로 전체를 다시 볼 방법이 없다(iOS
-                                    // `RouteEditorView.stopRows` onFocus).
-                                    if (focusedStopId == stop.id) {
+                                    // 지도가 접혀 있으면 펼치고 그곳을 가리킨다(E5).
+                                    if (!mapToggle.isOpen) {
+                                        revealMap()
+                                        focusStop(stop, withCard = false)
+                                    } else if (focusedStopId == stop.id) {
+                                        // 한 번 더 누르면 놓는다 — 놓기만 하면 지도는 그대로다(E12, `RouteCameraRules.moves`).
                                         focusedStopId = null
                                         pickedStop = null
-                                        fitToken += 1
                                     } else {
                                         focusStop(stop, withCard = false)
                                     }
@@ -1390,15 +1563,29 @@ private fun RouteEditorContent(
                                 running = course.isRunning,
                                 // 여행 중이면 어느 곳이든 「길찾기」 — 다녀온 곳도 다시 갈 수 있다. 이 지도에 경로가 그려진다.
                                 onNavigate = if (course.isRunning && stop.canNavigate && !visitBlocked()) ({ startTrip(stop) }) else null,
+                                // 오른쪽 4:3 사진, 촬영지만 ⓘ 로 장소 상세(E6). 끌기·밀어서 빼기는 고칠 때만(E2).
+                                photo =
+                                    StopPhoto(
+                                        url = stop.place.imageUrl?.toString(),
+                                        kind = stop.photoKind,
+                                        onOpen = stop.savablePlaceId?.let { id -> { detailOf = stop.place.copy(id = id) } },
+                                    ),
+                                movable = editTools,
                             )
                             // 목록에서 빠진 촬영지·폐업한 편의시설: 지우지 않고 이유를 알리며, 뺄지는 사용자가 정한다(MZ2AZ-458).
                             stop.unavailable?.let { notice ->
                                 UnavailableNoticeRow(
                                     item = notice,
-                                    onRemove = {
-                                        updateDay(dayIndex) { d -> d.copy(stops = d.stops.filterNot { it.id == stop.id }) }
-                                        optimizeNudge = stops.size - 1 >= 2
-                                    },
+                                    // 「빼기」 는 고칠 때만(E2).
+                                    onRemove =
+                                        if (!editTools) {
+                                            null
+                                        } else {
+                                            {
+                                                updateDay(dayIndex) { d -> d.copy(stops = d.stops.filterNot { it.id == stop.id }) }
+                                                optimizeNudge = stops.size - 1 >= 2
+                                            }
+                                        },
                                     modifier = Modifier.padding(start = 50.dp, end = 12.dp),
                                 )
                             }
@@ -1434,84 +1621,121 @@ private fun RouteEditorContent(
                             }
                         }
                         // 「코스 삭제」는 여기 없다 — iOS 는 코스 목록에서 밀어서만 지운다(2026-09-28 대조).
-                        item { Spacer(Modifier.height(24.dp)) }
-                    }
-                    // **스크롤과 무관하게 늘 보여야 한다.** iOS `RouteEditorTrip.bottomBar` 와 짝 — 정지점이 많은 일차에서는 스크롤해야만
-                    // 나오던 "코스 시작"·저장 버튼이었다(실기 비교로 발견, 2026-09-28). 목록 맨 아래 항목이 아니라 목록 옆의 고정 줄이다.
-                    // 안내 중에는 이 줄이 **안내의 것**이다 — 도착함 / 다음으로 / 안내 끝. 아니면 계획의 것이다 — 코스 만들기 / 코스 시작 /
-                    // N번으로 길찾기. **저장된 코스에는 저장 단추가 없다**(MZ2AZ-368) — 저장은 머리줄 하나다.
-                    // 「코스 시작」은 **지금 보는 일차**로 시작한다(`dayNo = dayIndex + 1`, 그 일차의 첫 미방문 곳).
-                    // 남은 곳이 숨김·폐업뿐이면 「코스를 모두 돌았다」가 아니다 — 완료와 구별해 알리고 시작하지 않는다(MZ2AZ-458).
-                    val nextStop = RouteAvailability.nextUnvisited(stops)
-                    val onlyUnavailable = RouteAvailability.hasOnlyUnavailableRemaining(stops)
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .background(IOS.systemBackground)
-                                // 제스처 막대와 겹쳤다 — iOS 는 안전 영역만큼 띄운다.
-                                .navigationBarsPadding()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                    ) {
-                        if (trip.isActive) {
-                            TripControls(
-                                arrived = trip.phase == TripSession.Phase.ARRIVED,
-                                stamped = trip.stamped,
-                                next = nextStop,
-                                onlyUnavailable = onlyUnavailable,
-                                nextBlocked =
-                                    visitStatus(
-                                        trip.target,
-                                    ).let { it == VisitStatus.PENDING || it == VisitStatus.FAILED } || visitBlocked(),
-                                onEnd = trip::end,
-                                onNext = { next -> startTrip(next) },
-                                onArriveNow = trip::markArrived,
-                            )
-                        } else {
-                            TripPlanControls(
-                                isNew = course.serverId == null,
-                                running = course.isRunning,
-                                saving = saving,
-                                canSave = course.canSave,
-                                stopsEmpty = stops.isEmpty(),
-                                onlyUnavailable = onlyUnavailable,
-                                next = nextStop,
-                                startBlocked = visitBlocked(),
-                                onCreate = { saveAndClose() },
-                                onToggleRunning = {
-                                    val turningOn = !course.isRunning
-                                    val dayNo = dayIndex + 1
-                                    // 시작할 목적지를 먼저 확인한다 — 없으면 화면·서버의 활성 상태를 바꾸지 않는다.
-                                    val first = if (turningOn) RouteAvailability.start(course, dayIndex)?.second else null
-                                    if (!turningOn || first != null) {
-                                        if (!turningOn) trip.end()
-                                        // **서버가 「여행 중」을 안 뒤에 길을 묻는다**(iOS 2026-09-17). 상태 요청을 던져 놓기만 하고 곧바로
-                                        // 길찾기를 부르면, 길찾기가 먼저 닿을 때 서버가 아직 시작 전 코스로 보고 거절한다.
-                                        scope.launch {
-                                            store.setRunning(course, turningOn, dayNo = dayNo)
-                                            course = course.copy(isRunning = turningOn)
-                                            if (first != null) startTrip(first)
-                                        }
-                                    }
-                                },
-                                onStartTrip = { target -> startTrip(target) },
-                            )
-                        }
+                        // 떠 있는 「지도」 알약(44 + 아래 16)에 마지막 줄이 가리지 않게 띄운다.
+                        item { Spacer(Modifier.height(80.dp)) }
                     }
                 }
             }
-            RouteGuideFloatingChip(
-                hidden = guideEntry != RouteGuideEntry.FLOATING,
-                bubble = guideSession.picked == null && pickedStop == null && focusedStopId == null,
-                cardTop =
-                    if ((guideSession.picked != null || pickedStop != null) && !showGuide) CARD_BOTTOM_PADDING + cardHeight else null,
-                keepClear = stayFrame,
-                onTap = { showGuide = true },
-                // iOS `guideFloatingChip`: 편집 화면 전체 위, 오른쪽 12 · 아래(안전 영역 위) 76 — 목록 패널 위에 뜬다.
-                // 지도 쪽(패널 바로 위)에 두었더니 iOS 와 자리가 달랐다(2026-09-29 대조).
-                modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 12.dp, bottom = 76.dp),
+            if (mapToggle.isOpen) {
+                BottomSheet(
+                    detent = detent,
+                    onDetentChange = { detent = it },
+                    topInset = 8.dp,
+                    onHeightChange = { panelHeight = it },
+                    // 지도 40 : 일정 60 — 액션 줄·"코스 시작" 단추까지 처음부터 보여야
+                    // 한다(iOS `RouteEditorView`의 `mediumFraction: 0.60`, 2026-08-28
+                    // 사용자 요청: "일정 쪽에 단추가 늘며 좁아졌다").
+                    mediumFraction = 0.60f,
+                ) { panel() }
+            } else {
+                Box(Modifier.fillMaxSize().background(IOS.systemBackground)) { panel() }
+            }
+            RouteMapPill(
+                toggle = mapToggle,
+                onClick = { toggleMap() },
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .then(if (showsBottomBar) Modifier else Modifier.navigationBarsPadding()),
             )
         }
+        // 아래 줄 — 저장된 코스를 고치는 동안은 숨긴다(E3).
+        if (showsBottomBar) {
+            // **스크롤과 무관하게 늘 보여야 한다.** iOS `RouteEditorTrip.bottomBar` 와 짝 — 정지점이 많은 일차에서는 스크롤해야만
+            // 나오던 "코스 시작"·저장 버튼이었다(실기 비교로 발견, 2026-09-28). 목록 맨 아래 항목이 아니라 목록 옆의 고정 줄이다.
+            // 안내 중에는 이 줄이 **안내의 것**이다 — 도착함 / 다음으로 / 안내 끝. 아니면 계획의 것이다 — 코스 만들기 / 코스 시작 /
+            // N번으로 길찾기. **저장된 코스에는 저장 단추가 없다**(MZ2AZ-368) — 저장은 머리줄 하나다.
+            // 「코스 시작」은 **지금 보는 일차**로 시작한다(`dayNo = dayIndex + 1`, 그 일차의 첫 미방문 곳).
+            // 남은 곳이 숨김·폐업뿐이면 「코스를 모두 돌았다」가 아니다 — 완료와 구별해 알리고 시작하지 않는다(MZ2AZ-458).
+            val nextStop = RouteAvailability.nextUnvisited(stops)
+            val onlyUnavailable = RouteAvailability.hasOnlyUnavailableRemaining(stops)
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(IOS.systemBackground)
+                        // 제스처 막대와 겹쳤다 — iOS 는 안전 영역만큼 띄운다.
+                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                if (trip.isActive) {
+                    TripControls(
+                        arrived = trip.phase == TripSession.Phase.ARRIVED,
+                        stamped = trip.stamped,
+                        next = nextStop,
+                        onlyUnavailable = onlyUnavailable,
+                        nextBlocked =
+                            visitStatus(
+                                trip.target,
+                            ).let { it == VisitStatus.PENDING || it == VisitStatus.FAILED } || visitBlocked(),
+                        onEnd = trip::end,
+                        onNext = { next -> startTrip(next) },
+                        onArriveNow = trip::markArrived,
+                    )
+                } else {
+                    TripPlanControls(
+                        isNew = course.serverId == null,
+                        running = course.isRunning,
+                        saving = saving,
+                        canSave = course.canSave,
+                        stopsEmpty = stops.isEmpty(),
+                        onlyUnavailable = onlyUnavailable,
+                        next = nextStop,
+                        startBlocked = visitBlocked(),
+                        onCreate = { saveAndClose() },
+                        onToggleRunning = {
+                            val turningOn = !course.isRunning
+                            val dayNo = dayIndex + 1
+                            // 시작할 목적지를 먼저 확인한다 — 없으면 화면·서버의 활성 상태를 바꾸지 않는다.
+                            val first = if (turningOn) RouteAvailability.start(course, dayIndex)?.second else null
+                            if (!turningOn || first != null) {
+                                if (!turningOn) trip.end()
+                                // **서버가 「여행 중」을 안 뒤에 길을 묻는다**(iOS 2026-09-17). 상태 요청을 던져 놓기만 하고 곧바로
+                                // 길찾기를 부르면, 길찾기가 먼저 닿을 때 서버가 아직 시작 전 코스로 보고 거절한다.
+                                scope.launch {
+                                    store.setRunning(course, turningOn, dayNo = dayNo)
+                                    course = course.copy(isRunning = turningOn)
+                                    if (first != null) startTrip(first)
+                                }
+                            }
+                        },
+                        onStartTrip = { target -> startTrip(target) },
+                    )
+                }
+            }
+        }
+    }
+    // 떠 있는 ＋ — 해태 동그라미 바로 위, 편집 중에만(E8). 가이드 창·핀 찍기·여행 중에는 없다.
+    if (editTools && !showGuide && !pinning && !trip.isActive) {
+        CourseAddFab(
+            open = addMenuOpen,
+            onToggle = { addMenuOpen = !addMenuOpen },
+            onMap = { showMapAdd = true },
+            onSaved = { showSavedAdd = true },
+        )
+    }
+    Box(modifier = Modifier.fillMaxSize()) {
+        RouteGuideFloatingChip(
+            hidden = guideEntry != RouteGuideEntry.FLOATING,
+            bubble = guideSession.picked == null && pickedStop == null && focusedStopId == null,
+            cardTop =
+                if ((guideSession.picked != null || pickedStop != null) && !showGuide) CARD_BOTTOM_PADDING + cardHeight else null,
+            keepClear = stayFrame,
+            onTap = { showGuide = true },
+            // iOS `guideFloatingChip`: 편집 화면 전체 위, 오른쪽 12 · 아래(안전 영역 위) 76 — 목록 패널 위에 뜬다.
+            // 지도 쪽(패널 바로 위)에 두었더니 iOS 와 자리가 달랐다(2026-09-29 대조).
+            modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 12.dp, bottom = 76.dp),
+        )
     }
 
     // 길 안내는 요청마다 위치기반서비스 동의를 확인한다. 취소하면 안내 띠에 동의 안내와 「다시 시도」 가 남는다.
@@ -1564,6 +1788,7 @@ private fun RouteEditorContent(
         isAdded = { place -> stops.any { place.matches(it) } },
         onClose = { showGuide = false },
         onRemove = { place ->
+            beginEditIfViewing()
             updateDay(dayIndex) { d ->
                 d.copy(stops = d.stops.filterNot { place.matches(it) })
             }
@@ -1585,6 +1810,7 @@ private fun RouteEditorContent(
                     guideSession.dismiss()
                 },
                 onRemove = {
+                    beginEditIfViewing()
                     updateDay(dayIndex) { d ->
                         d.copy(stops = d.stops.filterNot { pickedPlace.matches(it) })
                     }
@@ -1612,11 +1838,8 @@ private fun RouteEditorContent(
                     if (course.isRunning && stopCard.canNavigate && trip.target?.id != stopCard.id) ({ startTrip(stopCard) }) else null,
                 onClose = {
                     pickedStop = null
-                    // 핀을 눌러 확대해 들어왔다면 카드를 닫을 때 포커스를 풀고 일차 전체로 다시 맞춘다(iOS #326).
-                    if (focusedStopId == stopCard.id) {
-                        focusedStopId = null
-                        fitToken += 1
-                    }
+                    // 카드를 닫으면 고른 표시만 놓는다 — **지도는 그대로**(E12 `CARD_CLOSE`, 2026-11-10 사용자 지적: 확대해 둔 것이 풀렸다).
+                    if (focusedStopId == stopCard.id) focusedStopId = null
                 },
                 modifier =
                     Modifier
@@ -1635,18 +1858,6 @@ private fun RouteEditorContent(
             title = stampTitle(stops.indexOfFirst { it.id == stampTarget.id }.takeIf { it >= 0 }?.plus(1)),
             subtitle = stampTarget.label().title,
             onDone = trip::stampDone,
-        )
-    }
-
-    if (searching) {
-        PlaceSearchOverlay(
-            taken = takenIds,
-            onDismiss = {
-                searching = false
-                previewPlaces = emptyList()
-            },
-            onPreview = { previewPlaces = it },
-            onAdd = { places -> addStops(places.map { RouteStop(place = it) }) },
         )
     }
 
@@ -1721,6 +1932,57 @@ private fun RouteEditorContent(
             onDismiss = { discarding = false },
         )
     }
+
+    // 저장된 코스의 「취소」 — 편집 전으로 되돌려 보기로(E3).
+    if (confirmingRevert) {
+        IOSAlert(
+            title = tr("바꾼 내용을 버릴까요?"),
+            message = null,
+            actions =
+                listOf(
+                    IOSAction(tr("계속 편집"), IOSRole.CANCEL) {},
+                    IOSAction(tr("버리기"), IOSRole.DESTRUCTIVE) { revert() },
+                ),
+            onDismiss = { confirmingRevert = false },
+        )
+    }
+
+    // 방금 「도시로」 만든 코스를 저장 없이 나간다 — 서버에서 지운다(E16).
+    if (confirmingLeave) {
+        IOSAlert(
+            title = tr("저장하지 않고 나갈까요?"),
+            message = tr("방금 만든 코스가 지워져요."),
+            actions =
+                listOf(
+                    IOSAction(tr("계속 편집"), IOSRole.CANCEL) { leaveForPlannerAfter = false },
+                    IOSAction(tr("나가기"), IOSRole.DESTRUCTIVE) { leaveFresh() },
+                ),
+            onDismiss = { confirmingLeave = false },
+        )
+    }
+
+    if (showSavedAdd) {
+        SavedAddSheet(
+            cart = cart,
+            dayCounts = course.days.map { it.stops.size },
+            current = dayIndex,
+            taken = takenIds,
+            onAdd = { places, day -> addToDay(places, day) },
+            onDismiss = { showSavedAdd = false },
+        )
+    }
+
+    if (showMapAdd) {
+        MapAddScreen(
+            dayCounts = course.days.map { it.stops.size },
+            current = dayIndex,
+            taken = takenIds,
+            onAdd = { place, day -> addToDay(listOf(place), day) },
+            onClose = { showMapAdd = false },
+        )
+    }
+
+    detailOf?.let { place -> RoutePlaceDetailCover(place = place, cart = cart, onClose = { detailOf = null }) }
 
     // 저장이 실패하면 이유를 말한다 — 안 그러면 단추가 안 먹는 것처럼 보여 같은
     // 단추를 계속 누르게 된다(iOS `RouteEditorView`의 "저장하지 못했습니다" alert).
@@ -1936,6 +2198,7 @@ private fun NaverMap.fitTrip(
 private fun DayTabs(
     dayCount: Int,
     dayIndex: Int,
+    editable: Boolean,
     onSelect: (Int) -> Unit,
     onAddDay: () -> Unit,
     onRemoveDay: () -> Unit,
@@ -1982,224 +2245,26 @@ private fun DayTabs(
                 }
             }
         }
-        CircleSignIcon(
-            plus = false,
-            tint = if (canRemove) IOS.label else IOS.tertiaryLabel,
-            modifier = Modifier.size(17.dp).clickable(enabled = canRemove, onClick = onRemoveDay),
-        )
-        CircleSignIcon(
-            plus = true,
-            tint = if (canAdd) IOS.label else IOS.tertiaryLabel,
-            modifier = Modifier.size(17.dp).clickable(enabled = canAdd, onClick = onAddDay),
-        )
-    }
-}
-
-/**
- * 장소 검색. iOS `RouteSearchSheet`를 옮긴 것이다 — 장소 이름·**작품 이름**으로 찾는다. 서버가 찾는다(MZ2AZ-372, MZ2AZ-482):
- * [RoutePlaceSearch] 가 입력이 멎은 뒤 한 번 묻고(앞 요청은 취소), 목록 끝에서 이어 받는다. 서버 검색은 이름·별칭·설명·작품·출연진을 본다.
- * 여럿 고르고 한 번에 담는다(번호 배지로 순서를 보여 준다), 이미 담긴 곳은 흐리게 + 체크. 고르는 대로 지도에 빨간 해태로 미리 뜬다.
- */
-@Composable
-private fun PlaceSearchOverlayBody(
-    taken: Set<Long>,
-    onDismiss: () -> Unit,
-    onPreview: (List<PlaceSummary>) -> Unit,
-    onAdd: (List<PlaceSummary>) -> Unit,
-) {
-    val scope = rememberCoroutineScope()
-    // 검색 상태가 바뀔 때마다 다시 그린다 — `RoutePlaceSearch` 는 Compose 상태를 들지 않는다.
-    var revision by remember { mutableStateOf(0) }
-    val search = remember { RoutePlaceSearch(scope).also { it.onChange = { revision += 1 } } }
-    check(revision >= 0)
-    // **목록 값은 여기서, 구성 단계에서 읽는다.** `LazyColumn` 의 내용 람다 안에서만 읽으면 `revision` 으로 부모가 다시 그려져도 람다가
-    // 같은 것으로 보여 건너뛰어진다 — 「Hanok」 을 쳐도 목록이 인기순 그대로였다. 값을 람다가 붙잡게 해 바뀔 때마다 새 람다가 되게 한다.
-    val results = search.results
-    val moreFailed = search.moreFailed
-    val hasMore = search.paging.hasMore
-    val pagingOffset = search.paging.offset
-    val freshResults = search.freshResults
-    val listState = rememberLazyListState()
-    // 검색어가 바뀌어 새 결과가 오면 맨 위로 — 앞 목록의 스크롤 자리가 남아 첫 항목들이 잘려 보였다. 이어 받기는 건드리지 않는다.
-    LaunchedEffect(freshResults) { listState.scrollToItem(0) }
-    var query by remember { mutableStateOf("") }
-    var picked by remember { mutableStateOf<List<Long>>(emptyList()) }
-    // 글자마다 부르지 않는다 — 입력이 멎으면 한 번(`RoutePlaceSearch.DEBOUNCE_MS`). 처음 열 때는 인기순.
-    LaunchedEffect(query) { search.search(query) }
-
-    // id 를 장소로 되짚는다. 고른 순서를 지킨다. 검색어를 바꿔 목록에서 사라진 곳도 고른 채로 남는다.
-    fun resolve(ids: List<Long>): List<PlaceSummary> = ids.mapNotNull { search.place(it) }
-
-    // iOS `RouteSearchSheet`: 툴바(닫기 · 장소 검색 · 추가 N), `.searchable` 알약 검색창, 구분선 있는 목록,
-    // 바탕은 `.regularMaterial`. 결과가 없으면 `ContentUnavailableView.search`.
-    // 머리(툴바·검색창)만 재질 회색이고 목록은 흰 바탕이다(iOS 실측).
-    Column(modifier = Modifier.fillMaxSize().background(IOS.systemBackground)) {
-        Column(modifier = Modifier.background(IOSSheetMaterial)) {
-            IOSSheetToolbar(
-                title = tr("장소 검색"),
-                leading = tr("닫기"),
-                onLeading = onDismiss,
-                trailing = tr("추가 %d").format(picked.size),
-                trailingEnabled = picked.isNotEmpty(),
-                onTrailing = {
-                    // **고른 순서대로** 넣는다. 결과 순서로 넣으면 3·1·2 로 골라도 목록 순서대로 들어가 의도가 사라진다.
-                    onAdd(resolve(picked))
-                    onDismiss()
-                },
+        if (editable) {
+            CircleSignIcon(
+                plus = false,
+                tint = if (canRemove) IOS.label else IOS.tertiaryLabel,
+                modifier = Modifier.size(17.dp).clickable(enabled = canRemove, onClick = onRemoveDay),
             )
-            IOSSearchField(query, { query = it.take(RoutePlaceSearch.MAX_LENGTH) }, tr("장소나 작품 이름"), Modifier.padding(horizontal = 16.dp))
-            // 5차 감사(edsearch): 시트 윗변→목록 첫 줄이 iOS 149 · Android 138.7 이었다. 줄 간격도 iOS 82.2 · Android 80.8 이라
-            // 줄 위아래 10 → 10.7 로 늘리고 남는 만큼(+7.6)을 여기에 둔다.
-            Spacer(Modifier.height(17.6.dp))
+            CircleSignIcon(
+                plus = true,
+                tint = if (canAdd) IOS.label else IOS.tertiaryLabel,
+                modifier = Modifier.size(17.dp).clickable(enabled = canAdd, onClick = onAddDay),
+            )
         }
-        when {
-            search.phase == RoutePlaceSearch.Phase.FAILED -> {
-                Box(Modifier.weight(1f).fillMaxWidth()) {
-                    com.mz2az.scenetrip.searchtab
-                        .ErrorView(failure = search.failure, onRetry = { search.search(query) })
-                }
-            }
-
-            search.phase == RoutePlaceSearch.Phase.LOADING && results.isEmpty() -> {
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.5.dp)
-                }
-            }
-
-            search.phase == RoutePlaceSearch.Phase.LOADED && results.isEmpty() -> {
-                Column(
-                    modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 60.dp, start = 32.dp, end = 32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    MagnifierIcon(IOS.secondaryLabel, Modifier.padding(bottom = 10.dp).size(51.dp))
-                    Text(
-                        // iOS 는 이 자리가 시스템 `ContentUnavailableView.search`라 OS 가
-                        // 알아서 번역한다 — Android 는 직접 그려서 번역표에 대응이 없다.
-                        tr("‘%s’에 대한 결과 없음").format(query.trim()),
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = IOS.label,
-                        textAlign = TextAlign.Center,
-                    )
-                    Text(
-                        tr("철자를 확인하거나 새로운 검색을 시도하십시오."),
-                        fontSize = 15.sp,
-                        color = IOS.secondaryLabel,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                }
-            }
-
-            else -> {
-                LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = sheetListBottom()) {
-                    itemsIndexed(results, key = { _, place -> place.id }) { _, place ->
-                        val isTaken = taken.contains(place.id)
-                        val pickedOrder = picked.indexOf(place.id).takeIf { it >= 0 }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable(enabled = !isTaken) {
-                                        picked = if (pickedOrder != null) picked - place.id else picked + place.id
-                                        onPreview(resolve(picked))
-                                    }.padding(horizontal = 16.dp, vertical = 10.7.dp)
-                                    .alpha(if (isTaken) 0.5f else 1f),
-                        ) {
-                            // iOS `RemoteImage(url:, symbol: "mappin.and.ellipse")` — 사진이 없으면 회색 칸 가운데 핀.
-                            RemoteImage(
-                                url = place.imageUrl?.toString(),
-                                placeholder = { MapPinEllipseIcon(IOS.secondaryLabel, Modifier.size(20.dp)) },
-                                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)),
-                            )
-                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text(place.name, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = IOS.label)
-                                // 어느 작품에 나왔는지가 이름보다 중요한 단서일 때가 많다.
-                                place.contents.orEmpty().firstOrNull()?.title?.let {
-                                    Text(it, fontSize = 12.sp, color = IOS.accent)
-                                }
-                                place.address?.let { Text(it, fontSize = 11.sp, color = IOS.tertiaryLabel, maxLines = 1) }
-                            }
-                            when {
-                                // 이미 코스에 있다. 「담긴 것」과 「지금 고른 것」을 갈라 보여야 왜 못 고르는지 안다.
-                                isTaken -> {
-                                    Icon(
-                                        Icons.Filled.CheckCircle,
-                                        contentDescription = tr("이미 담김"),
-                                        tint = IOS.accent.copy(alpha = 0.45f),
-                                        modifier = Modifier.size(22.dp),
-                                    )
-                                }
-
-                                // 고른 순서를 번호로 보여 준다. 여러 곳을 고를 때 어느 순서로 들어가는지 미리 알아야 한다.
-                                pickedOrder != null -> {
-                                    Text(
-                                        "${pickedOrder + 1}",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White,
-                                        textAlign = TextAlign.Center,
-                                        modifier =
-                                            Modifier
-                                                .size(22.dp)
-                                                .clip(CircleShape)
-                                                .background(IOS.accent)
-                                                .wrapContentHeight(),
-                                    )
-                                }
-
-                                else -> {
-                                    CircleSignIcon(plus = true, tint = IOS.tertiaryLabel, modifier = Modifier.size(19.dp))
-                                }
-                            }
-                        }
-                        IOSListDivider(start = 72.dp)
-                    }
-                    // 목록 끝 — 더 있으면 이어 받고, 못 받았으면 다시 누르게 한다.
-                    if (moreFailed) {
-                        item {
-                            Text(
-                                tr("다시 시도"),
-                                fontSize = 15.sp,
-                                color = IOS.accent,
-                                textAlign = TextAlign.Center,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(min = 44.dp)
-                                        .clickable { search.loadMore() }
-                                        .padding(12.dp),
-                            )
-                        }
-                    } else if (hasMore) {
-                        item(key = "more") {
-                            LaunchedEffect(pagingOffset) { search.loadMore() }
-                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** iOS 에서 `.sheet` 로 뜬다 — 아래에서 올라오는 시트([IOSSheet]). */
-@Composable
-private fun PlaceSearchOverlay(
-    taken: Set<Long>,
-    onDismiss: () -> Unit,
-    onPreview: (List<PlaceSummary>) -> Unit,
-    onAdd: (List<PlaceSummary>) -> Unit,
-) {
-    // 8차 ES1: iOS 는 이 시트를 편집기 시트 윗변에서 19.6 아래에 쌓는다(Android 는 같은 높이에 덮었다 — 440.4 대 463.0).
-    IOSSheet(detents = listOf(SheetDetent.MEDIUM, SheetDetent.LARGE), onDismiss = onDismiss, restInset = 22.6.dp) {
-        PlaceSearchOverlayBody(taken = taken, onDismiss = onDismiss, onPreview = onPreview, onAdd = onAdd)
     }
 }
 
 /** 바닥 카드가 화면 바닥에서 떠 있는 거리. iOS `.padding(.bottom, 90)`. */
 private val CARD_BOTTOM_PADDING = 90.dp
+
+/** 카메라 효과가 마지막으로 본 열쇠·맞춤 신호. 상태가 아니다 — 바뀌어도 다시 그릴 까닭이 없다. */
+private class CameraMemo {
+    var key: RouteCameraKey? = null
+    var fit: Int = 0
+}

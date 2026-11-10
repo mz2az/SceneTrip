@@ -66,6 +66,8 @@ fun SwipeDeleteRow(
     revealedColor: Color? = null,
     onTap: (() -> Unit)? = null,
     allowsFullSwipe: Boolean = true,
+    // 밀어서 빼기를 쓰는가 — 계획 화면의 보기 상태는 밀어도 아무 일이 없다(MZ2AZ-547 E2).
+    swipeEnabled: Boolean = true,
     content: @Composable (revealed: Boolean) -> Unit,
 ) {
     val density = LocalDensity.current
@@ -115,7 +117,8 @@ fun SwipeDeleteRow(
                         layout(placeable.width - shown, placeable.height) { placeable.place(-shown, 0) }
                     }.fillMaxWidth()
                     .background(if (revealed.value > 0f && revealedColor != null) revealedColor else containerColor)
-                    .pointerInput(Unit) {
+                    .pointerInput(swipeEnabled) {
+                        if (!swipeEnabled) return@pointerInput
                         detectHorizontalDragGestures(
                             // 밀기 시작 — 앞서 열려 있던 줄은 이때 닫힌다.
                             onDragStart = { onClaim() },

@@ -10,7 +10,6 @@ import androidx.compose.ui.platform.LocalContext
 import com.mz2az.scenetrip.data.AppLanguage
 import com.mz2az.scenetrip.sceneapi.client.model.PlaceSummary
 import com.mz2az.scenetrip.sceneapi.client.model.RouteLeg
-import com.mz2az.scenetrip.searchtab.PinImage
 import com.mz2az.scenetrip.ui.IOS
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.map.NaverMap
@@ -64,9 +63,9 @@ fun CourseStopPins(
                         }
 
                         else -> {
-                            icon = PinImage.numbered(index + 1, metrics)
-                            // 꼬리 끝이 좌표를 가리켜야 한다(iOS 는 꼬리를 45/50 지점에 둔다).
-                            anchor = PointF(0.5f, 45f / 50f)
+                            // 보라 단색 동그라미 + 흰 테두리 + 꼬리, 흰 번호(MZ2AZ-547 E11). 꼬리 끝이 좌표를 가리킨다.
+                            icon = RouteNumberPin.image(index + 1, metrics)
+                            anchor = PointF(RouteNumberPinSpec.anchorX, RouteNumberPinSpec.anchorY)
                         }
                     }
                     captionText = stop.label().title

@@ -88,7 +88,7 @@ object TabRouter {
     /** 방금 「도시로」 만든 코스의 안내 띠(R6). 띠가 6초 뒤 스스로 지운다. */
     var justCreated by mutableStateOf<JustCreated?>(null)
 
-    /** 방금 「도시로」 만든 코스(서버 id) — 계획 화면이 편집 상태로 열고, 저장 없이 나가면 묻고 지운다(E16, 다음 묶음 P4 가 마무리). */
+    /** 방금 「도시로」 만든 코스(서버 id) — 계획 화면이 편집 상태로 열고, 저장 없이 나가면 묻고 지운다(E16). */
     var freshCourseId by mutableStateOf<Long?>(null)
         private set
 
@@ -142,6 +142,11 @@ object TabRouter {
 
     /** 이 코스가 방금 「도시로」 만든 코스인가. */
     fun isFreshCourse(id: Long?): Boolean = NewCourseEntryRules.isFresh(freshCourseId, id)
+
+    /** 확인용 뒷문(MZ2AZ-547 P4) — `--ez freshCourse true` 는 `openCourseId` 로 여는 코스를 「방금 만든 코스」 로 연다(E16, iOS `-freshCourse 1`). */
+    fun applyFreshBackdoor(fresh: Boolean) {
+        if (fresh) freshCourseId = pendingCourseId
+    }
 
     /** 저장했거나 지웠다 — 더는 방금 만든 코스가 아니다. */
     fun clearFreshCourse() {

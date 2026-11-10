@@ -6,10 +6,7 @@ import com.mz2az.scenetrip.data.CartSession
 import com.mz2az.scenetrip.data.CoordinateSource
 import com.mz2az.scenetrip.data.englishOf
 import com.mz2az.scenetrip.data.tr
-import com.mz2az.scenetrip.routetab.CartHintStorage
-import com.mz2az.scenetrip.routetab.CartOutcome
 import com.mz2az.scenetrip.routetab.PlannerExit
-import com.mz2az.scenetrip.routetab.RouteCartHint
 import com.mz2az.scenetrip.routetab.RouteCourse
 import com.mz2az.scenetrip.routetab.RouteDay
 import com.mz2az.scenetrip.routetab.RouteGuideAnchor
@@ -207,152 +204,7 @@ class FirstCourseGuideTests {
             items = emptyList()
         }
 
-    // MARK: 직접 짜기 첫 안내 (RouteCartHint)
-
-    private class MemoryStorage(
-        var seenFlag: Boolean = false,
-    ) : CartHintStorage {
-        override fun seen() = seenFlag
-
-        override fun markSeen() {
-            seenFlag = true
-        }
-    }
-
-    private fun newManualDraft() = RouteCourse(title = "내 코스", days = listOf(RouteDay()))
-
-    @Test
-    fun onlyNewManualEmptyCourseConsumesHintAndOnlyOnce() {
-        val hint = RouteCartHint(MemoryStorage())
-        val draft = newManualDraft()
-        // 저장된 코스(상세를 받았든 아니든)·AI 초안·이미 장소가 있는 초안은 대상이 아니다.
-        assertFalse(hint.claim(draft.copy(serverId = 42)))
-        assertFalse(hint.claim(draft.copy(serverId = 42, detailLoaded = true)))
-        assertFalse(hint.claim(draft.copy(madeByAI = true)))
-        val filled = draft.copy(days = listOf(RouteDay(stops = listOf(RouteStop(place = place(1))))))
-        assertFalse(hint.claim(filled))
-        assertTrue(hint.claim(draft))
-        assertFalse(hint.claim(draft))
-    }
-
-    @Test
-    fun seenFlagSurvivesHintRecreation() {
-        val storage = MemoryStorage()
-        assertTrue(RouteCartHint(storage).claim(newManualDraft()))
-        // 표시 시점에 기록하므로 닫기·시간 만료·화면 이탈 뒤에 새로 만들어도 다시 나타나지 않는다.
-        assertFalse(RouteCartHint(storage).claim(newManualDraft()))
-    }
-
-    @Test
-    fun cartCopyDependsOnSavedPlaces() {
-        assertEquals("장소를 담으면 여기서 코스에 넣을 수 있어요", RouteCartHint.messageKey(cartIsEmpty = true))
-        assertEquals("담아둔 장소로 코스를 시작해 보세요", RouteCartHint.messageKey(cartIsEmpty = false))
-    }
-
-    @Test
-    fun slowNonEmptyCartShowsSavedPlacesCopy() =
-        assertDelayedCartHint(CartOutcome(CartLoadState.LOADED, isEmpty = false), cartIsEmpty = false)
-
-    @Test
-    fun slowEmptyCartShowsEmptyCopyOnlyAfterSuccess() =
-        assertDelayedCartHint(CartOutcome(CartLoadState.LOADED, isEmpty = true), cartIsEmpty = true)
-
-    @Test
-    fun failedCartLoadShowsGenericCopyEvenThoughTheListIsEmpty() =
-        assertDelayedCartHint(CartOutcome(CartLoadState.FAILED, isEmpty = true), cartIsEmpty = false)
-
-    private fun assertDelayedCartHint(
-        outcome: CartOutcome,
-        cartIsEmpty: Boolean,
-    ) = runBlocking {
-        val storage = MemoryStorage()
-        val states = mutableListOf<com.mz2az.scenetrip.routetab.RouteCartHintState>()
-        val hint = RouteCartHint(storage) { states += it }
-        val reply = CompletableDeferred<CartOutcome>()
-        val windowStarted = CompletableDeferred<Unit>()
-        val finishWindow = CompletableDeferred<Unit>()
-        val announcements = mutableListOf<String>()
-        val durations = mutableListOf<Long>()
-        val presentation =
-            async {
-                hint.present(
-                    course = newManualDraft(),
-                    cart = { reply.await() },
-                    announce = { announcements += it },
-                    sleep = {
-                        durations += it
-                        windowStarted.complete(Unit)
-                        finishWindow.await()
-                    },
-                )
-            }
-        // 조회가 끝나기 전에는 링만 켜져 있다 — 문구·낭독·기록·노출 시간이 시작되지 않는다.
-        while (!hint.state.isHighlighted) kotlinx.coroutines.yield()
-        assertNull(hint.state.message)
-        assertTrue(announcements.isEmpty())
-        assertTrue(durations.isEmpty())
-        assertFalse(storage.seenFlag)
-
-        reply.complete(outcome)
-        windowStarted.await()
-        val expected = tr(RouteCartHint.messageKey(cartIsEmpty))
-        assertEquals(expected, hint.state.message)
-        assertEquals(listOf(expected), announcements)
-        assertEquals(listOf(2500L), durations)
-        assertTrue(storage.seenFlag)
-        assertTrue(hint.state.isHighlighted)
-
-        finishWindow.complete(Unit)
-        presentation.await()
-        assertNull(hint.state.message)
-        assertFalse(hint.state.isHighlighted)
-    }
-
-    @Test
-    fun dismissingBeforeTheCartAnswersNeverShowsOrRecordsTheHint() =
-        runBlocking {
-            val storage = MemoryStorage()
-            val hint = RouteCartHint(storage)
-            val reply = CompletableDeferred<CartOutcome>()
-            val announcements = mutableListOf<String>()
-            val presentation = async { hint.present(newManualDraft(), { reply.await() }, { announcements += it }) { } }
-            while (!hint.state.isHighlighted) kotlinx.coroutines.yield()
-            hint.dismiss()
-            reply.complete(CartOutcome(CartLoadState.LOADED, isEmpty = true))
-            presentation.await()
-            assertTrue(announcements.isEmpty())
-            assertFalse(storage.seenFlag)
-        }
-
-    @Test
-    fun leavingTheEditorWhileWaitingClearsTheRingAndKeepsTheHintForNextTime() =
-        runBlocking {
-            val storage = MemoryStorage()
-            val hint = RouteCartHint(storage)
-            val never = CompletableDeferred<CartOutcome>()
-            val presentation = async { hint.present(newManualDraft(), { never.await() }, {}) { } }
-            while (!hint.state.isHighlighted) kotlinx.coroutines.yield()
-            presentation.cancelAndJoin()
-            assertFalse(hint.state.isHighlighted)
-            assertNull(hint.state.message)
-            assertFalse(storage.seenFlag)
-        }
-
-    @Test
-    fun aSecondPresentWhileHighlightedIsIgnored() =
-        runBlocking {
-            val hint = RouteCartHint(MemoryStorage())
-            val never = CompletableDeferred<CartOutcome>()
-            var asked = 0
-            val first = async { hint.present(newManualDraft(), { never.await() }, {}) { } }
-            while (!hint.state.isHighlighted) kotlinx.coroutines.yield()
-            hint.present(newManualDraft(), {
-                asked += 1
-                never.await()
-            }, {}) { }
-            assertEquals(0, asked)
-            first.cancelAndJoin()
-        }
+    // 직접 짜기 첫 안내(RouteCartHint) 시험은 뺐다 — 「장바구니」 단추가 ＋ 메뉴로 옮겨 가며 안내째 없앴다(MZ2AZ-547 E7, iOS 와 같다).
 
     // MARK: 가이드 → AI 마법사로 나가기 (PlannerExit)
 
@@ -411,8 +263,6 @@ class FirstCourseGuideTests {
     fun newCopyIsInKoreanAndEnglishTables() {
         val keys =
             listOf(
-                RouteCartHint.messageKey(cartIsEmpty = true),
-                RouteCartHint.messageKey(cartIsEmpty = false),
                 "지도 주변 촬영지 보기",
                 "코스 추천받기 (AI)",
                 "AI 일정은 편집할 초안으로 열려요. 확인한 뒤 직접 저장해 주세요.",

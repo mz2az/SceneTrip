@@ -399,6 +399,12 @@ fun PlaceDetailView(
                     // 두 버튼이 한 줄이다. 담기는 계약이 적어 둔 세 경로 중 하나이고,
                     // 네이버 지도는 외부 앱/브라우저로 넘긴다 — 길찾기와 영업정보는
                     // 우리가 만들 것이 아니다.
+                    //
+                    // 코스 편집 위에 띄운 검색 탭에서만 「＋ 코스에 추가」 가 맨 위에 선다(MZ2AZ-547 E9). 문맥이 없으면 아무것도 안 그린다.
+                    com.mz2az.scenetrip.routetab.CourseAddBar(
+                        place = summary,
+                        modifier = Modifier.padding(horizontal = IOS.gutter).padding(bottom = 8.dp),
+                    )
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(horizontal = IOS.gutter),

@@ -111,6 +111,7 @@ kt_jvm_library(
         "tests/PoiInfoTests.kt",
         "tests/ProfileHomeParityTests.kt",
         "tests/ReviewParityTests.kt",
+        "tests/RouteEditorRulesTests.kt",
         "tests/SavedPlanRulesTests.kt",
         "tests/ScenePhotoGalleryTests.kt",
         "tests/SearchParityTests.kt",
