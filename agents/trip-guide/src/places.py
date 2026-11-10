@@ -132,6 +132,10 @@ class PlaceSource:
     좌표는 양쪽 다 준다.
     """
 
+    def by_city(self, city: str, limit: int = 200) -> list[Place]:
+        """도시의 촬영지를 인기순으로(MZ2AZ-548). scene-api 창구만 안다 — CSV 에는 도시 열이 없다."""
+        raise NotImplementedError("도시로 짜기는 scene-api 창구에서만 된다")
+
     def order_by_walk(self, places: list[Place]) -> list[Place]:
         """담은 장소들을 가까운 것부터 이어 붙인 순서로 돌려준다.
 

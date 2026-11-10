@@ -26,6 +26,7 @@ _HERE = Path(__file__).absolute().parent
 sys.path.insert(0, str(_HERE.parent))
 
 from src.agent import TripGuide
+from src.city_planner import plan_city_with_model, plan_target
 from src.cli import open_source, set_here
 from src.llm_planner import plan_with_model
 from src.model_client import ModelClient, ModelError, load_config
@@ -249,11 +250,11 @@ class Handler(BaseHTTPRequestHandler):
             # `config/llm_planner.json` 의 `enabled` 를 끄면 모델을 아예 안 부른다.
             # 출발 위치·설명(③)은 하지 않는다 — 마법사는 초안을 편집 화면에 그린다.
             started = time.monotonic()
-            titles = body.get("titles") or []
-            if isinstance(titles, str):
-                titles = [titles]
-            if not titles:
-                self._send(_bad("어느 작품으로 돌지 받지 못했다"), 400)
+            # 작품과 도시 중 정확히 하나(계약 1.28.0, MZ2AZ-548). 도시면 src/city_planner.py 가 짠다.
+            try:
+                titles, city = plan_target(body)
+            except PlanError as exc:
+                self._send(_bad(str(exc)), 400)
                 return
 
             # 계약 `GuidePlanRequest` 는 출발점을 **필드 둘**로 받는다. 예전에는
@@ -274,6 +275,7 @@ class Handler(BaseHTTPRequestHandler):
                 start=start,
                 must=[str(x) for x in (body.get("must") or [])],
                 avoid=[str(x) for x in (body.get("avoid") or [])],
+                city=city,
             )
             try:
                 client = ModelClient()
@@ -282,7 +284,10 @@ class Handler(BaseHTTPRequestHandler):
                 print(f"[plan] 모델을 만들지 못함 → 엔진: {exc!r}", file=sys.stderr)
                 client = None
             try:
-                plan = plan_with_model(self.desk.book, req, client)
+                if city:
+                    plan = plan_city_with_model(self.desk.book, req, client)
+                else:
+                    plan = plan_with_model(self.desk.book, req, client)
             except (PlanError, SceneApiError) as exc:
                 self._send(_bad(str(exc)), 400)
                 return
