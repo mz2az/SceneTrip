@@ -36,7 +36,7 @@ android-fmt:
     #!/usr/bin/env bash
     set -euo pipefail
     paths=()
-    while IFS= read -r path; do paths+=("$PWD/$path"); done < <(rg --files apps/scenetrip-android -g '*.kt')
+    while IFS= read -r path; do paths+=("$PWD/$path"); done < <(git ls-files --cached --others --exclude-standard 'apps/scenetrip-android/*.kt')
     {{BAZEL}} run //:ktlint -- -F "${paths[@]}"
 
 # 저장소 소스·문서 검색
