@@ -59,6 +59,8 @@ struct PlaceDetailView: View {
                     if detail?.delisted == true {
                         UnavailableItemNotice(item: .place)
                     }
+                    // 코스 편집 위에 띄운 검색 탭에서만 — 「＋ 코스에 추가」(MZ2AZ-547 E9). 문맥이 없으면 아무것도 안 그린다.
+                    CourseAddBar(place: summary)
                     actions
 
                     if !scenes.isEmpty {

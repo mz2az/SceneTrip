@@ -111,7 +111,7 @@ struct TrendingWorksView: View {
                             startPoint: .topLeading, endPoint: .bottomTrailing
                         )
                         if let url = work.posterUrl {
-                            RemoteImage(url: url, symbol: "film")
+                            RemoteImage(url: url, symbol: "film", poster: true)
                         }
                         LinearGradient(colors: [.clear, .black.opacity(0.65)], startPoint: .center, endPoint: .bottom)
                         Text(work.title)

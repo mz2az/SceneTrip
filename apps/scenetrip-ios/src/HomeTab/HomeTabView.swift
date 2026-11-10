@@ -30,7 +30,7 @@ struct HomeTabView: View {
                 // 「어디로 여행 가세요?」 사진 카드(MZ2AZ-547 H1–H3). 「내 여행 이어가기」 카드는 숨겼다 —
                 // 아래에 떠 있는 「여행 코스 짜기」 단추가 대신한다(H5).
                 HomeCityCard(cities: model.cities) { city in
-                    // P3 가 새 코스 시트·질문(Q2 며칠부터)으로 바꿀 갈고리(`TabRouter.startNewCourse`).
+                    // 그 도시의 「며칠 머무세요?」(Q2)부터(`TabRouter.startNewCourse`, MZ2AZ-547 P3).
                     router.startNewCourse(city: city.key)
                 }
 
@@ -84,8 +84,9 @@ struct HomeTabView: View {
                 courseList: routes.courseList,
                 onOpenCourse: { router.openCourse($0) },
                 onAll: { router.openRoute() },
-                // P3 가 새 코스 시트(F1)로 바꿀 갈고리(`TabRouter.startNewCourse`).
-                onNew: { router.startNewCourse(city: nil) }
+                // 「새 여행 코스」 시트(F1, `TabRouter.startNewCourse`).
+                onNew: { router.startNewCourse(city: nil) },
+                coachCovered: router.cover != nil || router.newCourseSheet || router.selected != .home
             )
             // 단추 아래끝이 탭바 위 약 18 — 웹 `탭바 + 22` 자리.
             .padding(.bottom, 12)

@@ -48,6 +48,9 @@ struct RootTabs: View {
     /// 카드와 「여행자들의 코스」 절도 같은 것을 읽는다.
     @StateObject private var routes = RouteStore()
 
+    /// 새 코스 시트에서 고른 갈래 — 시트가 **다 닫힌 뒤에** 덮개로 연다(닫히는 중에 띄우면 SwiftUI 가 버린다).
+    @State private var chosenStart: NewCourseStart?
+
     var body: some View {
         GeometryReader { root in
             ZStack {
@@ -90,6 +93,20 @@ struct RootTabs: View {
         // 덮개(경로여정·마이페이지)가 떠 있으면 그쪽이 로그인 화면을 올린다.
         .signInSheet(active: router.cover == nil)
         .nicknameSheet(active: router.cover == nil)
+        // 「새 여행 코스」 시트(MZ2AZ-547 F1) — 홈 떠 있는 줄의 「+ 새 코스」·코스 0개의 「여행 코스 짜기」.
+        .sheet(isPresented: $router.newCourseSheet, onDismiss: {
+            guard let start = chosenStart else { return }
+            chosenStart = nil
+            router.chooseNewCourse(start)
+        }) {
+            NewCourseSheet { start in
+                chosenStart = start
+                router.newCourseSheet = false
+            }
+            .environmentObject(routes)
+        }
+        // 정한 여행(Q4)을 서버와 맞춘다 — 켤 때 한 번.
+        .task { await TripMemoryStore.shared.sync() }
         .fullScreenCover(item: $router.cover) { cover in
             switch cover {
             case .route:
@@ -105,6 +122,9 @@ struct RootTabs: View {
                         router.openContent(work)
                     }
                 )
+            case let .newCourse(start):
+                NewCourseFlowView(start: start, onClose: { router.cover = nil })
+                    .environmentObject(routes)
             }
         }
     }
@@ -114,7 +134,8 @@ extension RootTabs {
     /// 지금 보이는 화면의 이름. 덮개가 떠 있으면 덮개가 이긴다.
     var screenName: String {
         switch router.cover {
-        case .route: return "courses"
+        // 새 코스 만들기도 코스 화면으로 센다 — 화면 이름을 늘리지 않는다.
+        case .route, .newCourse: return "courses"
         case .profile: return "profile"
         // 전체 보기는 홈의 일부로 센다 — 새 화면 이름을 늘리지 않는다(웹 MZ2AZ-534 와 같다).
         case .trending: return "home"
@@ -196,7 +217,7 @@ struct TabBar: View {
             .contentShape(Capsule())
             .animation(.easeInOut(duration: 0.2), value: on)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
         .accessibilityLabel(tab.label)
         .accessibilityAddTraits(on ? .isSelected : [])
     }
