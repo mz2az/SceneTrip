@@ -206,7 +206,7 @@ struct LikedWorksSheet: View {
             }
         } label: {
             HStack(spacing: 10) {
-                RemoteImage(url: work.posterUrl, symbol: "film", fits: true)
+                RemoteImage(url: work.posterUrl, symbol: "film", fits: true, poster: true)
                     .frame(width: 34, height: 46)
                     .clipShape(.rect(cornerRadius: 5))
                     .opacity(work.delisted == true ? 0.65 : 1)

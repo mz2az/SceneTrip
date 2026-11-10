@@ -291,7 +291,7 @@ private struct PosterGrid: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Color.clear
                         .aspectRatio(2 / 3, contentMode: .fit)
-                        .overlay { NewCoursePhoto(url: work.posterUrl) }
+                        .overlay { PosterImage(url: work.posterUrl) { NewCourseStyle.brandFill } }
                         .overlay {
                             if on {
                                 Color(red: 60 / 255, green: 40 / 255, blue: 160 / 255).opacity(0.28)
@@ -400,7 +400,7 @@ struct PlanningScreen: View {
             ForEach(Array(shown.enumerated()), id: \.offset) { index, url in
                 let mid = Double(shown.count - 1) / 2
                 let shift = Double(index) - mid
-                NewCoursePhoto(url: url)
+                PosterImage(url: url) { NewCourseStyle.brandFill }
                     .frame(width: 72, height: 108)
                     .clipShape(RoundedRectangle(cornerRadius: NewCourseStyle.radiusS))
                     .shadow(color: .black.opacity(0.14), radius: 10, y: 6)
