@@ -166,7 +166,7 @@ struct MapSearchResultsView: View {
             VStack(spacing: 10) {
                 Text(MapSearchText.empty(empty)).font(.system(size: 14)).foregroundStyle(.secondary)
                 if offerEverywhere {
-                    Button { model.searchEverywhere() } label: {
+                    Button { model.searchEverywhere(viewport: viewport) } label: {
                         Text("이 지역 밖에서도 찾기").font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(TabBar.homePurple)
                             .padding(.horizontal, 16).frame(minHeight: 40)

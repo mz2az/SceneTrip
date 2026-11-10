@@ -44,4 +44,26 @@ enum MapSearchPagingRules {
     static func fitsMap(offset: Int) -> Bool {
         offset == 0
     }
+
+    /// 지도에 결과 핀을 찍는 최대 개수(§8-2). 목록은 이보다 길어질 수 있다.
+    static let pinLimit: Int = 100
+
+    /// 결과 목록 가운데 지도에 핀으로 찍을 것 — 앞에서부터 `pinLimit` 개(가까운 순이므로 가까운 곳들).
+    static func pinnedResults<Item>(_ shops: [Item]) -> [Item] {
+        Array(shops.prefix(pinLimit))
+    }
+
+    /// 검색의 기준점(§8-1) — 물을 때의 화면 가운데. 화면을 모르면 nil(서버 기본 이름순).
+    static func origin(viewport: MapViewport?) -> MapSearchOrigin? {
+        guard let viewport else { return nil }
+        return MapSearchOrigin(lat: viewport.centerLat, lng: viewport.centerLng, source: viewport.source)
+    }
+}
+
+/// 지도 검색이 「가까운 순」 으로 물을 기준점(`lat`·`lng`, `sort=distance`).
+struct MapSearchOrigin: Equatable {
+    var lat: Double
+    var lng: Double
+    /// 좌표 출처 — 화면 범위의 출처를 그대로 알린다(위치 동의).
+    var source: LocationCoordinateSource
 }

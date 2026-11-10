@@ -29,12 +29,13 @@ extension RouteEditorView {
         showsMapPoiBar && mapResults.isOpen
     }
 
-    /// 지도 검색의 핀 — 엔터 뒤 결과 서랍의 것만. 글자 치는 동안은 지도에 찍지 않는다(§7 구글처럼). 정보 카드가 뜬 곳은 고른 핀만.
+    /// 지도 검색의 핀 — 엔터 뒤 결과 서랍의 앞 100개만(§8-2, 목록은 더 길어도). 글자 치는 동안은 지도에 찍지 않는다(§7 구글처럼). 정보 카드가 뜬 곳은 고른 핀만.
     var mapSearchPins: MapSearchPins {
         MapSearchPins(
             shops: MapSearchRules.mapDots(
                 searching: false, listed: [],
-                results: mapResultsOpen ? mapResults.state?.shops : nil, picked: guide.picked?.id
+                results: mapResultsOpen ? mapResults.state?.shops.map(MapSearchPagingRules.pinnedResults) : nil,
+                picked: guide.picked?.id
             ),
             camera: mapCamera
         )
