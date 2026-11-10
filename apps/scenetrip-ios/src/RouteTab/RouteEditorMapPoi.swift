@@ -29,11 +29,11 @@ extension RouteEditorView {
         showsMapPoiBar && mapResults.isOpen
     }
 
-    /// 지도 검색의 점 — 엔터 전 목록이 떠 있는 동안은 목록의 것, 엔터 뒤면 결과(웹 2026-11-10). 정보 카드가 뜬 곳은 고른 핀만.
+    /// 지도 검색의 핀 — 엔터 뒤 결과 서랍의 것만. 글자 치는 동안은 지도에 찍지 않는다(§7 구글처럼). 정보 카드가 뜬 곳은 고른 핀만.
     var mapSearchPins: MapSearchPins {
         MapSearchPins(
             shops: MapSearchRules.mapDots(
-                searching: showsMapPoiBar && mapSearching, listed: mapSearch.pinned,
+                searching: false, listed: [],
                 results: mapResultsOpen ? mapResults.state?.shops : nil, picked: guide.picked?.id
             ),
             camera: mapCamera
@@ -87,11 +87,11 @@ extension RouteEditorView {
         }
     }
 
-    /// 지도에 그릴 편의시설을 칸마다 큰 점·작은 점으로 가른다(M4). 고른 점은 작은 점이어도 크게(고른 핀으로) 그린다.
-    var spreadAmbient: (major: [RouteGuide.Place], minor: [RouteGuide.Place]) {
+    /// 지도에 그릴 편의시설 — 칸마다 1등만(M4, §7 구글처럼: 나머지는 그리지 않는다). 고른 것은 1등이 아니어도 고른 핀으로 그린다.
+    var spreadAmbient: [RouteGuide.Place] {
         let split = MapPoiSpread.split(visibleAmbientPois, zoom: mapViewport?.zoom ?? 0)
-        guard let picked = guide.picked, split.minor.contains(where: { $0.id == picked.id }) else { return split }
-        return (split.major + split.minor.filter { $0.id == picked.id }, split.minor.filter { $0.id != picked.id })
+        guard let picked = guide.picked, split.minor.contains(where: { $0.id == picked.id }) else { return split.major }
+        return split.major + split.minor.filter { $0.id == picked.id }
     }
 
     // MARK: 칩

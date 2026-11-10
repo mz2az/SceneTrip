@@ -89,10 +89,7 @@ struct RouteMapView: UIViewRepresentable {
     /// 움직이지 않는다 — 배경처럼 깔릴 뿐이다. 네이버 지도가 주변 가게를 늘
     /// 보여 주는 것과 같은 자리다(2026-08-28).
     var ambientPlaces: [RouteGuide.Place] = []
-    /// 골고루 찍기의 작은 점(MZ2AZ-547 M4) — 칸마다 1등이 아닌 나머지. `ambientPlaces` 가 1등(원래 점)이다.
-    var ambientMinor: [RouteGuide.Place] = []
-
-    /// 지도 검색 결과(M7) — 촬영지 사진 핀·가게 색 점·카메라 명령. 결과 지도가 닫혀 있으면 비어 있다.
+    /// 지도 검색 결과(M7) — 가게 갈래 아이콘 핀·카메라 명령. 결과 지도가 닫혀 있으면 비어 있다.
     var search = MapSearchPins()
 
     /// 카메라가 멈췄다. (남, 서, 북, 동, 가운데위도, 가운데경도, 줌, 좌표 출처).
@@ -173,7 +170,7 @@ struct RouteMapView: UIViewRepresentable {
         context.coordinator.onLocation = onLocation
         context.coordinator.onTapStop = onTapStop
         context.coordinator.renderAmbient(ambientPlaces, picked: pickedGuide, on: view.mapView)
-        context.coordinator.renderMapSearch(minor: ambientMinor, search: search, on: view.mapView)
+        context.coordinator.renderMapSearch(search, on: view.mapView)
         context.coordinator.pinning = pinning
         context.coordinator.apply(bottomInset: bottomInset, to: view.mapView)
         context.coordinator.applyTrip(here: tripHere, on: view.mapView)
@@ -252,8 +249,7 @@ struct RouteMapView: UIViewRepresentable {
         var onLocation: ((TripSpot) -> Void)?
         /// 주변 편의시설 마커. 챗봇 결과와 살림을 따로 낸다 — 갱신 주기가 다르다.
         let ambientRenderer = PoiMarkerRenderer()
-        /// 골고루 찍기의 작은 점·지도 검색 결과 핀(MZ2AZ-547 M4·M7, `MapPoiMarkers.swift`).
-        let minorRenderer = MinorDotRenderer()
+        /// 지도 검색 결과 핀(MZ2AZ-547 M7, `MapPoiMarkers.swift`).
         let searchRenderer = MapSearchPinRenderer()
         var lastSearchCamera = 0
         private var lastInset: CGFloat = 0
