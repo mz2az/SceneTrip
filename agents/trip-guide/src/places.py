@@ -83,6 +83,8 @@ class Place:
     # 편의시설(`poi_id`)·직접 찍은 핀(`custom_pin_id`). 앱이 보낸 값을 **그대로 들고 있다가 돌려준다.**
     poi_id: int | None = None
     custom_pin_id: int | None = None
+    # scene-api 가 준 작품 표(`ContentRef` — contentId·title), 서버 순서(MZ2AZ-548). 일정 줄의 `contents` 로 그대로 나간다.
+    content_refs: list[dict] = field(default_factory=list)
 
     @property
     def titles(self) -> list[str]:
@@ -131,6 +133,10 @@ class PlaceSource:
     아래 두 계산은 어느 창구를 쓰든 같아서 여기 둔다. 좌표만 있으면 되는 일이고,
     좌표는 양쪽 다 준다.
     """
+
+    def by_city(self, city: str, limit: int = 200) -> list[Place]:
+        """도시의 촬영지를 인기순으로(MZ2AZ-548). scene-api 창구만 안다 — CSV 에는 도시 열이 없다."""
+        raise NotImplementedError("도시로 짜기는 scene-api 창구에서만 된다")
 
     def order_by_walk(self, places: list[Place]) -> list[Place]:
         """담은 장소들을 가까운 것부터 이어 붙인 순서로 돌려준다.

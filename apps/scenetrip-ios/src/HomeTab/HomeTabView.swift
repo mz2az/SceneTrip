@@ -3,8 +3,9 @@ import SwiftUI
 
 /// 홈 — 첫 화면 (2026-09-01, 목업 `docs/product/canvas/home/Main.dc.html`·`HomeFull.dc.html`).
 ///
-/// 위에서부터: 인사 · **내 여행 이어가기**(경로여정의 입구) · 지금 뜨는 작품 · 오늘의
-/// 성지 · 여행자들의 코스 · 커뮤니티 지금 · **내 기록**(마이페이지의 입구). 목업의 맨 윗줄
+/// 위에서부터: 인사 · **어디로 여행 가세요?** 사진 카드(도시 칩) · 지금 뜨는 작품 · 오늘의
+/// 성지 · 커뮤니티 지금 · **내 기록**(마이페이지의 입구). 경로여정의 입구는 오른쪽 아래 떠 있는
+/// 「여행 코스 짜기」 단추다(MZ2AZ-547, 웹 시안 — 「내 여행 이어가기」 카드를 대신한다). 목업의 맨 윗줄
 /// 검색칸은 **뺐다** — 검색은 작품검색 탭이 맡는다(사용자 지시).
 ///
 /// 숫자·문구는 전부 서버·기기 값이다. 목업이 "카드 속 숫자·글은 배치용 예시" 라고
@@ -26,33 +27,19 @@ struct HomeTabView: View {
             VStack(alignment: .leading, spacing: 18) {
                 HomeHeader(onProfile: { router.openProfile() })
 
-                HomeTripPager(
-                    trips: model.trips,
-                    hasCourses: !routes.courses.isEmpty,
-                    // 코스가 있는지 모르는 동안은 「코스 만들기」 가 아니라 받는 중이다(`HomeTabModel.tripCard`).
-                    card: HomeTabModel.tripCard(
-                        hasTrip: !model.trips.isEmpty, courseList: routes.courseList,
-                        hasCourses: !routes.courses.isEmpty, tripsLoading: model.loading
-                    ),
-                    // 코스 여행의 길찾기는 **그 코스의 편집 화면 안**에서 돈다(2026-09-03,
-                    // 계획 trip-mode.md §8) — 별도 창을 띄우지 않고 코스를 열며 안내를 켠다.
-                    onNavigate: { trip in
-                        guard trip.nextStop != nil, let serverId = trip.course.serverId else { return }
-                        router.pendingTripStart = true
-                        router.openCourse(serverId)
-                    },
-                    // 「코스 보기」는 **코스 전체 목록**으로 간다(2026-09-02 사용자
-                    // 결정). 처음엔 그 코스의 편집으로 바로 들어갔는데, 홈에서
-                    // 누르는 사람은 "내 코스들이 뭐가 있나" 를 보려는 것이다.
-                    onOpenCourse: { _ in router.openRoute() },
-                    onCreate: { router.openRoute() }
-                )
+                // 「어디로 여행 가세요?」 사진 카드(MZ2AZ-547 H1–H3). 「내 여행 이어가기」 카드는 숨겼다 —
+                // 아래에 떠 있는 「여행 코스 짜기」 단추가 대신한다(H5).
+                HomeCityCard(cities: model.cities) { city in
+                    // 그 도시의 「며칠 머무세요?」(Q2)부터(`TabRouter.startNewCourse`, MZ2AZ-547 P3).
+                    router.startNewCourse(city: city.key)
+                }
 
                 HomeWorkShelf(
                     works: model.works,
                     failed: model.failed,
                     onOpen: { router.openContent($0) },
-                    onAll: { router.selected = .search }
+                    // 「전체 보기」 는 인기순 포스터 격자(MZ2AZ-547 H6, 웹 MZ2AZ-534) — 전에는 작품검색 탭이었다.
+                    onAll: { router.openTrending() }
                 )
 
                 if let place = model.today {
@@ -87,9 +74,23 @@ struct HomeTabView: View {
                 )
             }
             .padding(.top, 8)
-            .padding(.bottom, 28)
+            // 떠 있는 「여행 코스 짜기」 단추에 마지막 줄이 가리지 않게(웹 84). 탭바 몫은 `RootTabs` 의 안전영역이 따로 비운다.
+            .padding(.bottom, 84)
         }
         .background(Color(.systemGroupedBackground))
+        .overlay(alignment: .bottom) {
+            HomeTripFloat(
+                courses: HomeTripFloatRules.courses(routes.courses),
+                courseList: routes.courseList,
+                onOpenCourse: { router.openCourse($0) },
+                onAll: { router.openRoute() },
+                // 「새 여행 코스」 시트(F1, `TabRouter.startNewCourse`).
+                onNew: { router.startNewCourse(city: nil) },
+                coachCovered: router.cover != nil || router.newCourseSheet || router.selected != .home
+            )
+            // 단추 아래끝이 탭바 위 약 18 — 웹 `탭바 + 22` 자리.
+            .padding(.bottom, 12)
+        }
         .task { await reload() }
         .refreshable { await reload() }
         .onAccountChange { await reload() }
@@ -112,17 +113,12 @@ struct HomeTabView: View {
     /// 코스 카드는 코스 목록만 있으면 된다 — 목록이 오는 대로 그린다. 촬영지·작품(초안의 재료)은 홈이
     /// 쓰지 않으므로 옆에서 받는다.
     private func reload() async {
-        async let tripsJob: Void = reloadTrips()
+        async let coursesJob: Void = routes.refreshCourses()
         async let restJob: Void = model.loadRest()
         async let cartJob: Void = cart.refresh()
         async let materialsJob: Void = routes.refreshMaterials()
         async let postsJob: Void = posts.refresh()
-        _ = await (tripsJob, restJob, cartJob, materialsJob, postsJob)
-    }
-
-    private func reloadTrips() async {
-        await routes.refreshCourses()
-        await model.loadTrips(courses: routes.courses)
+        _ = await (coursesJob, restJob, cartJob, materialsJob, postsJob)
     }
 }
 

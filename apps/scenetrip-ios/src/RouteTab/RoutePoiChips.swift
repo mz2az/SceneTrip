@@ -29,6 +29,9 @@ struct RoutePoiChips: View {
 
     var extras: [Extra] = []
 
+    /// 「전체」 칩을 보이나 — 계획 화면은 갈래 칩을 지도 위로 옮겨 「AI 장소」 만 남긴다(MZ2AZ-547 M5).
+    var showsAll = true
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
@@ -36,12 +39,14 @@ struct RoutePoiChips: View {
                     chip(extra.label, tone: extra.tone, isOn: extra.isOn, image: extra.image, tap: extra.tap)
                 }
                 let allOn = groupsOn.count == RoutePoiGroup.allCases.count
-                chip(tr("전체"), tone: nil, isOn: allOn) {
-                    if allOn {
-                        groupsOn = []
-                        RoutePoiGroup.allCases.forEach(onGroupOff)
-                    } else {
-                        groupsOn = Set(RoutePoiGroup.allCases)
+                if showsAll {
+                    chip(tr("전체"), tone: nil, isOn: allOn) {
+                        if allOn {
+                            groupsOn = []
+                            RoutePoiGroup.allCases.forEach(onGroupOff)
+                        } else {
+                            groupsOn = Set(RoutePoiGroup.allCases)
+                        }
                     }
                 }
                 ForEach(RoutePoiGroup.allCases) { group in

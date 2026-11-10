@@ -1,8 +1,7 @@
 import SceneApiClient
 import SwiftUI
 
-/// 편집 화면의 **주변 편의시설** — 화면이 멈출 때마다 그 범위를 받아 깔아 주는
-/// 쪽 논리. `RouteEditorView.swift` 에서 갈라 뒀다(타입 길이 한도).
+/// 편집 화면의 **주변 편의시설** — 칩을 켤 때 받은 것을 거르고 세는 쪽 논리(받기는 `RouteEditorMapPoi.swift`). `RouteEditorView.swift` 에서 갈라 뒀다(타입 길이 한도).
 extension RouteEditorView {
     /// 갈래 필터를 통과한 주변 편의시설. 챗봇이 이미 보여 준 곳과 코스에 담긴
     /// 곳은 뺀다 — 같은 가게가 두 겹으로 찍히면 어느 쪽을 누른 것인지 모른다.
@@ -17,7 +16,7 @@ extension RouteEditorView {
         let taken = takenSpotKeys
         return ambientPois.filter { place in
             let key = RouteDedupe.key(place.asPlaceSummary)
-            return poiGroupsOn.contains(place.poiGroup)
+            return mapChips.isOn(place.poiGroup)
                 && !shown.contains(key) && !taken.contains(key)
         }
         .withoutDotsUnderPins(drawnPlaceIds, takenPoiIds: takenPoiIds)
@@ -53,15 +52,6 @@ extension RouteEditorView {
         }
     }
 
-    /// 갈래 칩이 세는 대상 — **주변 편의시설만.** 챗봇 결과는 「AI 장소」 칩이 따로 센다.
-    /// 촬영지 핀 밑이라 지도에서 숨긴 점은 세지 않는다(MZ2AZ-378). 코스에 담긴 곳은 전처럼 센다.
-    var poisForChips: [RouteGuide.Place] {
-        let shown = Set(guide.places.map { RouteDedupe.key($0.asPlaceSummary) })
-        return ambientPois
-            .filter { !shown.contains(RouteDedupe.key($0.asPlaceSummary)) }
-            .withoutDotsUnderPins(drawnPlaceIds)
-    }
-
     /// 「AI 장소 N」 칩. 챗봇이 찾아 준 곳이 있을 때만 나온다. 코스에 담은 곳은 번호 핀이 됐으니 안 센다.
     var aiChip: [RoutePoiChips.Extra] {
         let count = guidePlacesForMap.count
@@ -78,39 +68,23 @@ extension RouteEditorView {
         }]
     }
 
-    /// 카메라가 멈췄다 — 0.35초 조용하면 그 범위의 주변을 받는다. **너무 넓은
-    /// 화면(줌 13 미만, 수십 km)에서는 안 부른다** — 점이 먼지처럼 흩어질 뿐이고
-    /// 서버도 헛돈다.
+    /// 카메라가 멈췄다 — 범위를 기억해 둔다. **받지는 않는다**(MZ2AZ-547 M2·M3): 칩을 켜거나 「다시 찾기」 를 누를 때만
+    /// 이 범위로 받고(`fetchMapPois`), 지도를 옮기면 점은 그대로 두고 「↻ 이 지역에서 다시 찾기」 를 띄운다.
+    /// 예전의 줌 13 제한도 없다 — 서버가 칸마다 골고루 주므로 넓게 봐도 먼지가 되지 않는다.
     func viewportChanged(
         south: Double, west: Double, north: Double, east: Double,
         centerLat: Double, centerLng: Double, zoom: Double, source: LocationCoordinateSource
     ) {
         guideMapCenter = TripSpot(latitude: centerLat, longitude: centerLng)
         guideMapSource = source
-        ambientTask?.cancel()
-        ambientLocationGate.cancel()
-        guard zoom >= 13 else {
-            ambientPois = []
-            return
-        }
-        // 여행 시작의 동의 시트와 겹치지 않는다. 허용 뒤 경로 맞춤에서 다시 조회한다.
-        if source == .device, trip.isActive, !LocationConsentStore.shared.isAllowed {
-            ambientPois = []
-            return
-        }
-        ambientTask = Task {
-            try? await Task.sleep(for: .milliseconds(350))
-            guard !Task.isCancelled else { return }
-            ambientLocationGate.requestLocation(for: source) {
-                ambientTask = Task {
-                    let found = await RouteGuide.pois(
-                        south: south, west: west, north: north, east: east,
-                        centerLat: centerLat, centerLng: centerLng, limit: 30, source: source
-                    )
-                    guard !Task.isCancelled else { return }
-                    ambientPois = found
-                }
-            }
+        mapViewport = MapViewport(
+            south: south, west: west, north: north, east: east,
+            centerLat: centerLat, centerLng: centerLng, zoom: zoom, source: source
+        )
+        if mapResults.isOpen {
+            mapResults.state?.cameraIdle(at: Date())
+        } else if mapChips.anyOn {
+            poiFetch.cameraIdle()
         }
     }
 }

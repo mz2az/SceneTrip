@@ -2,6 +2,8 @@ import SwiftUI
 
 /// 앱의 최상위 — 하단 탭 셋과, 탭에서 내려온 두 화면의 덮개를 든다.
 ///
+/// 2026-11-10 웹 시안 반영(MZ2AZ-547 T1·T2): 탭바는 화면 바닥에 떠 있는 알약이고 탭 내용이 그 뒤까지 내려간다.
+///
 /// 2026-09-01 홈 재편(계획 `docs/project/plans/mobile-home-tab.md`, 목업
 /// `docs/product/canvas/home/`): 탭 넷(작품검색·경로여정·커뮤니티·마이페이지)이
 /// **셋**(작품검색 · 가운데 동그란 홈 · 커뮤니티)이 됐고 첫 화면은 홈이다. 경로여정은
@@ -26,7 +28,8 @@ struct RootTabs: View {
 
         var symbol: String {
             switch self {
-            case .search: "magnifyingglass"
+            // 지도 — 「지도에서 촬영지를 찾는 탭」(웹 시안과 같다, MZ2AZ-547 T1).
+            case .search: "map"
             case .home: "house"
             case .community: "bubble.left.and.bubble.right"
             }
@@ -45,12 +48,17 @@ struct RootTabs: View {
     /// 카드와 「여행자들의 코스」 절도 같은 것을 읽는다.
     @StateObject private var routes = RouteStore()
 
+    /// 새 코스 시트에서 고른 갈래 — 시트가 **다 닫힌 뒤에** 덮개로 연다(닫히는 중에 띄우면 SwiftUI 가 버린다).
+    @State private var chosenStart: NewCourseStart?
+
     var body: some View {
-        VStack(spacing: 0) {
+        GeometryReader { root in
             ZStack {
                 // 검색 탭은 항상 살려 둔다 — 다른 탭에 갔다 와도 지도와 검색 결과가
                 // 그대로여야 한다.
+                // 촬영지 상세 「길찾기」가 코스를 만들고 연다(MZ2AZ-547 G3) — 홈·경로여정과 같은 코스 목록을 쓴다.
                 SearchTabView()
+                    .environmentObject(routes)
                     .opacity(router.selected == .search ? 1 : 0)
                     .allowsHitTesting(router.selected == .search)
 
@@ -64,8 +72,17 @@ struct RootTabs: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            TabBar(selected: $router.selected)
+            // **탭 내용이 알약 뒤까지 내려간다**(MZ2AZ-547 T2). 알약을 바닥 안전영역 쪽 여백으로 깔면 스크롤 목록은
+            // 알약 뒤로 비치며 내려가고, 마지막 줄은 알약 위에서 멈춘다(위 8 + 알약 58 + 아래 8 = 74). 지도처럼 안전영역을
+            // 무시하는 것은 알약 뒤까지 그린다. 알약 밖의 빈 여백은 손가락을 받지 않아 밑으로 통과한다.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                TabBar(selected: $router.selected)
+                    .padding(.horizontal, FloatingTabBarRules.sideMargin)
+                    .padding(.top, FloatingTabBarRules.clearance - FloatingTabBarRules.height - FloatingTabBarRules.bottomGap)
+                    .padding(.bottom, FloatingTabBarRules.bottomGap)
+            }
+            // 안전영역을 무시하고 바닥까지 그리는 것(검색 탭 서랍)이 비워야 할 높이 — 알약 몫 + 기기 안전영역.
+            .environment(\.tabBarClearance, FloatingTabBarRules.clearance + root.safeAreaInsets.bottom)
         }
         .ignoresSafeArea(.keyboard)
         // 어느 화면을 보는가 — 탭과 덮개 단위로 적는다 (MZ2AZ-353).
@@ -76,6 +93,20 @@ struct RootTabs: View {
         // 덮개(경로여정·마이페이지)가 떠 있으면 그쪽이 로그인 화면을 올린다.
         .signInSheet(active: router.cover == nil)
         .nicknameSheet(active: router.cover == nil)
+        // 「새 여행 코스」 시트(MZ2AZ-547 F1) — 홈 떠 있는 줄의 「+ 새 코스」·코스 0개의 「여행 코스 짜기」.
+        .sheet(isPresented: $router.newCourseSheet, onDismiss: {
+            guard let start = chosenStart else { return }
+            chosenStart = nil
+            router.chooseNewCourse(start)
+        }) {
+            NewCourseSheet { start in
+                chosenStart = start
+                router.newCourseSheet = false
+            }
+            .environmentObject(routes)
+        }
+        // 정한 여행(Q4)을 서버와 맞춘다 — 켤 때 한 번.
+        .task { await TripMemoryStore.shared.sync() }
         .fullScreenCover(item: $router.cover) { cover in
             switch cover {
             case .route:
@@ -83,6 +114,17 @@ struct RootTabs: View {
                     .environmentObject(routes)
             case .profile:
                 ProfileTabView(onClose: { router.cover = nil })
+            case .trending:
+                TrendingWorksView(
+                    onClose: { router.cover = nil },
+                    onOpen: { work in
+                        router.cover = nil
+                        router.openContent(work)
+                    }
+                )
+            case let .newCourse(start):
+                NewCourseFlowView(start: start, onClose: { router.cover = nil })
+                    .environmentObject(routes)
             }
         }
     }
@@ -92,8 +134,11 @@ extension RootTabs {
     /// 지금 보이는 화면의 이름. 덮개가 떠 있으면 덮개가 이긴다.
     var screenName: String {
         switch router.cover {
-        case .route: return "courses"
+        // 새 코스 만들기도 코스 화면으로 센다 — 화면 이름을 늘리지 않는다.
+        case .route, .newCourse: return "courses"
         case .profile: return "profile"
+        // 전체 보기는 홈의 일부로 센다 — 새 화면 이름을 늘리지 않는다(웹 MZ2AZ-534 와 같다).
+        case .trending: return "home"
         case nil: break
         }
         switch router.selected {
@@ -104,104 +149,115 @@ extension RootTabs {
     }
 }
 
-/// 검색 탭 아이콘 — **지도 옆에 돋보기** (MZ2AZ-359).
+/// 탭바 — **떠 있는 알약 하나**에 세 탭이 같은 폭으로 (MZ2AZ-547 T1, 웹 `features/proto/ProtoTabBar.tsx`).
 ///
-/// 돋보기 하나로는 「지도에서 촬영지를 찾는 탭」인지 드러나지 않는다(2026-10-03 팀 회의).
-/// SF Symbols 에 둘이 합쳐진 기호가 없어 겹쳐 그린다. 돋보기 둘레는 탭바 바탕색으로 한 겹
-/// 파내 지도 선과 엉기지 않게 한다. 색은 바깥의 `foregroundStyle`(선택·비선택)을 그대로 받는다.
-private struct MapSearchIcon: View {
-    var body: some View {
-        Image(systemName: "map")
-            .font(.system(size: 19))
-            .padding(.trailing, 5).padding(.bottom, 2)
-            .overlay(alignment: .bottomTrailing) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 11, weight: .bold))
-                    .padding(2)
-                    .background(Circle().fill(Color(.systemBackground)))
-                    .offset(x: 2, y: 3)
-            }
-            // 다른 탭 아이콘(20pt 기호)과 같은 높이를 차지해 글자 줄이 어긋나지 않게 한다.
-            .frame(height: 24)
-            .accessibilityHidden(true)
-    }
-}
-
-/// 탭바 — 양옆은 얇은 아이콘, 가운데는 **위로 솟은 동그란 홈**(해태 얼굴).
-///
-/// 목업(`Main.dc.html`)의 배치를 그대로 옮겼다: 62 pt 원에 핀 그러데이션, 바탕색
-/// 4 pt 테, 26 pt 만큼 바 위로 나온다. 바 자체는 56 pt — 베타의 52 보다 4 pt 높은
-/// 것은 가운데 원의 글자가 들어갈 자리다. 검색 탭 바텀시트의 최대 높이가 이 위까지라
-/// 그 이상 키우지 않는다.
+/// 전에는 가운데 홈만 위로 솟은 동그라미였다(2026-09-01 목업). 탭이 셋뿐인데 홈만 솟아 어색하다는 사용자 지적(웹 11-07)으로
+/// 셋을 같은 폭으로 두고, 고른 탭 뒤에 보라 단색 알약이 0.38초에 걸쳐 미끄러진다. 반투명 유리는 앱에서 이 탭바 한 곳에만 쓴다
+/// (`TabBarGlass`). 탭 내용은 이 알약 뒤까지 내려가 비친다 — 자리 잡기는 `RootTabs` 가 한다(T2).
 struct TabBar: View {
     @Binding var selected: RootTabs.Tab
 
-    /// 목업의 홈 글자색(`#5B49D6`) — 핀 보라보다 한 톤 짙어 흰 바탕에서 읽힌다. 고른 탭은 셋 다 이 색이다.
+    /// 목업의 홈 글자색(`#5B49D6`) — 앱의 시그니처 보라 단색. 흰 글씨 대비 약 6:1 이라 고른 탭 알약·주 단추 바탕에 쓴다.
     static let homePurple = Color(red: 0.36, green: 0.29, blue: 0.84)
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
-        HStack(spacing: 0) {
-            side(.search)
-            home
-            side(.community)
+        GeometryReader { geo in
+            let tabs = RootTabs.Tab.allCases
+            let index = tabs.firstIndex(of: selected) ?? 0
+            let inner = FloatingTabBarRules.innerPadding
+            ZStack(alignment: .leading) {
+                // 고른 탭 뒤의 알약 — 탭을 바꾸면 미끄러져 옮겨 간다.
+                Capsule()
+                    .fill(Self.homePurple)
+                    .frame(
+                        width: FloatingTabBarRules.selectionWidth(barWidth: geo.size.width, tabCount: tabs.count),
+                        height: max(0, geo.size.height - inner * 2)
+                    )
+                    .offset(x: FloatingTabBarRules.selectionOffset(
+                        index: index, barWidth: geo.size.width, tabCount: tabs.count
+                    ))
+                    .animation(
+                        reduceMotion ? nil : .timingCurve(0.22, 1, 0.36, 1, duration: FloatingTabBarRules.slideDuration),
+                        value: selected
+                    )
+                HStack(spacing: 0) {
+                    ForEach(tabs, id: \.self) { tab in
+                        button(tab)
+                    }
+                }
+                .padding(.horizontal, inner)
+            }
         }
-        .frame(height: 56)
-        .background(Color(.systemBackground))
-        .overlay(alignment: .top) { Divider() }
+        .frame(height: FloatingTabBarRules.height)
+        .modifier(TabBarGlass())
     }
 
-    private func side(_ tab: RootTabs.Tab) -> some View {
-        Button {
+    private func button(_ tab: RootTabs.Tab) -> some View {
+        let on = selected == tab
+        return Button {
             selected = tab
         } label: {
-            VStack(spacing: 3) {
-                icon(tab)
-                Text(tab.label).font(.system(size: 11))
+            HStack(spacing: 6) {
+                icon(tab, on: on)
+                Text(tab.label)
+                    .font(.system(size: 13, weight: on ? .heavy : .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .foregroundStyle(on ? Color.white : Color.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // 고른 탭은 홈과 같은 보라다 — `accentColor` 는 시스템 파랑이라 가운데 홈과 따로 놀았다.
-            .foregroundStyle(selected == tab ? Self.homePurple : .secondary)
-            .contentShape(.rect)
+            .contentShape(Capsule())
+            .animation(.easeInOut(duration: 0.2), value: on)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
+        .accessibilityLabel(tab.label)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
-    /// 검색 탭만 손수 겹쳐 그린다 — 나머지는 SF Symbols 하나다.
     @ViewBuilder
-    private func icon(_ tab: RootTabs.Tab) -> some View {
-        if tab == .search {
-            MapSearchIcon()
+    private func icon(_ tab: RootTabs.Tab, on: Bool) -> some View {
+        if tab == .home {
+            // 홈은 해태 얼굴을 작게 — 고르지 않으면 흐리게(웹 `grayscale(0.6) opacity(0.8)`).
+            Image("haetae-face")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 26, height: 22)
+                .saturation(on ? 1 : 0.4)
+                .opacity(on ? 1 : 0.8)
+                .accessibilityHidden(true)
         } else {
-            Image(systemName: tab.symbol).font(.system(size: 20))
+            Image(systemName: tab.symbol)
+                .font(.system(size: 18))
+                .foregroundStyle(on ? Color.white : Color.secondary)
+                .accessibilityHidden(true)
         }
     }
+}
 
-    private var home: some View {
-        Button {
-            selected = .home
-        } label: {
-            VStack(spacing: 3) {
+extension EnvironmentValues {
+    /// 화면 바닥에서 떠 있는 탭바가 차지하는 높이(알약 몫 74 + 기기 안전영역). 탭 밖(덮개)에서는 0.
+    /// 안전영역을 무시하고 바닥까지 그리는 것만 읽는다 — 스크롤 목록은 `safeAreaInset` 으로 저절로 비운다.
+    @Entry var tabBarClearance: CGFloat = 0
+}
+
+/// 탭바의 유리 — iOS 26 이상은 시스템 「리퀴드 글라스」(`glassEffect`), 그 아래는 흐림 + 바탕 88%(웹 시안 값).
+///
+/// 웹 시안대로 흐림(`ultraThinMaterial`) 위에 흰 바탕을 덮었더니 iOS 에서는 뒤가 거의 비치지 않았다 — 흰 카드 위에서는 불투명한 판으로 보였다
+/// (2026-11-10 사용자 지적, 88% → 50% 로 낮춰도 같았다). 리퀴드 글라스는 시스템 탭바와 같은 유리라 뒤가 맑게 비치고 글자 대비는 시스템이 맞춘다.
+private struct TabBarGlass: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.glassEffect(.regular, in: Capsule())
+        } else {
+            content.background {
                 ZStack {
-                    Circle().fill(LinearGradient(
-                        colors: [Color(PinImage.light), Color(PinImage.deep)],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    ))
-                    Image("haetae-face")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 40, height: 34)
+                    Capsule().fill(.ultraThinMaterial)
+                    Capsule().fill(Color(.systemBackground).opacity(0.88))
                 }
-                .frame(width: 62, height: 62)
-                .overlay(Circle().stroke(Color(.systemGroupedBackground), lineWidth: 4))
-                .shadow(color: Color(PinImage.deep).opacity(0.42), radius: 7, y: 6)
-                Text("홈")
-                    .font(.system(size: 11, weight: selected == .home ? .bold : .regular))
-                    .foregroundStyle(selected == .home ? Self.homePurple : .secondary)
+                .shadow(color: .black.opacity(0.14), radius: 10, y: 6)
             }
-            .offset(y: -18)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .contentShape(.rect)
         }
-        .buttonStyle(.plain)
     }
 }

@@ -124,7 +124,7 @@ struct ContentDetailView: View {
     }
 
     private var posterImage: some View {
-        RemoteImage(url: summary.posterUrl, symbol: "film")
+        RemoteImage(url: summary.posterUrl, symbol: "film", poster: true)
             .frame(height: 176, alignment: .center)
             .frame(maxWidth: .infinity, alignment: .center)
             .clipShape(.rect(cornerRadius: 8))

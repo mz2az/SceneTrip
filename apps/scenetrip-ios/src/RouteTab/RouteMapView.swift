@@ -81,10 +81,16 @@ struct RouteMapView: UIViewRepresentable {
     /// 「어디를 볼까」가 아니다 — 카메라는 이 열쇠만 본다.
     var guideCameraKey = ""
 
+    /// **카메라용** 고른 편의시설 id — 칩으로 가려 핀이 안 보여도 고른 것은 고른 것이다(`pickedGuide` 는 보이는 것만).
+    /// 이것이 nil 로 바뀌기만 한 것(카드 ✕)은 카메라를 옮기지 않는다(`RouteCameraRules.moves`).
+    var pickedCameraId: String?
+
     /// **화면 범위 안의 주변 편의시설.** 챗봇 결과(`guidePlaces`)와 달리 카메라를
     /// 움직이지 않는다 — 배경처럼 깔릴 뿐이다. 네이버 지도가 주변 가게를 늘
     /// 보여 주는 것과 같은 자리다(2026-08-28).
     var ambientPlaces: [RouteGuide.Place] = []
+    /// 지도 검색 결과(M7) — 가게 갈래 아이콘 핀·카메라 명령. 결과 지도가 닫혀 있으면 비어 있다.
+    var search = MapSearchPins()
 
     /// 카메라가 멈췄다. (남, 서, 북, 동, 가운데위도, 가운데경도, 줌, 좌표 출처).
     var onViewport: ((Double, Double, Double, Double, Double, Double, Double, LocationCoordinateSource) -> Void)?
@@ -164,6 +170,7 @@ struct RouteMapView: UIViewRepresentable {
         context.coordinator.onLocation = onLocation
         context.coordinator.onTapStop = onTapStop
         context.coordinator.renderAmbient(ambientPlaces, picked: pickedGuide, on: view.mapView)
+        context.coordinator.renderMapSearch(search, on: view.mapView)
         context.coordinator.pinning = pinning
         context.coordinator.apply(bottomInset: bottomInset, to: view.mapView)
         context.coordinator.applyTrip(here: tripHere, on: view.mapView)
@@ -180,6 +187,7 @@ struct RouteMapView: UIViewRepresentable {
             guidePlaces: guidePlaces,
             pickedGuide: pickedGuide,
             guideCameraKey: guideCameraKey,
+            pickedCameraId: pickedCameraId,
             navTarget: navTarget,
             navGuiding: navGuiding,
             legs: legs,
@@ -233,7 +241,7 @@ struct RouteMapView: UIViewRepresentable {
         var showingMe = false
         /// 이미 카메라를 옮긴 조합. 같은 것을 두 번 옮기지 않는다 — SwiftUI 가 뷰를
         /// 다시 그릴 때마다 지도가 튀면 손으로 옮긴 화면이 계속 되돌아간다.
-        private var lastCameraKey = ""
+        private var lastCameraKey: RouteCameraKey?
         var onTapGuide: (RouteGuide.Place) -> Void = { _ in }
         var onTapPreview: (PlaceSummary) -> Void = { _ in }
         var onViewport: ((Double, Double, Double, Double, Double, Double, Double, LocationCoordinateSource) -> Void)?
@@ -241,6 +249,9 @@ struct RouteMapView: UIViewRepresentable {
         var onLocation: ((TripSpot) -> Void)?
         /// 주변 편의시설 마커. 챗봇 결과와 살림을 따로 낸다 — 갱신 주기가 다르다.
         let ambientRenderer = PoiMarkerRenderer()
+        /// 지도 검색 결과 핀(MZ2AZ-547 M7, `MapPoiMarkers.swift`).
+        let searchRenderer = MapSearchPinRenderer()
+        var lastSearchCamera = 0
         private var lastInset: CGFloat = 0
 
         /// 번호 핀을 눌렀다.
@@ -258,8 +269,13 @@ struct RouteMapView: UIViewRepresentable {
         func apply(bottomInset: CGFloat, to mapView: NMFMapView) {
             guard abs(bottomInset - lastInset) > 40 else { return }
             lastInset = bottomInset
+            // **서랍 높이만 바뀌면 다시 맞추지 않는다**(MZ2AZ-547 E12, `RouteCameraRules.sheetHeight`) — 확대는 그대로 두고
+            // 보이는 영역만 줄인다(네이버 지도가 가운데를 새 영역의 가운데로 옮긴다). 다시 맞추면 사람이 확대해 둔 화면이 풀렸다
+            // (웹 2026-11-08 사용자 지적).
             mapView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: bottomInset, right: 0)
-            lastCameraKey = "" // 다음 render 가 새 영역으로 다시 맞추게 한다.
+            if RouteCameraRules.refits(.sheetHeight) {
+                lastCameraKey = nil
+            }
         }
 
         init(onTapMap: @escaping (RoutePin) -> Void) {
@@ -287,6 +303,7 @@ struct RouteMapView: UIViewRepresentable {
             guidePlaces: [RouteGuide.Place] = [],
             pickedGuide: RouteGuide.Place? = nil,
             guideCameraKey: String = "",
+            pickedCameraId: String? = nil,
             navTarget: RouteStop? = nil,
             navGuiding: Bool = false,
             legs: [RouteLeg] = [],
@@ -354,14 +371,8 @@ struct RouteMapView: UIViewRepresentable {
                         self.fitTrip(to: navTarget, legs: legs, on: mapView)
                     }
                 }
-                // 목적지 사본의 visited 는 낡을 수 있다(도착 직후) — 목록의 최신 값으로 본다.
-                let targetVisited = stops.first { $0.id == navTarget.id }?.visited ?? navTarget.visited
-                updateHalo(
-                    style: .brand,
-                    at: NMGLatLng(lat: navTarget.place.latitude, lng: navTarget.place.longitude),
-                    lift: targetVisited ? 0 : 30, // 도착했으면 발바닥 핀 — 자리 위에
-                    on: mapView
-                )
+                // 고리는 그리지 않는다 — 목적지는 큰 번호 핀으로 충분하다(2026-11-10 사용자 결정).
+                updateHalo(style: .brand, at: nil, on: mapView)
                 return
             }
             lastTripCameraKey = ""
@@ -375,36 +386,31 @@ struct RouteMapView: UIViewRepresentable {
             //
             // 한 곳을 **콕 집어 골랐을 때만** 예외다. 그때는 그 곳(또는 나와 그 곳)만
             // 크게 본다.
-            // 헤일로 대상: 고른 가게 > 목록에서 누른 코스 장소. 없으면 끈다.
-            if let pickedGuide {
-                updateHalo(
-                    style: .picked,
-                    at: NMGLatLng(lat: pickedGuide.latitude, lng: pickedGuide.longitude),
-                    on: mapView
-                )
-            } else if let focused {
-                updateHalo(
-                    style: .brand,
-                    at: NMGLatLng(lat: focused.place.latitude, lng: focused.place.longitude),
-                    lift: (stops.first { $0.id == focused.id }?.visited ?? focused.visited) ? 0 : 30,
-                    on: mapView
-                )
-            } else {
-                updateHalo(style: .brand, at: nil, on: mapView)
-            }
+            // 고른 곳은 핀을 크게 그리는 것만 — 빨간·파란 고리는 뺐다(2026-11-10 사용자 결정).
+            updateHalo(style: .brand, at: nil, on: mapView)
 
             // 카메라 열쇠는 **칩으로 거른 목록을 보지 않는다** — 핀을 다시 그리는 열쇠(`key`)와
             // 갈라 둔 이유다. 칩을 켜고 꺼도 화면은 그 자리에 있어야 한다.
-            let cameraContent = stops.map { "\($0.id)" }.joined(separator: ",")
-                + "|" + previews.map { String($0.id) }.joined(separator: ",")
-                + "|" + guideCameraKey
-            let cameraKey = "\(focused?.id.uuidString ?? "-")|\(showingMe)|\(cameraContent)"
+            //
+            // **코스 핀(순서·빼기)도 보지 않는다**(MZ2AZ-547 E12, `RouteCameraRules`) — 끌기·빼기·최적화로는 다시 맞추지
+            // 않는다. 일차 바꾸기·장소 넣기는 부르는 쪽이 `fitToken` 을 올려 따로 알린다.
+            //
+            // **고른 것을 놓기만 하면(카드 ✕) 옮기지 않는다**(2026-11-10 사용자 지적, `RouteCameraRules.moves`) — 일차 전체로
+            // 다시 맞추면 사람이 확대해 둔 화면이 풀렸다. 다시 맞추는 계기는 일차 바꾸기·장소 넣기(`fitToken`)와 코스 전체 맞추기뿐이다.
+            let cameraKey = RouteCameraKey(
+                focused: focused?.id.uuidString, picked: pickedCameraId,
+                context: "\(showingMe)|" + previews.map { String($0.id) }.joined(separator: ",") + "|" + guideCameraKey
+            )
             if courseFitJustRan {
                 // 방금 코스 전체에 맞췄다 — 열쇠만 따라잡고 카메라는 그대로 둔다.
                 courseFitJustRan = false
                 lastCameraKey = cameraKey
                 lastFitToken = fitToken
-            } else if cameraKey != lastCameraKey || fitToken != lastFitToken {
+            } else if !RouteCameraRules.moves(
+                from: lastCameraKey, to: cameraKey, fitChanged: fitToken != lastFitToken
+            ) {
+                lastCameraKey = cameraKey
+            } else {
                 lastCameraKey = cameraKey
                 lastFitToken = fitToken
                 // **다음 차례로 미룬다.** 지금 맞추면 첫 화면에서 지도가 아직 제 크기를
@@ -424,15 +430,6 @@ struct RouteMapView: UIViewRepresentable {
         }
 
         // MARK: 카메라
-
-        private func move(to place: RouteGuide.Place, on mapView: NMFMapView) {
-            region.source = .userSelected
-            let update = NMFCameraUpdate(
-                scrollTo: NMGLatLng(lat: place.latitude, lng: place.longitude), zoomTo: 16
-            )
-            update.animation = .easeIn
-            mapView.moveCamera(update)
-        }
 
         /// 고른 장소로 옮긴다.
         ///
@@ -454,7 +451,7 @@ struct RouteMapView: UIViewRepresentable {
                 // 14 — 고른 곳 둘레의 동네가 보이는 크기. 15 는 골목까지 들어가 주변 가게 핀이
                 // 화면을 덮고 어느 동네인지 알 수 없었다(2026-10-16).
                 let update = NMFCameraUpdate(scrollTo: there, zoomTo: 14)
-                update.animation = .easeIn
+                update.applyMotion(toward: there, on: mapView) // 가까우면 부드럽게, 멀면 한 번에(§10-3)
                 mapView.moveCamera(update)
                 return
             }
@@ -466,8 +463,7 @@ struct RouteMapView: UIViewRepresentable {
             // 여백을 넉넉히 준다 — 파란 점과 핀이 화면 가장자리에 딱 붙으면 잘린
             // 것처럼 보인다.
             let update = NMFCameraUpdate(fit: bounds, padding: 56)
-            update.animation = .easeIn
-            update.animationDuration = 0.4
+            update.applyMotion(toward: there, on: mapView)
             region.source = .device
             mapView.moveCamera(update)
         }
@@ -477,26 +473,25 @@ struct RouteMapView: UIViewRepresentable {
         /// | 무엇 | 그림 |
         /// | --- | --- |
         /// | 코스의 장소 | 번호 핀 ①②③ — 목록과 지도를 잇는 끈이라 그대로 둔다 |
-        /// | 그중 **지금 고른 것** | **파란 고양이** |
-        /// | 시트에서 **담을까 보는 것** | **빨간 고양이** |
+        /// | 그중 **지금 고른 것** | 같은 번호 핀을 크게 |
+        /// | 시트에서 **담을까 보는 것** | 번호 없는 보라 핀 |
         ///
-        /// 색이 갈리는 것이 요점이다 — 파랑은 이미 내 코스에 있는 곳, 빨강은 아직
-        /// 아닌 곳이다. 전부 얼굴로 바꾸면 무엇이 몇 번인지 알 수 없다.
+        /// 해태 핀은 지도에서 뺐다(2026-11-10 사용자 결정, 계획 §10-1).
         private func renderPending(_ pin: RoutePin?, on mapView: NMFMapView) {
             pendingMarker?.mapView = nil
             pendingMarker = nil
             guard let pin else { return }
             let marker = NMFMarker(position: NMGLatLng(lat: pin.latitude, lng: pin.longitude))
-            // 옛 파란 민 핀 대신 진도 핀 — 마스코트 교체 후 파란 물방울은
-            // 지도에서 은퇴했다(2026-08-28).
-            marker.iconImage = PinoPin.marker()
+            // 찍은 자리 — 번호 없는 보라 핀을 크게(2026-11-10 사용자 결정, 해태 뺌).
+            marker.iconImage = RouteNumberPin.plain(large: true)
+            marker.anchor = RouteNumberPin.anchor
             marker.mapView = mapView
             pendingMarker = marker
         }
 
         /// **화면에 있는 것 전부**가 한 화면에 들어오게 맞춘다.
         ///
-        /// 코스의 장소뿐 아니라 **담을까 보는 곳(빨간 고양이)까지** 센다 — 시트에서
+        /// 코스의 장소뿐 아니라 **담을까 보는 곳(번호 없는 보라 핀)까지** 센다 — 시트에서
         /// 고른 곳이 화면 밖이면 고른 보람이 없다.
         ///
         /// 한 점뿐이면 확대한다.

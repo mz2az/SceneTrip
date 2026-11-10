@@ -40,6 +40,7 @@ SceneTrip 앱의 **검색·지도 탭**과 **경로여정 탭**을 받치는 백
 | `GET /v1/contents/{contentId}` | 작품 상세 |
 | `GET /v1/contents/{contentId}/places` | 한 작품의 촬영지 |
 | `GET /v1/places` | 촬영지 목록·검색·지도 조회 (`q`·`bbox`·반경·`city`) |
+| `GET /v1/app/versions` | 앱 최소·최신 버전(로그인 없음, 5분 캐시). 값은 `scenetrip.app-versions` 설정 — 새 앱을 내면 숫자를 고쳐 배포 |
 | `GET /v1/places/cities` | 도시별 촬영지 수·가운데·범위 — 홈 도시 칸. 도시는 한국어 주소로 정한다(`place/CityRules`, 웹 `homeCities.ts` 와 같은 규칙) |
 | `GET /v1/places/{placeId}` | 촬영지 상세 |
 | `GET /v1/cart` | 장바구니 조회 |

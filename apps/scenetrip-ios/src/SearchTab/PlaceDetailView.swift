@@ -16,6 +16,11 @@ struct PlaceDetailView: View {
     let onBack: () -> Void
 
     @EnvironmentObject private var cart: CartStore
+    @EnvironmentObject private var routes: RouteStore
+    /// 「길찾기」(MZ2AZ-547 G3) — 장소마다 하나. 장소가 바뀌거나 화면을 떠나면 버린다.
+    @State private var directions: PlaceDirections?
+    @State private var directionsBusy = false
+    @State private var directionsError: String?
     @Environment(\.openURL) private var openURL
     @State private var detail: PlaceDetail?
     @State private var scene: SceneItem?
@@ -54,6 +59,8 @@ struct PlaceDetailView: View {
                     if detail?.delisted == true {
                         UnavailableItemNotice(item: .place)
                     }
+                    // 코스 편집 위에 띄운 검색 탭에서만 — 「＋ 코스에 추가」(MZ2AZ-547 E9). 문맥이 없으면 아무것도 안 그린다.
+                    CourseAddBar(place: summary)
                     actions
 
                     if !scenes.isEmpty {
@@ -102,12 +109,67 @@ struct PlaceDetailView: View {
         }
     }
 
-    /// 베타의 장소 상세와 같은 두 버튼이다 — 담기와 네이버 지도.
-    ///
-    /// 담기는 계약이 적어 둔 세 경로 중 하나이고(§ `/cart/items`), 이미 담긴 장소면
-    /// 체크 + "저장됨" 으로 바뀐다. 네이버 지도는 외부 앱/브라우저로 넘긴다 —
-    /// 길찾기와 영업정보는 우리가 만들 것이 아니다.
+    /// 「길찾기」가 주 버튼이다(MZ2AZ-532 → MZ2AZ-547 G3, 웹 `PlaceDetail.tsx:104-138`) — 한 곳만 가려는 사람에게
+    /// 코스 만들기는 병목이라, 누르면 그 장소 하나로 된 코스를 만들어 바로 안내를 켠다(`PlaceDirections`).
+    /// 아래 줄은 보조 — 담기와 네이버 지도.
     private var actions: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                Task { await startDirections() }
+            } label: {
+                HStack(spacing: 6) {
+                    if directionsBusy {
+                        ProgressView().tint(.white)
+                    } else {
+                        Image(systemName: "location.north.fill")
+                    }
+                    Text("길찾기").fontWeight(.semibold)
+                }
+                .frame(maxWidth: .infinity, minHeight: 34)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(TabBar.homePurple)
+            .disabled(directionsBusy || detail?.delisted == true)
+
+            secondaryActions
+
+            if let directionsError {
+                Text(directionsError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        }
+        .onChange(of: summary.id, initial: true) { _, _ in
+            directions?.dispose()
+            directions = PlaceDirections(deps: LivePlaceDirectionsDeps(routes: routes))
+            directionsBusy = false
+            directionsError = nil
+        }
+        .onDisappear {
+            directions?.dispose()
+            directions = nil
+        }
+    }
+
+    private func startDirections() async {
+        // 화면을 떠났다 돌아왔으면(덮개가 덮었다 내려감) 새로 만든다.
+        let controller = directions ?? PlaceDirections(deps: LivePlaceDirectionsDeps(routes: routes))
+        directions = controller
+        directionsError = nil
+        directionsBusy = true
+        let outcome = await controller.start(summary)
+        if outcome == .busy {
+            return
+        }
+        directionsBusy = false
+        if case let .failed(message) = outcome {
+            directionsError = message
+        }
+    }
+
+    /// 베타의 장소 상세와 같은 두 버튼 — 담기와 네이버 지도. 담기는 계약이 적어 둔 세 경로 중 하나이고
+    /// (§ `/cart/items`), 이미 담긴 장소면 체크 + "저장됨" 으로 바뀐다. 네이버 지도는 외부 앱/브라우저로 넘긴다.
+    private var secondaryActions: some View {
         HStack(spacing: 8) {
             let saved = cart.contains(summary.id)
             Button {
@@ -125,7 +187,7 @@ struct PlaceDetailView: View {
                 )
                 .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bordered)
             .disabled(!UnavailableItem.canToggle(delisted: detail?.delisted, saved: saved))
 
             if let url = NaverMapLink.place(detail?.naverPlaceUrl) {

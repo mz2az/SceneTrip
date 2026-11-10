@@ -159,6 +159,7 @@ class GuideController implements GuideApi {
   @Override
   public ResponseEntity<GuidePlanReply> planWithGuide(
       GuidePlanRequest request, Lang acceptLanguage) {
+    GuidePlanTarget.check(request);
     return ResponseEntity.ok(agent.plan(request, acceptLanguage, rateSubject()));
   }
 

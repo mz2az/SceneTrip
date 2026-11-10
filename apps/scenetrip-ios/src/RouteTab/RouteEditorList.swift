@@ -34,7 +34,7 @@ extension RouteEditorView {
                 poiFilter
                 summary
                 actions
-                cartHintNotice
+                // 「장바구니」 단추를 가리키던 안내(`cartHintNotice`)는 뺐다 — 단추가 ＋ 메뉴로 옮겨 갔다(MZ2AZ-547 E7).
             }
             .id("course-panel-header")
             .listRowInsets(EdgeInsets())
@@ -51,7 +51,8 @@ extension RouteEditorView {
                         works: workTitles(for: stop),
                         // 첫 줄에 「출발 고정」, 마지막 줄에 「도착 고정」. 한 곳뿐이면
                         // 고정할 것이 없다 — 그 하나가 출발이자 도착이라 뜻이 없다.
-                        pinKind: stops.count > 1
+                        // 보기에서는 고정 단추가 없다(MZ2AZ-547 E2).
+                        pinKind: editTools && stops.count > 1
                             ? (index == 0 ? .start : (index == stops.count - 1 ? .end : nil))
                             : nil,
                         isPinned: index == 0 ? pinStart : pinEnd,
@@ -62,6 +63,12 @@ extension RouteEditorView {
                         // 사용자 지적: 코스를 또 만들 필요는 없다). 이 지도에 경로가 그려진다.
                         onNavigate: course.isRunning && stop.canNavigate ? { startTrip(to: stop) } : nil,
                         onFocus: {
+                            // 지도가 접혀 있으면 펼치고 그곳을 가리킨다(MZ2AZ-547 E5).
+                            if !mapToggle.isOpen {
+                                revealMap()
+                                focusedStop = stop
+                                return
+                            }
                             // **한 번 더 누르면 놓는다.** 놓을 방법이 없으면 한 곳을
                             // 고른 뒤 경로 전체를 다시 볼 수가 없다(2026-08-25 사용자 지적).
                             if focusedStop?.id == stop.id {
@@ -77,20 +84,26 @@ extension RouteEditorView {
                             } else {
                                 pinEnd.toggle()
                             }
-                        }
+                        },
+                        // 오른쪽 4:3 사진, 촬영지만 ⓘ 로 장소 상세(MZ2AZ-547 E6). 끌기 손잡이는 고칠 때만.
+                        photo: RouteStopRow.Photo(url: stop.place.imageUrl, symbol: stop.photoSymbol, onOpen: photoOpener(for: stop)),
+                        movable: editTools
                     )
                     if let notice = stop.unavailable {
                         HStack(alignment: .top) {
                             UnavailableItemNotice(item: notice)
                             Spacer(minLength: 8)
-                            Button(role: .destructive) {
-                                course.days[dayIndex].stops.removeAll { $0.id == stop.id }
-                                optimizeNudge = stops.count >= 2
-                            } label: {
-                                Label(tr("빼기"), systemImage: "trash")
-                                    .font(.caption).frame(minHeight: 44)
+                            // 「빼기」 는 고칠 때만(E2).
+                            if editTools {
+                                Button(role: .destructive) {
+                                    course.days[dayIndex].stops.removeAll { $0.id == stop.id }
+                                    optimizeNudge = stops.count >= 2
+                                } label: {
+                                    Label(tr("빼기"), systemImage: "trash")
+                                        .font(.caption).frame(minHeight: 44)
+                                }
+                                .buttonStyle(.borderless)
                             }
-                            .buttonStyle(.borderless)
                         }
                         .padding(.horizontal, 16)
                     }
@@ -99,6 +112,9 @@ extension RouteEditorView {
                     }
                 }
                 .id(stop.id)
+                // 보기에서는 끌기·밀어서 빼기가 없다(MZ2AZ-547 E2).
+                .moveDisabled(!editTools)
+                .deleteDisabled(!editTools)
             }
             // **편집 모드를 켜지 않는다.** 켜면 드래그 손잡이가 늘 보이는 대신 행 안의
             // 버튼(체류 시간 칩·길찾기)이 눌리지 않는다 — iOS 가 편집 중 행의 탭을
@@ -120,7 +136,18 @@ extension RouteEditorView {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 24)
             }
+            // 떠 있는 「지도」 알약(44 + 아래 16)에 마지막 줄이 가리지 않게 띄운다.
+            Color.clear.frame(height: 80)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets())
+                .moveDisabled(true)
+                .deleteDisabled(true)
         }
         .listStyle(.plain)
+    }
+
+    /// 편집 도구가 보이나(`RouteEditorRules.showsEditTools`).
+    var editTools: Bool {
+        RouteEditorRules.showsEditTools(mode)
     }
 }

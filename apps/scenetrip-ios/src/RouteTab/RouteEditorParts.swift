@@ -70,6 +70,20 @@ struct RouteStopRow: View {
     /// 고정 단추를 눌렀다.
     var onTogglePin: () -> Void = {}
 
+    /// 줄 오른쪽 장소 사진(MZ2AZ-547 E6, 웹 `StopRow.tsx` `StopPhoto`). 없으면 예전 모양(사진 없음).
+    var photo: Photo?
+
+    /// 끌 수 있는가 — 아니면 손잡이 그림을 그리지 않는다(보기 상태, E2).
+    var movable = true
+
+    /// 4:3 92×69. 사진이 없으면 회색 칸에 아이콘. `onOpen` 이 있으면(촬영지) 사진 전체가 장소 상세로 가는 단추이고
+    /// 오른쪽 아래 ⓘ 가 그 표시다 — 줄 전체가 상세로 넘어가면 지도 포커스가 사라진다(웹 2026-11-07 사용자 지적).
+    struct Photo {
+        let url: String?
+        let symbol: String
+        let onOpen: (() -> Void)?
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 12) {
@@ -138,6 +152,10 @@ struct RouteStopRow: View {
                 }
                 Spacer()
 
+                if let photo {
+                    photoView(photo)
+                }
+
                 // 머무는 시간 칩은 이 줄에 없다(2026-10-08 사용자 결정, MZ2AZ-368) — 줄마다 30분
                 // 단위로 정해 두는 사람은 드물다. 값은 그대로 있고, 일차 머리줄의 「머무는 시간」이
                 // 합을 보여 주며 거기서 고친다(`RouteDayStaySheet`).
@@ -145,9 +163,11 @@ struct RouteStopRow: View {
                 // 끌 수 있다는 것을 알리는 그림. 편집 모드를 켜지 않으므로 iOS 가
                 // 손잡이를 그려 주지 않는다 — 없으면 길게 눌러 끌 수 있다는 것을
                 // 아무도 모른다.
-                Image(systemName: "line.3.horizontal")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                if movable {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
             }
             // **이름 줄을 누르면 지도가 그리로 간다.** 아래 버튼(체류 시간·길찾기)은
             // 각자 제 일을 하므로 이 제스처를 윗줄에만 붙인다 — 행 전체에 붙이면
@@ -246,6 +266,49 @@ struct RouteStopRow: View {
         // 지도가 보고 있는 행에 옅은 바탕을 깐다. 지도의 핀과 목록의 줄이 같은
         // 것을 가리킨다는 것을 눈으로 잇는다.
         .listRowBackground(isFocused ? Color.accentColor.opacity(0.07) : Color(.systemBackground))
+    }
+}
+
+extension RouteStopRow {
+    @ViewBuilder
+    func photoView(_ photo: Photo) -> some View {
+        let art = ZStack(alignment: .bottomTrailing) {
+            RoundedRectangle(cornerRadius: 10).fill(Color(.systemGray6))
+            if let url = photo.url {
+                RemoteImage(url: url, symbol: photo.symbol)
+            } else {
+                Image(systemName: photo.symbol).font(.system(size: 22)).foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            if photo.onOpen != nil {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.white)
+                    .frame(width: 22, height: 22)
+                    .background(Circle().fill(.black.opacity(0.55)))
+                    .padding(5)
+            }
+        }
+        .frame(width: 92, height: 69)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        if let open = photo.onOpen {
+            Button(action: open) { art }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("\(stop.label.title) \(tr("자세히 보기"))"))
+        } else {
+            art.accessibilityHidden(true)
+        }
+    }
+}
+
+extension RouteStop {
+    /// 사진이 없을 때 칸에 그리는 아이콘 — 직접 찍은 곳·편의시설·촬영지.
+    var photoSymbol: String {
+        switch kind {
+        case .pin: "mappin.and.ellipse"
+        case .poi: "storefront"
+        case .place: "photo"
+        }
     }
 }
 

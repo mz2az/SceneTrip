@@ -46,6 +46,9 @@ struct RouteCourse: Identifiable, Hashable {
     /// 「코스 시작」 을 눌러 여행 중인가. 여행 중에만 「여기서 길 찾기」가 나온다.
     var isRunning = false
 
+    /// 여행 중일 때 지금 몇 일차인가(서버 `currentDayNo`). 코스 목록 줄의 「N일차」 에 쓴다(MZ2AZ-547 L2).
+    var currentDayNo: Int?
+
     /// 고른 작품에 촬영지가 없어 **인기 장소로 대신 채웠나.**
     ///
     /// 서버 데이터가 작품마다 고르지 않다 — 도깨비는 57곳인데 어떤 작품은 0곳이다.
@@ -65,6 +68,9 @@ struct RouteCourse: Identifiable, Hashable {
     /// 목록은 일차 속을 받지 않으므로(`CourseSummary`) `stops` 가 비어 있다. 카드에
     /// 「7곳」을 그리려고 상세를 부르면 코스 수만큼 호출이 는다.
     var placeCountFromServer: Int?
+
+    /// 서버가 준 대표 사진(첫 장소의 사진). **목록 카드에서만 쓴다**(MZ2AZ-547 L2).
+    var thumbnailUrl: String?
 
     /// 상세 응답으로 만든 사본인가. 목록 요약의 빈 일정으로 기존 장소를 덮어쓰면 안 된다.
     var detailLoaded = false

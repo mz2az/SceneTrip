@@ -212,6 +212,14 @@ final class RouteStore: ObservableObject {
         }
     }
 
+    /// 코스 목록 줄의 사진·작품을 채우려고 상세를 슬쩍 받는다(MZ2AZ-547 L2).
+    /// `detail` 과 달리 **실패를 남기지 않는다** — 줄 하나를 못 채운 것은 사용자에게 알릴 일이 아니다.
+    func peekDetail(_ course: RouteCourse) async -> RouteCourse? {
+        guard let serverId = course.serverId else { return nil }
+        let detail = try? await CoursesAPI.getCourse(xInstallId: installId, courseId: serverId)
+        return detail.map(RouteBridge.course(from:))
+    }
+
     /// 코스를 넣거나 덮어쓴다. 편집 화면이 **작업 사본**을 들고 있다가 저장할 때 부른다
     /// — 초안을 바로 저장하지 않는다는 회의 확정을 화면이 아니라 이 흐름이 지킨다.
     ///
@@ -347,18 +355,19 @@ final class RouteStore: ObservableObject {
     /// **저장하지 않는다.** 응답은 초안이고 편집 화면에 그려진다. 저장은 「완료」뿐이다.
     ///
     /// 속도는 앱의 둘(빡빡·널널)을 계약의 셋 중 양끝(`packed`·`relaxed`)으로 보낸다. 작품을 하나도
-    /// 안 골랐으면 인기 작품 셋의 제목을 보낸다 — 계약이 `titles` 를 최소 하나 요구한다.
+    /// 안 골랐으면 인기 작품 셋의 제목을 보낸다 — 계약이 작품(`titles`) 또는 도시(`city`) 중 하나를 요구한다.
+    ///
+    /// 보낼 제목(`titles`)은 화면이 정한다 — 작품 고르기는 서버의 작품 전부를 검색·쪽 넘김으로 보여 주므로, 고른 작품이
+    /// 이 저장소의 인기 30편(`works`) 안에 있다는 보장이 없다(`WorksBrowseRules.requestTitles`, MZ2AZ-547).
+    /// `picked` 는 사람이 고른 작품의 제목(코스 이름에 쓴다). 비었으면 「인기 촬영지」.
     func guideDraft(
         span: RouteSpan,
         startDate: Date?,
-        workIds: Set<Int64>,
+        titles: [String],
+        picked: [String],
         pace: RoutePace,
         near: (lat: Double, lng: Double)? = nil
     ) async -> Result<RouteCourse, RouteGuideFailure> {
-        var titles = sortedWorks.filter { workIds.contains($0.id) }.map(\.title)
-        if titles.isEmpty {
-            titles = sortedWorks.prefix(3).map(\.title)
-        }
         guard !titles.isEmpty else { return .failure(.badRequest) }
         let request = GuidePlanRequest(
             titles: Array(titles.prefix(5)),
@@ -369,10 +378,10 @@ final class RouteStore: ObservableObject {
         )
         do {
             let reply = try await GuideAPI.planWithGuide(guidePlanRequest: request)
-            AppAnalytics.log(.generatePlan(dayCount: span.days, titleCount: request.titles.count))
+            AppAnalytics.log(.generatePlan(dayCount: span.days, titleCount: request.titles?.count ?? 0))
             return .success(RouteGuidePlan.course(
                 from: reply.plan,
-                title: title(for: workIds, span: span),
+                title: title(for: picked, span: span),
                 startDate: startDate,
                 pace: pace,
                 places: RouteGuidePlan.placeLookup(places)
@@ -383,8 +392,7 @@ final class RouteStore: ObservableObject {
     }
 
     /// 코스 이름. 이름을 비워 두면 AI 가 작품 이름으로 지어 준다(목업 설계 메모).
-    private func title(for workIds: Set<Int64>, span: RouteSpan) -> String {
-        let titles = sortedWorks.filter { workIds.contains($0.id) }.map(\.title)
+    private func title(for titles: [String], span: RouteSpan) -> String {
         guard let first = titles.first else { return String(format: tr("인기 촬영지 %@"), span.label) }
         let name = titles.count == 1 ? first : String(format: tr("%@ 외 %d"), first, titles.count - 1)
         return "\(name) \(span.label)"
