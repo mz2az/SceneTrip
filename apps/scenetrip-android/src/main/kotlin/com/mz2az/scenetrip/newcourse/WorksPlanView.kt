@@ -94,6 +94,7 @@ import com.mz2az.scenetrip.ui.LikeFailureNotice
 import com.mz2az.scenetrip.ui.LocationConsentSheetHost
 import com.mz2az.scenetrip.ui.MagnifierIcon
 import com.mz2az.scenetrip.ui.SparklesIcon
+import com.mz2az.scenetrip.ui.StepTransition
 import com.mz2az.scenetrip.ui.XmarkIcon
 import com.mz2az.scenetrip.ui.pressClickable
 import kotlinx.coroutines.delay
@@ -212,118 +213,143 @@ fun WorksPlanView(
         search.load(routes)
     }
     val chosen = workIds.mapNotNull { remembered[it] ?: sorted.firstOrNull { w -> w.id == it } }
-    when {
-        planning -> {
-            val posters =
-                (if (chosen.isEmpty()) sorted.take(3) else chosen)
-                    .mapNotNull { it.posterUrl?.toString() }
-                    .filter { NewCourseText.usablePhoto(it) }
-            val summary =
-                listOfNotNull(
-                    span.label,
-                    date?.let { tr("%s 출발").format(RouteFormat.day(it)) },
-                    pace.label,
-                    if (chosen.isEmpty()) tr("인기 작품") else tr("작품 %d").format(chosen.size),
-                )
-            BackHandler {
+    val step =
+        when {
+            planning -> WorksStep.PLANNING
+            worksStep -> WorksStep.WORKS
+            else -> WorksStep.INFO
+        }
+    // 뒤로 — 짜는 중이면 그만두기, 작품 고르기면 여행 정보로, 여행 정보면 닫기. 넘기는 동안 나가는 칸이 받지 않게 칸 밖에 둔다.
+    BackHandler {
+        when (step) {
+            WorksStep.PLANNING -> {
                 run += 1
                 planning = false
             }
-            PlanningScreen(posters, summary) {
-                run += 1
-                planning = false
+
+            WorksStep.WORKS -> {
+                worksStep = false
+            }
+
+            WorksStep.INFO -> {
+                onClose()
             }
         }
-
-        !worksStep -> {
-            BackHandler(onBack = onClose)
-            NewCourseScreen(
-                onBack = onClose,
-                step = 1 to 2,
-                footer = { NewCoursePrimaryButton(tr("다음")) { worksStep = true } },
-            ) {
-                NewCourseTitle(tr("어떤 여행이에요?"))
-                TripScheduleGroup(span = span, onSpan = { span = it }, date = date, onDate = { date = it })
-                NewCourseGroup(label = tr("다니는 속도"), footnote = tr("방문 수는 고른 작품과 이동 거리에 따라 달라져요")) {
-                    PaceRows(pace) { pace = it }
+    }
+    // 단계가 바뀌면 옆으로 넘긴다(§5) — 여행 정보 → 작품 → 짜는 중.
+    StepTransition(
+        state = step,
+        order = { it.ordinal },
+        modifier = Modifier.fillMaxSize().background(NewCourseStyle.grouped),
+        stepNumber = { it.dots },
+    ) { slot ->
+        when (slot) {
+            WorksStep.PLANNING -> {
+                val posters =
+                    (if (chosen.isEmpty()) sorted.take(3) else chosen)
+                        .mapNotNull { it.posterUrl?.toString() }
+                        .filter { NewCourseText.usablePhoto(it) }
+                val summary =
+                    listOfNotNull(
+                        span.label,
+                        date?.let { tr("%s 출발").format(RouteFormat.day(it)) },
+                        pace.label,
+                        if (chosen.isEmpty()) tr("인기 작품") else tr("작품 %d").format(chosen.size),
+                    )
+                PlanningScreen(posters, summary) {
+                    run += 1
+                    planning = false
                 }
             }
-        }
 
-        else -> {
-            BackHandler { worksStep = false }
-            NewCourseScreen(
-                onBack = { worksStep = false },
-                step = 2 to 2,
-                footer = {
-                    Text(
-                        if (chosen.isEmpty()) {
-                            tr("안 고르면 인기 작품으로 짜요")
-                        } else {
-                            tr("%d개 골랐어요 · 최대 %d개").format(chosen.size, WorkPickRules.MAX_WORKS)
-                        },
-                        fontSize = 12.sp,
-                        color = IOS.secondaryLabel,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    )
-                    NewCoursePrimaryButton(
-                        title = tr("AI로 코스 짜기"),
-                        leading = { SparklesIcon(Color.White, Modifier.size(15.dp)) },
-                    ) {
-                        consent.request {
-                            if (here != null) locationConsent.request { plan() } else plan()
+            WorksStep.INFO -> {
+                NewCourseScreen(
+                    onBack = onClose,
+                    step = 1 to 2,
+                    footer = { NewCoursePrimaryButton(tr("다음")) { worksStep = true } },
+                ) {
+                    NewCourseTitle(tr("어떤 여행이에요?"))
+                    TripScheduleGroup(span = span, onSpan = { span = it }, date = date, onDate = { date = it })
+                    NewCourseGroup(label = tr("다니는 속도"), footnote = tr("방문 수는 고른 작품과 이동 거리에 따라 달라져요")) {
+                        PaceRows(pace) { pace = it }
+                    }
+                }
+            }
+
+            WorksStep.WORKS -> {
+                NewCourseScreen(
+                    onBack = { worksStep = false },
+                    step = 2 to 2,
+                    footer = {
+                        Text(
+                            if (chosen.isEmpty()) {
+                                tr("안 고르면 인기 작품으로 짜요")
+                            } else {
+                                tr("%d개 골랐어요 · 최대 %d개").format(chosen.size, WorkPickRules.MAX_WORKS)
+                            },
+                            fontSize = 12.sp,
+                            color = IOS.secondaryLabel,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        )
+                        NewCoursePrimaryButton(
+                            title = tr("AI로 코스 짜기"),
+                            leading = { SparklesIcon(Color.White, Modifier.size(15.dp)) },
+                        ) {
+                            consent.request {
+                                if (here != null) locationConsent.request { plan() } else plan()
+                            }
                         }
-                    }
-                },
-            ) {
-                NewCourseTitle(tr("누구의 장면을 따라갈까요?"))
-                Text(tr("여러 개 골라도 돼요. 안 고르면 인기 작품으로 짜요"), fontSize = 14.sp, color = IOS.secondaryLabel)
-                WorksSearchField(searchText, onChange = { searchText = it })
-                val q = search.query
-                if (q != null && search.loaded && search.items.isEmpty() && !search.failed) {
-                    Text(
-                        WorksBrowseRules.noMatch(q),
-                        fontSize = 14.sp,
-                        color = IOS.secondaryLabel,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
-                    )
-                }
-                PosterGrid(
-                    works = shown,
-                    onNearEnd = { lastVisible ->
-                        if (!WorksBrowseRules.nearEnd(lastVisible, shown.size)) return@PosterGrid
-                        scope.launch { if (search.query == null) routes.loadMoreWorks() else search.load(routes) }
                     },
-                    selected = workIds,
-                    liked = { routes.isFavoriteWork(it) },
-                    onToggle = { id ->
-                        val next = WorkPickRules.toggle(workIds, id)
-                        workIds = next.selected
-                        tooMany = next.tooMany
-                    },
-                    onLike = { routes.toggleFavoriteWork(it) },
-                )
-                val loadingMore = if (search.query == null) routes.worksLoadingMore else search.loading
-                val moreFailed = if (search.query == null) routes.worksMoreFailed else search.failed && search.loaded
-                if (loadingMore || (search.query != null && !search.loaded && !search.failed)) {
-                    Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(Modifier.size(20.dp), color = IOS.secondaryLabel, strokeWidth = 2.dp)
+                ) {
+                    NewCourseTitle(tr("누구의 장면을 따라갈까요?"))
+                    Text(tr("여러 개 골라도 돼요. 안 고르면 인기 작품으로 짜요"), fontSize = 14.sp, color = IOS.secondaryLabel)
+                    WorksSearchField(searchText, onChange = { searchText = it })
+                    val q = search.query
+                    if (q != null && search.loaded && search.items.isEmpty() && !search.failed) {
+                        Text(
+                            WorksBrowseRules.noMatch(q),
+                            fontSize = 14.sp,
+                            color = IOS.secondaryLabel,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                        )
                     }
-                } else if (moreFailed || (search.query != null && search.failed)) {
-                    Text(
-                        tr("작품을 더 불러오지 못했어요 · 다시 시도"),
-                        fontSize = 14.sp,
-                        color = IOS.accent,
-                        textAlign = TextAlign.Center,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    scope.launch { if (search.query == null) routes.loadMoreWorks() else search.load(routes) }
-                                }.padding(vertical = 12.dp),
+                    PosterGrid(
+                        works = shown,
+                        onNearEnd = { lastVisible ->
+                            if (!WorksBrowseRules.nearEnd(lastVisible, shown.size)) return@PosterGrid
+                            scope.launch { if (search.query == null) routes.loadMoreWorks() else search.load(routes) }
+                        },
+                        selected = workIds,
+                        liked = { routes.isFavoriteWork(it) },
+                        onToggle = { id ->
+                            val next = WorkPickRules.toggle(workIds, id)
+                            workIds = next.selected
+                            tooMany = next.tooMany
+                        },
+                        onLike = { routes.toggleFavoriteWork(it) },
                     )
+                    val loadingMore = if (search.query == null) routes.worksLoadingMore else search.loading
+                    val moreFailed = if (search.query == null) routes.worksMoreFailed else search.failed && search.loaded
+                    if (loadingMore || (search.query != null && !search.loaded && !search.failed)) {
+                        Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(Modifier.size(20.dp), color = IOS.secondaryLabel, strokeWidth = 2.dp)
+                        }
+                    } else if (moreFailed || (search.query != null && search.failed)) {
+                        Text(
+                            tr("작품을 더 불러오지 못했어요 · 다시 시도"),
+                            fontSize = 14.sp,
+                            color = IOS.accent,
+                            textAlign = TextAlign.Center,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        scope.launch { if (search.query == null) routes.loadMoreWorks() else search.load(routes) }
+                                    }.padding(vertical = 12.dp),
+                        )
+                    }
                 }
             }
         }
@@ -597,6 +623,15 @@ private fun PosterCell(
             }
         }
     }
+}
+
+/** 작품으로 단계 — 순서대로 앞으로. [dots] 는 단계 점 번호(짜는 중은 점이 없다). */
+private enum class WorksStep(
+    val dots: Int?,
+) {
+    INFO(1),
+    WORKS(2),
+    PLANNING(null),
 }
 
 /** 짜는 중 줄 셋 — 서버가 단계를 알려 주지 않으므로 시각으로 넘기는 눈속임이다. 마지막 줄은 끝날 때까지 돈다. */

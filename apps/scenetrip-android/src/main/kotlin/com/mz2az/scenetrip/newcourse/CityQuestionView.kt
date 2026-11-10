@@ -65,6 +65,7 @@ import com.mz2az.scenetrip.ui.CheckmarkIcon
 import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.SparklesIcon
+import com.mz2az.scenetrip.ui.StepTransition
 import com.mz2az.scenetrip.ui.pressClickable
 import com.mz2az.scenetrip.ui.rememberReduceMotion
 import kotlinx.coroutines.delay
@@ -96,7 +97,6 @@ fun CityQuestionView(
     onClose: () -> Unit,
 ) {
     var flow by remember { mutableStateOf(applyBackdoor(CityQuestionFlow.start(startCity))) }
-    val scope = rememberCoroutineScope()
 
     fun back() {
         val previous = flow.back()
@@ -108,13 +108,43 @@ fun CityQuestionView(
     // 고른 도시의 촬영지는 미리 받아 둔다 — 「며칠?」·「어떻게?」 에 답하는 동안이면 넉넉하다.
     LaunchedEffect(flow.city) { flow.city?.let { CityPlacesStore.loadPlaces(it) } }
 
+    // 단계가 바뀌면 옆으로 넘긴다(§5). 칸 안에서는 그 칸의 단계([shown])로 그리고, 누르면 지금 흐름([flow])을 옮긴다.
+    StepTransition(
+        state = flow,
+        order = { it.step.order },
+        modifier = Modifier.fillMaxSize().background(NewCourseStyle.grouped),
+        contentKey = { it.step },
+        stepNumber = { it.stepNumber },
+    ) { shown -> CityStepScreen(shown, routes, onClose, ::back) { flow = it(flow) } }
+}
+
+/** 단계 순서 — 커지면 앞으로. 추천 코스·직접 고르기는 같은 자리(「어떻게?」 다음). */
+private val CityStep.order: Int
+    get() =
+        when (this) {
+            CityStep.CITY -> 0
+            CityStep.DAYS -> 1
+            CityStep.HOW -> 2
+            CityStep.PLAN, CityStep.PICK -> 3
+        }
+
+/** 한 단계 화면. [move] 는 지금 흐름을 옮긴다. */
+@Composable
+private fun CityStepScreen(
+    flow: CityQuestionFlow,
+    routes: RouteStore,
+    onClose: () -> Unit,
+    back: () -> Unit,
+    move: ((CityQuestionFlow) -> CityQuestionFlow) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
     val dots = flow.stepNumber?.let { it to 3 }
     val cityName = CityPlacesStore.city(flow.city)?.name ?: flow.city.orEmpty()
     val days = flow.days ?: 1
 
     when (flow.step) {
         CityStep.CITY -> {
-            NewCourseScreen(onBack = ::back, step = dots, hero = { CityHero() }) {
+            NewCourseScreen(onBack = back, step = dots, hero = { CityHero() }) {
                 if (CityPlacesStore.status == CityPlacesStore.Status.FAILED) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(tr("도시 목록을 못 불러왔어요"), fontSize = 15.sp, color = IOS.secondaryLabel)
@@ -125,7 +155,7 @@ fun CityQuestionView(
                     CityGrid(
                         cities = CityPlacesStore.shownCities,
                         loading = status == CityPlacesStore.Status.IDLE || status == CityPlacesStore.Status.LOADING,
-                    ) { flow = flow.pickCity(it) }
+                    ) { key -> move { it.pickCity(key) } }
                 }
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Text(
@@ -143,11 +173,11 @@ fun CityQuestionView(
         }
 
         CityStep.DAYS -> {
-            NewCourseScreen(onBack = ::back, step = dots) {
+            NewCourseScreen(onBack = back, step = dots) {
                 NewCourseTitle(tr("%s에서 며칠 머무세요?").format(cityName))
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     CityQuestionFlow.DAY_OPTIONS.forEach { count ->
-                        DayChoice(NewCourseText.days(count), flow.days == count) { flow = flow.pickDays(count) }
+                        DayChoice(NewCourseText.days(count), flow.days == count) { move { it.pickDays(count) } }
                     }
                 }
             }
@@ -155,7 +185,7 @@ fun CityQuestionView(
 
         CityStep.HOW -> {
             val count = CityPlacesStore.city(flow.city)?.placeCount
-            NewCourseScreen(onBack = ::back, step = dots) {
+            NewCourseScreen(onBack = back, step = dots) {
                 NewCourseTitle(tr("코스를 어떻게 짤까요?"))
                 HowCard(
                     primary = true,
@@ -165,7 +195,7 @@ fun CityQuestionView(
                             // 「1박 / 2일」 로 끊기지 않게 기간 안 띄어쓰기는 붙인다(에뮬레이터 실측).
                             .format(cityName, NewCourseText.days(days).replace(' ', '\u00A0')),
                     icon = { SparklesIcon(Color.White, Modifier.size(24.dp)) },
-                ) { flow = flow.planForMe() }
+                ) { move { it.planForMe() } }
                 HowCard(
                     primary = false,
                     title = tr("직접 고를게요"),
@@ -176,16 +206,16 @@ fun CityQuestionView(
                             contentAlignment = Alignment.Center,
                         ) { CheckmarkIcon(Color.White, Modifier.size(12.dp)) }
                     },
-                ) { flow = flow.pickMyself() }
+                ) { move { it.pickMyself() } }
             }
         }
 
         CityStep.PLAN -> {
-            CityPlanPreview(cityKey = flow.city.orEmpty(), days = days, routes = routes, onBack = ::back)
+            CityPlanPreview(cityKey = flow.city.orEmpty(), days = days, routes = routes, onBack = back)
         }
 
         CityStep.PICK -> {
-            CityPickView(cityKey = flow.city.orEmpty(), days = days, routes = routes, onBack = ::back)
+            CityPickView(cityKey = flow.city.orEmpty(), days = days, routes = routes, onBack = back)
         }
     }
 }

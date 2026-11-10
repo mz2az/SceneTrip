@@ -1,7 +1,7 @@
 package com.mz2az.scenetrip.newcourse
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -43,6 +43,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -54,6 +55,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.data.tr
@@ -63,7 +65,12 @@ import com.mz2az.scenetrip.searchtab.FilmIcon
 import com.mz2az.scenetrip.searchtab.RemoteImage
 import com.mz2az.scenetrip.ui.ChevronRightIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.LocalStepFrom
+import com.mz2az.scenetrip.ui.ProtoMotion
+import com.mz2az.scenetrip.ui.StepMotion
 import com.mz2az.scenetrip.ui.pressClickable
+import com.mz2az.scenetrip.ui.rememberReduceMotion
+import com.mz2az.scenetrip.ui.stepSlide
 import kotlinx.coroutines.delay
 
 /** 새 코스 만들기 화면들이 같이 쓰는 값 (MZ2AZ-547 P3, 웹 `proto/protoTokens.ts`, iOS `NewCourseStyle`). */
@@ -111,11 +118,12 @@ fun NewCourseScreen(
         }
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                hero?.invoke()
+                hero?.let { Box(Modifier.stepSlide()) { it() } }
                 Column(
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                     modifier =
                         Modifier
+                            .stepSlide()
                             .fillMaxWidth()
                             .padding(start = 20.dp, end = 20.dp, top = if (hero != null) 16.dp else 4.dp, bottom = 24.dp)
                             .then(if (footer == null) Modifier.navigationBarsPadding() else Modifier),
@@ -132,6 +140,7 @@ fun NewCourseScreen(
                 Column(
                     modifier =
                         Modifier
+                            .stepSlide()
                             .fillMaxWidth()
                             .navigationBarsPadding()
                             .padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 14.dp),
@@ -195,14 +204,31 @@ fun StepDots(
                     label
             },
     ) {
+        // 단계가 넘어온 화면이면 이전 단계 모양에서 0.28초에 지금 모양으로 자란다(§5). 처음 화면이거나 동작 줄이기면 바로 지금 모양.
+        val reduceMotion = rememberReduceMotion()
+        val from = LocalStepFrom.current?.takeIf { !reduceMotion && it != at }
+        val grow = remember { Animatable(if (from == null) 1f else 0f) }
+        LaunchedEffect(at) { grow.animateTo(1f, tween(StepMotion.MILLIS, easing = ProtoMotion.EaseOutSheet)) }
+
+        fun dotWidth(
+            step: Int?,
+            index: Int,
+        ) = if (index == step) 20.dp else 7.dp
+
+        fun dotColor(
+            step: Int?,
+            index: Int,
+        ): Color =
+            if (onPhoto) {
+                if (step != null && index <= step) Color.White else Color.White.copy(alpha = 0.45f)
+            } else {
+                if (step != null && index <= step) NewCourseStyle.purple else IOS.systemGray4
+            }
         for (index in 1..maxOf(of, 1)) {
-            val width by animateDpAsState(if (index == at) 20.dp else 7.dp, tween(200), label = "stepDot")
-            val color =
-                if (onPhoto) {
-                    if (index <= at) Color.White else Color.White.copy(alpha = 0.45f)
-                } else {
-                    if (index <= at) NewCourseStyle.purple else IOS.systemGray4
-                }
+            val p = grow.value
+            val start = from ?: at
+            val width = lerp(dotWidth(start, index), dotWidth(at, index), p)
+            val color = lerp(dotColor(start, index), dotColor(at, index), p)
             Box(
                 Modifier
                     .width(width)
