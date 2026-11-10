@@ -390,6 +390,7 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
           pending={pendingPin}
           showingMe={showingMe}
           focused={focused}
+          targetUid={stops.find((s) => ext.rowExtras?.(s, host).isTarget)?.uid ?? null}
           previews={previews}
           bottomInset={proto && !mapOpen ? 0 : panelHeight}
           here={here}

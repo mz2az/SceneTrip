@@ -2,7 +2,7 @@
  * 지도 검색 결과 서랍의 「더 받기」 순수 규칙 — 다음 쪽 위치, 언제 더 받을지, 받은 쪽 합치기, 지도 맞추기.
  * 계획: docs/project/plans/motion-works-drawer-parity.md §7 의 4.
  *
- * 서버는 `GET /pois?q&bbox&limit=20&offset=…` 로 한 쪽씩 주고, `total` 이 조건에 맞는 전체 개수다.
+ * 서버는 `GET /pois?q&lat&lng&sort=distance&limit=20&offset=…` 로 한 쪽씩 주고, `total` 이 조건에 맞는 전체 개수다.
  */
 
 /** 한 번에 받는 가게 수. */
@@ -51,15 +51,13 @@ export function fitsMapForPage(offset: number): boolean {
 // ---------------------------------------------------------------- 가까운 순·핀 상한(§8·§10-2, 2026-11-10 사용자 결정)
 //
 // 정본: iOS `MapSearchPagingRules.pinnedResults`·`origin`. 범위(bbox) 없이 화면 가운데에서 가까운 순으로 묻는다.
-// 아래는 시험을 먼저 쓰려고 둔 자리(일부러 틀린 값을 돌려준다).
 
 /** 지도에 결과 핀을 찍는 최대 개수. 목록은 이보다 길어질 수 있다. */
-export const PIN_LIMIT = 0 // TODO(시험 먼저): 100
+export const PIN_LIMIT = 100
 
 /** 결과 목록 가운데 지도에 핀으로 찍을 것 — 앞에서부터 `PIN_LIMIT` 개(가까운 순이므로 가까운 곳들). 차례는 바꾸지 않는다. */
 export function pinnedResults<T>(shops: readonly T[]): T[] {
-  void shops
-  return [] // TODO(시험 먼저): 아직 구현하지 않았다
+  return shops.slice(0, PIN_LIMIT)
 }
 
 /** 「가까운 순」 으로 물을 기준점. */
@@ -70,8 +68,7 @@ export interface SearchOrigin {
 
 /** 검색의 기준점 — 물을 때 보이는 지도(서랍 위)의 가운데. 지도를 모르면 null(서버 기본 이름순). */
 export function searchOrigin(viewport: { readonly centerLat: number; readonly centerLng: number } | null | undefined): SearchOrigin | null {
-  void viewport
-  return { lat: 0, lng: 0 } // TODO(시험 먼저): 아직 구현하지 않았다
+  return viewport ? { lat: viewport.centerLat, lng: viewport.centerLng } : null
 }
 
 /** `GET /pois` 이름 검색 한 쪽의 질의. `bbox` 는 싣지 않는다. */
@@ -89,9 +86,10 @@ export interface ShopSearchQuery {
  * 다음 쪽은 처음 쪽과 같은 기준점으로 묻는다(부르는 쪽이 처음 쪽의 기준점을 들고 있다).
  */
 export function shopSearchQuery(q: string, origin: SearchOrigin | null, limit: number, offset: number): ShopSearchQuery {
-  void q
-  void origin
-  void limit
-  void offset
-  return { q: '', limit: 0 } // TODO(시험 먼저): 아직 구현하지 않았다
+  return {
+    q,
+    limit,
+    ...(offset > 0 ? { offset } : {}),
+    ...(origin ? { lat: origin.lat, lng: origin.lng, sort: 'distance' as const } : {}),
+  }
 }

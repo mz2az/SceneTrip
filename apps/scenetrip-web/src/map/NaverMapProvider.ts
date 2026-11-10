@@ -143,11 +143,12 @@ export function createNaverMap(maps: NaverMaps, el: HTMLElement): MapHandle {
       const target = ll(shiftedCenter(center, z, extraShift(o.shiftY ?? 0)))
       const animate = o.animate !== false
       const duration = Math.round((o.seconds ?? 0.4) * 1000)
+      const motion = o.easing === 'easeOut' ? { duration, easing: 'easeOutCubic' } : { duration }
       if (!animate) {
         if (zoom === null) map.setCenter(target)
         else map.updateBy(target, z)
-      } else if (zoom === null) map.panTo(target, { duration })
-      else map.morph(target, z, { duration })
+      } else if (zoom === null) map.panTo(target, motion)
+      else map.morph(target, z, motion)
     },
     fitBounds: (b, o = {}) => nativeFit(b, o),
     stop() {

@@ -25,12 +25,16 @@ export function PoiDot({ group, symbol, picked = false, size = 16, glyph = 8 }: 
   )
 }
 
-/** 지도 마커 아이콘의 HTML — 흰 테두리와 그림자가 지도에서 경계를 세운다. */
-export function poiDotHtml(group: PoiGroup, symbol: string): string {
-  const glyph = renderToStaticMarkup(<Icon name={symbol} size={GLYPH_BOX} weight="bold" color="#fff" />)
-  const d = DOT_IMAGE - DOT_INSET * 2 + DOT_STROKE
+/** 고른 곳의 아이콘 한 변(pt) — 시안에서 고른 가게·장소는 해태 대신 같은 아이콘을 크게(26→40, motion-works-drawer-parity.md §9). */
+export const DOT_PICKED_IMAGE = 40
+
+/** 지도 마커 아이콘의 HTML — 흰 테두리와 그림자가 지도에서 경계를 세운다. `size` 를 주면 그 크기로(글리프도 같은 비율로) 키운다. */
+export function poiDotHtml(group: PoiGroup, symbol: string, size: number = DOT_IMAGE): string {
+  const k = size / DOT_IMAGE
+  const glyph = renderToStaticMarkup(<Icon name={symbol} size={Math.round(GLYPH_BOX * k)} weight="bold" color="#fff" />)
+  const d = (DOT_IMAGE - DOT_INSET * 2 + DOT_STROKE) * k
   return (
-    `<div style="width:${DOT_IMAGE}px;height:${DOT_IMAGE}px;display:grid;place-items:center">` +
+    `<div style="width:${size}px;height:${size}px;display:grid;place-items:center">` +
     `<div style="box-sizing:border-box;width:${d}px;height:${d}px;border-radius:50%;background:${poiTone(group)};border:${DOT_STROKE}px solid #fff;` +
     `box-shadow:0 0 1.8px rgba(0,0,0,0.3);display:grid;place-items:center">${glyph}</div></div>`
   )

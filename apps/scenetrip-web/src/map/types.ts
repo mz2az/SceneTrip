@@ -24,6 +24,8 @@ export interface MapAnimation {
   animate?: boolean
   /** 애니메이션 길이(초). */
   seconds?: number
+  /** 감속 곡선 — `easeOut` 이면 끝으로 갈수록 느려진다(네이버만, Leaflet 은 자기 곡선 그대로). 없으면 지도 기본. */
+  easing?: 'easeOut'
 }
 
 export interface SetViewOptions extends MapAnimation {

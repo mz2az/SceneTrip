@@ -47,8 +47,9 @@ import { type PlaceTarget, courseEntry, drawnPlaceIds, isSameSpot, rowOf, target
 import { POI_GROUPS, type PoiGroup } from '../poi/poiGroup'
 import { type RoutePlace, dedupeKey, placeGroup, placeKey, serverIdOf } from '../poi/poiPlace'
 import { useAmbientPois } from '../poi/useAmbientPois'
-import { protoAvailable, protoStore } from '@/features/proto/protoState'
+import { protoAvailable, protoOn, protoStore } from '@/features/proto/protoState'
 import { MapPoiBar, fetchSpread, spreadPois } from '@/features/proto/protoPoi'
+import { cameraMotionOnMap, motionOptions } from '@/features/proto/cameraMotion'
 import { type RouteCourse, type RouteStop, canNavigate, makePoiStop, makeStop, placeIdOf, poiIdOf } from '../models'
 import { routeStore } from '../store'
 import { addStops, replaceDay } from './courseEdit'
@@ -425,7 +426,10 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
       const lngs = pts.map((c) => c.lng)
       const bounds = { southWest: { lat: Math.min(...lats), lng: Math.min(...lngs) }, northEast: { lat: Math.max(...lats), lng: Math.max(...lngs) } }
       map.fitBounds(bounds, { paddingTopLeft: [40, 40], paddingBottomRight: [40, host.panelHeight + 40], maxZoom: 17 })
-    } else map.setView(pts[0], Math.max(map.getZoom(), 15))
+    } else {
+      // 시안 — 목적지로 옮길 때 화면 너비 3배 안이면 0.6초 부드럽게, 밖이면 한 번에(motion-works-drawer-parity.md §10-3).
+      map.setView(pts[0], Math.max(map.getZoom(), 15), protoOn() ? motionOptions(cameraMotionOnMap(map, pts[0])) : undefined)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip.recenterTick, host.map])
 
@@ -656,12 +660,6 @@ function EditorMapTop({ host }: { host: EditorHost }) {
   const trip = useTripState(tripSession)
   const guideState = useGuideState(sharedGuide)
   const state = useStore(ui, (s) => s)
-  const drawn = useMemo(() => drawnPlaceIds({ stops: host.stops.map((s) => s.place) }), [host.stops])
-  const counts = useMemo(() => {
-    const c: Partial<Record<PoiGroup, number>> = {}
-    for (const p of withoutDotsUnderPins(state.ambient, drawn)) c[placeGroup(p)] = (c[placeGroup(p)] ?? 0) + 1
-    return c
-  }, [state.ambient, drawn])
   if (trip.target) return null
   return (
     <MapPoiBar
@@ -671,7 +669,6 @@ function EditorMapTop({ host }: { host: EditorHost }) {
       onPick={(place) => sharedGuide.setPicked(place)}
       pickedId={guideState.picked?.id ?? null}
       groupsOn={state.groupsOn}
-      counts={counts}
       loading={state.poiLoading}
       stale={state.poiStale}
       tooWide={state.poiTooWide}

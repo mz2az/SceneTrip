@@ -66,6 +66,8 @@ const trip = readJSON<ProtoTrip | null>(TRIP_KEY, null)
 
 // 처음 온 사람도 질문 화면 대신 홈(사진 카드 + 떠 있는 여행 계획 줄)을 먼저 본다(사용자 결정 2026-11-07). 질문은 사람이 열 때만.
 export const protoStore = createStore<ProtoState>({ proto, trip, asking: false, forced: false, startCity: null, picking: null, justCreated: null })
+/** 지금 시안이 켜져 있나 — 지도 핀 모양처럼 시안 밖 코드가 시안일 때만 다르게 그릴 때. */
+export const protoOn = (): boolean => protoAvailable && protoStore.get().proto !== null
 const patch = (p: Partial<ProtoState>) => protoStore.set((s) => ({ ...s, ...p }))
 // 새 화면이 켜진 곳에서만 서버와 맞춘다(시험 환경·운영 주소에서는 부르지 않는다).
 if (protoAvailable && proto !== null && typeof window !== 'undefined' && import.meta.env.MODE !== 'test') {
