@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import json
+import math
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -92,9 +93,11 @@ def build_city_prompt(
     """
     lines: list[str] = []
     count = len(places)
+    zone_of = zones(places, _needed(1, pace, cfg))
     for i, p in enumerate(places):
         row: dict[str, Any] = {"id": p.place_id, "name": p.name}
         row["area"] = area(p.address)
+        row["zone"] = zone_of[p.place_id]
         row["lat"] = round(p.lat, 5)
         row["lng"] = round(p.lng, 5)
         row["popularity"] = round(1.0 - i / count, 3)
@@ -131,6 +134,53 @@ def chain_plan(
     per_day = want // days
     out = [picked[d * per_day : (d + 1) * per_day] for d in range(days)]
     return [d for d in out if d]
+
+
+def zones(places: list[Place], per_day: int) -> dict[str, str]:
+    """후보를 좌표로 묶은 구역 — place_id → 「A」·「B」…(계획 §3 「구역과 순서」). `places` 는 인기순이다.
+
+    구역 수는 올림(곳 수 ÷ (하루 곳 수 × 2)) — 하루가 한 구역 안에서 고를 거리가 남게. 중심은 인기 1등에서 시작해 이미 고른
+    중심에서 가장 먼 곳을 차례로 더하고(가장 먼 점 고르기), 각 곳을 가장 가까운 중심에 넣고 중심을 무리의 평균으로 옮기기를
+    10번 한다. 난수가 없어 같은 입력이면 같은 답이다. 행정 동네(`area`)는 제주처럼 둘뿐인 도시에서 단서가 되지 못했다.
+    """
+    if not places:
+        return {}
+    count = max(1, math.ceil(len(places) / max(per_day * 2, 1)))
+    points = [(p.lat, p.lng) for p in places]
+    centers = [points[0]]
+    while len(centers) < min(count, len(points)):
+        far = max(points, key=lambda q: min(haversine_m(*q, *c) for c in centers))
+        centers.append(far)
+    owner = [0] * len(points)
+    for _ in range(10):
+        owner = [
+            min(range(len(centers)), key=lambda k, q=q: haversine_m(*q, *centers[k]))
+            for q in points
+        ]
+        for k in range(len(centers)):
+            members = [q for q, o in zip(points, owner, strict=True) if o == k]
+            if members:
+                centers[k] = (
+                    sum(q[0] for q in members) / len(members),
+                    sum(q[1] for q in members) / len(members),
+                )
+    names: dict[int, str] = {}
+    for o in owner:  # 인기순으로 처음 나온 무리부터 A·B·C
+        names.setdefault(o, chr(ord("A") + len(names)))
+    return {p.place_id: names[o] for p, o in zip(places, owner, strict=True)}
+
+
+def reorder_day(day: list[Place]) -> list[Place]:
+    """그날 첫 곳에서 시작해 매번 가장 가까운 곳으로 차례를 다시 잡는다. 고른 곳은 그대로."""
+    if len(day) < 3:
+        return list(day)
+    left = list(day[1:])
+    out = [day[0]]
+    while left:
+        last = out[-1]
+        best = min(range(len(left)), key=lambda i: _km(last, left[i]))
+        out.append(left.pop(best))
+    return out
 
 
 def trim_days(
@@ -219,7 +269,10 @@ def plan_city_with_model(
             )
             by_id = {p.place_id: p for p in candidates}
             chosen = parse_days(str(reply.get("content") or ""), by_id, req.days)
-            kept = trim_days([d for d in chosen if d], req.pace, cfg)
+            kept = [
+                reorder_day(d)
+                for d in trim_days([d for d in chosen if d], req.pace, cfg)
+            ]
             return _plan(req, kept, len(candidates), llm=True)
         except (PlanError, SceneApiError):
             raise
