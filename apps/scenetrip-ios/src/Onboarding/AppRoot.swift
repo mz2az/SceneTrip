@@ -5,6 +5,7 @@ import SwiftUI
 /// 예전에는 `RootTabs` 위에 스플래시 → (처음이면) 언어 고르기 → 사용법 넉 장을 덮개로 얹었다.
 /// 광고로 들어온 방문자 724명 중 언어 고르기를 지난 사람이 7명, 사용법을 끝낸 사람이 1명이라
 /// 첫 실행 덮개를 모두 걷었다. 시스템 LaunchScreen 은 OS 몫이라 그대로다.
+/// 켤 때(콜드 스타트)마다 1.5초짜리 시작 화면(`SplashView`, MZ2AZ-549)만 다시 얹었다 — 누르면 바로 넘어간다.
 ///
 /// - 언어: 저장값이 없으면 영어(`AppLanguage.startingLanguage`). 마이페이지에서 바꾼다.
 /// - 사용법: 마이페이지 「사용법 다시 보기」에만 남는다(`OnboardingView`).
@@ -13,6 +14,9 @@ struct AppRoot: View {
     @ObservedObject private var language = AppLanguage.shared
     @ObservedObject private var update = AppUpdateChecker.shared
     @Environment(\.scenePhase) private var scenePhase
+    /// 시작 화면을 다 봤나 — 프로세스가 새로 뜰 때만 처음으로 돌아간다(앞으로 올 때는 다시 안 보인다).
+    /// 자동 화면 점검·뒷문 실행은 `-skipSplash 1` 로 건너뛴다.
+    @State private var splashDone = UserDefaults.standard.bool(forKey: "skipSplash")
 
     var body: some View {
         ZStack {
@@ -23,6 +27,11 @@ struct AppRoot: View {
             if case let .required(store) = update.decision {
                 RequiredUpdateCover(store: store, onUpdate: update.openStore)
                     .transition(.opacity)
+            }
+            if !splashDone {
+                SplashView { withAnimation(.easeOut(duration: 0.25)) { splashDone = true } }
+                    .transition(.opacity)
+                    .zIndex(2)
             }
         }
         // 권장 업데이트 — 그 최신 버전에 한 번(MZ2AZ-546).
