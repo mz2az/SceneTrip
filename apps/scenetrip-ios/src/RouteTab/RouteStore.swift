@@ -347,7 +347,7 @@ final class RouteStore: ObservableObject {
     /// **저장하지 않는다.** 응답은 초안이고 편집 화면에 그려진다. 저장은 「완료」뿐이다.
     ///
     /// 속도는 앱의 둘(빡빡·널널)을 계약의 셋 중 양끝(`packed`·`relaxed`)으로 보낸다. 작품을 하나도
-    /// 안 골랐으면 인기 작품 셋의 제목을 보낸다 — 계약이 `titles` 를 최소 하나 요구한다.
+    /// 안 골랐으면 인기 작품 셋의 제목을 보낸다 — 계약이 작품(`titles`) 또는 도시(`city`) 중 하나를 요구한다.
     ///
     /// 보낼 제목(`titles`)은 화면이 정한다 — 작품 고르기는 서버의 작품 전부를 검색·쪽 넘김으로 보여 주므로, 고른 작품이
     /// 이 저장소의 인기 30편(`works`) 안에 있다는 보장이 없다(`WorksBrowseRules.requestTitles`, MZ2AZ-547).
@@ -370,7 +370,7 @@ final class RouteStore: ObservableObject {
         )
         do {
             let reply = try await GuideAPI.planWithGuide(guidePlanRequest: request)
-            AppAnalytics.log(.generatePlan(dayCount: span.days, titleCount: request.titles.count))
+            AppAnalytics.log(.generatePlan(dayCount: span.days, titleCount: request.titles?.count ?? 0))
             return .success(RouteGuidePlan.course(
                 from: reply.plan,
                 title: title(for: picked, span: span),

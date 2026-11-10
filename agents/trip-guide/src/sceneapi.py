@@ -163,6 +163,11 @@ class SceneApiPlaceBook(PlaceSource):
         data = self._get(f"/contents/{best['id']}/places", {"limit": limit})
         return best.get("title"), [self._to_place(i) for i in data.get("items", [])]
 
+    def by_city(self, city: str, limit: int = 200) -> list[Place]:
+        """`GET /places?city=` — 서버의 기본 정렬(인기도 내림차순) 그대로(MZ2AZ-548)."""
+        data = self._get("/places", {"city": city, "limit": limit})
+        return [self._to_place(i) for i in data.get("items", [])]
+
     def near(
         self,
         lat: float,

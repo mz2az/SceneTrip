@@ -75,6 +75,8 @@ class PlanRequest:
     start_label: str = ""
     must: list[str] = field(default_factory=list)
     avoid: list[str] = field(default_factory=list)
+    # 작품 대신 도시로 짠다(MZ2AZ-548) — `GET /places/cities` 의 key. 이때 `titles` 는 비어 있다.
+    city: str | None = None
 
 
 @dataclass

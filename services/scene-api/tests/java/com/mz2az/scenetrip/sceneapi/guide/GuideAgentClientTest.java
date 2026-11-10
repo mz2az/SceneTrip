@@ -204,7 +204,7 @@ class GuideAgentClientTest {
     assertThat(lastAcceptLanguage).isEqualTo("en");
 
     body = PLAN_JSON;
-    client().plan(new GuidePlanRequest(List.of("도깨비"), 2), null, null);
+    client().plan(new GuidePlanRequest(2).titles(List.of("도깨비")), null, null);
     assertThat(lastAcceptLanguage).isEqualTo("en");
   }
 
@@ -213,7 +213,8 @@ class GuideAgentClientTest {
   void parsesPlanReply() {
     body = PLAN_JSON;
 
-    GuidePlanReply reply = client().plan(new GuidePlanRequest(List.of("도깨비"), 2), Lang.KO, null);
+    GuidePlanReply reply =
+        client().plan(new GuidePlanRequest(2).titles(List.of("도깨비")), Lang.KO, null);
 
     assertThat(lastPath).isEqualTo("/plan");
     assertThat(reply.getPlan().getDays()).hasSize(1);
@@ -227,7 +228,8 @@ class GuideAgentClientTest {
     status = 400;
     body = "{\"code\":\"INVALID_PARAMETER\",\"message\":\"「도깨비2」 로 찾은 촬영지가 없다\"}";
 
-    assertThatThrownBy(() -> client().plan(new GuidePlanRequest(List.of("도깨비2"), 2), Lang.KO, null))
+    assertThatThrownBy(
+            () -> client().plan(new GuidePlanRequest(2).titles(List.of("도깨비2")), Lang.KO, null))
         .isInstanceOfSatisfying(
             ApiException.class,
             e -> {
@@ -304,7 +306,7 @@ class GuideAgentClientTest {
 
     assertUnavailable(() -> client().chat(chatRequest(), Lang.KO, null), null);
     assertUnavailable(
-        () -> client().plan(new GuidePlanRequest(List.of("도깨비"), 2), Lang.KO, null), null);
+        () -> client().plan(new GuidePlanRequest(2).titles(List.of("도깨비")), Lang.KO, null), null);
   }
 
   @Test
@@ -366,7 +368,7 @@ class GuideAgentClientTest {
   void planCarriesRateSubject() {
     body = PLAN_JSON;
     for (String subject : new String[] {INSTALL_SUBJECT, "ip:203.0.113.10", USER_SUBJECT}) {
-      client().plan(new GuidePlanRequest(List.of("도깨비"), 2), Lang.KO, subject);
+      client().plan(new GuidePlanRequest(2).titles(List.of("도깨비")), Lang.KO, subject);
 
       assertThat(lastPath).isEqualTo("/plan");
       assertThat(lastHeaders.get("X-Rate-Subject")).as(subject).containsExactly(subject);
@@ -380,7 +382,7 @@ class GuideAgentClientTest {
     assertThat(lastHeaders.containsKey("X-Rate-Subject")).isFalse();
 
     body = PLAN_JSON;
-    client().plan(new GuidePlanRequest(List.of("도깨비"), 2), Lang.KO, null);
+    client().plan(new GuidePlanRequest(2).titles(List.of("도깨비")), Lang.KO, null);
     assertThat(lastHeaders.containsKey("X-Rate-Subject")).isFalse();
   }
 
@@ -393,7 +395,7 @@ class GuideAgentClientTest {
     assertNoCredentials();
 
     body = PLAN_JSON;
-    client().plan(new GuidePlanRequest(List.of("도깨비"), 2), Lang.KO, INSTALL_SUBJECT);
+    client().plan(new GuidePlanRequest(2).titles(List.of("도깨비")), Lang.KO, INSTALL_SUBJECT);
     assertNoCredentials();
   }
 
@@ -492,7 +494,8 @@ class GuideAgentClientTest {
             + MIXED_PLAN_JSON
             + ", \"effects\": [{\"op\": \"plan.draft\"}], \"ui\": [], \"tookSeconds\": 0.02}";
 
-    GuidePlanReply reply = client().plan(new GuidePlanRequest(List.of("도깨비"), 1), Lang.KO, null);
+    GuidePlanReply reply =
+        client().plan(new GuidePlanRequest(1).titles(List.of("도깨비")), Lang.KO, null);
 
     List<GuidePlanStop> stops = reply.getPlan().getDays().get(0).getStops();
     assertThat(stops.get(0).getPlaceId()).isEqualTo(1187L);
