@@ -25,33 +25,33 @@ final class SceneFlipRulesTests: XCTestCase {
     // MARK: 장면 그림 고르기
 
     func testPicksFirstPictureOfCardWorkScene() {
-        let d = detail([scene(1, ["a1"]), scene(2, ["b1", "b2"]), scene(3, ["c1"])])
-        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: d, workId: 2), "b1")
+        let place = detail([scene(1, ["a1"]), scene(2, ["b1", "b2"]), scene(3, ["c1"])])
+        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: place, workId: 2), "b1")
     }
 
     func testCardWorkSceneWinsEvenWhenNotFirst() {
-        let d = detail([scene(1, ["a1", "a2"]), scene(9, ["z1"])])
-        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: d, workId: 9), "z1")
+        let place = detail([scene(1, ["a1", "a2"]), scene(9, ["z1"])])
+        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: place, workId: 9), "z1")
     }
 
     func testMultiplePicturesTakesFirst() {
-        let d = detail([scene(5, ["first", "second", "third"])])
-        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: d, workId: 5), "first")
+        let place = detail([scene(5, ["first", "second", "third"])])
+        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: place, workId: 5), "first")
     }
 
     func testCardWorkSceneWithoutPicturesFallsBackToFirstSceneWithPictures() {
-        let d = detail([scene(1, []), scene(2, []), scene(3, ["c1", "c2"]), scene(4, ["d1"])])
-        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: d, workId: 2), "c1")
+        let place = detail([scene(1, []), scene(2, []), scene(3, ["c1", "c2"]), scene(4, ["d1"])])
+        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: place, workId: 2), "c1")
     }
 
     func testMissingWorkIdFallsBackToFirstSceneWithPictures() {
-        let d = detail([scene(1, []), scene(2, ["b1"]), scene(3, ["c1"])])
-        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: d, workId: nil), "b1")
+        let place = detail([scene(1, []), scene(2, ["b1"]), scene(3, ["c1"])])
+        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: place, workId: nil), "b1")
     }
 
     func testWorkNotAmongScenesFallsBackToFirstSceneWithPictures() {
-        let d = detail([scene(1, ["a1"]), scene(2, ["b1"])])
-        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: d, workId: 77), "a1")
+        let place = detail([scene(1, ["a1"]), scene(2, ["b1"])])
+        XCTAssertEqual(SceneFlipRules.sceneImageUrl(detail: place, workId: 77), "a1")
     }
 
     func testNoPicturesAnywhereIsNil() {
