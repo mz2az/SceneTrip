@@ -175,4 +175,17 @@ internal val TRANSLATIONS_EN_EXTRA =
             "Find places beyond filming spots — search restaurants, cafés, stays and sights by name, then add them to your course.",
         "주변 둘러보기" to "Browse nearby",
         "전체·음식·관광지·숙소 칩을 누르면 지금 보이는 지도 안의 장소가 핀으로 떠요." to "Tap All, Food, Sights or Stays to pin places in the area you are looking at.",
+        // 코스 목록 「내 여행」 (MZ2AZ-547 P7 L1–L4) — iOS `en.lproj` 의 같은 문구.
+        "다가오는 여행" to "Upcoming",
+        "%d개 선택" to "%d selected",
+        "코스 선택" to "Select trips",
+        "전체 선택" to "Select all",
+        "선택 해제" to "Deselect all",
+        "%d개 삭제" to "Delete %d",
+        "지우는 중…" to "Deleting…",
+        "코스 %d개를 지울까요?" to "Delete %d trips?",
+        "아직 코스가 없어요" to "No trips yet",
+        "「새 코스」 로 첫 여행을 짜 보세요" to "Tap “New” to plan your first trip",
+        "%s 메뉴" to "%s menu",
+        "여러 개 고르기" to "Select multiple",
     )

@@ -89,6 +89,8 @@ kt_jvm_library(
         "tests/CommunityTests.kt",
         "tests/ContentPlacePagesTests.kt",
         "tests/CourseDetailSafetyTests.kt",
+        # 코스 목록 「내 여행」 (MZ2AZ-547 P7)
+        "tests/CourseListRulesTests.kt",
         "tests/CourseSwipeTests.kt",
         "tests/FirstCourseGuideTests.kt",
         "tests/FootprintPrivacyTests.kt",
