@@ -334,7 +334,6 @@ def _stop(order, name, lat, lng, **ids):
     }
 
 
-
 class 정지점의_사진과_작품(unittest.TestCase):
     """일정 줄마다 `imageUrl` 과 `contents` 가 실린다(1.28.0, MZ2AZ-548).
 
@@ -359,9 +358,13 @@ class 정지점의_사진과_작품(unittest.TestCase):
         self.book = numbered_book()
         for p in self.book.catalog["도깨비"]:
             # 2201 은 사진이 없다.
-            p.image_url = "" if p.place_id == "2201" else f"https://img.test/{p.place_id}.jpg"
+            p.image_url = (
+                "" if p.place_id == "2201" else f"https://img.test/{p.place_id}.jpg"
+            )
             p.content_refs = [dict(r) for r in self.REFS[p.place_id]]
-        self.wire = plan_to_api(make_plan(self.book, PlanRequest(titles=["도깨비"], days=1)))
+        self.wire = plan_to_api(
+            make_plan(self.book, PlanRequest(titles=["도깨비"], days=1))
+        )
         self.stops = [s for d in self.wire["days"] for s in d["stops"]]
 
     def test_줄마다_imageUrl_과_contents_가_있다(self):

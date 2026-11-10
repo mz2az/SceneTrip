@@ -227,7 +227,9 @@ class 일정초안(unittest.TestCase):
             ]
         for days in (1, 2):
             with self.subTest(days=days):
-                wire = plan_to_api(make_plan(book, PlanRequest(titles=["도깨비"], days=days)))
+                wire = plan_to_api(
+                    make_plan(book, PlanRequest(titles=["도깨비"], days=days))
+                )
                 validate_def(wire, "guidePlan", SCHEMA)
                 stops = [s for d in wire["days"] for s in d["stops"]]
                 self.assertTrue(stops)

@@ -1261,7 +1261,8 @@ class _CityHttp:
             with self.subTest(placeId=s["placeId"]):
                 self.assertIn("imageUrl", s)
                 self.assertEqual(
-                    s["imageUrl"], None if i == 1 else f"https://img.test/{1000 + i}.jpg"
+                    s["imageUrl"],
+                    None if i == 1 else f"https://img.test/{1000 + i}.jpg",
                 )
                 self.assertEqual(
                     s["contents"],
