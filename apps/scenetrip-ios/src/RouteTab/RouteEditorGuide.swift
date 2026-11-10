@@ -188,7 +188,7 @@ extension RouteEditorView {
             guide.picked = places.first { $0.serverId == id }
         case let .courseOpen(day):
             openDay(day)
-            panelDetent = .medium
+            withAnimation(Self.sheetMotion) { panelDetent = .medium }
         case let .courseFocus(day, changed):
             openDay(day)
             // 바뀐 줄을 잠깐 강조 — 무엇이 바뀌었는지 눈에 보여야 바뀐 줄 안다. 고른 줄 표시

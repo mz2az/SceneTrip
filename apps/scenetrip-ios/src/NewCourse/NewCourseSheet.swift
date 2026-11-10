@@ -139,7 +139,7 @@ struct NewCourseSheet: View {
             .fixedSize(horizontal: false, vertical: true)
             .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
     }
 
     private func art(_ photo: HomeCityRules.Photo?, symbol: String) -> some View {

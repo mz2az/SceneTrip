@@ -27,6 +27,7 @@ struct NewCourseScreen<Hero: View, Content: View, Footer: View>: View {
     @ViewBuilder var hero: () -> Hero
     @ViewBuilder var content: () -> Content
     @ViewBuilder var footer: () -> Footer
+    @Environment(\.stepDotsOutside) private var stepDotsOutside
 
     private var hasHero: Bool {
         Hero.self != EmptyView.self
@@ -76,7 +77,8 @@ struct NewCourseScreen<Hero: View, Content: View, Footer: View>: View {
 
     private var bar: some View {
         ZStack {
-            if let step {
+            // 흐름이 단계 점을 따로 그리면(단계 넘김 §5) 여기서는 그리지 않는다 — 화면과 함께 밀리지 않게.
+            if let step, !stepDotsOutside {
                 StepDots(at: step.at, of: step.of, onPhoto: hasHero)
             }
             HStack {
@@ -89,7 +91,7 @@ struct NewCourseScreen<Hero: View, Content: View, Footer: View>: View {
                             .frame(width: 44, height: 44)
                             .contentShape(.rect)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.press)
                     .accessibilityLabel(tr("뒤로"))
                 }
                 Spacer()
@@ -136,6 +138,7 @@ struct StepDots: View {
     let at: Int
     let of: Int
     var onPhoto = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 6) {
@@ -145,7 +148,9 @@ struct StepDots: View {
                     .frame(width: index == at ? 20 : 7, height: 7)
             }
         }
-        .animation(.easeOut(duration: 0.2), value: at)
+        // 단계 넘김과 같은 0.28초(동작 줄이기 0.2초) — 계획 §5.
+        .animation(StepMotion.animation(reduceMotion: reduceMotion), value: at)
+        .animation(StepMotion.animation(reduceMotion: reduceMotion), value: onPhoto)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(String(format: tr("%lld단계 중 %lld단계"), of, at))
     }
@@ -175,7 +180,7 @@ struct NewCoursePrimaryButton<Label: View>: View {
                 .opacity(disabled ? 0.45 : 1)
                 .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
         .disabled(disabled)
     }
 }
@@ -202,7 +207,7 @@ struct NewCourseSecondaryButton: View {
                 .overlay(RoundedRectangle(cornerRadius: NewCourseStyle.radiusM).strokeBorder(NewCourseStyle.purple, lineWidth: 1.5))
                 .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
     }
 }
 
@@ -277,7 +282,7 @@ struct PhotoRoundButton: View {
                 .frame(width: 44, height: 44)
                 .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
         .accessibilityLabel(label)
     }
 }

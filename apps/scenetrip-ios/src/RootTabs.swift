@@ -215,7 +215,7 @@ struct TabBar: View {
             .contentShape(Capsule())
             .animation(.easeInOut(duration: 0.2), value: on)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
         .accessibilityLabel(tab.label)
         .accessibilityAddTraits(on ? .isSelected : [])
     }

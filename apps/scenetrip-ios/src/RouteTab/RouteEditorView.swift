@@ -167,6 +167,8 @@ struct RouteEditorView: View {
     @State var mapToggle: RouteMapToggle
     /// 떠 있는 ＋ 의 메뉴 · 「지도에서 추가」 · 「보관함에서 추가」(E8–E10).
     @State var addMenuOpen = false
+    /// 「목록만」 을 눌러 서랍이 맨 위로 올라가는 0.32초(M5) — 그동안 지도 알약·＋ 를 숨긴다.
+    @State var mapClosing = false
     @State var showMapAdd = false
     @State var showSavedAdd = false
     /// 줄 사진의 ⓘ 로 연 장소 상세(E6).
@@ -295,7 +297,7 @@ struct RouteEditorView: View {
             .overlay(alignment: .top) { mapTop }
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { mapAreaHeight = $0 }
             .overlay(alignment: .bottomLeading) {
-                if !mapResultsOpen {
+                if !mapResultsOpen, !mapClosing {
                     mapPill
                 }
             }

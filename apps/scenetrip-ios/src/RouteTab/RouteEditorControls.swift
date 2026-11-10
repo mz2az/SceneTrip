@@ -27,9 +27,8 @@ extension RouteEditorView {
             guideCameraKey: guide.places.map(\.id).joined(separator: ","),
             // 고른 것은 따로 — 놓기만 한 것(카드 ✕)은 카메라를 옮기지 않는다(2026-11-10).
             pickedCameraId: guide.picked?.id,
-            // 골고루 찍기(MZ2AZ-547 M4) — 칸마다 1등은 원래 점, 나머지는 작은 점.
-            ambientPlaces: spreadAmbient.major,
-            ambientMinor: spreadAmbient.minor,
+            // 골고루 찍기(MZ2AZ-547 M4, §7) — 칸마다 1등만 아이콘, 나머지는 그리지 않는다.
+            ambientPlaces: spreadAmbient,
             search: mapSearchPins,
             onViewport: viewportChanged,
             onLocation: { spot in

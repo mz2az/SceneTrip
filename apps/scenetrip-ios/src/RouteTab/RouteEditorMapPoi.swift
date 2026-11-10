@@ -29,12 +29,13 @@ extension RouteEditorView {
         showsMapPoiBar && mapResults.isOpen
     }
 
-    /// 지도 검색의 점 — 엔터 전 목록이 떠 있는 동안은 목록의 것, 엔터 뒤면 결과(웹 2026-11-10). 정보 카드가 뜬 곳은 고른 핀만.
+    /// 지도 검색의 핀 — 엔터 뒤 결과 서랍의 앞 100개만(§8-2, 목록은 더 길어도). 글자 치는 동안은 지도에 찍지 않는다(§7 구글처럼). 정보 카드가 뜬 곳은 고른 핀만.
     var mapSearchPins: MapSearchPins {
         MapSearchPins(
             shops: MapSearchRules.mapDots(
-                searching: showsMapPoiBar && mapSearching, listed: mapSearch.pinned,
-                results: mapResultsOpen ? mapResults.state?.shops : nil, picked: guide.picked?.id
+                searching: false, listed: [],
+                results: mapResultsOpen ? mapResults.state?.shops.map(MapSearchPagingRules.pinnedResults) : nil,
+                picked: guide.picked?.id
             ),
             camera: mapCamera
         )
@@ -64,12 +65,13 @@ extension RouteEditorView {
                         mapSearching = false
                         pickSearchPlace(place)
                     },
-                    onCommit: { query, wide in
+                    onCommit: { query in
                         mapSearching = false
                         guide.picked = nil
-                        mapResults.open(query: query, wide: wide, viewport: mapViewport)
+                        mapResults.open(query: query, viewport: mapViewport)
                     },
-                    onClose: { withAnimation(.easeOut(duration: 0.2)) { mapSearching = false } },
+                    // 줄어드는 움직임은 검색칸이 한다(M7) — 다 줄어든 뒤 칩 줄로 바로 바꾼다.
+                    onClose: { mapSearching = false },
                     initialText: mapSearchText
                 )
             } else {
@@ -86,11 +88,11 @@ extension RouteEditorView {
         }
     }
 
-    /// 지도에 그릴 편의시설을 칸마다 큰 점·작은 점으로 가른다(M4). 고른 점은 작은 점이어도 크게(고른 핀으로) 그린다.
-    var spreadAmbient: (major: [RouteGuide.Place], minor: [RouteGuide.Place]) {
+    /// 지도에 그릴 편의시설 — 칸마다 1등만(M4, §7 구글처럼: 나머지는 그리지 않는다). 고른 것은 1등이 아니어도 고른 핀으로 그린다.
+    var spreadAmbient: [RouteGuide.Place] {
         let split = MapPoiSpread.split(visibleAmbientPois, zoom: mapViewport?.zoom ?? 0)
-        guard let picked = guide.picked, split.minor.contains(where: { $0.id == picked.id }) else { return split }
-        return (split.major + split.minor.filter { $0.id == picked.id }, split.minor.filter { $0.id != picked.id })
+        guard let picked = guide.picked, split.minor.contains(where: { $0.id == picked.id }) else { return split.major }
+        return split.major + split.minor.filter { $0.id == picked.id }
     }
 
     // MARK: 칩
@@ -149,7 +151,8 @@ extension RouteEditorView {
     func openMapSearch() {
         mapSearchText = ""
         ambientLocationGate.requestLocation(for: mapViewport?.source ?? .userSelected) {
-            withAnimation(.easeOut(duration: 0.2)) { mapSearching = true }
+            // 펼치는 움직임은 검색칸이 한다(M7, 🔍 자리에서 오른쪽으로 0.28초).
+            mapSearching = true
         }
     }
 
@@ -200,7 +203,7 @@ extension RouteEditorView {
             mapSearching = true
         }
         if let results {
-            mapResults.open(query: results, wide: true, viewport: mapViewport)
+            mapResults.open(query: results, viewport: mapViewport)
             for _ in 0 ..< 50 where mapResults.state?.shops == nil {
                 try? await Task.sleep(for: .milliseconds(100))
             }

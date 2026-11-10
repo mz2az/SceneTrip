@@ -73,13 +73,6 @@ final class MapSearchRulesTests: XCTestCase {
         XCTAssertEqual(viewport.bbox, "126.9,37.4,127.1,37.6")
     }
 
-    /// 「이 지역 밖에서도」 면 범위 없음, 아니면 지금 지도.
-    func testBboxForWideOrHere() {
-        XCTAssertEqual(MapSearchRules.bbox(wide: false, viewport: viewport), "126.9,37.4,127.1,37.6")
-        XCTAssertNil(MapSearchRules.bbox(wide: true, viewport: viewport))
-        XCTAssertNil(MapSearchRules.bbox(wide: false, viewport: nil))
-    }
-
     func testRowsForIdleLoadingFailed() {
         XCTAssertEqual(MapSearchRules.rows(.idle), [])
         XCTAssertEqual(MapSearchRules.rows(.loading), [.loading])
@@ -94,36 +87,30 @@ final class MapSearchRulesTests: XCTestCase {
 
     // MARK: 목록 줄 — 가게·장소만(촬영지는 찾지 않는다)
 
-    /// 이 지역 — 가게·장소 제목 → 가게 → 그 아래 「이 지역 밖에서도 찾기」.
-    func testRowsHereWithResults() {
-        let rows = MapSearchRules.rows(.done(shops: [poi(1), poi(2)], wide: false))
-        XCTAssertEqual(rows, [.title(.shopsHere), .shop(poi(1)), .shop(poi(2)), .searchEverywhere])
+    /// 범위 없이 가까운 순(§10-2) — 「가게·장소 · 가까운 순」 제목 → 가게(받은 순서 그대로). 「이 지역 밖에서도 찾기」 줄은 없다.
+    func testRowsDoneWithShops() {
+        let rows = MapSearchRules.rows(.done(shops: [poi(1), poi(2)]))
+        XCTAssertEqual(rows, [.title(.shopsNearby), .shop(poi(1)), .shop(poi(2))])
     }
 
-    /// 이 지역에 없으면 「이 지역엔 없어요」, 그래도 「이 지역 밖에서도 찾기」.
-    func testRowsHereEmpty() {
-        let rows = MapSearchRules.rows(.done(shops: [], wide: false))
-        XCTAssertEqual(rows, [.title(.shopsHere), .empty(.noneHere), .searchEverywhere])
-    }
-
-    /// 전체에서 찾았으면 「이 지역 밖에서도 찾기」 가 없다.
-    func testRowsWideWithResults() {
+    /// 갈래가 달라도 가게·장소 줄로 그대로 나온다.
+    func testRowsDoneWithOneStay() {
         let shop = poi(7, .stay)
-        let rows = MapSearchRules.rows(.done(shops: [shop], wide: true))
-        XCTAssertEqual(rows, [.title(.shopsEverywhere), .shop(shop)])
+        let rows = MapSearchRules.rows(.done(shops: [shop]))
+        XCTAssertEqual(rows, [.title(.shopsNearby), .shop(shop)])
     }
 
-    /// 전체에서도 없으면 「찾는 곳이 없어요」.
-    func testRowsWideEmpty() {
-        let rows = MapSearchRules.rows(.done(shops: [], wide: true))
-        XCTAssertEqual(rows, [.title(.shopsEverywhere), .empty(.noPlaces)])
+    /// 하나도 없으면 제목 → 「찾는 곳이 없어요」, 그 밖의 줄은 없다(§10-2).
+    func testRowsDoneEmpty() {
+        let rows = MapSearchRules.rows(.done(shops: []))
+        XCTAssertEqual(rows, [.title(.shopsNearby), .empty(.noPlaces)])
     }
 
     // MARK: 검색하는 동안 지도에 남길 점
 
     /// 결과가 오면 그것으로 바꾼다.
     func testPinnedReplacedByDoneShops() {
-        let pinned = MapSearchRules.pinned(previous: [poi(1)], phase: .done(shops: [poi(2), poi(3)], wide: false))
+        let pinned = MapSearchRules.pinned(previous: [poi(1)], phase: .done(shops: [poi(2), poi(3)]))
         XCTAssertEqual(ids(pinned), ids([poi(2), poi(3)]))
     }
 
@@ -227,7 +214,7 @@ final class MapSearchResultsTests: XCTestCase {
 
     /// 서랍은 42% 에서 시작해 손잡이로 78% ↔ 42%.
     func testDrawerToggles() {
-        var results = MapSearchResults(query: "남산", wide: false)
+        var results = MapSearchResults(query: "남산")
         XCTAssertEqual(results.drawerShare, 0.42, accuracy: 0.0001)
         results.toggleDrawer()
         XCTAssertTrue(results.tall)
@@ -239,7 +226,7 @@ final class MapSearchResultsTests: XCTestCase {
 
     /// 검색어 알약의 「N곳」 — 받기 전 nil.
     func testCount() {
-        var results = MapSearchResults(query: "남산", wide: false)
+        var results = MapSearchResults(query: "남산")
         XCTAssertNil(results.shops)
         XCTAssertNil(results.count)
         results.received(shops: [poi(1), poi(2), poi(3)])
@@ -250,7 +237,7 @@ final class MapSearchResultsTests: XCTestCase {
 
     /// 받으면 목록을 두고 실패를 거둔다.
     func testReceivedStoresShopsAndClearsFailed() {
-        var results = MapSearchResults(query: "남산", wide: false)
+        var results = MapSearchResults(query: "남산")
         results.searchFailed()
         XCTAssertTrue(results.failed)
         results.received(shops: [poi(1)])
@@ -260,7 +247,7 @@ final class MapSearchResultsTests: XCTestCase {
 
     /// 새로 받기 시작하면 목록을 비우고 실패·「다시 찾기」 를 거둔다.
     func testBeginClearsState() {
-        var results = MapSearchResults(query: "남산", wide: false)
+        var results = MapSearchResults(query: "남산")
         results.received(shops: [poi(1)])
         results.cameraIdle(at: start)
         results.searchFailed()
@@ -273,29 +260,21 @@ final class MapSearchResultsTests: XCTestCase {
         XCTAssertFalse(results.stale)
     }
 
-    /// 「이 지역에서 다시 찾기」 — 범위를 지금 지도로, 다시 받는다.
-    func testSearchHere() {
-        var results = MapSearchResults(query: "남산", wide: true)
+    /// 「↻ 이 지역에서 다시 찾기」 — 새 화면 가운데를 기준으로 처음 쪽부터 다시 묻는다(§10-2). 누를 때마다 새 물음.
+    func testSearchHereStartsNewAsk() {
+        var results = MapSearchResults(query: "남산")
         let before = results.ask
         results.searchHere()
-        XCTAssertFalse(results.wide)
         XCTAssertEqual(results.ask, before + 1)
-    }
-
-    /// 「이 지역 밖에서도 찾기」 — 범위 없이, 다시 받는다.
-    func testSearchEverywhere() {
-        var results = MapSearchResults(query: "남산", wide: false)
-        let before = results.ask
-        results.searchEverywhere()
-        XCTAssertTrue(results.wide)
-        XCTAssertEqual(results.ask, before + 1)
+        results.searchHere()
+        XCTAssertEqual(results.ask, before + 2)
     }
 
     // MARK: 「다시 찾기」
 
     /// 받기 전에는 지도를 옮겨도 없다. 받은 뒤 사람이 지도를 옮기면 「다시 찾기」, 새로 받으면 거둔다.
     func testCameraIdleAfterReceivedShowsRefresh() {
-        var results = MapSearchResults(query: "남산", wide: false)
+        var results = MapSearchResults(query: "남산")
         results.cameraIdle(at: start)
         XCTAssertFalse(results.stale)
         XCTAssertFalse(results.showsRefresh)
@@ -310,7 +289,7 @@ final class MapSearchResultsTests: XCTestCase {
 
     /// 앱이 카메라를 옮긴 직후(0.9초 안)의 멈춤은 사람이 옮긴 것이 아니다.
     func testSelfMoveWithinGraceIsIgnored() {
-        var results = MapSearchResults(query: "남산", wide: false)
+        var results = MapSearchResults(query: "남산")
         results.received(shops: [poi(1)])
         results.markSelfMove(at: start)
         results.cameraIdle(at: start.addingTimeInterval(0.5))
@@ -321,7 +300,7 @@ final class MapSearchResultsTests: XCTestCase {
 
     /// 새로 받는 동안(가게 nil)에는 「다시 찾기」 를 보이지 않는다.
     func testNoRefreshWhileShopsNotReceived() {
-        var results = MapSearchResults(query: "남산", wide: false)
+        var results = MapSearchResults(query: "남산")
         results.received(shops: [poi(1)])
         results.cameraIdle(at: start)
         XCTAssertTrue(results.showsRefresh)
@@ -332,30 +311,31 @@ final class MapSearchResultsTests: XCTestCase {
     // MARK: 서랍 본문
 
     func testBodyLoadingThenShops() {
-        var results = MapSearchResults(query: "남산", wide: false)
+        var results = MapSearchResults(query: "남산")
         XCTAssertEqual(results.body, .loading)
         results.received(shops: [poi(1), poi(2)])
         XCTAssertEqual(results.body, .shops([poi(1), poi(2)]))
     }
 
     func testBodyFailed() {
-        var results = MapSearchResults(query: "남산", wide: false)
+        var results = MapSearchResults(query: "남산")
         results.searchFailed()
         XCTAssertTrue(results.failed)
         XCTAssertEqual(results.body, .failed)
     }
 
-    /// 이 지역에 없으면 「이 지역엔 없어요」 + 「이 지역 밖에서도 찾기」 단추.
-    func testBodyEmptyHereOffersEverywhere() {
-        var results = MapSearchResults(query: "남산", wide: false)
+    /// 하나도 없으면 「찾는 곳이 없어요」 — 「이 지역 밖에서도 찾기」 단추는 없다(§10-2).
+    func testBodyEmptyShowsNoPlaces() {
+        var results = MapSearchResults(query: "남산")
         results.received(shops: [])
-        XCTAssertEqual(results.body, .empty(.noneHere, offerEverywhere: true))
+        XCTAssertEqual(results.body, .empty(.noPlaces))
     }
 
-    /// 전체에서도 없으면 「찾는 곳이 없어요」, 단추 없음.
-    func testBodyEmptyWide() {
-        var results = MapSearchResults(query: "남산", wide: true)
+    /// 받는 동안은 받는 중, 다 받았는데 비었으면 「찾는 곳이 없어요」.
+    func testBodyLoadingThenEmpty() {
+        var results = MapSearchResults(query: "남산")
+        XCTAssertEqual(results.body, .loading)
         results.received(shops: [])
-        XCTAssertEqual(results.body, .empty(.noPlaces, offerEverywhere: false))
+        XCTAssertEqual(results.body, .empty(.noPlaces))
     }
 }
