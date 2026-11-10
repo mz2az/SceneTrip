@@ -122,6 +122,8 @@ kt_jvm_library(
         "tests/ReviewParityTests.kt",
         "tests/RouteEditorRulesTests.kt",
         "tests/SavedPlanRulesTests.kt",
+        # 추천 코스 카드 장면 그림 뒤집기 (MZ2AZ-547 motion-works-drawer-parity §6)
+        "tests/SceneFlipRulesTests.kt",
         "tests/ScenePhotoGalleryTests.kt",
         # 검색 탭 — 보관함 핀·길찾기 (MZ2AZ-547 P9)
         "tests/SearchMapPinsTests.kt",
