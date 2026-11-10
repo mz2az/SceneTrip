@@ -902,6 +902,19 @@
 "가까운 곳끼리 날마다 나눠 넣어요. 빼거나 순서를 바꾸는 건 다음 화면에서 할 수 있어요" = "Split by day, nearest first. Remove or reorder on the next screen.";
 "담음" = "Added";
 
+/* 코스 목록 「내 여행」 (MZ2AZ-547 P7) */
+"다가오는 여행" = "Upcoming";
+"%d개 선택" = "%d selected";
+"코스 선택" = "Select trips";
+"전체 선택" = "Select all";
+"선택 해제" = "Deselect all";
+"%d개 삭제" = "Delete %d";
+"지우는 중…" = "Deleting…";
+"코스 %d개를 지울까요?" = "Delete %d trips?";
+"아직 코스가 없어요" = "No trips yet";
+"「새 코스」 로 첫 여행을 짜 보세요" = "Tap “New” to plan your first trip";
+"%@ 메뉴" = "%@ menu";
+"여러 개 고르기" = "Select multiple";
 /* 계획 화면 보기/편집·지도 켜고 끄기·＋ 메뉴 (MZ2AZ-547 P4) */
 "편집" = "Edit";
 "지도" = "Map";

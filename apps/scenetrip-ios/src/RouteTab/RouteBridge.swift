@@ -49,7 +49,9 @@ enum RouteBridge {
             days: Array(repeating: RouteDay(), count: max(summary.dayCount, 1)),
             madeByAI: summary.origin == .ai,
             isRunning: summary.status == .active,
-            placeCountFromServer: summary.placeCount
+            currentDayNo: summary.currentDayNo,
+            placeCountFromServer: summary.placeCount,
+            thumbnailUrl: summary.thumbnailUrl
         )
     }
 
