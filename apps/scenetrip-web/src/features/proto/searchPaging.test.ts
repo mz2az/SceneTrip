@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { fitsMapForPage, mergeResultsPage, nextPageOffset, reachedLoadMore, RESULTS_PAGE_SIZE } from './searchPaging'
+import {
+  fitsMapForPage, mergeResultsPage, nextPageOffset, PIN_LIMIT, pinnedResults, reachedLoadMore, RESULTS_PAGE_SIZE, searchOrigin, shopSearchQuery,
+} from './searchPaging'
 
 const shop = (id: string, name = `가게 ${id}`) => ({ id, name })
 const ids = (list: readonly { id: string }[]) => list.map((s) => s.id)
@@ -126,5 +128,69 @@ describe('fitsMapForPage — 지도는 처음 쪽에서만 맞춘다', () => {
 
   it('offset 40 → false', () => {
     expect(fitsMapForPage(40)).toBe(false)
+  })
+})
+
+// ---- 가까운 순·핀 상한(계획 motion-works-drawer-parity.md §8·§10-2)
+
+describe('pinnedResults — 지도에 핀으로 찍을 결과(앞 100곳)', () => {
+  const many = (n: number) => Array.from({ length: n }, (_, i) => shop(`s${i}`))
+
+  it('상한은 100', () => {
+    expect(PIN_LIMIT).toBe(100)
+  })
+
+  it('100보다 적으면 모두', () => {
+    const list = many(37)
+    expect(ids(pinnedResults(list))).toEqual(ids(list))
+  })
+
+  it('딱 100이면 모두', () => {
+    const list = many(100)
+    expect(ids(pinnedResults(list))).toEqual(ids(list))
+  })
+
+  it('목록이 250개로 늘어도 지도에는 앞(가까운) 100곳만', () => {
+    const list = many(250)
+    const pinned = pinnedResults(list)
+    expect(pinned).toHaveLength(100)
+    expect(ids(pinned)).toEqual(ids(list.slice(0, 100)))
+    // 목록 자체는 줄이지 않는다.
+    expect(list).toHaveLength(250)
+  })
+
+  it('받은 차례(가까운 순)를 바꾸지 않는다 — 이름순으로 다시 늘어놓지 않음', () => {
+    expect(ids(pinnedResults([shop('z'), shop('a'), shop('m'), shop('b')]))).toEqual(['z', 'a', 'm', 'b'])
+  })
+
+})
+
+describe('searchOrigin — 가까운 순의 기준점(화면 가운데)', () => {
+  it('보이는 지도의 가운데', () => {
+    expect(searchOrigin({ centerLat: 37.2871, centerLng: 127.0152 })).toEqual({ lat: 37.2871, lng: 127.0152 })
+  })
+
+  it('지도를 모르면 null — 서버 기본 이름순으로 묻는다', () => {
+    expect(searchOrigin(null)).toBeNull()
+    expect(searchOrigin(undefined)).toBeNull()
+  })
+})
+
+describe('shopSearchQuery — 이름 검색 한 쪽의 질의(범위 없이 가까운 순)', () => {
+  const origin = { lat: 37.58, lng: 126.97 }
+
+  it('처음 쪽: q·limit·lat·lng·sort=distance, offset·bbox 없음', () => {
+    const query = shopSearchQuery('국밥', origin, 20, 0)
+    expect(query).toEqual({ q: '국밥', limit: 20, lat: 37.58, lng: 126.97, sort: 'distance' })
+    expect(query).not.toHaveProperty('bbox')
+  })
+
+  it('다음 쪽: 같은 기준점에 offset', () => {
+    expect(shopSearchQuery('국밥', origin, 20, 40)).toEqual({ q: '국밥', limit: 20, offset: 40, lat: 37.58, lng: 126.97, sort: 'distance' })
+  })
+
+  it('기준점이 없으면 lat·lng·sort 없이(서버 기본 이름순)', () => {
+    expect(shopSearchQuery('국밥', null, 20, 0)).toEqual({ q: '국밥', limit: 20 })
+    expect(shopSearchQuery('국밥', null, 20, 20)).toEqual({ q: '국밥', limit: 20, offset: 20 })
   })
 })

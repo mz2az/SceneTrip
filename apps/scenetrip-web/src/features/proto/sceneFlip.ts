@@ -49,3 +49,59 @@ export function peekCardIndex(
   const i = flippable.indexOf(true)
   return i < 0 ? null : i
 }
+
+// ---------------------------------------------------------------- 모든 카드가 뒤집힌다 — 앞뒤 면(§6 표, 2026-11-10 사용자 결정)
+//
+// 정본: iOS `SceneFlipRules.faces`·`SceneFlipPhoto.pillLabel`. 아래는 시험을 먼저 쓰려고 둔 자리(일부러 틀린 값을 돌려준다).
+
+/** 카드 뒷면. */
+export type FlipBack =
+  /** 장면 그림. */
+  | { readonly kind: 'scene'; readonly url: string }
+  /** 「장소 사진이 아직 없어요」 — 장면 그림이 앞면에 갔을 때. */
+  | { readonly kind: 'noPhoto' }
+  /** 「장면 그림이 아직 없어요」. */
+  | { readonly kind: 'noScene' }
+
+/** 카드 사진 칸의 두 면. */
+export interface FlipFaces {
+  /** 앞면 그림 주소 — null 이면 「장소 사진이 아직 없어요」 면. */
+  readonly front: string | null
+  readonly back: FlipBack
+  /** 앞면이 장면 그림인가(장소 사진이 없어 대신 보일 때) — 앞면 알약을 「「작품」 속 장면」 으로. */
+  readonly frontIsScene: boolean
+}
+
+/**
+ * 장소 사진 주소를 쓸 수 있나 — http(s) 이고 호스트가 있어야 한다. 비었거나, 다른 scheme 이거나, 호스트가 없으면(`https:///a.jpg` 포함) 없는 것.
+ */
+export function usablePhotoUrl(raw: string | null | undefined): boolean {
+  return !raw?.startsWith('http') // TODO(시험 먼저): 아직 구현하지 않았다
+}
+
+/**
+ * 카드 사진 칸의 앞뒤 면 — 장소 사진(`photoUrl`, 쓸 수 없는 주소면 없는 것으로)과 장면 그림(`sceneUrl`).
+ * 앞면은 장소 사진, 없으면 장면 그림, 둘 다 없으면 null. 뒷면은 앞면에 쓰지 않은 쪽, 없으면 「없음」 면.
+ */
+export function flipFaces(photoUrl: string | null | undefined, sceneUrl: string | null | undefined): FlipFaces {
+  void photoUrl
+  void sceneUrl
+  return { front: null, back: { kind: 'noScene' }, frontIsScene: true } // TODO(시험 먼저): 아직 구현하지 않았다
+}
+
+/**
+ * 사진 칸 왼쪽 아래 알약의 종류.
+ * - `scene`: 「장면 보기」
+ * - `photo`: 「장소 사진 보기」
+ * - `work`: 「「작품」 속 장면」(작품 이름을 모르면 「장면 그림」)
+ */
+export type FlipPill = 'scene' | 'photo' | 'work'
+
+/**
+ * 지금 보이는 면의 알약. 앞면: 장소 사진이면 `scene`, 장면 그림이 앞면이면 `work`.
+ * 뒷면은 늘 앞면으로 돌아가는 단추 — 앞면이 장소 사진(또는 빈 면)이면 `photo`, 장면 그림이면 `scene`.
+ */
+export function flipPill(faces: FlipFaces, showingBack: boolean): FlipPill {
+  void faces
+  return showingBack ? 'work' : 'photo' // TODO(시험 먼저): 아직 구현하지 않았다
+}

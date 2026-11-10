@@ -47,3 +47,51 @@ export function mergeResultsPage<T extends { readonly id: string }>(loaded: read
 export function fitsMapForPage(offset: number): boolean {
   return offset === 0
 }
+
+// ---------------------------------------------------------------- 가까운 순·핀 상한(§8·§10-2, 2026-11-10 사용자 결정)
+//
+// 정본: iOS `MapSearchPagingRules.pinnedResults`·`origin`. 범위(bbox) 없이 화면 가운데에서 가까운 순으로 묻는다.
+// 아래는 시험을 먼저 쓰려고 둔 자리(일부러 틀린 값을 돌려준다).
+
+/** 지도에 결과 핀을 찍는 최대 개수. 목록은 이보다 길어질 수 있다. */
+export const PIN_LIMIT = 0 // TODO(시험 먼저): 100
+
+/** 결과 목록 가운데 지도에 핀으로 찍을 것 — 앞에서부터 `PIN_LIMIT` 개(가까운 순이므로 가까운 곳들). 차례는 바꾸지 않는다. */
+export function pinnedResults<T>(shops: readonly T[]): T[] {
+  void shops
+  return [] // TODO(시험 먼저): 아직 구현하지 않았다
+}
+
+/** 「가까운 순」 으로 물을 기준점. */
+export interface SearchOrigin {
+  readonly lat: number
+  readonly lng: number
+}
+
+/** 검색의 기준점 — 물을 때 보이는 지도(서랍 위)의 가운데. 지도를 모르면 null(서버 기본 이름순). */
+export function searchOrigin(viewport: { readonly centerLat: number; readonly centerLng: number } | null | undefined): SearchOrigin | null {
+  void viewport
+  return { lat: 0, lng: 0 } // TODO(시험 먼저): 아직 구현하지 않았다
+}
+
+/** `GET /pois` 이름 검색 한 쪽의 질의. `bbox` 는 싣지 않는다. */
+export interface ShopSearchQuery {
+  q: string
+  limit: number
+  offset?: number
+  lat?: number
+  lng?: number
+  sort?: 'distance'
+}
+
+/**
+ * 이름 검색 한 쪽의 질의 — 범위 없이, 기준점이 있으면 `lat`·`lng`·`sort=distance`. `offset` 은 0 보다 클 때만 싣는다.
+ * 다음 쪽은 처음 쪽과 같은 기준점으로 묻는다(부르는 쪽이 처음 쪽의 기준점을 들고 있다).
+ */
+export function shopSearchQuery(q: string, origin: SearchOrigin | null, limit: number, offset: number): ShopSearchQuery {
+  void q
+  void origin
+  void limit
+  void offset
+  return { q: '', limit: 0 } // TODO(시험 먼저): 아직 구현하지 않았다
+}
