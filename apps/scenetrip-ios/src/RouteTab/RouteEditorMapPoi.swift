@@ -77,7 +77,6 @@ extension RouteEditorView {
             } else {
                 MapPoiBar(
                     chips: mapChips,
-                    counts: MapPoiChips.counts(poisForChips),
                     pill: poiFetch.pill(anyOn: mapChips.anyOn, zoom: mapViewport?.zoom ?? 0),
                     onSearch: openMapSearch,
                     onToggle: toggleMapChip,

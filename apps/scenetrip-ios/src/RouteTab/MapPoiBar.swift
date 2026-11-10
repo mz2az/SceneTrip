@@ -7,7 +7,6 @@ import SwiftUI
 /// 무엇을 언제 받는지는 `MapPoiChips`·`MapPoiFetch` 가 정하고 여기는 그 답을 그린다.
 struct MapPoiBar: View {
     let chips: MapPoiChips
-    let counts: [RoutePoiGroup: Int]
     let pill: MapPoiPill
     let onSearch: () -> Void
     let onToggle: (RoutePoiGroup) -> Void
@@ -68,10 +67,9 @@ struct MapPoiBar: View {
             chipFace(on: isOn, fill: tone) {
                 HStack(spacing: 6) {
                     Circle().fill(isOn ? Color.white : tone).frame(width: 8, height: 8)
+                    // 칩 옆 개수는 뺐다(2026-11-10 사용자 결정) — 서버가 한 번에 200곳까지 주어 붐비는 동네는 늘 「200」 이었고,
+                    // 지도에는 칸마다 1등만 그려 보이는 아이콘 수와 맞지 않았다. 구글 지도도 개수를 붙이지 않는다.
                     Text(group.label).font(.system(size: 13, weight: .semibold))
-                    if isOn, let count = counts[group] {
-                        Text("\(count)").font(.system(size: 12)).foregroundStyle(.white.opacity(0.85))
-                    }
                 }
             }
         }
