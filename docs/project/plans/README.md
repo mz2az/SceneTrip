@@ -88,3 +88,4 @@
 - [정한 여행(도시·며칠) 기억 — /me/trip](trip-memory.md) — MZ2AZ-542, 계약 1.25.0
 - [홈 도시 줄 빠르게 — 도시 요약 창구와 고정 대표 사진](home-city-summary.md) — MZ2AZ-545, GET /places/cities·?city=
 - [앱 업데이트 안내 — 최소·최신 버전과 강제/권장 창](app-update-prompt.md) — MZ2AZ-546, GET /app/versions
+- [iOS — 웹 시안 반영](ios-web-parity.md) — MZ2AZ-547, 웹 변경 전체 목록과 iOS 묶음별 진행
