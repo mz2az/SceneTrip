@@ -52,7 +52,7 @@ export function peekCardIndex(
 
 // ---------------------------------------------------------------- 모든 카드가 뒤집힌다 — 앞뒤 면(§6 표, 2026-11-10 사용자 결정)
 //
-// 정본: iOS `SceneFlipRules.faces`·`SceneFlipPhoto.pillLabel`. 아래는 시험을 먼저 쓰려고 둔 자리(일부러 틀린 값을 돌려준다).
+// 정본: iOS `SceneFlipRules.faces`·`SceneFlipPhoto.pillLabel`.
 
 /** 카드 뒷면. */
 export type FlipBack =
@@ -76,7 +76,17 @@ export interface FlipFaces {
  * 장소 사진 주소를 쓸 수 있나 — http(s) 이고 호스트가 있어야 한다. 비었거나, 다른 scheme 이거나, 호스트가 없으면(`https:///a.jpg` 포함) 없는 것.
  */
 export function usablePhotoUrl(raw: string | null | undefined): boolean {
-  return !raw?.startsWith('http') // TODO(시험 먼저): 아직 구현하지 않았다
+  const text = raw?.trim()
+  if (!text) return false
+  let url: URL
+  try {
+    url = new URL(text)
+  } catch {
+    return false
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return false
+  // `https:///a.jpg` 는 URL 이 경로 첫 조각을 호스트로 읽어 버린다 — 원문에서 `//` 바로 뒤가 비었는지 따로 본다.
+  return url.hostname !== '' && !/^https?:\/\/\//i.test(text)
 }
 
 /**
@@ -84,9 +94,11 @@ export function usablePhotoUrl(raw: string | null | undefined): boolean {
  * 앞면은 장소 사진, 없으면 장면 그림, 둘 다 없으면 null. 뒷면은 앞면에 쓰지 않은 쪽, 없으면 「없음」 면.
  */
 export function flipFaces(photoUrl: string | null | undefined, sceneUrl: string | null | undefined): FlipFaces {
-  void photoUrl
-  void sceneUrl
-  return { front: null, back: { kind: 'noScene' }, frontIsScene: true } // TODO(시험 먼저): 아직 구현하지 않았다
+  const photo = usablePhotoUrl(photoUrl) ? photoUrl!.trim() : null
+  const scene = sceneUrl ? sceneUrl : null
+  if (photo) return { front: photo, back: scene ? { kind: 'scene', url: scene } : { kind: 'noScene' }, frontIsScene: false }
+  if (scene) return { front: scene, back: { kind: 'noPhoto' }, frontIsScene: true }
+  return { front: null, back: { kind: 'noScene' }, frontIsScene: false }
 }
 
 /**
@@ -102,6 +114,6 @@ export type FlipPill = 'scene' | 'photo' | 'work'
  * 뒷면은 늘 앞면으로 돌아가는 단추 — 앞면이 장소 사진(또는 빈 면)이면 `photo`, 장면 그림이면 `scene`.
  */
 export function flipPill(faces: FlipFaces, showingBack: boolean): FlipPill {
-  void faces
-  return showingBack ? 'work' : 'photo' // TODO(시험 먼저): 아직 구현하지 않았다
+  if (faces.frontIsScene) return showingBack ? 'scene' : 'work'
+  return showingBack ? 'photo' : 'scene'
 }

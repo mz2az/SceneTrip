@@ -8,15 +8,15 @@ import { paths } from '@/app/routes'
 import { useTabRouter } from '@/app/tabRouter'
 import { Icon } from '@/design/Icon'
 import { HStack, Spinner, Txt, VStack, homeCard } from '@/design/primitives'
-import { hasPhoto } from '@/features/home/homeRules'
 import { cityCount } from '@/features/home/homeCities'
-import { type HomeCity, ensureCityPlaces } from '@/features/home/homeCityModel'
 import { Pressable } from '@/features/route/ui/Press'
 import { PinoMascot } from '@/design/PinoMascot'
 import { useRouteState } from '@/features/route/store'
 import { useStore } from '@/state/storage'
-import { mockPlanCityTrip, nearestUnused } from './mockPlan'
-import { useHoldReorder } from './useHoldReorder'
+import { api, ok } from '@/api/client'
+import { cityPlanRequest, planFromGuide, removeStop, swapNearbyQuery, swapStop } from './cityPlan'
+import { peekCardIndex } from './sceneFlip'
+import { SceneFlipPhoto, hasFlippedBefore, prefersReducedMotion } from './SceneFlipPhoto'
 import { CoachTour } from './CoachTour'
 import {
   ASK_CITIES, ChoiceRow, CityGrid, CityHero, SlideImages, useCitySlides, CityPicker, DAY_OPTIONS, MockBadge, PrimaryButton, ProtoScreen, SecondaryButton, cityByKey, daysLabel,
@@ -165,7 +165,7 @@ function QuestionFlow() {
       )
     }
 
-    return <PlanPreview city={found} days={days!} pace="normal" onBack={() => setStep('how')} />
+    return <PlanPreview cityKey={city ?? ''} cityName={cityName} days={days!} pace="normal" onBack={() => setStep('how')} />
   })()
   // 단계가 바뀔 때 밀려 들어오고 나간다(§5) — 열쇠는 단계 이름, 순서는 도시 → 며칠 → 어떻게 → 추천 코스.
   return <StepTransition step={step} order={STEP_ORDER[step]}>{content}</StepTransition>
@@ -191,55 +191,74 @@ function HowCard({ primary, icon, title, detail, onClick }: { primary?: boolean;
   )
 }
 
-// ---------------------------------------------------------------- 「알아서 짜 주세요」 — 코스 초안 미리보기(껍데기 API)
+// ---------------------------------------------------------------- 「알아서 짜 주세요」 — 서버 AI 추천 코스 미리보기
 
-function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days: number; pace: Pace; onBack: () => void }) {
+/**
+ * 서버 AI 일정(`POST /guide/plan {city, days, pace}`, 계약 1.28.0)을 응답만으로 카드로 그린다 — 도시 촬영지 목록은 받지 않고, 못 받으면 앱 계산으로
+ * 대신하지 않고 「다시 시도」 를 보인다(계획 city-ai-course.md §5, 정본 iOS `CityPlanPreview`). 사진 위 작은 단추로 다른 곳으로 바꾸거나 뺀다
+ * (꾹 눌러 순서 바꾸기는 2026-11-10 뺐다). 사진을 누르면 뒤집혀 장면 그림(motion-works-drawer-parity.md §6).
+ */
+function PlanPreview({ cityKey, cityName, days, pace, onBack }: { cityKey: string; cityName: string; days: number; pace: Pace; onBack: () => void }) {
   const router = useTabRouter()
   const [plan, setPlan] = useState<PlaceSummary[][] | null>(null)
+  /** AI 일정을 못 받았다(503·시간 초과·네트워크·카드로 그릴 곳이 하나도 없음) — 「다시 시도」. */
+  const [planFailed, setPlanFailed] = useState(false)
+  /** 다시 시도를 누를 때마다 오른다 — 일정을 다시 묻는다. */
+  const [attempt, setAttempt] = useState(0)
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
+  // 처음 한 번 살짝 돌 카드 — 화면이 뜰 때 한 번만 정한다(모든 카드가 뒤집히므로 첫 카드).
+  const [peekFirst] = useState(() => peekCardIndex([true], hasFlippedBefore(), prefersReducedMotion()) === 0)
 
   useEffect(() => {
-    if (!city) return
-    // 도시 요약으로 만든 줄이면 그 도시 촬영지부터 받는다 — 받으면 city 가 바뀌어 다시 돈다.
-    if (!city.placesLoaded) {
-      void ensureCityPlaces(city.key).catch(() => setFailed(true))
-      return
-    }
     let live = true
-    void mockPlanCityTrip({ places: city.places, days, pace }).then((p) => { if (live) setPlan(p) })
+    setPlan(null)
+    setPlanFailed(false)
+    ok(api.POST('/guide/plan', { body: cityPlanRequest(cityKey, days, pace) }))
+      .then((reply) => {
+        if (!live) return
+        const made = planFromGuide(reply.plan)
+        if (made.length === 0) setPlanFailed(true)
+        else setPlan(made)
+      })
+      .catch(() => live && setPlanFailed(true))
     return () => { live = false }
-  }, [city, days, pace])
+  }, [cityKey, days, pace, attempt])
 
-  if (!city || !plan) {
+  if (!plan) {
     return (
       <ProtoScreen onBack={onBack} title={say('코스를 짜는 중이에요…', 'Planning your route…')}>
-        <HStack spacing={10}><Spinner /><Txt size={15} color="secondary">{say('촬영지를 동선대로 잇고 있어요', 'Linking spots into a route')}</Txt></HStack>
+        {planFailed ? (
+          <VStack spacing={10} align="start">
+            <Txt size={15} color="secondary">{say('코스를 못 짰어요', "Couldn't plan a route")}</Txt>
+            <SecondaryButton onClick={() => setAttempt((n) => n + 1)}>{say('다시 시도', 'Try again')}</SecondaryButton>
+          </VStack>
+        ) : (
+          <HStack spacing={10}><Spinner /><Txt size={15} color="secondary">{say('AI 가 동선을 짜고 있어요', 'AI is planning your route')}</Txt></HStack>
+        )}
       </ProtoScreen>
     )
   }
 
-  const used = new Set(plan.flat().map((p) => p.id))
-  const edit = (day: number, fn: (stops: PlaceSummary[]) => PlaceSummary[]) => setPlan(plan.map((d, i) => (i === day ? fn([...d]) : d)))
+  // 「다른 곳으로 바꾸기」 — 그 카드 자리에서 가까운 그 도시 촬영지 10곳만 묻고, 아직 코스에 없는 첫 곳으로. 못 받으면 그대로.
   const swap = (day: number, idx: number) => {
-    const next = nearestUnused(plan[day][idx], city.places, used)
-    if (next) edit(day, (s) => { s[idx] = next; return s })
+    const spot = plan[day]?.[idx]
+    if (!spot) return
+    void ok(api.GET('/places', { params: { query: swapNearbyQuery(cityKey, spot) } }))
+      .then((page) => setPlan((now) => (now ? swapStop(now, day, idx, page.items) : now)))
+      .catch(() => {})
   }
-  const moveTo = (day: number, from: number, to: number) => edit(day, (s) => {
-    const [it] = s.splice(from, 1)
-    s.splice(to, 0, it)
-    return s
-  })
+  const firstId = plan.flat()[0]?.id
 
   const save = async () => {
     setBusy(true)
     setFailed(false)
-    const id = await saveCourse(say(`${city.name} ${daysLabel(days)}`, `${city.name} · ${tripLength(days)} trip`), plan, pace, true)
+    const id = await saveCourse(say(`${cityName} ${daysLabel(days)}`, `${cityName} · ${tripLength(days)} trip`), plan, pace, true)
     setBusy(false)
     if (id === null) return setFailed(true)
-    protoActions.setTrip({ city: city.key, days, pace, courseId: id })
+    protoActions.setTrip({ city: cityKey, days, pace, courseId: id })
     protoActions.ask(false)
-    protoActions.created({ city: city.name, days })
+    protoActions.created({ city: cityName, days })
     markFreshCourse(id)
     router.openCourse(id)
   }
@@ -247,11 +266,11 @@ function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days
   return (
     <ProtoScreen
       onBack={onBack}
-      label={say(`${city.name} ${daysLabel(days)} 추천 코스`, `${city.name} · ${daysLabel(days)}`)}
+      label={say(`${cityName} ${daysLabel(days)} 추천 코스`, `${cityName} · ${daysLabel(days)}`)}
       title={
         <VStack spacing={6} align="start">
-          <Txt as="h1" size={26} weight="heavy" style={heading}>{say(`${city.name} ${daysLabel(days)} 추천 코스`, `${city.name} · ${daysLabel(days)}`)}</Txt>
-          <HStack spacing={6}><MockBadge label={say('껍데기 AI', 'Mock AI')} /><Txt size={14} color="secondary">{say('꾹 눌러 순서를 바꾸고, 빼거나 다른 곳으로 바꾼 뒤 저장하세요', 'Press and hold to reorder. Swap or remove, then save')}</Txt></HStack>
+          <Txt as="h1" size={26} weight="heavy" style={heading}>{say(`${cityName} ${daysLabel(days)} 추천 코스`, `${cityName} · ${daysLabel(days)}`)}</Txt>
+          <Txt size={14} color="secondary">{say('빼거나 다른 곳으로 바꾼 뒤 저장하세요', 'Swap or remove spots, then save')}</Txt>
         </VStack>
       }
       footer={
@@ -261,54 +280,37 @@ function PlanPreview({ city, days, pace, onBack }: { city: HomeCity | null; days
         </VStack>
       }
     >
-      {plan.flat().length === 0 && <Txt size={15} color="secondary">{say('이 도시는 촬영지가 적어서 코스를 못 짰어요. 뒤로 가서 「직접 고를게요」 를 눌러 주세요', 'Not enough spots here to plan a route. Go back and pick them yourself.')}</Txt>}
       {plan.map((stops, day) => (
         <PlanDay
           key={day}
           day={day}
           stops={stops}
-          onMove={(from, to) => moveTo(day, from, to)}
+          peekId={peekFirst ? firstId : undefined}
           onSwap={(idx) => swap(day, idx)}
-          onRemove={(idx) => edit(day, (s) => s.filter((_, i) => i !== idx))}
+          onRemove={(idx) => setPlan((now) => (now ? removeStop(now, day, idx) : now))}
         />
       ))}
     </ProtoScreen>
   )
 }
 
-/** 하루치 카드 줄 — 꾹 눌러 끌면 그날 안에서 순서가 바뀐다. */
-function PlanDay({ day, stops, onMove, onSwap, onRemove }: {
+/** 하루치 카드 줄. 꾹 눌러 순서 바꾸기는 뺐다(2026-11-10 사용자 결정 — city-ai-course.md §5). */
+function PlanDay({ day, stops, peekId, onSwap, onRemove }: {
   day: number
   stops: readonly PlaceSummary[]
-  onMove: (from: number, to: number) => void
+  /** 처음 한 번 살짝 돌 카드(없으면 undefined). */
+  peekId: number | undefined
   onSwap: (idx: number) => void
   onRemove: (idx: number) => void
 }) {
-  const list = useRef<HTMLDivElement>(null)
-  // 같은 촬영지가 두 번 들어갈 일은 없지만, 열쇠는 자리와 무관해야 끄는 동안 카드가 다시 그려지지 않는다.
-  const keys = stops.map((p) => String(p.id))
-  const reorder = useHoldReorder(list, keys, onMove)
   return (
     <VStack spacing={10} align="stretch">
-      <Txt as="h2" size={17} weight="heavy" style={heading}>{say(`${day + 1}일차`, `Day ${day + 1}`)} <Txt size={13} color="secondary">{say(`${stops.length}곳`, `${stops.length} spots`)}</Txt></Txt>
-      <div ref={list} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {stops.map((p, idx) => {
-          const dragging = reorder.draggingId === keys[idx]
-          return (
-            <div
-              key={keys[idx]}
-              {...reorder.bind(keys[idx])}
-              style={{
-                position: 'relative', zIndex: dragging ? 2 : undefined, touchAction: 'pan-y', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none',
-                transform: dragging ? `translateY(${reorder.offsetY}px) scale(1.02)` : undefined,
-                transition: dragging ? 'box-shadow 120ms ease-out' : 'transform 160ms ease-out',
-                boxShadow: dragging ? shadow.float : undefined, borderRadius: radius.l,
-              }}
-            >
-              <PlanSpotCard place={p} number={idx + 1} onSwap={() => onSwap(idx)} onRemove={() => onRemove(idx)} />
-            </div>
-          )
-        })}
+      {/* 날 사이가 카드에 묻히지 않게 크게(2026-11-10 사용자 요청, iOS 17 → 24). */}
+      <Txt as="h2" size={24} weight="heavy" style={heading}>{say(`${day + 1}일차`, `Day ${day + 1}`)} <Txt size={15} color="secondary">{say(`${stops.length}곳`, `${stops.length} spots`)}</Txt></Txt>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {stops.map((p, idx) => (
+          <PlanSpotCard key={p.id} place={p} number={idx + 1} peek={p.id === peekId} onSwap={() => onSwap(idx)} onRemove={() => onRemove(idx)} />
+        ))}
       </div>
     </VStack>
   )
@@ -316,16 +318,17 @@ function PlanDay({ day, stops, onMove, onSwap, onRemove }: {
 
 /**
  * 추천 코스의 촬영지 카드 — 사진을 크게 위에, 그 아래 「어느 작품의」(보라 표) 「어떤 장소」(이름) 「어떤 장면」(설명). 처음 듣는 곳이라 이 셋이 한눈에
- * 들어와야 고를 수 있다(2026-11-09 사용자 지적). 바꾸기·빼기는 사진 위 작은 단추.
+ * 들어와야 고를 수 있다(2026-11-09 사용자 지적). 바꾸기·빼기는 사진 위 작은 단추(앞뒤 모두 그대로 눌린다). 사진 칸은 누르면 뒤집힌다(`SceneFlipPhoto`).
  */
-function PlanSpotCard({ place, number, onSwap, onRemove }: { place: PlaceSummary; number: number; onSwap: () => void; onRemove: () => void }) {
+function PlanSpotCard({ place, number, peek, onSwap, onRemove }: { place: PlaceSummary; number: number; peek: boolean; onSwap: () => void; onRemove: () => void }) {
   const work = place.contents?.[0]?.title
   const scene = place.sceneDescription?.trim()
   return (
     <article style={{ ...homeCard(radius.l), overflow: 'hidden' }}>
-      <div style={{ position: 'relative', aspectRatio: '16 / 9', background: color.brandFill }}>
-        {hasPhoto(place) && <img src={place.imageUrl!} alt="" loading="lazy" draggable={false} referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
-        <span aria-hidden style={{ position: 'absolute', left: 10, top: 10, minWidth: 26, height: 26, padding: '0 8px', borderRadius: radius.pill, display: 'grid', placeItems: 'center', background: color.primaryFill, color: color.onPrimary, fontSize: 13, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>{number}</span>
+      <div style={{ position: 'relative', aspectRatio: '16 / 9', background: color.brandFill, overflow: 'hidden' }}>
+        {/* 다른 곳으로 바뀌면 열쇠가 바뀌어 앞면부터 다시 그린다. */}
+        <SceneFlipPhoto key={place.id} place={place} peek={peek} />
+        <span aria-hidden style={{ position: 'absolute', left: 10, top: 10, minWidth: 26, height: 26, padding: '0 8px', borderRadius: radius.pill, display: 'grid', placeItems: 'center', background: color.primaryFill, color: color.onPrimary, fontSize: 13, fontWeight: 800, fontVariantNumeric: 'tabular-nums', pointerEvents: 'none' }}>{number}</span>
         <HStack spacing={6} style={{ position: 'absolute', right: 8, top: 8 }}>
           <PhotoButton name="arrow.clockwise" label={say('다른 곳으로 바꾸기', 'Swap for another spot')} onClick={onSwap} />
           <PhotoButton name="xmark" label={say('빼기', 'Remove')} onClick={onRemove} />
