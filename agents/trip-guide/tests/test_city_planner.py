@@ -41,7 +41,7 @@ from src.internal_server import (
 )
 from src.llm_planner import load_config
 from src.model_client import ModelError, ScriptedClient
-from src.places import Scene, haversine_m
+from src.places import Place, Scene, haversine_m
 from src.planner import PlanError, PlanRequest, plan_to_api
 from src.production import RequestBudget
 from src.sceneapi import SceneApiPlaceBook
@@ -1067,6 +1067,76 @@ class 도시창구(unittest.TestCase):
         self.assertEqual(places[0].titles, ["도깨비"])
 
 
+def _city_items(contents) -> list[Place]:
+    """`GET /places?city=` 가 `contents` 를 그대로 실은 항목 하나를 돌려줄 때 창구가 만든 장소들."""
+    book = SceneApiPlaceBook("http://scene-api.test/v1", timeout=5)
+    item = {
+        "id": 7,
+        "name": "경복궁",
+        "address": "서울특별시 종로구 사직로 161",
+        "latitude": 37.5796,
+        "longitude": 126.977,
+        "imageUrl": "https://img.test/7.jpg",
+        "contents": contents,
+    }
+    with patch("urllib.request.urlopen") as opened:
+        opened.return_value.__enter__.return_value.read.return_value = json.dumps(
+            {"items": [item], "total": 1}
+        ).encode()
+        return book.by_city("서울", limit=200)
+
+
+class 작품표옮기기(unittest.TestCase):
+    """scene-api 의 `contents[].contentId`·`title` 을 `Place.content_refs` 로 옮긴다(1.28.0, MZ2AZ-548)."""
+
+    def test_contentId_와_title_짝을_서버_순서대로_담는다(self):
+        places = _city_items(
+            [
+                {"contentId": 31, "title": "도깨비", "popularity": 12.0},
+                {"contentId": 7, "title": "이태원 클라쓰"},
+                {"contentId": 120, "title": "더 글로리", "popularity": 3.5},
+            ]
+        )
+        self.assertEqual(
+            places[0].content_refs,
+            [
+                {"contentId": 31, "title": "도깨비"},
+                {"contentId": 7, "title": "이태원 클라쓰"},
+                {"contentId": 120, "title": "더 글로리"},
+            ],
+        )
+
+    def test_모양이_틀린_항목은_건너뛴다(self):
+        places = _city_items(
+            [
+                {"title": "번호없음"},
+                {"contentId": None, "title": "번호가_null"},
+                {"contentId": "31", "title": "번호가_문자열"},
+                {"contentId": True, "title": "번호가_참거짓"},
+                {"contentId": 8},
+                {"contentId": 9, "title": None},
+                {"contentId": 10, "title": 10},
+                {"contentId": 11, "title": "멀쩡함"},
+            ]
+        )
+        self.assertEqual(places[0].content_refs, [{"contentId": 11, "title": "멀쩡함"}])
+
+    def test_contents_가_없으면_빈_목록(self):
+        for contents in (None, []):
+            with self.subTest(contents=contents):
+                self.assertEqual(_city_items(contents)[0].content_refs, [])
+
+    def test_창구에서_일정_줄까지_사진과_작품이_이어진다(self):
+        """scene-api 항목 → `_to_place` → 일정 → `plan_to_api` 가 끊기지 않는다."""
+        places = _city_items([{"contentId": 31, "title": "도깨비"}])
+        book = CityBook({"서울": places})
+        with redirect_stderr(io.StringIO()):
+            plan = plan_city_with_model(book, _req(pace="relaxed"), None)
+        stop = plan_to_api(plan)["days"][0]["stops"][0]
+        self.assertEqual(stop["imageUrl"], "https://img.test/7.jpg")
+        self.assertEqual(stop["contents"], [{"contentId": 31, "title": "도깨비"}])
+
+
 # ── 요청 검증 ─────────────────────────────────────────────────────────────────
 
 
@@ -1167,6 +1237,39 @@ class _CityHttp:
         validate_def(plan, "guidePlan", load_schema())
         self.assertEqual([e["op"] for e in body["effects"]], ["plan.draft"])
         self.assertEqual(self.book.city_calls, [("서울", CFG["city"]["fetch_limit"])])
+
+    def test_도시_일정_줄마다_사진과_작품이_실린다(self):
+        """앱이 도시 촬영지 목록 없이 일정 카드를 그리게 한다(1.28.0, MZ2AZ-548)."""
+        for i, p in enumerate(self.places):
+            # 1001 은 사진이 없다 — null 로 나가야 한다(빈 문자열이 아니라).
+            p.image_url = "" if i == 1 else f"https://img.test/{1000 + i}.jpg"
+            p.content_refs = [
+                {"contentId": 500 + i, "title": "도깨비"},
+                {"contentId": 900, "title": "이태원 클라쓰"},
+            ]
+        client = ScriptedClient(
+            [_reply([{"day": 1, "place_ids": ["1004", "1001", "1011"]}])]
+        )
+        status, body = self.post({"city": "서울", "days": 1, "pace": "relaxed"}, client)
+        self.assertEqual(status, 200, body)
+        plan = body["plan"]
+        validate_def(plan, "guidePlan", load_schema())
+        stops = plan["days"][0]["stops"]
+        self.assertEqual(sorted(s["placeId"] for s in stops), [1001, 1004, 1011])
+        for s in stops:
+            i = s["placeId"] - 1000
+            with self.subTest(placeId=s["placeId"]):
+                self.assertIn("imageUrl", s)
+                self.assertEqual(
+                    s["imageUrl"], None if i == 1 else f"https://img.test/{1000 + i}.jpg"
+                )
+                self.assertEqual(
+                    s["contents"],
+                    [
+                        {"contentId": 500 + i, "title": "도깨비"},
+                        {"contentId": 900, "title": "이태원 클라쓰"},
+                    ],
+                )
 
     def test_모델이_없어도_도시_초안은_나간다(self):
         status, body = self.post({"city": "서울", "days": 1, "pace": "relaxed"})
