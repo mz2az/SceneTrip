@@ -16,10 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mz2az.scenetrip.data.CommunityArticle
 import com.mz2az.scenetrip.data.PostCourse
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostBlock
-import com.mz2az.scenetrip.sceneapi.client.model.TripPostBlockKind
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.IOSSheet
 import com.mz2az.scenetrip.ui.IOSSheetToolbar
@@ -37,26 +37,19 @@ fun CommunityArticlePreview(
         Column(Modifier.fillMaxSize().background(IOS.systemBackground)) {
             IOSSheetToolbar(tr("미리보기"), trailing = tr("닫기"), onTrailing = onClose)
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                item {
-                    photos.firstOrNull()?.let { photo ->
-                        CommunityArticlePhoto(
-                            photo,
-                            blocks.coverBlock(),
-                            representative = true,
-                            modifier = Modifier.padding(horizontal = 20.dp).padding(top = 14.dp),
-                        )
-                    }
-                }
+                // 맨 위 대표 사진을 따로 그리지 않는다 — 글 화면과 같다(K7). 사진은 본문 블록에서 한 번씩만.
                 item {
                     Text(
                         title,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
                         color = IOS.label,
-                        modifier = Modifier.padding(horizontal = 20.dp),
+                        modifier = Modifier.padding(horizontal = 20.dp).padding(top = 14.dp),
                     )
                 }
-                itemsIndexed(blocks) { _, block -> CommunityArticleBlock(block, photos, Modifier.padding(horizontal = 20.dp)) }
+                itemsIndexed(
+                    CommunityArticle.readingBlocks(blocks, "", photos.size),
+                ) { _, block -> CommunityArticleBlock(block, photos, Modifier.padding(horizontal = 20.dp)) }
                 course?.let { value ->
                     item {
                         Box(
@@ -75,6 +68,3 @@ fun CommunityArticlePreview(
         }
     }
 }
-
-internal fun List<TripPostBlock>.coverBlock(): TripPostBlock =
-    firstOrNull { it.kind == TripPostBlockKind.photo && it.photoIndex == 0 } ?: TripPostBlock(TripPostBlockKind.photo, photoIndex = 0)

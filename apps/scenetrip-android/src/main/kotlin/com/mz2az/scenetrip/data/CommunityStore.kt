@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.mz2az.scenetrip.auth.AuthStore
+import com.mz2az.scenetrip.sceneapi.client.model.TripPostBoard
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostDetail
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +59,32 @@ class CommunityStore private constructor(
     fun invalidateAndRefreshInBackground() {
         scope.launch { session.invalidateAndRefresh() }
     }
+
+    /** 게시판·검색어를 바꾼다 — 목록을 비우고 새 조건의 첫 쪽부터 받는다(MZ2AZ-547 K2·K3). */
+    suspend fun setFilter(
+        board: TripPostBoard,
+        query: String?,
+    ) {
+        session.syncAccount()
+        session.setFilter(board, query)
+    }
+
+    /**
+     * 탭을 떠났다 — 조건을 기본(여행후기, 검색 없음)으로 돌린다(K2 「탭 떠나면 지움」). 화면이 사라진 뒤라 앱 범위에서 끝까지 간다.
+     * 이미 기본이면 다시 받지 않는다.
+     */
+    fun resetFilterInBackground() {
+        if (state.board == TripPostBoard.review && state.query == null) return
+        scope.launch { session.setFilter(TripPostBoard.review, null) }
+    }
+
+    /** 글 화면에서 좋아요·댓글이 바뀌었다 — 목록·내 글의 같은 글 줄에도 맞춘다. */
+    fun updateSocial(
+        postId: Long,
+        liked: Boolean,
+        likeCount: Int,
+        commentCount: Int,
+    ) = session.updateSocial(postId, liked, likeCount, commentCount)
 
     suspend fun refresh(
         mine: Boolean = false,

@@ -44,6 +44,9 @@ data class ModerationTarget(
         fun review(id: Long) = ModerationTarget(ReportTargetType.review, id)
 
         fun post(id: Long) = ModerationTarget(ReportTargetType.post, id)
+
+        /** 여행후기 댓글(1.24.0, MZ2AZ-538). */
+        fun comment(id: Long) = ModerationTarget(ReportTargetType.comment, id)
     }
 }
 

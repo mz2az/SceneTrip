@@ -113,6 +113,30 @@ object CommunityArticle {
         }
     }
 
+    /**
+     * 읽는 화면(글 화면·미리보기)의 블록 — 맨 위 대표 사진을 따로 그리지 않는다(K7, 본문 블록에 이미 있다).
+     * 서버 `bodyBlocks` 가 있으면 그것, 없거나 비었으면 [legacy]. 어느 블록도 가리키지 않는 사진은 끝에 붙여 빠뜨리지 않고,
+     * 범위 밖(photoIndex >= photoCount)이거나 두 번째로 같은 사진을 가리키는 사진 블록은 뺀다 — 사진은 한 번씩만 보인다.
+     */
+    fun readingBlocks(
+        bodyBlocks: List<TripPostBlock>?,
+        body: String,
+        photoCount: Int,
+    ): List<TripPostBlock> {
+        if (bodyBlocks.isNullOrEmpty()) return legacy(body, photoCount)
+        val seen = mutableSetOf<Int>()
+        val out = mutableListOf<TripPostBlock>()
+        for (block in bodyBlocks) {
+            if (block.kind == TripPostBlockKind.photo) {
+                val index = block.photoIndex ?: continue
+                if (index !in 0 until photoCount || !seen.add(index)) continue
+            }
+            out += block
+        }
+        for (index in 0 until maxOf(0, photoCount)) if (index !in seen) out += TripPostBlock(TripPostBlockKind.photo, photoIndex = index)
+        return out
+    }
+
     fun legacy(
         body: String,
         photoCount: Int,

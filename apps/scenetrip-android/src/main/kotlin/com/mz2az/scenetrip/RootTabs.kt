@@ -176,6 +176,12 @@ fun RootTabs() {
                     ),
         )
 
+        // 커뮤니티의 글 읽기·글쓰기 — 오른쪽에서 밀려 들어와 탭바까지 덮는 새 화면(MZ2AZ-547 K6). 그래서 탭바 위에 그린다.
+        if (selected == RootTab.COMMUNITY) {
+            com.mz2az.scenetrip.communitytab
+                .CommunityPageHost()
+        }
+
         when (cover) {
             null -> {
                 Unit

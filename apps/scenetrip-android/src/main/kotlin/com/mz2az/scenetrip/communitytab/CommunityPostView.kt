@@ -6,14 +6,20 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -51,6 +57,8 @@ import com.mz2az.scenetrip.data.ModerationRules
 import com.mz2az.scenetrip.data.ModerationTarget
 import com.mz2az.scenetrip.data.PhotoRenewal
 import com.mz2az.scenetrip.data.PostCourse
+import com.mz2az.scenetrip.data.PostSocialModel
+import com.mz2az.scenetrip.data.PostSocialState
 import com.mz2az.scenetrip.data.TabRouter
 import com.mz2az.scenetrip.data.apiResult
 import com.mz2az.scenetrip.data.tr
@@ -69,8 +77,11 @@ import kotlinx.coroutines.launch
 private const val PREVIEW_STOPS = 4
 
 /**
- * 여행후기 읽기 (MZ2AZ-351) — 블로그 글처럼 **사진이 먼저, 그 아래 글, 끝에 다녀온 코스.**
+ * 글 읽기 (MZ2AZ-351) — 블로그 글처럼 **제목, 글과 사진(쓴 순서대로), 끝에 다녀온 코스.**
  * iOS `CommunityTab/CommunityPostView.swift`를 옮긴 것이다.
+ *
+ * 커뮤니티 탭에서는 오른쪽에서 밀려 들어오는 새 화면이다([page], 머리 「‹ 여행후기」, ✕ 없음, MZ2AZ-547 K6).
+ * 맨 위 대표 사진은 따로 그리지 않는다 — 본문 블록에 이미 있다(K7). 글 끝에 좋아요 알약과 댓글이 붙는다(K8·K9).
  *
  * 붙은 코스는 이름만이 아니라 **일차별 장소까지** 보인다. 「내 코스로 담기」를 누르면 같은
  * 코스가 내 것으로 하나 생긴다 — 후기를 읽고 「나도 이대로 가야지」가 한 번에 되어야 한다.
@@ -79,6 +90,7 @@ private const val PREVIEW_STOPS = 4
 fun CommunityPostView(
     post: CommunityPost,
     onDismiss: () -> Unit,
+    page: Boolean = false,
 ) {
     val context = LocalContext.current
     val store = remember { CommunityStore.getInstance(context) }
@@ -105,6 +117,24 @@ fun CommunityPostView(
         }
     DisposableEffect(photoRefresh) { onDispose { photoRefresh.cancelPending() } }
     val content = refreshed ?: loaded ?: post
+    // 좋아요·댓글(1.24.0) — 서버 글에만. 바뀌면 목록 줄에도 맞춘다.
+    var socialState by remember(post.id) { mutableStateOf<PostSocialState?>(null) }
+    val social =
+        remember(post.id) {
+            PostSocialModel(
+                post.serverId ?: 0,
+                post.liked,
+                post.likeCount,
+                post.commentCount,
+                onState = { socialState = it },
+            ).also { model ->
+                model.onChange = { liked, likes, comments ->
+                    post.serverId?.let { store.updateSocial(it, liked, likes, comments) }
+                }
+            }
+        }
+    // 「내 댓글」 표시가 계정에 따라 바뀐다 — 계정이 바뀌면 다시 받는다.
+    LaunchedEffect(post.id, AuthStore.epoch) { if (post.serverId != null) social.loadComments() }
     LaunchedEffect(post.id, revision, AuthStore.epoch, AppLanguage.current) {
         photoRefresh.invalidate()
         loaded = null
@@ -115,6 +145,7 @@ fun CommunityPostView(
                 onSuccess = {
                     loaded = it
                     photoRefresh.show(it)
+                    social.sync(it.liked, it.likeCount)
                 },
                 onFailure = { loadMessage = CommunityRules.failureText(it) },
             )
@@ -133,164 +164,181 @@ fun CommunityPostView(
 
     fun shown(stops: List<PostCourse.Stop>) = if (expanded) stops else stops.take(PREVIEW_STOPS)
 
-    Box(Modifier.fillMaxSize().background(IOS.systemBackground)) {
-        CompositionLocalProvider(LocalPhotoRenew provides renewPhotos) {
-            LazyColumn(Modifier.fillMaxSize()) {
-                if (post.serverId != null && loaded == null) {
-                    item {
-                        if (loading) {
-                            Box(Modifier.fillMaxWidth().padding(30.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(Modifier.size(24.dp), color = IOS.accent)
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(IOS.systemBackground)
+            .then(if (page) Modifier.statusBarsPadding().imePadding() else Modifier),
+    ) {
+        if (page) CommunityBackHeader(content.serverBoard ?: post.serverBoard, onDismiss)
+        Box(Modifier.fillMaxWidth().weight(1f)) {
+            CompositionLocalProvider(LocalPhotoRenew provides renewPhotos) {
+                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = if (page) navigationBarBottom() else 0.dp)) {
+                    if (post.serverId != null && loaded == null) {
+                        item {
+                            if (loading) {
+                                Box(Modifier.fillMaxWidth().padding(30.dp), contentAlignment = Alignment.Center) {
+                                    CircularProgressIndicator(Modifier.size(24.dp), color = IOS.accent)
+                                }
+                            }
+                            loadMessage?.let {
+                                Text(it, color = IOS.secondaryLabel, modifier = Modifier.padding(20.dp))
+                                CommunityListButton("다시 시도", !loading) { revision++ }
                             }
                         }
-                        loadMessage?.let {
-                            Text(it, color = IOS.secondaryLabel, modifier = Modifier.padding(20.dp))
-                            CommunityListButton("다시 시도", !loading) { revision++ }
-                        }
-                    }
-                } else {
-                    val photos =
-                        if (content.remotePhotos.isNotEmpty()) {
-                            content.remotePhotos.map(
-                                CommunityPhotoSource::Remote,
-                            )
-                        } else {
-                            content.photos.orEmpty().map(CommunityPhotoSource::Local)
-                        }
-                    val blocks = content.bodyBlocks ?: CommunityArticle.legacy(content.body, photos.size)
-                    photos.firstOrNull()?.let { cover ->
-                        item {
-                            CommunityArticlePhoto(
-                                cover,
-                                blocks.coverBlock(),
-                                representative = true,
-                                modifier = Modifier.padding(horizontal = 20.dp).padding(top = 14.dp),
-                            )
-                        }
-                    }
-                    item {
-                        Column(
-                            // 4차 에뮬레이터 실측(iOS 대비 글자 윗선): 제목 +1.9 → 위 18→16.1, 작성자 +3.6 → 간격 16→14.3,
-                            // 본문 +2.6 → 아래 12→13, 둘째 사진 +4.0 → 글 블록 아래 22→20.6.
-                            verticalArrangement = Arrangement.spacedBy(14.3.dp),
-                            // 아래 여백은 iOS 간격 16 에서 3 을 더 뺀다 — 본문 글줄(한글 제 높이 24.4)이 iOS(22)보다 높아 글자가 아래에 앉는다(31-post 실측).
-                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.1.dp, bottom = 13.dp),
-                        ) {
-                            // 제목은 여러 줄이 될 수 있다 — 한 줄 칸(iosLineBox)에 가두면 둘째 줄부터 위 사진 출처와 아래 작성자 위로 넘쳤다.
-                            IOSLinedText(
-                                content.title,
-                                lineDp = 28f,
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = IOS.label,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-
-                            AuthorRow(content, moderation)
-                        }
-                    }
-                    // 끝의 「References」·「Photo credits」 는 접어 둔다(Android 만 — 길고 주소가 섞여 본문 끝이 지저분했다).
-                    val (bodyBlocks, references) = CommunityArticle.splitReferences(blocks)
-                    itemsIndexed(bodyBlocks) { _, block ->
-                        CommunityArticleBlock(block, photos, Modifier.padding(horizontal = 20.dp).padding(bottom = 20.6.dp))
-                    }
-                    if (references.isNotEmpty()) {
-                        item { CommunityReferences(references, Modifier.padding(horizontal = 20.dp).padding(bottom = 14.dp)) }
-                    }
-                    item {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                            modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 18.dp),
-                        ) {
-                            val course = content.course
-                            if (course != null) {
-                                CourseCard(
-                                    course = course,
-                                    expanded = expanded,
-                                    shown = ::shown,
-                                    allowSaving = content.serverId != null,
-                                    saving = saving,
-                                    savedCourseId = savedCourseId,
-                                    onExpand = { expanded = true },
-                                    onSave = {
-                                        if (!AuthStore.signedIn) {
-                                            AuthStore.promptSignIn()
-                                            return@CourseCard
-                                        }
-                                        saving = true
-                                        scope.launch {
-                                            val account = AuthStore.epoch
-                                            apiResult { store.saveCourse(content) }.fold(
-                                                onSuccess = { if (account == AuthStore.epoch) savedCourseId = it.id },
-                                                onFailure = { if (account == AuthStore.epoch) saveFailed = true },
-                                            )
-                                            saving = false
-                                        }
-                                    },
-                                    onOpenSaved = {
-                                        savedCourseId?.let { id ->
-                                            onDismiss()
-                                            TabRouter.openCourse(id)
-                                        }
-                                    },
+                    } else {
+                        val photos =
+                            if (content.remotePhotos.isNotEmpty()) {
+                                content.remotePhotos.map(
+                                    CommunityPhotoSource::Remote,
                                 )
-                            } else if (content.courseTitle != null) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(14.dp))
-                                            .background(IOS.systemGray6)
-                                            .padding(12.dp),
+                            } else {
+                                content.photos.orEmpty().map(CommunityPhotoSource::Local)
+                            }
+                        // 대표 사진을 맨 위에 따로 그리지 않는다 — 본문 블록에 이미 있다(K7). 사진은 한 번씩만.
+                        val blocks = CommunityArticle.readingBlocks(content.bodyBlocks, content.body, photos.size)
+                        item {
+                            Column(
+                                // 4차 에뮬레이터 실측(iOS 대비 글자 윗선): 제목 +1.9 → 위 18→16.1, 작성자 +3.6 → 간격 16→14.3,
+                                // 본문 +2.6 → 아래 12→13, 둘째 사진 +4.0 → 글 블록 아래 22→20.6.
+                                verticalArrangement = Arrangement.spacedBy(14.3.dp),
+                                // 아래 여백은 iOS 간격 16 에서 3 을 더 뺀다 — 본문 글줄(한글 제 높이 24.4)이 iOS(22)보다 높아 글자가 아래에 앉는다(31-post 실측).
+                                // 시트로 열면(마이페이지) 오른쪽 위 ✕ 와 겹치지 않게 제목 오른쪽을 비운다.
+                                modifier = Modifier.padding(start = 20.dp, end = if (page) 20.dp else 56.dp, top = 16.1.dp, bottom = 13.dp),
+                            ) {
+                                // 제목은 여러 줄이 될 수 있다 — 한 줄 칸(iosLineBox)에 가두면 둘째 줄부터 위 사진 출처와 아래 작성자 위로 넘쳤다.
+                                IOSLinedText(
+                                    content.title,
+                                    lineDp = 28f,
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = IOS.label,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+
+                                AuthorRow(content, moderation)
+                            }
+                        }
+                        // 끝의 「References」·「Photo credits」 는 접어 둔다(Android 만 — 길고 주소가 섞여 본문 끝이 지저분했다).
+                        val (bodyBlocks, references) = CommunityArticle.splitReferences(blocks)
+                        itemsIndexed(bodyBlocks) { _, block ->
+                            CommunityArticleBlock(block, photos, Modifier.padding(horizontal = 20.dp).padding(bottom = 20.6.dp))
+                        }
+                        if (references.isNotEmpty()) {
+                            item { CommunityReferences(references, Modifier.padding(horizontal = 20.dp).padding(bottom = 14.dp)) }
+                        }
+                        item {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 18.dp),
+                            ) {
+                                val course = content.course
+                                if (course != null) {
+                                    CourseCard(
+                                        course = course,
+                                        expanded = expanded,
+                                        shown = ::shown,
+                                        allowSaving = content.serverId != null,
+                                        saving = saving,
+                                        savedCourseId = savedCourseId,
+                                        onExpand = { expanded = true },
+                                        onSave = {
+                                            if (!AuthStore.signedIn) {
+                                                AuthStore.promptSignIn()
+                                                return@CourseCard
+                                            }
+                                            saving = true
+                                            scope.launch {
+                                                val account = AuthStore.epoch
+                                                apiResult { store.saveCourse(content) }.fold(
+                                                    onSuccess = { if (account == AuthStore.epoch) savedCourseId = it.id },
+                                                    onFailure = { if (account == AuthStore.epoch) saveFailed = true },
+                                                )
+                                                saving = false
+                                            }
+                                        },
+                                        onOpenSaved = {
+                                            savedCourseId?.let { id ->
+                                                onDismiss()
+                                                TabRouter.openCourse(id)
+                                            }
+                                        },
+                                    )
+                                } else if (content.courseTitle != null) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        modifier =
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(14.dp))
+                                                .background(IOS.systemGray6)
+                                                .padding(12.dp),
+                                    ) {
+                                        PostCourseBadge(size = 30.dp)
+                                        Text(content.courseTitle!!, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                                    }
+                                }
+                            }
+                        }
+                        if (content.serverId != null) {
+                            item(key = "social") {
+                                val shown = socialState ?: social.state
+                                Column(
+                                    Modifier.padding(horizontal = 20.dp).padding(bottom = 18.dp),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp),
                                 ) {
-                                    PostCourseBadge(size = 30.dp)
-                                    Text(content.courseTitle!!, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = IOS.label)
+                                    CommunityLikeButton(social, shown)
+                                    CommunityCommentsSection(social, shown)
                                 }
                             }
                         }
                     }
                 }
             }
-        }
 
-        ModerationSheets(moderation) { target ->
-            // 차단한 사람의 후기 상세는 이제 404 다 — 목록에서 빼고 닫는다.
-            store.blockedInBackground(target.targetId)
-            onDismiss()
-        }
+            ModerationSheets(moderation) { target ->
+                // 차단한 사람의 후기 상세는 이제 404 다 — 목록에서 빼고 닫는다.
+                store.blockedInBackground(target.targetId)
+                onDismiss()
+            }
 
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier =
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(14.dp)
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.62f))
-                    .semantics { contentDescription = tr("닫기") }
-                    .clickable(onClick = onDismiss),
-        ) {
-            XMarkIcon(Color.White, Modifier.size(13.dp))
-        }
+            if (!page) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(14.dp)
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.62f))
+                            .semantics { contentDescription = tr("닫기") }
+                            .clickable(onClick = onDismiss),
+                ) {
+                    XMarkIcon(Color.White, Modifier.size(13.dp))
+                }
+            }
 
-        if (saveFailed) {
-            com.mz2az.scenetrip.ui.IOSConfirmPopover(
-                title = tr("코스를 담지 못했어요. 잠시 뒤 다시 해 주세요"),
-                actions =
-                    listOf(
-                        com.mz2az.scenetrip.ui
-                            .IOSAction(tr("확인")) { saveFailed = false },
-                    ),
-                anchorX = 0.dp,
-                onDismiss = { saveFailed = false },
-                below = true,
-            )
+            if (saveFailed) {
+                com.mz2az.scenetrip.ui.IOSConfirmPopover(
+                    title = tr("코스를 담지 못했어요. 잠시 뒤 다시 해 주세요"),
+                    actions =
+                        listOf(
+                            com.mz2az.scenetrip.ui
+                                .IOSAction(tr("확인")) { saveFailed = false },
+                        ),
+                    anchorX = 0.dp,
+                    onDismiss = { saveFailed = false },
+                    below = true,
+                )
+            }
         }
     }
 }
+
+@Composable
+private fun navigationBarBottom() = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 12.dp
 
 @Composable
 private fun AuthorRow(

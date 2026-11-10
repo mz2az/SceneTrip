@@ -2,6 +2,7 @@ package com.mz2az.scenetrip.data
 
 import com.mz2az.scenetrip.sceneapi.client.api.PostsApi
 import com.mz2az.scenetrip.sceneapi.client.model.CourseDetail
+import com.mz2az.scenetrip.sceneapi.client.model.TripPostBoard
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostCreate
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostDetail
 import com.mz2az.scenetrip.sceneapi.client.model.TripPostList
@@ -16,6 +17,18 @@ interface CommunityClient {
         limit: Int,
         offset: Int,
     ): TripPostList
+
+    /**
+     * 모두의 목록(1.24.0, MZ2AZ-538) — 게시판·검색어·다음 쪽 커서. 내 글 목록에는 쓰지 않는다.
+     * 조건을 모르는 가짜(옛 시험)는 옛 길([list])로 받는다.
+     */
+    suspend fun feed(
+        limit: Int,
+        offset: Int,
+        board: TripPostBoard?,
+        query: String?,
+        cursor: String?,
+    ): TripPostList = list(false, limit, offset)
 
     suspend fun detail(id: Long): TripPostDetail
 
@@ -39,6 +52,14 @@ class CommunityServerClient(
         withContext(Dispatchers.IO) {
             if (mine) api.listMyPosts(AppLanguage.current, limit, offset) else api.listPosts(AppLanguage.current, limit, offset)
         }
+
+    override suspend fun feed(
+        limit: Int,
+        offset: Int,
+        board: TripPostBoard?,
+        query: String?,
+        cursor: String?,
+    ): TripPostList = withContext(Dispatchers.IO) { api.listPosts(AppLanguage.current, limit, offset, board, query, cursor) }
 
     override suspend fun detail(id: Long): TripPostDetail = withContext(Dispatchers.IO) { api.getPost(id, AppLanguage.current) }
 

@@ -133,6 +133,11 @@ kt_jvm_library(
         "tests/VisualParityRulesTests.kt",
         "tests/WebParityTabBarHomeTests.kt",
         "tests/WebParityTrendingTests.kt",
+        # 웹 시안 반영 P8 커뮤니티 (MZ2AZ-547)
+        "tests/CommunityDraftParityTests.kt",
+        "tests/CommunityFeedRulesParityTests.kt",
+        "tests/CommunityFeedSessionTests.kt",
+        "tests/PostSocialParityTests.kt",
     ],
     deps = [
         ":scenetrip-android",
@@ -176,7 +181,6 @@ kt_android_library(
         exclude = [
             "src/main/kotlin/com/mz2az/scenetrip/communitytab/CommunityComposeToolbar.kt",
             "src/main/kotlin/com/mz2az/scenetrip/communitytab/CommunityArticleView.kt",
-            "src/main/kotlin/com/mz2az/scenetrip/communitytab/CommunityPlacementEditor.kt",
             "src/main/kotlin/com/mz2az/scenetrip/communitytab/CommunityArticlePreview.kt",
             "src/main/kotlin/com/mz2az/scenetrip/ui/PhotoZoomViewer.kt",
             "src/main/kotlin/com/mz2az/scenetrip/data/CommunityArticle.kt",
@@ -253,7 +257,6 @@ kt_android_library(
         "src/main/kotlin/com/mz2az/scenetrip/communitytab/CommunityComposeState.kt",
         "src/main/kotlin/com/mz2az/scenetrip/communitytab/CommunityComposeToolbar.kt",
         "src/main/kotlin/com/mz2az/scenetrip/communitytab/CommunityList.kt",
-        "src/main/kotlin/com/mz2az/scenetrip/communitytab/CommunityPlacementEditor.kt",
         "src/main/kotlin/com/mz2az/scenetrip/communitytab/CoursePickSheet.kt",
         "src/main/kotlin/com/mz2az/scenetrip/data/CartSession.kt",
         "src/main/kotlin/com/mz2az/scenetrip/data/CommunityArticle.kt",

@@ -116,6 +116,13 @@ class MainActivity : ComponentActivity() {
         TabRouter.applyFreshBackdoor(intent.getBooleanExtra("freshCourse", false))
         // 코스 목록 확인용(MZ2AZ-547 P7, iOS `-courseList menu|pick|confirm`) — `-e initialTab route -e courseList pick`. 지우지는 않는다.
         com.mz2az.scenetrip.routetab.CourseListDebug.mode = intent.getStringExtra("courseList")
+        // 커뮤니티 확인용(MZ2AZ-547 P8, iOS `-communityBoard free`·`-communitySearch 서울`·`-communityOpen post|compose`).
+        // `-e initialTab community` 와 함께 `-e communityBoard free`, `-e communitySearch 글자`, `-e communityOpen post|compose`.
+        com.mz2az.scenetrip.communitytab.CommunityDebug.apply {
+            board = intent.getStringExtra("communityBoard")
+            search = intent.getStringExtra("communitySearch")
+            open = intent.getStringExtra("communityOpen")
+        }
         // 처음 안내(MZ2AZ-547 P6, iOS `-coachReset 1`·`-coachStep 2`, 웹 `?coach=reset`).
         // `--ez coachReset true` 면 본 기록을 지우고 처음부터, `--ei coachStep 2` 면 안내를 둘째 단계부터 띄운다(화면 확인용).
         com.mz2az.scenetrip.coach.CoachCenter.install(

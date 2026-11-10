@@ -28,7 +28,7 @@ internal fun CommunityComposeToolbar(
     Row(Modifier.padding(horizontal = 12.dp).heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
         ComposeToolbarAction("취소", !draft.status.working) { draft.close(onDismiss) }
         Text(
-            tr("여행후기 쓰기"),
+            tr("글쓰기"),
             fontSize = 17.sp,
             fontWeight = FontWeight.SemiBold,
             color = IOS.label,
