@@ -210,6 +210,25 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 - Compose 의 `combinedClickable` 꾹 누르기는 0.4초 이상이라 웹·iOS 의 0.2초와 달라 직접 잰다(`courseRowGestures`).
 - 확인용 뒷문(iOS `-courseList menu|pick|confirm` 과 짝): `-e initialTab route -e courseList menu`(첫 줄 「⋯」 메뉴), `pick`(앞 두 줄 고름), `confirm`(그 확인 창). **지우지는 않는다.**
 
+## 웹 시안 반영 P9 — 검색 탭 보관함 핀·촬영지 길찾기 (2026-11-10, MZ2AZ-547)
+
+체크리스트 G1–G3 을 iOS `SearchTab/SearchMapPins.swift`·`PlaceDirections.swift` 그대로 옮겼다. 순수 규칙은 `searchtab/SearchMapPins.kt`·
+`searchtab/PlaceDirections.kt`(+ `RouteNumberPinSpec.scale`)이고 JVM 시험이 선다(`tests/SearchMapPinsTests.kt`·`tests/PlaceDirectionsTests.kt`).
+
+- **G1 첫 화면 지도에는 보관함에 담은 곳만** 꽂는다 — 번호는 보관함 순서, 좌표 없는 곳·목록에서 빠진 곳은 뺀다. 작품을 고르면 그 촬영지,
+  검색하면 검색 결과(목록 행 번호 = 핀 번호)다. 핀은 계획 화면과 같은 보라 번호 핀(`RouteNumberPin`, 30×38). **열어 둔 장소의 핀은
+  그림을 한 번만 1.2배**로 굽고 이름표를 줌과 상관없이 핀 위·다른 핀보다 위에 둔다. 목록에 없는 장소면 번호 없는 핀(흰 점)을 하나 더 꽂는다.
+  예전 물방울 핀(`PinImage`)은 더 쓰지 않는다.
+- **G2 「보관함」** — 검색창 오른쪽 장바구니 그림이 보라 가방(읽기 이름 「보관함」)이 되고, 그 시트 제목이 「보관함」·「보관함 N곳」이다.
+  다른 화면(마이페이지·계획 화면의 담은 곳 시트)의 글은 그대로 둔다.
+- **G3 촬영지 상세 「길찾기」** 가 주 단추(보라)다. 누르면 그 장소 하나로 된 1일 코스 「{장소} 가는 길」(50자 넘으면 이름 끝을 「…」로)을 만들고
+  (`origin=place_directions`) 여행 중으로 바꾼 뒤 경로여정을 열어 바로 안내를 켠다(`TabRouter.pendingTripStart` — 계획 화면이 읽는다).
+  비회원이면 로그인 시트를 「로그인하면 바로 길안내를 시작해요」 와 함께 먼저 띄우고, 로그인되면 같은 장소로 이어 간다. 같은 장소의
+  「가는 길」(이 기능이 만든 것 → 목록의 여행 중·1일·1곳·같은 제목, 속을 읽어 확인)이 있으면 새로 만들지 않고 그것을 연다. 누르는 동안 다시
+  누르면 버리고, 화면을 떠나면 기다리던 로그인이 끝나도 이어 가지 않는다. 담기·네이버 지도는 아래 줄 보조 단추가 된다. 코스 편집 위에
+  띄운 검색 탭에서는 「길찾기」를 그리지 않는다(그때 주 단추는 「코스에 추가」).
+- `RouteStore.setRunning` 이 성공 여부를 돌려준다(여행 중으로 못 바꾸면 안내를 켜지 않는다). `AuthStore.promptSignIn(reason)` 이 시트에 이유 한 줄을 싣는다.
+
 ## 인터페이스
 
 2026-10-13 동기화는 [계획](../../docs/project/plans/android-ios-sync-2026-10.md)과

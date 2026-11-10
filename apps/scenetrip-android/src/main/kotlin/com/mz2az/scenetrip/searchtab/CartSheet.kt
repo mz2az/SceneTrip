@@ -112,7 +112,8 @@ private fun CartContent(
         // iOS 는 `navigationBarTitleDisplayMode(.inline)` — 제목이 가운데, 「닫기」는 오른쪽 **유리 알약**
         // (툴바 `confirmationAction`, 실측 60×44·검정 글자). 아이콘 ✕ 가 아니라 글자 알약이다.
         IOSSheetToolbar(
-            title = if (items.isEmpty()) tr("장바구니") else trCount("장바구니 %d곳", items.size),
+            // 담은 곳의 이름은 「보관함」이다(MZ2AZ-547 G2, iOS `CartSheet`).
+            title = if (items.isEmpty()) tr("보관함") else trCount("보관함 %d곳", items.size),
             trailing = tr("닫기"),
             onTrailing = onClose,
         )

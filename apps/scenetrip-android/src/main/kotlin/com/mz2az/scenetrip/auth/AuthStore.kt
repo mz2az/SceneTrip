@@ -111,11 +111,11 @@ object AuthStore {
         }
     }
 
-    /** 다른 스레드(요청 가로채기)에서도 부른다. */
-    fun promptSignIn() {
+    /** 다른 스레드(요청 가로채기)에서도 부른다. [reason] 은 시트에 띄울 이유 한 줄이다(촬영지 「길찾기」 — MZ2AZ-547 G3). */
+    fun promptSignIn(reason: String? = null) {
         scope.launch {
             if (signedIn) return@launch
-            message = null
+            message = reason
             showingSignIn = true
         }
     }

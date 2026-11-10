@@ -441,35 +441,50 @@ fun MapPins(
     onTap: (PlaceSummary) -> Unit = {},
     // 좌표가 완전히 같은 핀을 약 8m 씩 벌린다(iOS 검색 탭의 `spread`). 검색 탭에서만 켠다.
     spreadOverlapping: Boolean = false,
+    // 열어 둔 장소 — 그 핀만 1.2배·이름표는 늘 핀 위·다른 핀보다 위. 목록에 없으면 번호 없는 핀을 하나 더(`SearchMapPins.marks`).
+    selected: PlaceSummary? = null,
 ) {
     if (map == null) return
     val metrics = LocalContext.current.resources.displayMetrics
-    DisposableEffect(map, places, numbered, onTap, spreadOverlapping) {
+    DisposableEffect(map, places, numbered, onTap, spreadOverlapping, selected?.id) {
+        val marks = SearchMapPins.marks(places, numbered, selected)
         val spots =
             if (spreadOverlapping) {
                 PinSpread
-                    .spread(places.map { MapCoordinate(it.latitude, it.longitude) })
+                    .spread(marks.map { MapCoordinate(it.place.latitude, it.place.longitude) })
                     .map { LatLng(it.latitude, it.longitude) }
             } else {
-                places.map { it.position }
+                marks.map { it.place.position }
             }
         val markers =
-            places.mapIndexed { index, place ->
+            marks.mapIndexed { index, mark ->
+                val place = mark.place
                 Marker().apply {
                     position = spots[index]
-                    // **직접 그린 핀을 쓴다.** 네이버 기본 마커(초록 물방울)를 그대로
-                    // 두면 iOS 의 하늘→보라 그러데이션 핀과 한눈에 달라 보인다.
-                    icon = PinImage.numbered(if (numbered) index + 1 else null, metrics)
-                    // 꼬리 끝이 좌표를 가리켜야 한다. 기본 앵커는 그림 가운데라 핀이
-                    // 실제 위치보다 위에 뜬다. iOS 는 꼬리를 45/50 지점에 둔다.
-                    anchor = PointF(0.5f, 45f / 50f)
+                    // 코스 편집 화면과 같은 보라 번호 핀(MZ2AZ-547 G1). 고른 핀은 그림이 이미 1.2배다 — 마커에서 다시 키우지 않는다.
+                    icon =
+                        com.mz2az.scenetrip.routetab.RouteNumberPin
+                            .image(mark.number, metrics, mark.selected)
+                    // 꼬리 끝이 좌표를 가리켜야 한다 — 비율이라 1.2배 그림에도 같다.
+                    anchor =
+                        PointF(
+                            com.mz2az.scenetrip.routetab.RouteNumberPinSpec.anchorX,
+                            com.mz2az.scenetrip.routetab.RouteNumberPinSpec.anchorY,
+                        )
                     // 긴 영어 이름이 옆 핀을 덮지 않게 앞머리만, 정해진 폭 안에서(iOS `PinCaption`, MZ2AZ-372).
                     captionText = PinCaption.text(place.name)
                     captionRequestedWidth = (PinCaption.WIDTH_DP * metrics.density).toInt()
-                    // **줌 13 이상에서만 이름표를 띄운다.** iOS 와 같은 값이다.
-                    // 전국 뷰에서 이름을 다 그리면 "인천스마트밸리지식산업센터" 같은
-                    // 긴 이름들이 서로 겹쳐 검은 뭉텅이가 된다(실측).
-                    captionMinZoom = 13.0
+                    if (mark.selected) {
+                        // 열어 둔 장소의 이름표는 줌과 상관없이 **핀 위**에(아래는 지도 자체의 지명과 겹친다, MZ2AZ-519).
+                        setCaptionAligns(com.naver.maps.map.overlay.Align.Top)
+                        captionMinZoom = 0.0
+                        zIndex = 1
+                    } else {
+                        // **줌 13 이상에서만 이름표를 띄운다.** iOS 와 같은 값이다.
+                        // 전국 뷰에서 이름을 다 그리면 "인천스마트밸리지식산업센터" 같은
+                        // 긴 이름들이 서로 겹쳐 검은 뭉텅이가 된다(실측).
+                        captionMinZoom = 13.0
+                    }
                     setOnClickListener {
                         onTap(place)
                         true

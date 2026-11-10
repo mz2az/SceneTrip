@@ -188,4 +188,10 @@ internal val TRANSLATIONS_EN_EXTRA =
         "「새 코스」 로 첫 여행을 짜 보세요" to "Tap “New” to plan your first trip",
         "%s 메뉴" to "%s menu",
         "여러 개 고르기" to "Select multiple",
+        // 검색 탭 — 보관함·촬영지 상세 길찾기 (MZ2AZ-547 P9 G2·G3) — iOS `en.lproj` 의 같은 문구.
+        "보관함" to "Saved",
+        "보관함 %d곳" to "Saved · %d places",
+        "보관함 %d곳|하나" to "Saved · %d place",
+        "%s 가는 길" to "Trip to %s",
+        "로그인하면 바로 길안내를 시작해요" to "Sign in to start directions right away",
     )

@@ -38,7 +38,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.ui.ArrowClockwiseIcon
-import com.mz2az.scenetrip.ui.CartIcon
 import com.mz2az.scenetrip.ui.IOS
 import com.mz2az.scenetrip.ui.XMarkIcon
 
@@ -133,12 +132,13 @@ fun SearchBar(
         Spacer(Modifier.width(12.dp))
 
         Box {
-            // iOS 는 이 자리를 강조색으로 그린다 — 실기 스크린샷으로 확인했다. 글리프는 SF `cart`(2차 대조).
-            CartIcon(
-                IOS.accent,
+            // 담은 곳의 이름은 「보관함」이다(MZ2AZ-547 G2, 웹 `SearchTopBar.tsx:65`, iOS `bag`) — 보라 가방.
+            val cartLabel = tr("보관함")
+            com.mz2az.scenetrip.ui.BagIcon(
+                IOS.homePurple,
                 Modifier
                     .clip(CircleShape)
-                    .semantics { contentDescription = tr("장바구니") }
+                    .semantics { contentDescription = cartLabel }
                     .clickable(onClick = onOpenCart)
                     .size(22.dp),
             )

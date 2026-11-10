@@ -113,6 +113,12 @@ fun SearchTabScreen(embedded: Boolean = false) {
     val navigationBar = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val data = remember { SceneData(scope) }
     val cart = remember { CartStore(context) }
+    // 촬영지 상세 「길찾기」가 코스를 만들고 다시 쓴다(MZ2AZ-547 G3). 홈·경로여정처럼 이 화면도 제 코스 목록을 든다.
+    val routes =
+        remember {
+            com.mz2az.scenetrip.data
+                .RouteStore(context)
+        }
     val likes = remember { LikeStore.getInstance(context) }
 
     var draft by remember { mutableStateOf("") }
@@ -334,26 +340,31 @@ fun SearchTabScreen(embedded: Boolean = false) {
             // 없다 — 무엇부터 봐야 할지가 사라진다.
             .let { if (isInitial) it.take(10) else it }
 
-    // 번호는 "목록의 N 번 = 지도의 N 번" 을 잇는 장치인데, 첫 화면의 작품 탭에서는
-    // 목록이 작품이고 핀은 장소라 이어 볼 짝이 없다.
-    val numbersOnPins = !(isInitial && tab == ListTab.WORK)
+    // 핀에 번호를 찍을 것인가 — 첫 화면은 보관함 순서, 그 밖에는 목록 행 번호(MZ2AZ-547 G1, `SearchMapPins.numbered`).
+    val numbersOnPins = SearchMapPins.numbered(isInitial, tab, selectedContent != null)
 
-    // 첫 화면에서 장소 탭으로 옮기면 인기 10곳이 **한 화면에 다 들어오게** 맞춘다.
-    // 서울 중심 그대로면 강릉·포항이 화면 밖이라 목록의 절반이 어디 있는지 보이지
-    // 않는다. 작품 탭은 특정 촬영지를 가리키지 않으므로 남한 전체로 돌아간다.
+    // 지도에 꽂는 핀(MZ2AZ-547 G1). 작품을 골랐으면 그 작품의 촬영지, 첫 화면이면 **보관함에 담은 곳만**
+    // (번호는 보관함 순서), 그 밖에는 검색 결과 — 시트의 목록과 같은 배열이라 행 번호가 곧 핀 번호다.
+    val mapPlaces =
+        SearchMapPins.places(
+            contentSelected = selectedContent != null,
+            contentPlaces = contentPlaces,
+            initial = isInitial,
+            saved = SearchMapPins.saved(cart.items),
+            visible = visiblePlaces,
+        )
+
+    // 첫 화면에서 장소 탭으로 옮기면 지도의 핀(보관함에 담은 곳)이 **한 화면에 다 들어오게** 맞춘다.
+    // 핀이 없거나 작품 탭이면 특정 촬영지를 가리키지 않으므로 남한 전체로 돌아간다(iOS `afterTabChange(hasPins:)`).
     LaunchedEffect(tab, map) {
         if (!isInitial) return@LaunchedEffect
         val target = map ?: return@LaunchedEffect
-        if (tab == ListTab.PLACE) {
-            target.fit(visiblePlaces, density, screenHeight, sheetHeight, SEARCH_BAR_INSET + statusBar)
+        if (tab == ListTab.PLACE && mapPlaces.isNotEmpty()) {
+            target.fit(mapPlaces, density, screenHeight, sheetHeight, SEARCH_BAR_INSET + statusBar)
         } else {
             target.showWholeKorea(density)
         }
     }
-
-    // 지도에 꽂는 핀. 작품을 골랐으면 그 작품의 촬영지, 아니면 검색 결과다 —
-    // 어느 쪽이든 **시트의 목록과 같은 배열**이라 행 번호가 곧 핀 번호다.
-    val mapPlaces = selectedContent?.let { contentPlaces } ?: visiblePlaces
 
     // 드릴다운하면 그 작품의 촬영지가 **한 화면에 다 들어오게** 맞춘다. iOS 가
     // `fitToken` 을 올리는 자리다 — 도깨비 촬영지 57곳이 전국에 흩어져 있어
@@ -542,6 +553,8 @@ fun SearchTabScreen(embedded: Boolean = false) {
             map = map,
             places = mapPlaces,
             numbered = numbersOnPins,
+            // 열어 둔 장소의 핀은 1.2배(목록에 없으면 번호 없는 핀을 하나 더) — MZ2AZ-519·547 G1.
+            selected = selectedPlace,
             // 핀을 누르면 그 장소의 상세가 열린다 — iOS `onTapPin` 과 같다.
             onTap = { place ->
                 selectedPlace = place
@@ -584,6 +597,8 @@ fun SearchTabScreen(embedded: Boolean = false) {
                             fitToken++
                         },
                         onOpenScene = { selectedScene = it },
+                        // 「길찾기」(MZ2AZ-547 G3) — 코스 편집 위에 띄운 검색 탭에서는 뺀다(그때는 「코스에 추가」 가 주 단추다).
+                        directionsStore = if (embedded) null else routes,
                         onToggleSave = {
                             val place = selectedPlace!!
                             val source = selectedContent?.id

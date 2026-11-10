@@ -299,6 +299,9 @@ object RouteNumberPinSpec {
     /** 시그니처 보라 `#5c4ad6`. */
     const val PURPLE = 0xFF5C4AD6
 
+    /** 그림을 굽는 배율 — 고른 핀은 [SELECTED_SCALE] 배로 **한 번만**(검색 탭 G1, 마커 쪽에서 다시 키우지 않는다). */
+    fun scale(selected: Boolean): Float = if (selected) SELECTED_SCALE else 1f
+
     /** 마커 기준점(0…1) — 꼬리 끝. */
     val anchorX: Float get() = TIP_X / WIDTH
     val anchorY: Float get() = TIP_Y / HEIGHT

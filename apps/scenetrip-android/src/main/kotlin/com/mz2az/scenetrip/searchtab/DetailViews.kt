@@ -73,6 +73,7 @@ import com.mz2az.scenetrip.ui.TextAlignLeftIcon
 import com.mz2az.scenetrip.ui.UnavailableItemNotice
 import com.mz2az.scenetrip.ui.iosLineBox
 import com.mz2az.scenetrip.ui.sfLine
+import kotlinx.coroutines.launch
 
 /**
  * 드릴다운 2단 — 작품 상세.
@@ -276,6 +277,8 @@ fun PlaceDetailView(
     onBack: () -> Unit,
     onToggleSave: () -> Unit,
     onOpenScene: (Scene) -> Unit,
+    // 「길찾기」(MZ2AZ-547 G3) — 검색 탭에서만 넘긴다. 코스 편집 위·리뷰 시트에서 연 상세에는 없다.
+    directionsStore: com.mz2az.scenetrip.data.RouteStore? = null,
 ) {
     var detail by remember(summary.id) { mutableStateOf<PlaceDetail?>(null) }
     var viewingScene by remember(summary.id) { mutableStateOf<Scene?>(null) }
@@ -394,11 +397,18 @@ fun PlaceDetailView(
                             )
                         }
                     }
-                    // 담긴 상태에서 다시 누르면 뺀다 — 목록 행과 같은 규칙이다.
-                    //
-                    // 두 버튼이 한 줄이다. 담기는 계약이 적어 둔 세 경로 중 하나이고,
-                    // 네이버 지도는 외부 앱/브라우저로 넘긴다 — 길찾기와 영업정보는
-                    // 우리가 만들 것이 아니다.
+                    // 「길찾기」가 주 단추다(MZ2AZ-532 → MZ2AZ-547 G3, 웹 `PlaceDetail.tsx:104-138`) — 한 곳만 가려는 사람에게
+                    // 코스 만들기는 병목이라, 누르면 그 장소 하나로 된 코스를 만들어 바로 안내를 켠다([PlaceDirections]).
+                    if (directionsStore != null) {
+                        DirectionsButton(
+                            place = summary,
+                            store = directionsStore,
+                            delisted = detail?.delisted == true,
+                            modifier = Modifier.padding(horizontal = IOS.gutter).padding(bottom = 8.dp),
+                        )
+                    }
+                    // 아래 줄은 보조 — 담기와 네이버 지도. 담긴 상태에서 다시 누르면 뺀다(목록 행과 같은 규칙).
+                    // 담기는 계약이 적어 둔 세 경로 중 하나이고, 네이버 지도는 외부 앱/브라우저로 넘긴다.
                     //
                     // 코스 편집 위에 띄운 검색 탭에서만 「＋ 코스에 추가」 가 맨 위에 선다(MZ2AZ-547 E9). 문맥이 없으면 아무것도 안 그린다.
                     com.mz2az.scenetrip.routetab.CourseAddBar(
@@ -411,6 +421,7 @@ fun PlaceDetailView(
                     ) {
                         // 목록에서 빠진 촬영지는 새로 담을 수 없다. 이미 담은 것을 빼는 것은 항상 된다(MZ2AZ-458).
                         val canToggleSave = UnavailableItem.canToggle(delisted = detail?.delisted, saved = saved)
+                        val saveTint = if (directionsStore != null) IOS.accent else IOS.onAccent
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier =
@@ -418,7 +429,8 @@ fun PlaceDetailView(
                                     .weight(1f)
                                     .alpha(if (canToggleSave) 1f else 0.4f)
                                     .clip(RoundedCornerShape(IOS.capsuleButton))
-                                    .background(IOS.accent)
+                                    // 길찾기가 있으면 담기는 보조(iOS `.bordered` — 옅은 바탕에 강조색 글자).
+                                    .background(if (directionsStore != null) IOS.systemGray6 else IOS.accent)
                                     .clickable(enabled = canToggleSave, onClick = onToggleSave)
                                     // iOS `.borderedProminent` 높이 35(2차 대조 실측 — 32.5 는 작았다).
                                     .padding(vertical = 7.dp),
@@ -433,18 +445,18 @@ fun PlaceDetailView(
                                     Icon(
                                         Icons.Filled.Check,
                                         contentDescription = null,
-                                        tint = IOS.onAccent,
+                                        tint = saveTint,
                                         modifier = Modifier.size(17.dp),
                                     )
                                 } else {
                                     // iOS 는 `bag.badge.plus` — **가방에 ＋ 배지**다.
                                     // 쇼핑카트로 대신하면 모양이 한눈에 다르다.
-                                    BagPlusIcon(IOS.onAccent, Modifier.size(17.dp))
+                                    BagPlusIcon(saveTint, Modifier.size(17.dp))
                                 }
                                 Text(
                                     text = if (saved) tr("담김 · 누르면 빼기") else tr("장바구니에 담기"),
                                     style = IOS.subheadlineSemibold,
-                                    color = IOS.onAccent,
+                                    color = saveTint,
                                 )
                             }
                         }
@@ -520,6 +532,61 @@ fun PlaceDetailView(
         com.mz2az.scenetrip.reviews.ReviewsSheet(subject, onClose = {
             reviews = false
         }, onChanged = { revision += 1 }, focusReviewId = reviewId)
+    }
+}
+
+/**
+ * 「길찾기」 주 단추(MZ2AZ-547 G3, iOS `PlaceDetailView.actions`) — 보라 가득, 누르는 동안 스피너, 실패면 아래 빨간 한 줄.
+ * 장소마다 [PlaceDirections] 하나. 장소가 바뀌거나 화면을 떠나면 버린다(기다리던 로그인이 끝나도 이어 가지 않게).
+ */
+@Composable
+private fun DirectionsButton(
+    place: PlaceSummary,
+    store: com.mz2az.scenetrip.data.RouteStore,
+    delisted: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val controller = remember(place.id) { PlaceDirections(LivePlaceDirectionsDeps(store)) }
+    androidx.compose.runtime.DisposableEffect(controller) { onDispose { controller.dispose() } }
+    var busy by remember(place.id) { mutableStateOf(false) }
+    var error by remember(place.id) { mutableStateOf<String?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // 「가는 길」을 다시 쓰려면 받아 둔 목록이 있어야 한다 — 로그인이 바뀌면 다시 받는다.
+    LaunchedEffect(com.mz2az.scenetrip.auth.AuthStore.epoch) {
+        if (com.mz2az.scenetrip.auth.AuthStore.signedIn) store.refresh()
+    }
+    val enabled = !busy && !delisted
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .alpha(if (delisted) 0.4f else 1f)
+                    .clip(RoundedCornerShape(IOS.capsuleButton))
+                    .background(IOS.homePurple)
+                    .clickable(enabled = enabled) {
+                        error = null
+                        busy = true
+                        scope.launch {
+                            val outcome = controller.start(place)
+                            if (outcome == PlaceDirectionsOutcome.Busy) return@launch
+                            busy = false
+                            if (outcome is PlaceDirectionsOutcome.Failed) error = outcome.message
+                        }
+                    },
+        ) {
+            if (busy) {
+                androidx.compose.material3.CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+            } else {
+                com.mz2az.scenetrip.ui
+                    .LocationArrowIcon(Color.White, filled = true, modifier = Modifier.size(16.dp))
+            }
+            Text(tr("길찾기"), style = IOS.subheadlineSemibold, color = Color.White)
+        }
+        error?.let { Text(it, style = IOS.caption, color = IOS.systemRed) }
     }
 }
 

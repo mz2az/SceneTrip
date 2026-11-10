@@ -253,26 +253,29 @@ class RouteStore(
         course: RouteCourse,
         running: Boolean,
         dayNo: Int = 1,
-    ) {
-        val serverId = course.serverId ?: return
-        runCatching {
-            withContext(Dispatchers.IO) {
-                coursesApi.updateCourseProgress(
-                    deviceId,
-                    serverId,
-                    CourseProgress(
-                        status = if (running) CourseStatus.active else CourseStatus.upcoming,
-                        currentDayNo = if (running) dayNo else null,
-                    ),
-                )
+    ): Boolean {
+        val serverId = course.serverId ?: return false
+        val result =
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    coursesApi.updateCourseProgress(
+                        deviceId,
+                        serverId,
+                        CourseProgress(
+                            status = if (running) CourseStatus.active else CourseStatus.upcoming,
+                            currentDayNo = if (running) dayNo else null,
+                        ),
+                    )
+                }
+            }.onSuccess {
+                session.clearLoadFailure()
+            }.onFailure {
+                session.recordFailure(it)
             }
-        }.onSuccess {
-            session.clearLoadFailure()
-        }.onFailure {
-            session.recordFailure(it)
-        }
         // 실패했으면 되돌린다 — 화면과 서버가 어긋난 채 두면 다음 저장이 엉뚱하게 나간다.
         refresh()
+        // 성공했나 — 촬영지 「길찾기」가 여행 중으로 못 바꿨으면 안내를 켜지 않는다(MZ2AZ-547 G3).
+        return result.isSuccess
     }
 
     /** 방문 완료는 서버 성공 응답 뒤에만 화면에 반영한다 (MZ2AZ-225). */

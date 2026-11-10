@@ -16,22 +16,35 @@ import com.naver.maps.map.overlay.OverlayImage
  * dp 로 굽는다 — 밀도가 무엇이든 논리 크기가 iOS 의 pt 와 같다(`PinImage` 의 같은 주석).
  */
 object RouteNumberPin {
-    private val cache = mutableMapOf<Pair<Int, Float>, OverlayImage>()
+    private val cache = mutableMapOf<Triple<Int, Boolean, Float>, OverlayImage>()
 
     fun image(
         number: Int,
         metrics: DisplayMetrics,
+    ): OverlayImage = image(number, metrics, selected = false)
+
+    /**
+     * 검색 탭 지도에도 쓴다(MZ2AZ-547 G1). [number] 가 없으면(목록에 없는 장소를 열어 덧붙인 핀) 번호 대신 흰 점.
+     * 고른 핀은 그림을 통째로 [RouteNumberPinSpec.scale] 배로 **한 번만** 굽는다 — 마커 쪽에서 다시 키우지 않는다.
+     */
+    fun image(
+        number: Int?,
+        metrics: DisplayMetrics,
+        selected: Boolean,
     ): OverlayImage {
         val s = metrics.density
-        cache[number to s]?.let { return it }
+        val key = Triple(number ?: -1, selected, s)
+        cache[key]?.let { return it }
+        val scale = RouteNumberPinSpec.scale(selected)
         val bitmap =
             Bitmap.createBitmap(
-                (RouteNumberPinSpec.WIDTH * s).toInt(),
-                (RouteNumberPinSpec.HEIGHT * s).toInt(),
+                (RouteNumberPinSpec.WIDTH * scale * s).toInt(),
+                (RouteNumberPinSpec.HEIGHT * scale * s).toInt(),
                 Bitmap.Config.ARGB_8888,
             )
         val canvas = Canvas(bitmap)
-        canvas.scale(s, s)
+        // 30×38 좌표로 그리고 통째로 키운다 — 꼬리 끝의 비율 자리는 그대로다.
+        canvas.scale(s * scale, s * scale)
         val purple = RouteNumberPinSpec.PURPLE.toInt()
         val fill =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -68,6 +81,12 @@ object RouteNumberPin {
         fill.clearShadowLayer()
         canvas.drawPath(seam, fill)
 
+        if (number == null) {
+            val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE }
+            canvas.drawCircle(15f, 14f, 4.5f, dot)
+            return OverlayImage.fromBitmap(bitmap).also { cache[key] = it }
+        }
+
         val text =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = android.graphics.Color.WHITE
@@ -79,7 +98,7 @@ object RouteNumberPin {
         val metricsText = text.fontMetrics
         canvas.drawText("$number", 15f, 14.5f - (metricsText.ascent + metricsText.descent) / 2f, text)
         val image = OverlayImage.fromBitmap(bitmap)
-        cache[number to s] = image
+        cache[key] = image
         return image
     }
 }

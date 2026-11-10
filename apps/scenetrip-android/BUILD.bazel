@@ -112,6 +112,8 @@ kt_jvm_library(
         "tests/NewCourseEntryTests.kt",
         "tests/NewCourseRulesTests.kt",
         "tests/NicknameEditorTests.kt",
+        # 검색 탭 — 보관함 핀·길찾기 (MZ2AZ-547 P9)
+        "tests/PlaceDirectionsTests.kt",
         "tests/PhotoRenewalTests.kt",
         "tests/PoiInfoTests.kt",
         "tests/ProfileHomeParityTests.kt",
@@ -119,6 +121,8 @@ kt_jvm_library(
         "tests/RouteEditorRulesTests.kt",
         "tests/SavedPlanRulesTests.kt",
         "tests/ScenePhotoGalleryTests.kt",
+        # 검색 탭 — 보관함 핀·길찾기 (MZ2AZ-547 P9)
+        "tests/SearchMapPinsTests.kt",
         "tests/SearchParityTests.kt",
         "tests/SearchTabBehaviorTests.kt",
         "tests/SuggestionDetailTests.kt",
