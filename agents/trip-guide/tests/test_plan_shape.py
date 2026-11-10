@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from typing import ClassVar
 
 from src.planner import (
     PlanError,
@@ -341,7 +342,7 @@ class 정지점의_사진과_작품(unittest.TestCase):
     `titles` 와 달리 요청한 작품으로 거르지 않고 서버 순서 그대로다.
     """
 
-    REFS = {
+    REFS: ClassVar[dict[str, list[dict]]] = {
         "1187": [
             {"contentId": 31, "title": "도깨비"},
             {"contentId": 7, "title": "이태원 클라쓰"},
