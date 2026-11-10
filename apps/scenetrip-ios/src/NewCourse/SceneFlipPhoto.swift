@@ -142,12 +142,10 @@ struct SceneFlipPhoto: View {
         }
     }
 
+    /// 뒷면에는 늘 앞면으로 돌아가는 알약 — 앞면이 장소 사진이면 「장소 사진 보기」, 장면 그림이면 「장면 보기」(2026-11-10 사용자 지적).
     private var pillLabel: (text: String, isScene: Bool)? {
         if showingBack {
-            if case .scene = faces.back {
-                return (sceneLabel, true)
-            }
-            return nil
+            return faces.frontIsScene ? (tr("장면 보기"), false) : (tr("장소 사진 보기"), false)
         }
         return faces.frontIsScene ? (sceneLabel, true) : (tr("장면 보기"), false)
     }
