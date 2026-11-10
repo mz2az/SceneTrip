@@ -72,12 +72,11 @@ internal class EditorMapPoi(
 @Composable
 internal fun EditorMapTop(
     state: EditorMapPoi,
-    counts: Map<PoiCategoryGroup, Int>,
     onSearch: () -> Unit,
     onToggle: (PoiCategoryGroup) -> Unit,
     onAll: () -> Unit,
     onPick: (PoiSummary) -> Unit,
-    onCommit: (query: String, wide: Boolean) -> Unit,
+    onCommit: (query: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier.fillMaxSize()) {
@@ -105,9 +104,9 @@ internal fun EditorMapTop(
                         state.searching = false
                         onPick(place)
                     },
-                    onCommit = { query, wide ->
+                    onCommit = { query ->
                         state.searching = false
-                        onCommit(query, wide)
+                        onCommit(query)
                     },
                     onClose = { state.searching = false },
                 )
@@ -116,7 +115,6 @@ internal fun EditorMapTop(
             else -> {
                 MapPoiBar(
                     chips = state.chips,
-                    counts = counts,
                     pill = state.pill(),
                     onSearch = onSearch,
                     onToggle = onToggle,
@@ -131,7 +129,7 @@ internal fun EditorMapTop(
 /**
  * 확인용 뒷문(MZ2AZ-547 P5, iOS `-editorPoi`·`-editorSearch`·`-editorResults`). `MainActivity` 가 인텐트 값으로 채운다 —
  * `-e editorMode edit --ez editorMap true` 와 함께 쓴다. `-e editorPoi all|food|sight|stay|transit` 칩을 켠다 ·
- * `-e editorSearch 남산` 검색칸을 그 글자로 연다 · `-e editorResults 남산` 결과 지도를 연다(이 지역 밖까지, 첫 결과를 고른다).
+ * `-e editorSearch 남산` 검색칸을 그 글자로 연다 · `-e editorResults 남산` 결과 지도를 연다(화면 가운데에서 가까운 순, 첫 결과를 고른다).
  * 한 번 쓰면 비운다.
  */
 object MapPoiDebug {

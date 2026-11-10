@@ -42,14 +42,14 @@ import com.mz2az.scenetrip.ui.MagnifierZoomIcon
 /**
  * 지도 맨 위 편의시설 칩 줄 (MZ2AZ-547 M1·M3, iOS `MapPoiBar`, 웹 `proto/protoPoi.tsx` `MapPoiBar`).
  *
- * 🔍 · 전체 · 음식점 · 명소 · 숙소 · 교통. 켜진 칩은 갈래 색 바탕에 흰 글자와 개수, 꺼진 칩은 흰 바탕.
+ * 🔍 · 전체 · 음식점 · 명소 · 숙소 · 교통. 켜진 칩은 갈래 색 바탕에 흰 글자, 꺼진 칩은 흰 바탕.
+ * 칩 옆 개수는 뺐다 — 늘 받은 수(200)라 지도에 보이는 아이콘 수와 달랐다(iOS 6f84954a).
  * 그 아래 가운데에 상태 알약 하나 — 「찾는 중」 / 「↻ 이 지역에서 다시 찾기」 / 「조금 더 확대하면 보여요」.
  * 무엇을 언제 받는지는 [MapPoiChips]·[MapPoiFetch] 가 정하고 여기는 그 답을 그린다.
  */
 @Composable
 internal fun MapPoiBar(
     chips: MapPoiChips,
-    counts: Map<PoiCategoryGroup, Int>,
     pill: MapPoiPill,
     onSearch: () -> Unit,
     onToggle: (PoiCategoryGroup) -> Unit,
@@ -81,10 +81,6 @@ internal fun MapPoiBar(
                 ChipFace(on = on, fill = tone, onClick = { onToggle(group) }) {
                     Box(Modifier.size(8.dp).clip(CircleShape).background(if (on) Color.White else tone))
                     Text(group.label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (on) Color.White else IOS.label)
-                    val count = counts[group]
-                    if (on && count != null) {
-                        Text("$count", fontSize = 12.sp, color = Color.White.copy(alpha = 0.85f))
-                    }
                 }
             }
         }

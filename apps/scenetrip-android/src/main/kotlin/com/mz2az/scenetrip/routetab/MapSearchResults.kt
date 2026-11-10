@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
@@ -33,6 +34,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +60,7 @@ import com.mz2az.scenetrip.ui.MagnifierIcon
 import com.mz2az.scenetrip.ui.ProtoMotion
 import com.mz2az.scenetrip.ui.appearIn
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 /**
@@ -65,7 +68,9 @@ import kotlinx.coroutines.launch
  *
  * 위에 검색어 알약(누르면 고쳐 쓰기) + ✕, 지도를 옮긴 뒤에만 「이 지역에서 다시 찾기」, 아래 서랍(42% ↔ 78%)에
  * 찾은 가게·장소. 촬영지는 찾지 않는다(2026-11-10 사용자 요청) — 「촬영지 N」 탭·사진 핀·일차 고르기 창이 없다.
- * 줄이나 지도 점을 누르면 그곳으로 가서 정보 카드(「코스에 담기」). 지도 점은 [MapSearchDots] 가 그린다.
+ * 줄이나 지도 핀을 누르면 그곳으로 가서 정보 카드(「코스에 담기」). 지도 핀(갈래 아이콘, 앞 100개)은 [MapSearchDots] 가 그린다.
+ * 목록 끝에서 한 줄 안이 보이면 같은 기준점으로 다음 20개(§7-4) — 받는 동안 도는 줄, 못 받으면 「다시 시도」 줄.
+ * 상태 규칙은 [MapSearchResults]·[MapSearchPagingRules].
  */
 @Composable
 internal fun MapSearchResultsView(
@@ -142,26 +147,25 @@ internal fun MapSearchResultsView(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp, horizontal = 12.dp),
                     ) {
                         Text(MapSearchText.empty(body.empty), fontSize = 14.sp, color = IOS.secondaryLabel)
-                        if (body.offerEverywhere) {
-                            Text(
-                                tr("이 지역 밖에서도 찾기"),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = IOS.homePurple,
-                                modifier =
-                                    Modifier
-                                        .heightIn(min = 40.dp)
-                                        .clip(RoundedCornerShape(50))
-                                        .background(IOS.systemBackground)
-                                        .clickable(role = Role.Button) { model.searchEverywhere() }
-                                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                            )
-                        }
                     }
                 }
 
                 is MapSearchResults.Body.Shops -> {
+                    val list = rememberLazyListState()
+                    // 끝에서 한 줄 안이 보이면 다음 쪽(§7-4). 짧은 목록은 처음부터 다 보이니 받자마자 이어 받는다 —
+                    // 받은 수가 바뀌어도 다시 본다(`state` 를 읽는다).
+                    LaunchedEffect(list) {
+                        snapshotFlow {
+                            val shown = model.state?.shops?.size ?: 0
+                            val last =
+                                list.layoutInfo.visibleItemsInfo
+                                    .lastOrNull()
+                                    ?.index ?: -1
+                            minOf(last, shown - 1) to shown
+                        }.distinctUntilChanged().collect { (last, _) -> if (last >= 0) model.rowVisible(last) }
+                    }
                     LazyColumn(
+                        state = list,
                         modifier =
                             Modifier
                                 .nestedScroll(drawer.listConnection)
@@ -181,6 +185,36 @@ internal fun MapSearchResultsView(
                                     )
                                 }
                                 MapShopRow(place, Modifier.clickable { onPick(place) })
+                            }
+                        }
+                        // 목록 끝 — 받는 중이면 도는 줄, 못 받았으면 「더 불러오지 못했어요 · 다시 시도」.
+                        if (state.loadingMore) {
+                            item(key = "more-loading") {
+                                Box(Modifier.fillMaxWidth().padding(14.dp), contentAlignment = Alignment.Center) {
+                                    CircularProgressIndicator(
+                                        strokeWidth = 2.dp,
+                                        color = IOS.secondaryLabel,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
+                            }
+                        } else if (state.moreFailed) {
+                            item(key = "more-failed") {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(min = 44.dp)
+                                            .clickable(role = Role.Button) { model.retryMore() },
+                                ) {
+                                    Text(
+                                        tr("더 불러오지 못했어요 · 다시 시도"),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = IOS.homePurple,
+                                    )
+                                }
                             }
                         }
                     }
@@ -353,7 +387,8 @@ private fun QueryPill(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false),
             )
-            state.count?.let { Text(tr("%d곳").format(it), fontSize = 14.sp, color = IOS.secondaryLabel) }
+            // 서버의 전체 개수(모르면 받은 수) — 더 받아도 그대로다(§7-4).
+            state.headerCount?.let { Text(tr("%d곳").format(it), fontSize = 14.sp, color = IOS.secondaryLabel) }
         }
         val exitLabel = tr("검색 끝내기")
         Box(

@@ -219,7 +219,7 @@ private fun RouteEditorContent(
     // 번호 핀·목록 행을 눌러 카드를 띄운 정지점. 카드는 한 장만 — 편의시설·AI 점의 카드(`guideSession.picked`)와 같이 뜨지 않는다(iOS `pickedStop`).
     var pickedStop by remember { mutableStateOf<RouteStop?>(null) }
 
-    // 검색·장바구니에서 체크한, 담을까 보는 곳 — 지도에 빨간 해태로 뜬다(iOS `previewPlaces`). 시트를 닫으면 비운다.
+    // 검색·장바구니에서 체크한, 담을까 보는 곳 — 지도에 번호 없는 보라 핀으로 뜬다(iOS `previewPlaces`, §10-1). 시트를 닫으면 비운다.
     var previewPlaces by remember { mutableStateOf<List<PlaceSummary>>(emptyList()) }
 
     // 도착 알림 카드의 높이 — 지도 오른쪽 위 단추가 카드 밑으로 내려가게(iOS `tripBannerHeight`).
@@ -257,8 +257,22 @@ private fun RouteEditorContent(
     val mapPoi =
         remember {
             val api = PoisApi(API_BASE)
-            EditorMapPoi(mapPoiScope) { q, bbox, limit, source ->
-                apiResult { CoordinateSources.with(source) { api.listPois(bbox = bbox, q = q, limit = limit) } }.getOrThrow().items
+            // 범위 없이 화면 가운데에서 가까운 순(§8·§10-2). 기준점이 없으면 서버 기본 이름순.
+            EditorMapPoi(mapPoiScope) { q, origin, limit, offset ->
+                val page =
+                    apiResult {
+                        CoordinateSources.with(origin?.source ?: CoordinateSource.USER_SELECTED) {
+                            api.listPois(
+                                lat = origin?.lat,
+                                lng = origin?.lng,
+                                q = q,
+                                sort = if (origin == null) null else PoisApi.SortListPois.distance,
+                                limit = limit,
+                                offset = offset,
+                            )
+                        }
+                    }.getOrThrow()
+                MapShopPage(page.items, page.total)
             }
         }
     val viewport = mapPoi.viewport
@@ -829,7 +843,6 @@ private fun RouteEditorContent(
         poisForChips.filter {
             mapPoi.chips.isOn(it.categoryGroup) && it.placeId !in drawnPlaceIds && it.id !in takenPoiIds
         }
-    val poiCounts = MapPoiChips.counts(poisForChips)
     val aiPlacesForChip = guideSession.places.filterNot { takenPlaceKeys.contains(RouteDedupe.key(it.asPlaceSummary())) }
     val visibleAiPlaces = if (aiPlacesOn) aiPlacesForChip.filterNot { place -> stops.any { place.matches(it) } } else emptyList()
 
@@ -839,14 +852,23 @@ private fun RouteEditorContent(
     val mapResultsOpen = showsMapPoiBar && mapPoi.results.isOpen
     val pickedPoi = guideSession.picked?.takeIf { it.source == com.mz2az.scenetrip.sceneapi.client.model.GuidePlaceSource.poi }
     val pickedPoiId = pickedPoi?.id
-    // 칩 점·AI 핀에 없는 고른 곳(검색에서 고른 곳) — 따로 빨간 해태를 단다.
+    // 칩 아이콘·AI 핀에 없는 고른 곳(검색에서 고른 곳) — 따로 큰 갈래 아이콘을 단다(§9).
     val loosePicked =
         pickedPoi?.takeIf { picked -> visibleAmbientPois.none { it.id == picked.id } && guideSession.places.none { it.id == picked.id } }
+    // 지도 검색의 핀 — 엔터 뒤 결과 서랍의 앞 100개만(§8-2, 목록은 더 길어도). 글자 치는 동안은 지도에 찍지 않는다(§7 구글처럼).
+    // 정보 카드가 뜬 곳은 고른 핀만 — 100개 밖이어도 고른 핀(`loosePicked`)이 그린다.
     val searchDots =
         MapSearchRules.mapDots(
-            searching = showsMapPoiBar && mapPoi.searching,
-            listed = mapPoi.list.pinned,
-            results = if (mapResultsOpen) mapPoi.results.state?.shops else null,
+            searching = false,
+            listed = emptyList(),
+            results =
+                if (mapResultsOpen) {
+                    mapPoi.results.state
+                        ?.shops
+                        ?.let { MapSearchPagingRules.pinnedResults(it) }
+                } else {
+                    null
+                },
             pickedId = pickedPoiId,
         )
     // 지도 아래를 덮는 높이 — 결과 서랍(지도 칸의 42%·78%) 또는 일정 서랍. 지도가 접혀 있으면 서랍이 없다(E4).
@@ -885,7 +907,7 @@ private fun RouteEditorContent(
         map?.focusOnPicked(poi.latitude, poi.longitude, density.density)
     }
 
-    // 찾은 것을 받았다 — 결과가 다 보이게 맞춘다(서랍이 덮은 아래는 빼고).
+    // 처음 쪽을 받았다 — 결과가 다 보이게 맞춘다(서랍이 덮은 아래는 빼고). 더 받을 때는 지도를 움직이지 않는다(§7-4).
     LaunchedEffect(mapPoi.results.fitTick) {
         val shops = mapPoi.results.state?.shops
         val target = map
@@ -1062,7 +1084,7 @@ private fun RouteEditorContent(
     }
     LaunchedEffect(mapPoi.chips.ask) { fetchMapPois() }
 
-    // 🔍 — 지도 범위로 찾으므로, 그 범위가 기기 위치에서 왔으면 위치 동의를 먼저 묻는다.
+    // 🔍 — 화면 가운데를 기준점으로 찾으므로, 그 화면이 기기 위치에서 왔으면 위치 동의를 먼저 묻는다.
     fun openMapSearch() {
         mapPoi.searchText = ""
         ambientGate.requestLocation(mapPoi.viewport?.source ?: CoordinateSource.USER_SELECTED) { mapPoi.searching = true }
@@ -1084,7 +1106,7 @@ private fun RouteEditorContent(
             mapPoi.searchText = it
         }
         wanted.results?.let { query ->
-            mapPoi.results.open(query, true, mapPoi.viewport)
+            mapPoi.results.open(query, mapPoi.viewport)
             repeat(50) { if (mapPoi.results.state?.shops == null) delay(100) }
             mapPoi.results.state?.shops?.firstOrNull()?.let {
                 delay(1500)
@@ -1360,7 +1382,7 @@ private fun RouteEditorContent(
                 // 의 `keepFrom`).
                 keepFromId = if (trip.phase == TripSession.Phase.GUIDING) trip.target?.id else null,
             )
-            // 칩으로 받은 편의시설 — 칸마다 1등은 원래 점, 나머지는 작은 점(M4). 확대하면 다시 받지 않고 다시 솎는다.
+            // 칩으로 받은 편의시설 — 칸마다 1등만 갈래 아이콘, 나머지는 그리지 않는다(M4·§7). 확대하면 다시 받지 않고 다시 솎는다.
             // 점을 눌러도 바로 담기지 않는다 — 카드가 먼저 뜨고 「경로에 추가」 는 사람이 카드에서 누른다(iOS `RouteMapAmbient`).
             SpreadPoiPins(
                 map = map,
@@ -1369,7 +1391,7 @@ private fun RouteEditorContent(
                 pickedId = pickedPoiId,
                 onTap = { poi -> guideSession.pick(poi) },
             )
-            // 지도 검색의 점(M6·M7) — 목록이 떠 있는 동안은 목록의 것, 엔터 뒤면 결과. 고른 곳은 빨간 해태로 따로.
+            // 지도 검색 결과 핀(M7·§7·§8) — 엔터 뒤 결과의 앞 100개를 갈래 아이콘으로. 고른 곳은 큰 아이콘으로 따로(§9).
             MapSearchDots(map = map, shops = searchDots, onTap = { pickSearchPlace(it) })
             PickedPoiPin(map = map, place = loosePicked)
             AiPlacePins(
@@ -1378,7 +1400,7 @@ private fun RouteEditorContent(
                 picked = guideSession.picked,
                 onTap = { place -> guideSession.pick(place) },
             )
-            // 담을까 보는 곳 — 빨간 해태. 코스 핀보다 위에 올린다(iOS `previews`).
+            // 담을까 보는 곳 — 번호 없는 보라 핀(§10-1). 코스 핀보다 위에 올린다(iOS `previews`).
             PreviewPins(
                 map = map,
                 places = previewPlaces,
@@ -1387,7 +1409,7 @@ private fun RouteEditorContent(
                     stops.firstOrNull { RouteDedupe.key(it.place) == RouteDedupe.key(summary) }?.let { focusStop(it) }
                 },
             )
-            // 정지점 핀: 다녀온 곳=발바닥, 고른 곳·안내 중인 목적지=해태, 그 밖=번호. 누른 곳으로 확대해 들어간다 —
+            // 정지점 핀: 다녀온 곳=발바닥, 고른 곳·안내 중인 목적지=같은 번호 핀 1.4배(§9·§10-1), 그 밖=번호. 누른 곳으로 확대해 들어간다 —
             // 일차 전체를 맞춘 화면 그대로면 무엇을 눌렀는지 지도에서 알 수 없다(MZ2AZ-509, iOS #326).
             CourseStopPins(
                 map = map,
@@ -1775,14 +1797,13 @@ private fun RouteEditorContent(
             if (showsMapPoiBar) {
                 EditorMapTop(
                     state = mapPoi,
-                    counts = poiCounts,
                     onSearch = { openMapSearch() },
                     onToggle = { toggleMapChip(it) },
                     onAll = { toggleAllMapChips() },
                     onPick = { pickSearchPlace(it) },
-                    onCommit = { query, wide ->
+                    onCommit = { query ->
                         guideSession.dismiss()
-                        mapPoi.results.open(query, wide, mapPoi.viewport)
+                        mapPoi.results.open(query, mapPoi.viewport)
                     },
                 )
             }

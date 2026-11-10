@@ -95,9 +95,6 @@ data class MapPoiChips(
         val ORDER: List<PoiCategoryGroup> =
             listOf(PoiCategoryGroup.food, PoiCategoryGroup.sight, PoiCategoryGroup.stay, PoiCategoryGroup.transit)
 
-        /** 칩 옆 개수 — 갈래마다. */
-        fun counts(places: List<PoiSummary>): Map<PoiCategoryGroup, Int> = places.groupingBy { it.categoryGroup }.eachCount()
-
         /** 칩 줄이 보이나 — 편집 중이고 지도가 펼쳐져 있고 여행 안내 중이 아닐 때만(M1). */
         fun showsBar(
             mode: RouteEditorMode,
@@ -157,14 +154,15 @@ data class MapPoiFetch(
 }
 
 /**
- * 골고루 찍기 (M4) — 지도에 고정된 72dp 칸마다 받은 순서의 1등은 원래 점, 나머지는 작은 점.
+ * 골고루 찍기 (M4) — 지도에 고정된 72dp 칸마다 받은 순서의 1등(`major`)만 아이콘으로 그리고, 나머지(`minor`)는 그리지 않는다
+ * (§7 구글처럼, 2026-11-10 — 예전의 작은 점을 뺐다. 확대하면 칸이 작아져 나타난다).
  * 칸은 화면이 아니라 지도(웹 메르카토르)에 고정이라 지도를 옮겨도 같은 곳이 같은 칸에 든다. 확대하면 다시 받지 않고 다시 솎는다.
  */
 object MapPoiSpread {
     /** 칸 한 변(dp, 그 줌에서). */
     const val CELL: Double = 72.0
 
-    /** 작은 점 — 보이는 지름과 누르는 자리(dp). */
+    /** 예전 작은 점의 보이는 지름과 누르는 자리(dp) — §7 뒤로 그리지 않는다. 기존 시험이 이 값을 본다(iOS 와 같다). */
     const val MINOR_VISIBLE: Float = 9f
     const val MINOR_HIT: Float = 16f
 

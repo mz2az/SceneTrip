@@ -22,7 +22,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -54,6 +53,7 @@ import com.mz2az.scenetrip.data.tr
 import com.mz2az.scenetrip.sceneapi.client.model.PoiSummary
 import com.mz2az.scenetrip.ui.ChevronLeftIcon
 import com.mz2az.scenetrip.ui.IOS
+import com.mz2az.scenetrip.ui.MagnifierIcon
 import com.mz2az.scenetrip.ui.ProtoMotion
 import com.mz2az.scenetrip.ui.appearIn
 import com.mz2az.scenetrip.ui.reveal
@@ -63,8 +63,9 @@ import kotlinx.coroutines.launch
  * 🔍 를 누르면 칩 줄 자리를 덮는 검색칸과 그 아래 목록 (MZ2AZ-547 M6, iOS `MapSearchPanel`, 웹 `protoPoi.tsx` `SearchPanel`).
  *
  * 가게·장소(편의시설)만 이름으로 찾는다 — 촬영지는 찾지 않는다(2026-11-10 사용자 요청, 웹 72f87416).
- * 먼저 지금 지도 범위에서 찾고, 더 보고 싶으면 「이 지역 밖에서도 찾기」. 검색 중에는 갈래 칩을 숨긴다.
- * 엔터 → 결과를 지도에 펼친다([MapSearchResultsView]). 목록이 떠 있는 동안 찾은 곳은 지도에도 점으로 찍힌다(`model.pinned`).
+ * 범위 없이 화면 가운데에서 가까운 순으로 찾는다(§10-2). 검색 중에는 갈래 칩을 숨긴다.
+ * 글자 치는 동안은 목록만 — 지도에는 아무것도 찍지 않는다(§7-2). 목록 맨 위 줄 「‘q’ 검색」 이나 키보드 검색 →
+ * 결과 서랍을 연다([MapSearchResultsView]). 가게 줄을 누르면 그 가게로.
  */
 @Composable
 internal fun MapSearchPanel(
@@ -72,20 +73,19 @@ internal fun MapSearchPanel(
     viewport: MapViewport?,
     initialText: String,
     onPick: (PoiSummary) -> Unit,
-    onCommit: (query: String, wide: Boolean) -> Unit,
+    onCommit: (query: String) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // 다시 열 때 채운 글자 뒤에 커서를 둔다.
     var field by remember { mutableStateOf(TextFieldValue(initialText, TextRange(initialText.length))) }
     val text = field.text
-    var wide by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
-        model.update(text, false, viewport)
+        model.update(text, viewport)
         runCatching { focus.requestFocus() }
     }
-    // 닫히면 목록과 지도의 점을 지운다.
+    // 닫히면 목록을 지운다.
     DisposableEffect(Unit) { onDispose { model.reset() } }
     // 🔍 동그라미 자리에서 오른쪽으로 0.28초에 길어지고, 닫을 때는 0.2초에 줄어든 뒤 닫힌다(MZ2AZ-547 M7, 웹 `.proto-search-open/close`).
     val reveal = remember { Animatable(0f) }
@@ -136,17 +136,14 @@ internal fun MapSearchPanel(
                     onValueChange = {
                         val changed = it.text != field.text
                         field = it
-                        if (changed) {
-                            wide = false
-                            model.update(it.text, false, viewport)
-                        }
+                        if (changed) model.update(it.text, viewport)
                     },
                     singleLine = true,
                     textStyle = TextStyle(fontSize = 16.sp, color = IOS.label),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions =
                         KeyboardActions(onSearch = {
-                            MapSearchRules.query(text)?.let { onCommit(it, wide) }
+                            MapSearchRules.query(text)?.let { onCommit(it) }
                         }),
                     modifier = Modifier.fillMaxWidth().focusRequester(focus),
                 )
@@ -161,15 +158,14 @@ internal fun MapSearchPanel(
                             .semantics { contentDescription = clearLabel }
                             .clickable(role = Role.Button) {
                                 field = TextFieldValue("")
-                                wide = false
-                                model.update("", false, viewport)
+                                model.update("", viewport)
                             },
                 ) {
                     Icon(Icons.Filled.Clear, contentDescription = null, tint = IOS.tertiaryLabel, modifier = Modifier.size(18.dp))
                 }
             }
         }
-        val rows = if (closing) emptyList() else MapSearchRules.rows(model.phase)
+        val rows = if (closing) emptyList() else MapSearchRules.panelRows(text, model.phase)
         if (rows.isNotEmpty()) {
             // 짧으면 내용 높이만, 길면 420 에서 넘긴다(iOS — 한두 줄짜리 목록에 빈 칸이 남지 않게).
             Column(
@@ -186,8 +182,29 @@ internal fun MapSearchPanel(
             ) {
                 rows.forEach { row ->
                     when (row) {
-                        // TODO(§7-2): 「‘q’ 검색」 줄 — 아직 rows 가 내지 않는다(시험 먼저).
-                        is MapSearchRow.Commit -> {}
+                        // 맨 위 「‘q’ 검색」 — 누르면 키보드 검색과 같이 결과 서랍을 연다(§7-2, iOS `MapSearchPanel`).
+                        is MapSearchRow.Commit -> {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 48.dp)
+                                        .clickable(role = Role.Button) { onCommit(row.query) }
+                                        .padding(horizontal = 16.dp),
+                            ) {
+                                MagnifierIcon(IOS.homePurple, Modifier.size(15.dp))
+                                Text(
+                                    tr("‘%s’ 검색").format(row.query),
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = IOS.homePurple,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
 
                         MapSearchRow.Loading -> {
                             Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
@@ -230,23 +247,6 @@ internal fun MapSearchPanel(
                                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
                             )
                         }
-
-                        MapSearchRow.SearchEverywhere -> {
-                            HorizontalDivider(color = IOS.separator, thickness = 0.5.dp)
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .height(44.dp)
-                                        .clickable(role = Role.Button) {
-                                            wide = true
-                                            model.update(text, true, viewport)
-                                        },
-                            ) {
-                                Text(tr("이 지역 밖에서도 찾기"), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = IOS.homePurple)
-                            }
-                        }
                     }
                 }
             }
@@ -265,13 +265,10 @@ internal object MapSearchText {
     fun title(title: MapSearchTitle): String =
         when (title) {
             MapSearchTitle.SHOPS_NEARBY -> tr("가게·장소 · 가까운 순")
-            MapSearchTitle.SHOPS_HERE -> tr("가게·장소 · 이 지역")
-            MapSearchTitle.SHOPS_EVERYWHERE -> tr("가게·장소 · 전체")
         }
 
     fun empty(empty: MapSearchEmpty): String =
         when (empty) {
-            MapSearchEmpty.NONE_HERE -> tr("이 지역엔 없어요")
             MapSearchEmpty.NO_PLACES -> tr("찾는 곳이 없어요")
         }
 }

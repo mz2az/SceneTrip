@@ -7,7 +7,9 @@ import java.text.BreakIterator
 // 칩·골고루는 `MapPoiRules.kt`.
 //
 // 2026-11-10 사용자 지적으로 바뀌었다(웹 72f87416) — 가게·장소(`GET /pois?q`)만 찾는다(촬영지는 찾지 않는다), 고른 곳은
-// 시트·서랍·정보 카드가 덮지 않은 지도 가운데로, 엔터 전 목록이 떠 있는 동안에도 찾은 곳을 지도에 점으로 찍는다.
+// 시트·서랍·정보 카드가 덮지 않은 지도 가운데로.
+// 같은 날 계획 docs/project/plans/motion-works-drawer-parity.md §7·§10 으로 다시 바뀌었다 — 글자 치는 동안 지도에는 찍지 않고,
+// 목록 맨 위에 「‘q’ 검색」, 검색은 범위 없이 화면 가운데에서 가까운 순 하나(「이 지역 밖에서도 찾기」 없음).
 
 /** 검색 목록의 상태. */
 sealed interface MapSearchPhase {
@@ -18,29 +20,17 @@ sealed interface MapSearchPhase {
 
     data object Failed : MapSearchPhase
 
-    /** [wide] — 「이 지역 밖에서도」(범위 없이) 찾은 것. */
     data class Done(
         val shops: List<PoiSummary>,
-        // TODO(§10-2): 범위 없이 가까운 순 하나로 바뀌어 없앤다 — 시험을 먼저 쓰려고 기본값만 두었다.
-        val wide: Boolean = false,
     ) : MapSearchPhase
 }
 
 enum class MapSearchTitle {
     /** 「가게·장소 · 가까운 순」(§10-2) */
     SHOPS_NEARBY,
-
-    /** 「가게·장소 · 이 지역」 */
-    SHOPS_HERE,
-
-    /** 「가게·장소 · 전체」 */
-    SHOPS_EVERYWHERE,
 }
 
 enum class MapSearchEmpty {
-    /** 「이 지역엔 없어요」 */
-    NONE_HERE,
-
     /** 「찾는 곳이 없어요」 */
     NO_PLACES,
 }
@@ -64,9 +54,6 @@ sealed interface MapSearchRow {
         val empty: MapSearchEmpty,
     ) : MapSearchRow
 
-    /** 「이 지역 밖에서도 찾기」 */
-    data object SearchEverywhere : MapSearchRow
-
     /** 목록 맨 위 「‘q’ 검색」 — 누르면 이 검색어로 결과 서랍을 연다(키보드 검색과 같다, §7-2). */
     data class Commit(
         val query: String,
@@ -79,8 +66,10 @@ object MapSearchRules {
     /** 입력이 멎고 묻기까지(ms). */
     const val DEBOUNCE_MILLIS = 350L
 
-    /** 목록(엔터 전)과 결과 지도(엔터 뒤)에서 한 번에 받는 수. */
+    /** 목록(엔터 전)에서 한 번에 받는 수. */
     const val LIST_LIMIT = 20
+
+    /** 예전 결과 지도(엔터 뒤)의 한 번 받는 수 — 지금 결과 서랍은 20개씩 더 받는다([MapSearchPagingRules.PAGE_SIZE], §7-4). 시험이 이 값을 본다. */
     const val RESULTS_LIMIT = 40
 
     /** 계약의 `q` 최대 길이. */
@@ -112,13 +101,7 @@ object MapSearchRules {
     /** 엔터를 받을 수 있나(2글자 이상). */
     fun canCommit(text: String): Boolean = query(text) != null
 
-    /** 범위 — 「이 지역 밖에서도」 면 없음, 아니면 지금 지도. */
-    fun bbox(
-        wide: Boolean,
-        viewport: MapViewport?,
-    ): String? = if (wide) null else viewport?.bbox
-
-    /** 목록 줄 — 가게·장소 제목 → 가게(또는 빈 문구) → 「이 지역 밖에서도 찾기」(이 지역일 때만). */
+    /** 목록 줄 — 「가게·장소 · 가까운 순」 제목 → 가게(또는 「찾는 곳이 없어요」). */
     fun rows(phase: MapSearchPhase): List<MapSearchRow> =
         when (phase) {
             MapSearchPhase.Idle -> {
@@ -135,28 +118,31 @@ object MapSearchRules {
 
             is MapSearchPhase.Done -> {
                 buildList {
-                    add(MapSearchRow.Title(if (phase.wide) MapSearchTitle.SHOPS_EVERYWHERE else MapSearchTitle.SHOPS_HERE))
+                    add(MapSearchRow.Title(MapSearchTitle.SHOPS_NEARBY))
                     if (phase.shops.isEmpty()) {
-                        add(MapSearchRow.Empty(if (phase.wide) MapSearchEmpty.NO_PLACES else MapSearchEmpty.NONE_HERE))
+                        add(MapSearchRow.Empty(MapSearchEmpty.NO_PLACES))
                     } else {
                         phase.shops.forEach { add(MapSearchRow.Shop(it)) }
                     }
-                    if (!phase.wide) add(MapSearchRow.SearchEverywhere)
                 }
             }
         }
 
     /**
      * 검색칸 아래 목록 전체 — 2글자 이상이면 맨 위 「‘q’ 검색」([MapSearchRow.Commit], 다듬은 검색어) 다음에 [rows].
-     * 지금은 시험을 먼저 쓰려고 둔 자리표시다(맨 위 줄이 없다).
      */
-    @Suppress("UNUSED_PARAMETER")
     fun panelRows(
         text: String,
         phase: MapSearchPhase,
-    ): List<MapSearchRow> = rows(phase)
+    ): List<MapSearchRow> {
+        val query = query(text) ?: return emptyList()
+        return listOf(MapSearchRow.Commit(query)) + rows(phase)
+    }
 
-    /** 목록이 떠 있는 동안 지도에 찍어 둘 곳 — 새 결과가 올 때까지는 앞의 것을 둔다. 2글자 아래로 지웠거나 못 찾았으면 비운다. */
+    /**
+     * 목록 결과를 들고 있을 곳 — 새 결과가 올 때까지는 앞의 것을 둔다. 2글자 아래로 지웠거나 못 찾았으면 비운다.
+     * 글자 치는 동안은 지도에 찍지 않는다(§7-2) — 지도는 이것을 [mapDots] 에 `searching = false` 로만 넘긴다.
+     */
     fun pinned(
         previous: List<PoiSummary>,
         phase: MapSearchPhase,
@@ -205,14 +191,12 @@ object MapSearchRules {
 /** 결과 지도의 상태 (M7) — 서랍 높이·받은 것·「다시 찾기」. 값을 바꾸지 않고 다음 값을 돌려준다. */
 data class MapSearchResults(
     val query: String,
-    /** 범위 없이 찾나(「이 지역 밖에서도」). TODO(§10-2): 없앤다 — 시험을 먼저 쓰려고 기본값만 두었다. */
-    val wide: Boolean = false,
     val tall: Boolean = false,
     /** 찾은 가게·장소 — 받기 전이면 null. */
     val shops: List<PoiSummary>? = null,
     val failed: Boolean = false,
     val stale: Boolean = false,
-    /** 받기 차례 번호 — 처음·「다시 찾기」·「이 지역 밖에서도」 에 오른다. */
+    /** 받기 차례 번호 — 처음·「다시 찾기」 에 오른다. 늦게 온 다음 쪽이 새 물음에 섞이지 않게 맞춰 본다. */
     val ask: Int = 0,
     /** 앱이 카메라를 옮긴 때(ms) — 그 직후의 멈춤은 사람이 옮긴 것이 아니다. */
     val selfMoveAt: Long? = null,
@@ -231,11 +215,8 @@ data class MapSearchResults(
 
         data object Failed : Body
 
-        /** [offerEverywhere] — 「이 지역 밖에서도 찾기」 단추를 보인다. */
         data class Empty(
             val empty: MapSearchEmpty,
-            // TODO(§10-2): 단추가 없어져 없앤다 — 시험을 먼저 쓰려고 기본값만 두었다.
-            val offerEverywhere: Boolean = false,
         ) : Body
 
         data class Shops(
@@ -247,47 +228,54 @@ data class MapSearchResults(
 
     fun toggleDrawer(): MapSearchResults = copy(tall = !tall)
 
-    /** 새로 받기 시작 — 목록을 비운다. */
-    fun begin(): MapSearchResults = copy(shops = null, failed = false, stale = false)
+    /** 새로 받기 시작 — 목록과 쪽 상태를 비운다. */
+    fun begin(): MapSearchResults =
+        copy(shops = null, failed = false, stale = false, total = null, lastPageEmpty = false, loadingMore = false, moreFailed = false)
 
     /** 처음 쪽을 받았다 — 「다시 찾기」 를 거둔다. [total] 은 서버의 전체 개수(모르면 null). */
-    @Suppress("UNUSED_PARAMETER")
     fun received(
         shops: List<PoiSummary>,
         total: Int? = null,
-    ): MapSearchResults = copy(shops = shops, failed = false, stale = false)
+    ): MapSearchResults = copy(shops = shops, total = total, lastPageEmpty = shops.isEmpty(), failed = false, stale = false)
 
-    // ── 더 받기(§7-4) — 지금은 시험을 먼저 쓰려고 둔 자리표시다 ──
+    // ── 더 받기(§7-4) ──
 
     /** 다음에 물을 offset — 받은 것이 없거나, 받는 중·실패한 채이거나, 끝에 닿았으면 null. */
-    val nextOffset: Int? get() = null
+    val nextOffset: Int?
+        get() {
+            val loaded = shops ?: return null
+            if (loadingMore || moreFailed) return null
+            return MapSearchPagingRules.nextOffset(loaded.size, total, lastPageEmpty)
+        }
 
     /** 다음 쪽을 받기 시작. */
-    fun beginMore(): MapSearchResults = this
+    fun beginMore(): MapSearchResults = copy(loadingMore = true, moreFailed = false)
 
     /** 다음 쪽을 받았다 — 이미 있는 가게는 다시 넣지 않는다. [total] 이 null 이면 앞의 값을 둔다. */
-    @Suppress("UNUSED_PARAMETER")
     fun receivedMore(
         shops: List<PoiSummary>,
         total: Int?,
-    ): MapSearchResults = this
+    ): MapSearchResults =
+        copy(
+            shops = MapSearchPagingRules.merge(this.shops.orEmpty(), shops) { it.id },
+            total = total ?: this.total,
+            lastPageEmpty = shops.isEmpty(),
+            loadingMore = false,
+        )
 
     /** 다음 쪽을 못 받았다. */
-    fun moreFailedNow(): MapSearchResults = this
+    fun moreFailedNow(): MapSearchResults = copy(loadingMore = false, moreFailed = true)
 
     /** 「다시 시도」 — 실패 표시를 거두고 다시 물을 수 있게. */
-    fun retryMore(): MapSearchResults = this
+    fun retryMore(): MapSearchResults = copy(moreFailed = false)
 
     /** 검색어 알약의 「N곳」 — 서버의 전체 개수(모르면 받은 수). 받기 전이면 null. */
-    val headerCount: Int? get() = null
+    val headerCount: Int? get() = shops?.let { total ?: it.size }
 
     fun searchFailed(): MapSearchResults = copy(failed = true)
 
-    /** 「↻ 이 지역에서 다시 찾기」 — 지금 지도 범위로. */
-    fun searchHere(): MapSearchResults = copy(wide = false, ask = ask + 1)
-
-    /** 「이 지역 밖에서도 찾기」 — 범위 없이. */
-    fun searchEverywhere(): MapSearchResults = copy(wide = true, ask = ask + 1)
+    /** 「↻ 이 지역에서 다시 찾기」 — 지금 화면 가운데를 기준으로 처음 쪽부터(§10-2). */
+    fun searchHere(): MapSearchResults = copy(ask = ask + 1)
 
     /** 앱이 카메라를 옮겼다(결과에 맞춤·고른 곳으로). */
     fun markSelfMove(atMillis: Long): MapSearchResults = copy(selfMoveAt = atMillis)
@@ -303,7 +291,7 @@ data class MapSearchResults(
     /** 「↻ 이 지역에서 다시 찾기」 를 보이나. */
     val showsRefresh: Boolean get() = stale && shops != null
 
-    /** 검색어 알약의 「N곳」 — 받기 전이면 null. */
+    /** 받은 가게 수 — 받기 전이면 null. */
     val count: Int? get() = shops?.size
 
     val body: Body
@@ -311,7 +299,7 @@ data class MapSearchResults(
             if (failed) return Body.Failed
             val found = shops ?: return Body.Loading
             if (found.isEmpty()) {
-                return if (wide) Body.Empty(MapSearchEmpty.NO_PLACES, false) else Body.Empty(MapSearchEmpty.NONE_HERE, true)
+                return Body.Empty(MapSearchEmpty.NO_PLACES)
             }
             return Body.Shops(found)
         }
