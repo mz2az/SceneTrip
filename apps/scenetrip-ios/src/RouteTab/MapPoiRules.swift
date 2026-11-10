@@ -101,11 +101,6 @@ struct MapPoiChips: Equatable {
         places.filter { groupsOn.contains($0.poiGroup) }
     }
 
-    /// 칩 옆 개수 — 갈래마다.
-    static func counts(_ places: [RouteGuide.Place]) -> [RoutePoiGroup: Int] {
-        places.reduce(into: [:]) { counts, place in counts[place.poiGroup, default: 0] += 1 }
-    }
-
     /// 칩 줄이 보이나 — 편집 중이고 지도가 펼쳐져 있고 여행 안내 중이 아닐 때만(M1).
     static func showsBar(mode: RouteEditorMode, mapOpen: Bool, tripActive: Bool) -> Bool {
         mode == .editing && mapOpen && !tripActive

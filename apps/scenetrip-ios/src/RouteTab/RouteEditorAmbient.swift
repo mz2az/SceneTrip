@@ -52,15 +52,6 @@ extension RouteEditorView {
         }
     }
 
-    /// 갈래 칩이 세는 대상 — **주변 편의시설만.** 챗봇 결과는 「AI 장소」 칩이 따로 센다.
-    /// 촬영지 핀 밑이라 지도에서 숨긴 점은 세지 않는다(MZ2AZ-378). 코스에 담긴 곳은 전처럼 센다.
-    var poisForChips: [RouteGuide.Place] {
-        let shown = Set(guide.places.map { RouteDedupe.key($0.asPlaceSummary) })
-        return ambientPois
-            .filter { !shown.contains(RouteDedupe.key($0.asPlaceSummary)) }
-            .withoutDotsUnderPins(drawnPlaceIds)
-    }
-
     /// 「AI 장소 N」 칩. 챗봇이 찾아 준 곳이 있을 때만 나온다. 코스에 담은 곳은 번호 핀이 됐으니 안 센다.
     var aiChip: [RoutePoiChips.Extra] {
         let count = guidePlacesForMap.count
