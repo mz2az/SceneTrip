@@ -17,6 +17,16 @@ struct MapSearchResultsView: View {
     let onEdit: (String) -> Void
     let onExit: () -> Void
 
+    /// 끄는 동안의 서랍 높이(pt). 손을 떼면 nil — 그때는 붙은 비율(`drawerShare`)의 높이.
+    @State private var dragHeight: CGFloat?
+    /// 끌기를 시작할 때 붙어 있던 비율.
+    @State private var dragStart: Double?
+    /// 목록에서 시작한 끌기가 서랍을 내리는 끌기인가(목록이 맨 위이고 아래로) — 끌기마다 처음 한 번 정한다.
+    @State private var listPull: Bool?
+    @State private var listAtTop = true
+    /// 서랍이 0.08초 뒤 6pt 내려오며 나타난다(M8, 웹 `.proto-search-results`).
+    @State private var shown = false
+
     var body: some View {
         if let state = model.state {
             ZStack(alignment: .top) {
@@ -28,8 +38,13 @@ struct MapSearchResultsView: View {
                 }
                 .padding(.horizontal, 10).padding(.top, 10)
                 drawer(state)
-                    .frame(height: height * state.drawerShare)
+                    .frame(height: dragHeight ?? height * state.drawerShare)
                     .frame(maxHeight: .infinity, alignment: .bottom)
+                    .opacity(shown ? 1 : 0)
+                    .offset(y: shown ? 0 : -6)
+                    .onAppear {
+                        withAnimation(.easeOut(duration: 0.22).delay(0.08)) { shown = true }
+                    }
             }
         }
     }
@@ -62,19 +77,25 @@ struct MapSearchResultsView: View {
         .shadow(color: .black.opacity(0.2), radius: 10, y: 4)
     }
 
+    /// 서랍 — 손잡이(머리)를 위아래로 끌고, 누르면 42% ↔ 78%(§3). 목록이 맨 위일 때 아래로 끌어도 내려간다.
     private func drawer(_ state: MapSearchResults) -> some View {
         VStack(spacing: 0) {
-            Button {
-                withAnimation(.spring(duration: 0.28)) { model.state?.toggleDrawer() }
-            } label: {
-                Capsule().fill(Color(.systemGray3)).frame(width: 40, height: 5)
-                    .frame(maxWidth: .infinity).padding(.top, 8).padding(.bottom, 4).contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(state.tall ? Text("목록 줄이기") : Text("목록 키우기"))
+            Capsule().fill(Color(.systemGray3)).frame(width: 40, height: 5)
+                .frame(maxWidth: .infinity).padding(.top, 10).padding(.bottom, 10).contentShape(.rect)
+                .onTapGesture { settle(at: MapSearchDrawerRules.tappedShare(state.drawerShare)) }
+                .gesture(handleDrag(state))
+                .accessibilityElement()
+                .accessibilityAddTraits(.isButton)
+                .accessibilityLabel(state.tall ? Text("목록 줄이기") : Text("목록 키우기"))
+                .accessibilityAction { settle(at: MapSearchDrawerRules.tappedShare(state.drawerShare)) }
             ScrollView {
                 content(state).padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 20)
+                    .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named(Self.listSpace)).minY } action: {
+                        listAtTop = $0 >= -1
+                    }
             }
+            .coordinateSpace(.named(Self.listSpace))
+            .simultaneousGesture(listDrag(state))
         }
         .background(
             UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)
@@ -82,6 +103,54 @@ struct MapSearchResultsView: View {
                 .shadow(color: .black.opacity(0.15), radius: 8, y: -2)
                 .ignoresSafeArea(edges: .bottom)
         )
+    }
+
+    private static let listSpace = "mapSearchDrawerList"
+
+    /// 손잡이 끌기. 서랍이 손가락 밑에서 움직이므로 화면 좌표로 잰다.
+    private func handleDrag(_ state: MapSearchResults) -> some Gesture {
+        DragGesture(minimumDistance: 2, coordinateSpace: .global)
+            .onChanged { follow($0.translation.height, from: state.drawerShare) }
+            .onEnded { release(velocity: $0.velocity.height) }
+    }
+
+    /// 목록 위의 끌기 — 목록이 맨 위이고 아래로 끌 때만 서랍을 내린다. 아니면 목록이 스크롤한다.
+    private func listDrag(_ state: MapSearchResults) -> some Gesture {
+        DragGesture(minimumDistance: 8, coordinateSpace: .global)
+            .onChanged { value in
+                if listPull == nil {
+                    listPull = listAtTop && value.translation.height > 0
+                }
+                guard listPull == true else { return }
+                follow(max(value.translation.height, 0), from: state.drawerShare)
+            }
+            .onEnded { value in
+                defer { listPull = nil }
+                guard listPull == true else { return }
+                release(velocity: value.velocity.height)
+            }
+    }
+
+    private func follow(_ translation: CGFloat, from share: Double) {
+        let start = dragStart ?? share
+        dragStart = start
+        dragHeight = MapSearchDrawerRules.dragHeight(startShare: start, translation: translation, mapHeight: height)
+    }
+
+    private func release(velocity: CGFloat) {
+        guard let current = dragHeight else { return }
+        settle(at: MapSearchDrawerRules.settledShare(height: current, velocity: velocity, mapHeight: height))
+    }
+
+    /// 그 비율에 붙는다 — 0.28초.
+    private func settle(at share: Double) {
+        withAnimation(.timingCurve(0.32, 0.72, 0, 1, duration: MapSearchDrawerRules.snapDuration)) {
+            if let state = model.state, state.drawerShare != share {
+                model.state?.toggleDrawer()
+            }
+            dragHeight = nil
+            dragStart = nil
+        }
     }
 
     @ViewBuilder
@@ -113,7 +182,7 @@ struct MapSearchResultsView: View {
                         .buttonStyle(.plain)
                         .overlay(alignment: .top) {
                             if index > 0 {
-                                Divider().padding(.leading, 66)
+                                Divider().padding(.leading, MapShopRow.leadingInset)
                             }
                         }
                 }

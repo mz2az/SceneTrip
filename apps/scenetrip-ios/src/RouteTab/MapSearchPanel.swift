@@ -21,12 +21,21 @@ struct MapSearchPanel: View {
     @State private var text = ""
     @State private var wide = false
     @State private var listHeight: CGFloat = 0
+    /// 검색칸이 🔍 동그라미(46) 자리에서 오른쪽으로 다 펼쳐졌나(M7, 웹 `.proto-search-open`).
+    @State private var revealed = false
+    /// 닫는 중 — 검색칸이 동그라미로 줄어드는 0.2초 동안 목록은 먼저 숨긴다.
+    @State private var closing = false
     @FocusState private var focused: Bool
+
+    /// 🔍 동그라미의 지름 — 검색칸은 이만큼에서 시작해 이만큼으로 돌아간다.
+    private static let circle: CGFloat = 46
+    private static let growDuration = 0.28
+    private static let shrinkDuration = 0.2
 
     var body: some View {
         VStack(spacing: 8) {
             field
-            if model.phase != .idle {
+            if model.phase != .idle, !closing {
                 // 짧으면 내용 높이만, 길면 420 에서 넘긴다. `ViewThatFits` 는 짧은 목록에도 420 칸을 다 차지해 위아래가 비었다
                 // (가게만 찾게 된 뒤 한두 줄짜리 목록에서 드러났다) — 잰 내용 높이로 칸을 정한다.
                 ScrollView {
@@ -37,13 +46,19 @@ struct MapSearchPanel: View {
                 .background(RoundedRectangle(cornerRadius: 14).fill(Color(.systemBackground)))
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .shadow(color: .black.opacity(0.2), radius: 10, y: 4)
-                .transition(.opacity)
+                // 0.08초 뒤 6pt 내려오며 0.22초에 나타난다(M8, 웹 `.proto-search-results`).
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .offset(y: -6))
+                        .animation(.easeOut(duration: 0.22).delay(0.08)),
+                    removal: .opacity.animation(.easeIn(duration: 0.12))
+                ))
             }
         }
         .padding(.horizontal, 10).padding(.top, 10)
         .onAppear {
             text = initialText
             focused = true
+            withAnimation(.timingCurve(0.32, 0.72, 0, 1, duration: Self.growDuration)) { revealed = true }
         }
         // 닫히면 목록과 지도의 점을 지운다.
         .onDisappear { model.reset() }
@@ -65,7 +80,7 @@ struct MapSearchPanel: View {
     /// 검색칸 — ‹ 닫기 · 입력 · ✕ 지우기.
     private var field: some View {
         HStack(spacing: 4) {
-            Button(action: onClose) {
+            Button(action: close) {
                 Image(systemName: "chevron.left").font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(Color(.label))
                     .frame(width: 40, height: 40).contentShape(.rect)
@@ -93,9 +108,29 @@ struct MapSearchPanel: View {
             }
         }
         .padding(.horizontal, 6)
-        .frame(height: 46)
+        .frame(height: Self.circle)
         .background(Capsule().fill(Color(.systemBackground)))
+        // 폭을 바꾸지 않고 보이는 범위만 넓힌다 — 글자 칸이 다시 배치되며 흔들리지 않게(웹 clip-path 와 같다).
+        .mask(alignment: .leading) {
+            GeometryReader { geo in
+                Capsule().frame(width: revealed ? geo.size.width : Self.circle)
+            }
+        }
         .shadow(color: .black.opacity(0.2), radius: 10, y: 4)
+    }
+
+    /// ‹ — 검색칸이 동그라미로 줄어든 뒤 닫는다(0.2초, 웹 `.proto-search-close`).
+    private func close() {
+        guard !closing else { return }
+        focused = false
+        withAnimation(.timingCurve(0.4, 0, 1, 1, duration: Self.shrinkDuration)) {
+            closing = true
+            revealed = false
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(Self.shrinkDuration))
+            onClose()
+        }
     }
 
     @ViewBuilder
@@ -154,27 +189,23 @@ enum MapSearchText {
     }
 }
 
-/// 가게 한 줄 — 갈래 색 점 · 이름 · 분류·주소.
+/// 가게 한 줄 — 이름 · 분류·주소. 왼쪽의 회색 칸·갈래 색 점은 뺐다(MZ2AZ-547 §2) — 글은 줄 왼쪽 여백(16)에서 시작하고
+/// 구분선도 같은 들여쓰기(`leadingInset`).
 struct MapShopRow: View {
     let place: RouteGuide.Place
 
+    /// 글이 시작하는 왼쪽 여백 — 구분선도 여기서 시작한다.
+    static let leadingInset: CGFloat = 16
+
     var body: some View {
-        HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 8).fill(Color(.systemGray6))
-                .frame(width: 40, height: 40)
-                .overlay {
-                    Circle().fill(RoutePoiTone.of(place.poiGroup)).frame(width: 12, height: 12)
-                        .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-                }
-                .padding(.vertical, 8)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(place.label.title).font(.system(size: 15, weight: .semibold)).lineLimit(1)
-                Text([place.label.category, place.label.address].compactMap { $0 }.joined(separator: " · "))
-                    .font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
-            }
-            Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(place.label.title).font(.system(size: 15, weight: .semibold)).lineLimit(1)
+            Text([place.label.category, place.label.address].compactMap { $0 }.joined(separator: " · "))
+                .font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
         }
-        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+        .padding(.vertical, 6)
+        .padding(.horizontal, Self.leadingInset)
         .contentShape(.rect)
     }
 }

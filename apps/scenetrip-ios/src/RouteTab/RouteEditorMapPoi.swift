@@ -69,7 +69,8 @@ extension RouteEditorView {
                         guide.picked = nil
                         mapResults.open(query: query, wide: wide, viewport: mapViewport)
                     },
-                    onClose: { withAnimation(.easeOut(duration: 0.2)) { mapSearching = false } },
+                    // 줄어드는 움직임은 검색칸이 한다(M7) — 다 줄어든 뒤 칩 줄로 바로 바꾼다.
+                    onClose: { mapSearching = false },
                     initialText: mapSearchText
                 )
             } else {
@@ -149,7 +150,8 @@ extension RouteEditorView {
     func openMapSearch() {
         mapSearchText = ""
         ambientLocationGate.requestLocation(for: mapViewport?.source ?? .userSelected) {
-            withAnimation(.easeOut(duration: 0.2)) { mapSearching = true }
+            // 펼치는 움직임은 검색칸이 한다(M7, 🔍 자리에서 오른쪽으로 0.28초).
+            mapSearching = true
         }
     }
 
