@@ -5,11 +5,12 @@
  *  - 있는지 모른다(확대 전에는 아무것도 없다), 보던 점이 사라진다, 코스 번호 핀과 섞인다.
  * 시안: 처음엔 다 꺼 두고, 지도 위 칩을 켜면 그 갈래만 지금 범위에서 받는다. 지도를 옮겨도 점은 그대로이고
  *  「이 지역에서 다시 찾기」 가 뜬다(누를 때만 바뀐다). 너무 넓으면 「조금 더 확대해 주세요」.
- * 받은 것은 지도에 고정된 칸마다 1등만 큰 점으로, 나머지는 작은 점으로 찍는다(아래 「골고루 퍼뜨리기」). 「전체」 칩은 분류를 고르지 않고 다 찾는다.
+ * 받은 것은 지도에 고정된 칸마다 1등만 아이콘으로 찍고 나머지는 그리지 않는다(아래 「골고루 퍼뜨리기」, 작은 점은 2026-11-10 뺐다). 「전체」 칩은 분류를 고르지 않고 다 찾는다.
  *
  * 검색(칩 줄 맨 앞 🔍): 누르면 칩 줄이 검색칸으로 바뀐다. 가게·장소(편의시설)만 이름으로 찾는다 — 촬영지는 찾지 않는다(2026-11-10 사용자 요청).
  * 먼저 지금 지도 범위에서 찾고, 없거나 더 보고 싶으면 「이 지역 밖에서도 찾기」. 0.35초 멈추면 묻고 2글자부터(요청 한도 1분 60회).
- * 목록이 떠 있는 동안에도 찾은 곳을 지도에 점으로 찍는다. 이름 검색은 `GET /pois?q=`(1.23.0, MZ2AZ-283).
+ * 글자를 치는 동안에는 목록만 — 지도에는 찍지 않는다. 목록 맨 위 「‘q’ 검색」 이나 키보드 검색을 누르면 결과 서랍과 지도 아이콘 핀(구글처럼,
+ * 2026-11-10 사용자 결정). 이름 검색은 `GET /pois?q=`(1.23.0, MZ2AZ-283).
  * 로컬 개발 서버 + 시안일 때만 쓰인다(docs/project/plans/web-trip-first-prototypes.md).
  */
 import { api, ok } from '@/api/client'
@@ -19,13 +20,15 @@ import { HStack, Spinner, Txt, VStack } from '@/design/primitives'
 import type { MapHandle } from '@/map'
 import type { PoiFetchResult, PoiViewport } from '@/features/route/poi/poiApi'
 import { POI_GROUPS, type PoiGroup, poiGroupLabel, poiTone } from '@/features/route/poi/poiGroup'
-import { type RoutePlace, fromPoi, placeGroup } from '@/features/route/poi/poiPlace'
+import { type RoutePlace, fromPoi, placeGroup, placeSymbol } from '@/features/route/poi/poiPlace'
+import { DOT_IMAGE, poiDotHtml } from '@/features/route/poi/PoiDot'
 import { viewportOf } from '@/features/route/poi/useAmbientPois'
 import { Pressable } from '@/features/route/ui/Press'
 import { say } from './protoState'
 import { CoachTour } from './CoachTour'
 import { radius, shadow } from './protoTokens'
 import { DRAWER_HIGH, DRAWER_LOW, dragShare, settleShare, toggleShare } from './searchDrawer'
+import { RESULTS_PAGE_SIZE, fitsMapForPage, mergeResultsPage, nextPageOffset, reachedLoadMore } from './searchPaging'
 
 /** 엔터 뒤 결과 서랍이 처음 덮는 높이(지도의 비율). */
 const PANEL_SHARE = DRAWER_LOW
@@ -142,7 +145,6 @@ export function MapPoiBar({ map, bottomInset, groupsOn, counts, loading, stale, 
         map={map}
         bottomInset={bottomInset}
         closing={closing}
-        pickedId={pickedId}
         onPick={(p) => { setSearching(false); pick(p) }}
         onCommit={(query, wide) => { setSearching(false); setResults({ query, wide }) }}
         onClose={close}
@@ -245,7 +247,13 @@ type Phase = { kind: 'idle' } | { kind: 'loading' } | { kind: 'done'; shops: Rou
 
 /** 가게·장소 이름 검색(GET /pois?q=). `bbox` 가 있으면 그 범위 안에서만. */
 function searchShops(q: string, bbox: string | undefined, limit: number): Promise<RoutePlace[]> {
-  return ok(api.GET('/pois', { params: { query: { q, limit, ...(bbox ? { bbox } : {}) } } })).then((page) => page.items.map(fromPoi))
+  return searchShopsPage(q, bbox, limit, 0).then((page) => page.shops)
+}
+
+/** 한 쪽 — 가게와 조건에 맞는 전체 개수(`total`). 결과 서랍의 「더 받기」 가 쓴다. */
+function searchShopsPage(q: string, bbox: string | undefined, limit: number, offset: number): Promise<{ shops: RoutePlace[]; total: number }> {
+  const query = { q, limit, ...(offset > 0 ? { offset } : {}), ...(bbox ? { bbox } : {}) }
+  return ok(api.GET('/pois', { params: { query } })).then((page) => ({ shops: page.items.map(fromPoi), total: page.total }))
 }
 
 /**
@@ -256,10 +264,7 @@ export function focusPlace(map: MapHandle, p: RoutePlace, covered: number): void
   map.setView({ lat: p.latitude, lng: p.longitude }, Math.max(map.getZoom(), 16), { animate: true, shiftY: Math.max(covered, CARD_COVER) / 2 })
 }
 
-/** 검색 결과 점 — 갈래 색 동그라미(흰 테두리). 가운데가 그 장소다. */
-const SHOP_PIN = 16
-
-/** 찾은 가게를 지도에 점으로 찍는다. `shops` 가 바뀌면 다시 찍고, 화면이 사라지면 지운다. 정보 카드가 떠 있는 곳(`pickedId`)은 고른 핀이 그리므로 뺀다. */
+/** 찾은 가게를 지도에 갈래 아이콘으로 찍는다(기본 지도의 1등 아이콘과 같은 모양 — 점이 아니다, 2026-11-10 사용자 결정). `shops` 가 바뀌면 다시 찍고, 화면이 사라지면 지운다. 정보 카드가 떠 있는 곳(`pickedId`)은 고른 핀이 그리므로 뺀다. */
 function useShopPins(map: MapHandle | null, shops: readonly RoutePlace[], pickedId: string | null, onPick: (p: RoutePlace) => void) {
   const pickRef = useRef(onPick)
   useEffect(() => {
@@ -272,8 +277,8 @@ function useShopPins(map: MapHandle | null, shops: readonly RoutePlace[], picked
       if (p.id === pickedId) continue
       layer.addMarker({
         position: { lat: p.latitude, lng: p.longitude },
-        html: `<span style="display:block;width:${SHOP_PIN}px;height:${SHOP_PIN}px;border-radius:50%;background:${poiTone(placeGroup(p))};border:2.5px solid #fff;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,0.35)"></span>`,
-        className: 'proto-result-pin', size: [SHOP_PIN, SHOP_PIN], anchor: [SHOP_PIN / 2, SHOP_PIN / 2], zIndex: 20, title: p.name,
+        html: poiDotHtml(placeGroup(p), placeSymbol(p)),
+        className: 'route-pin tm-dot proto-result-pin', size: [DOT_IMAGE, DOT_IMAGE], anchor: [DOT_IMAGE / 2, DOT_IMAGE / 2], zIndex: 20, title: p.displayName ?? p.name,
         onClick: () => pickRef.current(p),
       })
     }
@@ -282,11 +287,10 @@ function useShopPins(map: MapHandle | null, shops: readonly RoutePlace[], picked
 }
 
 /** 칩 줄 자리를 덮는 검색칸 + 그 아래 결과 칸. 검색 중에는 갈래 칩을 숨긴다(검색어와 칩 필터가 겹치면 「왜 안 나오지?」 가 생긴다). */
-function SearchPanel({ map, bottomInset, closing, pickedId, onPick, onCommit, onClose }: {
+function SearchPanel({ map, bottomInset, closing, onPick, onCommit, onClose }: {
   map: MapHandle | null
   bottomInset: number
   closing: boolean
-  pickedId: string | null
   onPick: (p: RoutePlace) => void
   /** 엔터 — 목록을 닫고 결과를 지도에 펼친다. */
   onCommit: (query: string, wide: boolean) => void
@@ -295,8 +299,6 @@ function SearchPanel({ map, bottomInset, closing, pickedId, onPick, onCommit, on
   const [text, setText] = useState('')
   const [wide, setWide] = useState(false)
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
-  /** 지도에 찍어 둔 결과 — 새 결과가 올 때까지는 앞의 것을 둔다(글자마다 점이 깜빡이지 않게). */
-  const [pinned, setPinned] = useState<RoutePlace[]>([])
   const ticket = useRef(0)
   const input = useRef<HTMLInputElement>(null)
   useEffect(() => input.current?.focus(), [])
@@ -306,7 +308,6 @@ function SearchPanel({ map, bottomInset, closing, pickedId, onPick, onCommit, on
     const mine = ++ticket.current
     if ([...q].length < MIN_CHARS) {
       setPhase({ kind: 'idle' })
-      setPinned([])
       return
     }
     setPhase({ kind: 'loading' })
@@ -318,19 +319,17 @@ function SearchPanel({ map, bottomInset, closing, pickedId, onPick, onCommit, on
         .then((shops) => {
           if (mine !== ticket.current) return
           setPhase({ kind: 'done', shops, wide })
-          setPinned(shops)
         })
         .catch(() => {
           if (mine !== ticket.current) return
           setPhase({ kind: 'failed' })
-          setPinned([])
         })
     }, QUIET_MS)
     return () => clearTimeout(t)
   }, [text, wide, map, bottomInset])
 
-  // 목록이 떠 있는 동안에도 찾은 곳을 지도에 찍는다(2026-11-10 사용자 요청). 닫히면 지운다.
-  useShopPins(map, closing ? [] : pinned, pickedId, onPick)
+  const q = text.trim()
+  const canCommit = [...q].length >= MIN_CHARS
 
   return (
     <div style={{ position: 'absolute', top: 10, left: 10, right: 10, zIndex: 7, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 'calc(100% - 20px)' }}>
@@ -346,7 +345,7 @@ function SearchPanel({ map, bottomInset, closing, pickedId, onPick, onCommit, on
           onChange={(e) => { setText(e.target.value); setWide(false) }}
           onKeyDown={(e) => {
             if (e.key === 'Escape') onClose()
-            if (e.key === 'Enter' && !e.nativeEvent.isComposing && [...text.trim()].length >= MIN_CHARS) onCommit(text.trim(), wide)
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing && canCommit) onCommit(q, wide)
           }}
           placeholder={say('가게·장소 이름', 'Shop or place name')}
           aria-label={say('가게·장소 이름', 'Shop or place name')}
@@ -362,6 +361,15 @@ function SearchPanel({ map, bottomInset, closing, pickedId, onPick, onCommit, on
 
       {phase.kind !== 'idle' && !closing && (
         <div className="scroll-y proto-search-results" style={{ minHeight: 0, maxHeight: 420, borderRadius: radius.m, background: 'var(--system-background)', boxShadow: shadow.float, overscrollBehavior: 'contain' }}>
+          {/* 맨 위 줄 — 이 검색어로 결과 서랍을 연다(키보드 검색과 같다). */}
+          {canCommit && (
+            <Pressable plain onClick={() => onCommit(q, wide)} style={{ width: '100%', textAlign: 'left', paddingLeft: 16 }}>
+              <HStack spacing={10} style={{ minHeight: 48, paddingRight: 16 }}>
+                <Icon name="magnifyingglass" size={15} color="var(--home-purple)" />
+                <Txt size={15} weight="semibold" lines={1} style={{ color: 'var(--home-purple)' }}>{say(`‘${q}’ 검색`, `Search “${q}”`)}</Txt>
+              </HStack>
+            </Pressable>
+          )}
           {phase.kind === 'loading' ? (
             <VStack align="center" style={{ padding: 24 }}><Spinner size={18} /></VStack>
           ) : phase.kind === 'failed' ? (
@@ -419,6 +427,14 @@ function ResultsView({ map, bottomInset, query, wide, pickedId, onPick, onEdit, 
 }) {
   const [shops, setShops] = useState<RoutePlace[] | null>(null)
   const [failed, setFailed] = useState(false)
+  /** 더 받기 — 전체 개수, 바로 앞 쪽이 비었나, 받는 중, 더 받다 실패. 처음 쪽과 같은 범위(bbox)로 이어 받는다. */
+  const [total, setTotal] = useState<number | null>(null)
+  const [lastEmpty, setLastEmpty] = useState(false)
+  const [moreBusy, setMoreBusy] = useState(false)
+  const [moreFailed, setMoreFailed] = useState(false)
+  const pageBox = useRef<string | undefined>(undefined)
+  const round = useRef(0)
+  const list = useRef<HTMLDivElement>(null)
   const [ask, setAsk] = useState(0)
   const [area, setArea] = useState(wide)
   const [stale, setStale] = useState(false)
@@ -435,17 +451,26 @@ function ResultsView({ map, bottomInset, query, wide, pickedId, onPick, onEdit, 
   // 받기 — 처음, 「다시 찾기」, 「이 지역 밖에서도」.
   useEffect(() => {
     let live = true
+    const mine = ++round.current
     setShops(null)
     setFailed(false)
+    setTotal(null)
+    setLastEmpty(false)
+    setMoreBusy(false)
+    setMoreFailed(false)
     const v = map && !area ? viewportOf(map, bottomInset) : null
     const bbox = v ? `${v.west},${v.south},${v.east},${v.north}` : undefined
-    searchShops(query, bbox, 40)
-      .then((found) => {
-        if (!live) return
+    pageBox.current = bbox
+    searchShopsPage(query, bbox, RESULTS_PAGE_SIZE, 0)
+      .then((page) => {
+        if (!live || mine !== round.current) return
+        const found = page.shops
         setShops(found)
+        setTotal(page.total)
+        setLastEmpty(found.length === 0)
         setStale(false)
-        // 결과가 다 보이게 맞춘다(시트·서랍이 덮은 아래는 빼고).
-        if (map && found.length > 0) {
+        // 결과가 다 보이게 맞춘다(시트·서랍이 덮은 아래는 빼고). 처음 쪽에서만 — 더 받을 때는 지도를 움직이지 않는다.
+        if (map && found.length > 0 && fitsMapForPage(0)) {
           const lats = found.map((p) => p.latitude)
           const lngs = found.map((p) => p.longitude)
           selfMove.current = Date.now()
@@ -476,6 +501,37 @@ function ResultsView({ map, bottomInset, query, wide, pickedId, onPick, onEdit, 
     onPick(p)
   }
   useShopPins(map, shops ?? [], pickedId, pick)
+
+  // 더 받기 — 목록 끝 한 줄 안이 보이면 다음 20개. 받은 만큼 지도 핀도 는다(useShopPins 가 다시 찍는다).
+  const loadMore = () => {
+    if (!shops || moreBusy || moreFailed) return
+    const offset = nextPageOffset(shops.length, total, lastEmpty)
+    if (offset === null) return
+    const mine = round.current
+    setMoreBusy(true)
+    searchShopsPage(query, pageBox.current, RESULTS_PAGE_SIZE, offset)
+      .then((page) => {
+        if (mine !== round.current) return
+        setShops((now) => mergeResultsPage(now ?? [], page.shops))
+        setTotal(page.total)
+        setLastEmpty(page.shops.length === 0)
+      })
+      .catch(() => mine === round.current && setMoreFailed(true))
+      .finally(() => mine === round.current && setMoreBusy(false))
+  }
+  /** 서랍 목록에서 지금 보이는 마지막 줄(받은 목록의 자리). 줄은 `data-row` 로 센다. */
+  const checkNearEnd = () => {
+    const box = list.current
+    if (!box || !shops) return
+    const bottom = box.getBoundingClientRect().bottom
+    let last = -1
+    box.querySelectorAll<HTMLElement>('[data-row]').forEach((row, i) => {
+      if (row.getBoundingClientRect().top < bottom) last = i
+    })
+    if (reachedLoadMore(last, shops.length)) loadMore()
+  }
+  // 받은 뒤·서랍 높이가 바뀐 뒤에도 본다 — 목록이 짧아 스크롤이 없을 때도 끝이 보이면 이어 받는다.
+  useEffect(checkNearEnd)
 
   // 서랍 끌기 — 손잡이·머리에서 누른 채 위아래로. 끄는 동안 손가락을 따라가고, 떼면 속도까지 보고 붙을 높이를 정한다.
   const mapHeight = () => panel.current?.parentElement?.clientHeight ?? 1
@@ -533,7 +589,7 @@ function ResultsView({ map, bottomInset, query, wide, pickedId, onPick, onEdit, 
       <HStack spacing={4} style={{ position: 'absolute', top: 10, left: 10, right: 10, height: 46, padding: '0 6px 0 14px', borderRadius: 999, background: 'var(--system-background)', boxShadow: shadow.float, pointerEvents: 'auto' }}>
         <Icon name="magnifyingglass" size={15} color="secondary" />
         <Pressable plain onClick={onEdit} style={{ flex: 1, minWidth: 0, minHeight: 44, textAlign: 'left' }}>
-          <Txt size={16} weight="semibold" lines={1}>{`“${query}”`} <Txt size={14} color="secondary">{shops ? say(`${shops.length}곳`, `${shops.length}`) : ''}</Txt></Txt>
+          <Txt size={16} weight="semibold" lines={1}>{`“${query}”`} <Txt size={14} color="secondary">{shops ? say(`${total ?? shops.length}곳`, `${total ?? shops.length}`) : ''}</Txt></Txt>
         </Pressable>
         <Pressable plain onClick={onExit} aria-label={say('검색 끝내기', 'End search')} style={{ width: 40, height: 40, display: 'grid', placeItems: 'center' }}>
           <Icon name="xmark.circle.fill" size={20} color="tertiary" />
@@ -572,7 +628,7 @@ function ResultsView({ map, bottomInset, query, wide, pickedId, onPick, onEdit, 
         >
           <span style={{ width: 40, height: 5, borderRadius: 3, background: 'var(--system-gray3)' }} />
         </Pressable>
-        <div className="scroll-y" style={{ flex: 1, minHeight: 0, padding: '4px 16px 20px', overscrollBehavior: 'contain' }}>
+        <div ref={list} onScroll={checkNearEnd} className="scroll-y" style={{ flex: 1, minHeight: 0, padding: '4px 16px 20px', overscrollBehavior: 'contain' }}>
           {failed ? (
             <Txt size={14} color="secondary" align="center" style={{ display: 'block', padding: 24 }}>{say('찾지 못했어요. 잠시 후 다시 해 주세요', 'Search failed. Try again shortly.')}</Txt>
           ) : shops === null ? (
@@ -587,9 +643,17 @@ function ResultsView({ map, bottomInset, query, wide, pickedId, onPick, onEdit, 
               )}
             </VStack>
           ) : (
-            <div style={{ borderRadius: 14, background: 'var(--system-background)', overflow: 'hidden' }}>
-              {shops.map((p, i) => <ShopRow key={p.id} place={p} first={i === 0} onPick={() => pick(p)} />)}
-            </div>
+            <VStack spacing={0} align="stretch">
+              <div style={{ borderRadius: 14, background: 'var(--system-background)', overflow: 'hidden' }}>
+                {shops.map((p, i) => <div key={p.id} data-row><ShopRow place={p} first={i === 0} onPick={() => pick(p)} /></div>)}
+              </div>
+              {moreBusy && <VStack align="center" style={{ padding: 14 }}><Spinner size={16} /></VStack>}
+              {moreFailed && (
+                <Pressable plain onClick={() => { setMoreFailed(false); window.setTimeout(checkNearEnd, 0) }} style={{ minHeight: 44, marginTop: 8 }}>
+                  <Txt size={14} weight="semibold" align="center" style={{ color: 'var(--home-purple)' }}>{say('더 불러오지 못했어요 · 다시 시도', "Couldn't load more · Try again")}</Txt>
+                </Pressable>
+              )}
+            </VStack>
           )}
         </div>
       </div>

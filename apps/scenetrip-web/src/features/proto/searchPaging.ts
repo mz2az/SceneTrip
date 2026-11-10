@@ -15,11 +15,9 @@ export const RESULTS_PAGE_SIZE = 20
  * - 그 밖에는 받은 수가 곧 다음 offset.
  */
 export function nextPageOffset(loaded: number, total: number | null, lastPageEmpty: boolean): number | null {
-  // 시험 먼저 — 아직 구현하지 않았다(일부러 틀린 값).
-  void loaded
-  void total
-  void lastPageEmpty
-  return -1
+  if (lastPageEmpty) return null
+  if (total !== null && loaded >= total) return null
+  return loaded
 }
 
 /**
@@ -27,10 +25,7 @@ export function nextPageOffset(loaded: number, total: number | null, lastPageEmp
  * 목록이 비었거나 보이는 줄이 없으면(`lastVisibleIndex < 0`) false.
  */
 export function reachedLoadMore(lastVisibleIndex: number, loaded: number): boolean {
-  // 시험 먼저 — 아직 구현하지 않았다(일부러 틀린 값).
-  void lastVisibleIndex
-  void loaded
-  return undefined as unknown as boolean
+  return loaded > 0 && lastVisibleIndex >= 0 && lastVisibleIndex >= loaded - 2
 }
 
 /**
@@ -38,15 +33,17 @@ export function reachedLoadMore(lastVisibleIndex: number, loaded: number): boole
  * 순서: 원래 목록 그대로, 그 뒤에 새 가게를 서버가 준 순서로.
  */
 export function mergeResultsPage<T extends { readonly id: string }>(loaded: readonly T[], page: readonly T[]): T[] {
-  // 시험 먼저 — 아직 구현하지 않았다(일부러 틀린 값).
-  void loaded
-  void page
-  return null as unknown as T[]
+  const seen = new Set(loaded.map((p) => p.id))
+  const out = [...loaded]
+  for (const p of page) {
+    if (seen.has(p.id)) continue
+    seen.add(p.id)
+    out.push(p)
+  }
+  return out
 }
 
 /** 이 쪽을 받았을 때 지도를 결과에 맞추나 — 처음 쪽(offset 0)에서만. 더 받을 때는 지도를 움직이지 않는다. */
 export function fitsMapForPage(offset: number): boolean {
-  // 시험 먼저 — 아직 구현하지 않았다(일부러 틀린 값).
-  void offset
-  return undefined as unknown as boolean
+  return offset === 0
 }

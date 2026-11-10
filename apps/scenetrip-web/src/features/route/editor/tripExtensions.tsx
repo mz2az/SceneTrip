@@ -401,7 +401,8 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
   const overlayState = useMemo(
     () => ({
       ambient: spread ? spread.major : visibleAmbient,
-      minor: spread?.minor ?? [],
+      // 칸마다 1등만 아이콘, 나머지는 그리지 않는다 — 구글처럼 확대하면 나타난다(2026-11-10 사용자 결정, 작은 점은 뺐다).
+      minor: [],
       guidePlaces,
       picked: guideState.picked,
       legs: trip.result?.legs ?? [],

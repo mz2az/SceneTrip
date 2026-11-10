@@ -3,7 +3,9 @@
  *
  * - 🔍 를 누르면 칩 줄이 검색칸이 된다. 2글자부터, 0.35초 멈추면 지금 보이는 지도 범위(서랍 위)에서 가게(`GET /pois`)만 찾는다.
  *   촬영지(`GET /places`)는 여기서 더 찾지 않는다 — 타자 중에도, 엔터 뒤에도.
- * - 목록이 떠 있는 동안 결과를 지도에도 가운데가 맞는 작은 점으로 찍는다. 검색어를 지우거나 닫으면 점도 지운다.
+ * - 글자 치는 동안에는 추천 목록만 — 지도에는 아무것도 찍지 않는다. 목록 맨 위 「‘q’ 검색」 이나 키보드 엔터가 결과 서랍을 연다.
+ * - 결과 서랍: 결과마다 갈래 아이콘 핀. 처음 쪽은 `limit=20`, 목록 끝 한 줄 안이 보이면 `offset=20` 부터 다음 쪽, `total`·빈 쪽에서 멈춤,
+ *   같은 id 는 다시 넣지 않고, 지도는 처음 쪽에서만 맞춘다(docs/project/plans/motion-works-drawer-parity.md §7).
  * - 줄을 누르면 그곳이 서랍 위 보이는 영역의 가운데에 오게 지도를 옮긴 뒤 onPick 을 부른다.
  */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -13,6 +15,8 @@ import type { MapHandle, MapLayer, MarkerHandle, MarkerSpec } from '@/map'
 import type { RoutePlace } from '@/features/route/poi/poiPlace'
 import { chooseLanguage } from '@/i18n'
 import { writeJSON } from '@/state/storage'
+import { fromPoi, placeGroup, placeSymbol } from '@/features/route/poi/poiPlace'
+import { poiDotHtml } from '@/features/route/poi/PoiDot'
 import { MapPoiBar } from './protoPoi'
 
 type PoiSummary = components['schemas']['PoiSummary']
@@ -43,7 +47,7 @@ type Init = { params?: { query?: Record<string, unknown> } } | undefined
 const callsTo = (path: string) => h.GET.mock.calls.filter((c) => c[0] === path) as Array<[string, Init]>
 
 // ---- 지도 흉내 — 겹(layer)마다 살아 있는 점을 센다. 겹째 지우기·비우기·점 하나 지우기를 모두 따른다.
-type FakeLayer = { removed: boolean; live: Set<MarkerSpec>; addMarker: (spec: MarkerSpec) => MarkerHandle; clear: () => void; remove: () => void }
+type FakeLayer = { removed: boolean; added: number; live: Set<MarkerSpec>; addMarker: (spec: MarkerSpec) => MarkerHandle; clear: () => void; remove: () => void }
 let layers: FakeLayer[]
 
 function makeMap() {
@@ -51,8 +55,10 @@ function makeMap() {
   const createLayer = vi.fn((): MapLayer => {
     const layer: FakeLayer = {
       removed: false,
+      added: 0,
       live: new Set(),
       addMarker: vi.fn((spec: MarkerSpec): MarkerHandle => {
+        layer.added += 1
         layer.live.add(spec)
         return { setPosition: vi.fn(), remove: vi.fn(() => { layer.live.delete(spec) }) }
       }),
@@ -74,6 +80,8 @@ function makeMap() {
 
 /** 지금 지도에 남아 있는 검색 점들. */
 const livePins = (): MarkerSpec[] => layers.filter((l) => !l.removed).flatMap((l) => [...l.live])
+/** 지금까지 찍은 적 있는 점 수(지운 것 포함). */
+const addedPins = () => layers.reduce((n, l) => n + l.added, 0)
 const pinAt = (p: PoiSummary) => livePins().find((s) => s.position.lat === p.latitude && s.position.lng === p.longitude)
 
 let map: ReturnType<typeof makeMap>
@@ -221,82 +229,260 @@ describe('MapPoiBar — 타자 중 검색(가게만)', () => {
   })
 })
 
-describe('MapPoiBar — 목록이 떠 있는 동안 지도 위 검색 점', () => {
-  it('결과마다 가운데가 맞는 점을 하나씩 찍는다', async () => {
+describe('MapPoiBar — 글자 치는 동안(추천 목록만)', () => {
+  it('목록은 뜨지만 지도에는 아무것도 찍지 않는다', async () => {
     renderBar()
     openSearch()
     type('경복궁')
     await advance(400)
 
-    expect(map.createLayer).toHaveBeenCalled()
-    const pins = livePins()
-    expect(pins).toHaveLength(2)
+    expect(screen.getByText('경복궁 카페')).toBeTruthy()
+    expect(addedPins()).toBe(0)
+    expect(livePins()).toHaveLength(0)
+
+    // 검색어를 바꿔 결과가 달라져도 그대로.
+    type('광화문')
+    await advance(400)
+    expect(screen.getByText('광화문 국수')).toBeTruthy()
+    expect(addedPins()).toBe(0)
+    expect(map.fitBounds).not.toHaveBeenCalled()
+  })
+
+  it('목록 맨 위 줄은 「‘q’ 검색」 이고, 누르면 결과 서랍이 열린다(목록이 닫히고 지도에 결과 핀)', async () => {
+    renderBar()
+    openSearch()
+    type('경복궁')
+    await advance(400)
+    expect(addedPins()).toBe(0)
+
+    fireEvent.click(screen.getByText('‘경복궁’ 검색'))
+    await advance(1_000)
+
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(screen.getByText('경복궁 카페')).toBeTruthy()
+    expect(pinAt(CAFE)).toBeTruthy()
+    expect(pinAt(BAKERY)).toBeTruthy()
+  })
+
+  it('영어 화면에서는 맨 위 줄이 「Search “q”」 이고 누르면 결과 서랍이 열린다', async () => {
+    chooseLanguage('en')
+    renderBar()
+    openSearch()
+    type('Gyeongbok')
+    await advance(400)
+
+    fireEvent.click(screen.getByText('Search “Gyeongbok”'))
+    await advance(1_000)
+
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(livePins()).toHaveLength(2)
+  })
+
+  it('키보드 엔터도 결과 서랍을 연다', async () => {
+    renderBar()
+    openSearch()
+    type('경복궁')
+    await advance(400)
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    await advance(1_000)
+
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(livePins()).toHaveLength(2)
+  })
+})
+
+describe('MapPoiBar — 결과 서랍의 지도 핀', () => {
+  it('결과마다 갈래 아이콘 핀(기본 지도 편의시설 아이콘과 같은 모양)을 하나씩 찍는다', async () => {
+    await openDrawer('경복궁')
+
+    expect(livePins()).toHaveLength(2)
     for (const p of [CAFE, BAKERY]) {
       const spec = pinAt(p)
-      expect(spec, `${p.name} 점`).toBeTruthy()
-      expect(spec!.anchor).toEqual([spec!.size[0] / 2, spec!.size[1] / 2])
+      expect(spec, `${p.name} 핀`).toBeTruthy()
+      const place = fromPoi(p)
+      expect(spec!.html).toBe(poiDotHtml(placeGroup(place), placeSymbol(place)))
     }
   })
 
-  it('새 검색어의 결과가 다르면 점을 갈아 끼운다', async () => {
-    renderBar()
-    openSearch()
-    type('경복궁')
-    await advance(400)
-    expect(livePins()).toHaveLength(2)
-
-    type('광화문')
-    await advance(400)
-    const pins = livePins()
-    expect(pins).toHaveLength(1)
-    expect(pins[0].position).toEqual({ lat: NOODLE.latitude, lng: NOODLE.longitude })
-  })
-
-  it('검색어를 2글자 밑으로 지우면 점이 남지 않는다', async () => {
-    renderBar()
-    openSearch()
-    type('경복궁')
-    await advance(400)
-    expect(livePins()).toHaveLength(2)
-
-    type('경')
-    await advance(400)
-    expect(livePins()).toHaveLength(0)
-  })
-
-  it('← 로 검색을 닫으면 점이 남지 않는다', async () => {
-    renderBar()
-    openSearch()
-    type('경복궁')
-    await advance(400)
-    expect(livePins()).toHaveLength(2)
-
-    fireEvent.click(screen.getByLabelText('검색 닫기'))
-    await advance(500)
-    expect(livePins()).toHaveLength(0)
-  })
-
-  it('Esc 로 검색을 닫아도 점이 남지 않는다', async () => {
-    renderBar()
-    openSearch()
-    type('경복궁')
-    await advance(400)
-    expect(livePins()).toHaveLength(2)
-
-    fireEvent.keyDown(input(), { key: 'Escape' })
-    await advance(500)
-    expect(livePins()).toHaveLength(0)
-  })
-
-  it('정보 카드가 열린 곳(pickedId)에는 검색 점을 찍지 않는다', async () => {
+  it('정보 카드가 열린 곳(pickedId)에는 결과 핀을 찍지 않는다', async () => {
     renderBar({ pickedId: `poi-${CAFE.id}` })
     openSearch()
     type('경복궁')
     await advance(400)
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    await advance(1_000)
 
     expect(pinAt(CAFE)).toBeUndefined()
     expect(pinAt(BAKERY)).toBeTruthy()
     expect(livePins()).toHaveLength(1)
+  })
+
+  it('검색을 끝내면 결과 핀이 남지 않는다', async () => {
+    await openDrawer('경복궁')
+    expect(livePins()).toHaveLength(2)
+
+    fireEvent.click(screen.getByLabelText('검색 끝내기'))
+    await advance(500)
+    expect(livePins()).toHaveLength(0)
+  })
+})
+
+// ---- 「더 받기」 — 서버 흉내는 offset·limit 대로 잘라 주고, 서랍 목록의 줄 위치는 글자로 찾아 흉내 낸다.
+
+const ROW_H = 56
+const label = (i: number) => `가게 ${String(i).padStart(3, '0')}`
+const shop = (i: number) => poi(1_000 + i, label(i), 37.57 + i * 0.0001, 126.97 + i * 0.0001)
+/** 지금 서랍 목록 칸에 보이는 높이(px)와 스크롤한 거리. */
+let listHeight = 0
+let listScroll = 0
+
+/** 글자로 줄을 찾는다 — 가게 이름 하나만 든 요소는 그 가게의 줄(위에서 i 번째), 여럿 든 요소는 목록 칸(0~listHeight). */
+function stubListGeometry() {
+  const rect = (top: number, bottom: number) => ({ top, bottom, left: 0, right: 400, width: 400, height: bottom - top, x: 0, y: top, toJSON: () => ({}) }) as DOMRect
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    const names = (this.textContent ?? '').match(/가게 \d{3}/g) ?? []
+    const unique = new Set(names)
+    if (unique.size === 1) {
+      // 목록의 몇 번째 줄인가 — 화면에 그려진 가게 줄 순서.
+      const all = [...new Set((document.body.textContent ?? '').match(/가게 \d{3}/g) ?? [])]
+      const i = all.indexOf(names[0] ?? "")
+      const top = i * ROW_H - listScroll
+      return rect(top, top + ROW_H)
+    }
+    if (unique.size > 1) return rect(0, listHeight)
+    return rect(0, 0)
+  })
+}
+
+/** 목록을 굴렸다 — 줄의 조상 모두에 scroll 을 보낸다(어느 칸이 듣든). */
+async function scrollListTo(rows: number) {
+  listScroll = rows * ROW_H
+  let el: HTMLElement | null = screen.getByText(label(0))
+  while (el) {
+    fireEvent.scroll(el)
+    el = el.parentElement
+  }
+  await advance(500)
+}
+
+const drawerCalls = (from: number) => callsTo('/pois').slice(from).map((c) => c[1]!.params!.query!)
+
+async function openDrawer(q: string) {
+  renderBar()
+  openSearch()
+  type(q)
+  await advance(400)
+  const before = callsTo('/pois').length
+  fireEvent.keyDown(input(), { key: 'Enter' })
+  await advance(1_000)
+  return before
+}
+
+/** /pois 를 `items(offset, limit)` 와 `total` 로 흉내 낸다. */
+function servePages(total: number, items: (offset: number, limit: number) => PoiSummary[]) {
+  h.GET.mockImplementation((path: string, init: Init) => {
+    if (path !== '/pois') return Promise.resolve(okRes({ items: [] }))
+    const query = init?.params?.query ?? {}
+    const offset = Number(query.offset ?? 0)
+    const limit = Number(query.limit ?? 20)
+    return Promise.resolve(okRes({ items: items(offset, limit), total }))
+  })
+}
+
+describe('MapPoiBar — 결과 서랍 더 받기', () => {
+  beforeEach(() => {
+    listHeight = 3 * ROW_H
+    listScroll = 0
+    stubListGeometry()
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('처음 쪽은 limit 20·offset 없이 묻고, 받은 20곳을 지도에 찍고 지도를 한 번 맞춘다', async () => {
+    const all = Array.from({ length: 45 }, (_, i) => shop(i))
+    servePages(45, (o, l) => all.slice(o, o + l))
+    const from = await openDrawer('가게')
+
+    const calls = drawerCalls(from)
+    expect(calls).toHaveLength(1)
+    expect(calls[0].q).toBe('가게')
+    expect(calls[0].limit).toBe(20)
+    expect(calls[0].offset).toBeUndefined()
+    expect(livePins()).toHaveLength(20)
+    expect(map.fitBounds).toHaveBeenCalledTimes(1)
+  })
+
+  it('끝 한 줄 안이 보이기 전에는 더 받지 않고, 보이면 offset 20 으로 다음 20곳 — 핀도 늘고 지도는 다시 맞추지 않는다', async () => {
+    const all = Array.from({ length: 45 }, (_, i) => shop(i))
+    servePages(45, (o, l) => all.slice(o, o + l))
+    const from = await openDrawer('가게')
+    expect(drawerCalls(from)).toHaveLength(1)
+
+    // 17번째 줄(인덱스 16)까지만 보인다 — 아직 끝 한 줄 안이 아니다.
+    await scrollListTo(14)
+    expect(drawerCalls(from)).toHaveLength(1)
+
+    // 끝 줄까지 보인다.
+    await scrollListTo(17)
+    const calls = drawerCalls(from)
+    expect(calls).toHaveLength(2)
+    expect(calls[1].offset).toBe(20)
+    expect(calls[1].limit).toBe(20)
+    expect(calls[1].q).toBe('가게')
+    expect(calls[1].bbox).toBe(calls[0].bbox)
+
+    expect(screen.getByText(label(39))).toBeTruthy()
+    expect(livePins()).toHaveLength(40)
+    expect(map.fitBounds).toHaveBeenCalledTimes(1)
+  })
+
+  it('total 에 닿으면 더 묻지 않는다', async () => {
+    const all = Array.from({ length: 45 }, (_, i) => shop(i))
+    servePages(45, (o, l) => all.slice(o, o + l))
+    // 목록 칸이 아주 커서 받은 줄이 늘 다 보인다 — 끝이 보일 때마다 이어 받는다.
+    listHeight = 1_000_000
+    const from = await openDrawer('가게')
+    await scrollListTo(0)
+    await advance(1_000)
+
+    const offsets = drawerCalls(from).map((q) => q.offset)
+    expect(offsets).toEqual([undefined, 20, 40])
+    expect(livePins()).toHaveLength(45)
+
+    await scrollListTo(44)
+    await advance(1_000)
+    expect(drawerCalls(from)).toHaveLength(3)
+    expect(map.fitBounds).toHaveBeenCalledTimes(1)
+  })
+
+  it('빈 쪽이 오면 total 이 남아 있어도 멈춘다', async () => {
+    const all = Array.from({ length: 20 }, (_, i) => shop(i))
+    servePages(100, (o, l) => all.slice(o, o + l))
+    listHeight = 1_000_000
+    const from = await openDrawer('가게')
+    await scrollListTo(0)
+    await advance(1_000)
+    await scrollListTo(19)
+    await advance(1_000)
+
+    expect(drawerCalls(from).map((q) => q.offset)).toEqual([undefined, 20])
+    expect(livePins()).toHaveLength(20)
+  })
+
+  it('이미 받은 가게(같은 id)는 다시 넣지 않는다 — 목록에도 지도에도 한 번씩', async () => {
+    const all = Array.from({ length: 40 }, (_, i) => shop(i))
+    // 두 번째 쪽이 앞 쪽 끝 두 곳(18·19)과 겹쳐 온다.
+    servePages(40, (o, l) => (o === 0 ? all.slice(0, l) : all.slice(o - 2, o - 2 + l)))
+    const from = await openDrawer('가게')
+    await scrollListTo(17)
+    expect(drawerCalls(from)).toHaveLength(2)
+
+    expect(screen.getAllByText(label(18))).toHaveLength(1)
+    expect(screen.getAllByText(label(19))).toHaveLength(1)
+    expect(screen.getByText(label(37))).toBeTruthy()
+    expect(livePins()).toHaveLength(38)
+    expect(new Set(livePins().map((s) => `${s.position.lat},${s.position.lng}`)).size).toBe(38)
   })
 })
 
