@@ -25,9 +25,12 @@ import { Pressable } from '@/features/route/ui/Press'
 import { say } from './protoState'
 import { CoachTour } from './CoachTour'
 import { radius, shadow } from './protoTokens'
+import { DRAWER_HIGH, DRAWER_LOW, dragShare, settleShare, toggleShare } from './searchDrawer'
 
 /** 엔터 뒤 결과 서랍이 처음 덮는 높이(지도의 비율). */
-const PANEL_SHARE = 0.42
+const PANEL_SHARE = DRAWER_LOW
+/** 손가락이 이만큼(px) 안 움직이고 떼면 끈 것이 아니라 누른 것(손잡이 누름 → 42% ↔ 78%). */
+const TAP_SLOP = 6
 
 
 // ---------------------------------------------------------------- 골고루 퍼뜨리기 (구글 지도 방식, MZ2AZ-540)
@@ -385,19 +388,14 @@ function SearchPanel({ map, bottomInset, closing, pickedId, onPick, onCommit, on
   )
 }
 
-/** 가게 한 줄 — 갈래 색 점 · 이름 · 분류·주소. */
+/** 가게 한 줄 — 이름 · 분류·주소. 글은 줄 왼쪽 여백(16)에서 시작하고 구분선도 같은 들여쓰기(왼쪽 점·회색 칸은 뺐다, MZ2AZ-547). */
 function ShopRow({ place, first, onPick }: { place: RoutePlace; first: boolean; onPick: () => void }) {
   return (
-    <Pressable plain onClick={onPick} style={{ width: '100%', textAlign: 'left', paddingLeft: 14 }}>
-      <HStack spacing={12}>
-        <span aria-hidden style={{ flex: 'none', width: 40, height: 40, margin: '8px 0', borderRadius: 8, display: 'grid', placeItems: 'center', background: 'var(--system-gray6)' }}>
-          <span style={{ width: 12, height: 12, borderRadius: 999, background: poiTone(placeGroup(place)), border: '2px solid #fff' }} />
-        </span>
-        <VStack spacing={2} align="start" style={{ flex: 1, minWidth: 0, alignSelf: 'stretch', justifyContent: 'center', paddingRight: 14, borderTop: first ? undefined : '0.5px solid var(--separator)' }}>
-          <Txt size={15} weight="semibold" lines={1}>{place.displayName ?? place.name}</Txt>
-          <Txt size={12} color="secondary" lines={1}>{[place.categoryLabel ?? place.category, place.displayAddress ?? place.address].filter(Boolean).join(' · ')}</Txt>
-        </VStack>
-      </HStack>
+    <Pressable plain onClick={onPick} style={{ width: '100%', textAlign: 'left', paddingLeft: 16 }}>
+      <VStack spacing={2} align="start" style={{ minWidth: 0, minHeight: 56, justifyContent: 'center', padding: '8px 16px 8px 0', borderTop: first ? undefined : '0.5px solid var(--separator)' }}>
+        <Txt size={15} weight="semibold" lines={1}>{place.displayName ?? place.name}</Txt>
+        <Txt size={12} color="secondary" lines={1}>{[place.categoryLabel ?? place.category, place.displayAddress ?? place.address].filter(Boolean).join(' · ')}</Txt>
+      </VStack>
     </Pressable>
   )
 }
@@ -424,7 +422,13 @@ function ResultsView({ map, bottomInset, query, wide, pickedId, onPick, onEdit, 
   const [ask, setAsk] = useState(0)
   const [area, setArea] = useState(wide)
   const [stale, setStale] = useState(false)
-  const [tall, setTall] = useState(false)
+  /** 서랍 높이(지도의 비율). 손을 떼면 42% 또는 78% 에 붙는다. */
+  const [share, setShare] = useState(PANEL_SHARE)
+  const [dragging, setDragging] = useState(false)
+  const panel = useRef<HTMLDivElement>(null)
+  /** 끈 뒤에 따라오는 click 을 누름으로 세지 않게. */
+  const dragged = useRef(false)
+  const drag = useRef<{ id: number; startY: number; startShare: number; mapHeight: number; lastY: number; lastT: number; v: number; moved: boolean } | null>(null)
   /** 우리가 지도를 옮긴 직후의 멈춤은 사람이 옮긴 것이 아니다 — 그동안은 「다시 찾기」 를 띄우지 않는다. */
   const selfMove = useRef(0)
 
@@ -473,6 +477,56 @@ function ResultsView({ map, bottomInset, query, wide, pickedId, onPick, onEdit, 
   }
   useShopPins(map, shops ?? [], pickedId, pick)
 
+  // 서랍 끌기 — 손잡이·머리에서 누른 채 위아래로. 끄는 동안 손가락을 따라가고, 떼면 속도까지 보고 붙을 높이를 정한다.
+  const mapHeight = () => panel.current?.parentElement?.clientHeight ?? 1
+  const onDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    drag.current = { id: e.pointerId, startY: e.clientY, startShare: share, mapHeight: mapHeight(), lastY: e.clientY, lastT: e.timeStamp, v: 0, moved: false }
+  }
+  const onMove = (e: React.PointerEvent) => {
+    const d = drag.current
+    if (!d || d.id !== e.pointerId) return
+    const dy = e.clientY - d.startY
+    if (!d.moved && Math.abs(dy) < TAP_SLOP) return
+    if (!d.moved) {
+      d.moved = true
+      setDragging(true)
+    }
+    const dt = e.timeStamp - d.lastT
+    if (dt > 0) d.v = ((e.clientY - d.lastY) / dt) * 1000
+    d.lastY = e.clientY
+    d.lastT = e.timeStamp
+    setShare(dragShare(d.startShare, dy, d.mapHeight))
+  }
+  const onUp = (e: React.PointerEvent) => {
+    const d = drag.current
+    if (!d || d.id !== e.pointerId) return
+    drag.current = null
+    setDragging(false)
+    // 안 움직였으면 누름이다 — 이어 오는 click 이 42% ↔ 78% 를 바꾼다(키보드 Enter·Space 도 같은 길).
+    if (!d.moved) return
+    dragged.current = true
+    // 마지막 움직임에서 오래 멈췄다 뗐으면 튕긴 것이 아니다.
+    const v = e.timeStamp - d.lastT > 120 ? 0 : d.v
+    setShare(settleShare(dragShare(d.startShare, e.clientY - d.startY, d.mapHeight), v))
+  }
+  const onCancel = (e: React.PointerEvent) => {
+    const d = drag.current
+    if (!d || d.id !== e.pointerId) return
+    drag.current = null
+    setDragging(false)
+    setShare((s) => settleShare(s, 0))
+  }
+  const onHandleClick = () => {
+    if (dragged.current) {
+      dragged.current = false
+      return
+    }
+    setShare((s) => toggleShare(s))
+  }
+  const tall = share > (DRAWER_LOW + DRAWER_HIGH) / 2
+
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 16, pointerEvents: 'none' }}>
       {/* 위 — 검색어 알약(누르면 고쳐 쓰기) · ✕ 끝내기 */}
@@ -495,15 +549,27 @@ function ResultsView({ map, bottomInset, query, wide, pickedId, onPick, onEdit, 
         </div>
       )}
 
-      {/* 아래 서랍 — 손잡이를 누르면 크게/작게 */}
+      {/* 아래 서랍 — 손잡이·머리를 끌어 올리고 내린다(떼면 42%·78% 에 붙는다). 누르면 크게/작게. */}
       <div
+        ref={panel}
         className="proto-search-results"
         style={{
-          position: 'absolute', left: 0, right: 0, bottom: 0, height: tall ? '78%' : `${PANEL_SHARE * 100}%`, display: 'flex', flexDirection: 'column',
-          background: 'var(--grouped-background)', borderRadius: '16px 16px 0 0', boxShadow: '0 -2px 16px rgba(0,0,0,0.15)', pointerEvents: 'auto', transition: 'height 0.28s cubic-bezier(.32,.72,0,1)',
+          position: 'absolute', left: 0, right: 0, bottom: 0, height: `${share * 100}%`, display: 'flex', flexDirection: 'column',
+          background: 'var(--grouped-background)', borderRadius: '16px 16px 0 0', boxShadow: '0 -2px 16px rgba(0,0,0,0.15)', pointerEvents: 'auto',
+          transition: dragging ? 'none' : 'height 0.28s cubic-bezier(.32,.72,0,1)',
         }}
       >
-        <Pressable plain onClick={() => setTall((v) => !v)} aria-label={tall ? say('목록 줄이기', 'Shrink list') : say('목록 키우기', 'Expand list')} style={{ width: '100%', padding: '8px 0 4px', display: 'grid', placeItems: 'center' }}>
+        <Pressable
+          plain
+          onPointerDown={onDown}
+          onPointerMove={onMove}
+          onPointerUp={onUp}
+          onPointerCancel={onCancel}
+          onClick={onHandleClick}
+          aria-label={tall ? say('목록 줄이기', 'Shrink list') : say('목록 키우기', 'Expand list')}
+          aria-expanded={tall}
+          style={{ width: '100%', padding: '8px 0 10px', display: 'grid', placeItems: 'center', touchAction: 'none', cursor: dragging ? 'grabbing' : 'grab' }}
+        >
           <span style={{ width: 40, height: 5, borderRadius: 3, background: 'var(--system-gray3)' }} />
         </Pressable>
         <div className="scroll-y" style={{ flex: 1, minHeight: 0, padding: '4px 16px 20px', overscrollBehavior: 'contain' }}>

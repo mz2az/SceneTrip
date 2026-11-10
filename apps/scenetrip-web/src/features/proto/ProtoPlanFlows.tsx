@@ -4,6 +4,7 @@
  * ① AI 로 짜기: 다섯 화면(기간·날짜·작품·속도·확인) → 두 화면.
  *    - 「어떤 여행이에요?」 한 화면에 기간·떠나는 날(선택)·속도. Tripadvisor·Trip.com·트리플이 3~4문항으로 끝내고 날짜를 강요하지 않는 것을 따랐다.
  *    - 「누구의 장면을 따라갈까요?」 포스터 격자. 찜한 작품을 미리 골라 둔다(서버가 제목을 5개까지만 받는다).
+ *      서버의 작품 전부를 30개씩 이어 받고, 위 검색칸으로 이름을 찾는다. 고른 작품은 검색·쪽 넘김과 상관없이 남는다(MZ2AZ-547).
  *    - 짜는 동안은 전용 화면 — 고른 것 요약과 지금 하는 일 세 줄. 버튼 안 스피너 하나만 돌던 것을 바꿨다. 결과는 원래 편집 화면(날짜별 목록 + 지도).
  * ② 담은 곳으로: 기간 두 화면 → 빈 편집 화면 이던 것을, 기간·날짜 한 화면 → 담은 곳이 날마다 나뉘어 들어간 편집 화면으로.
  *    - 담은 곳을 고르는 단계와 나눠 담기 미리보기는 뺐다 — 「길이·날짜만 정하고 이후에 알아서 수정」(2026-11-07 사용자 결정).
@@ -18,11 +19,11 @@ import { HStack, Spacer, Spinner, Txt, VStack } from '@/design/primitives'
 import { AIConsentSheet, LocationConsentSheet, useAIConsent, useLocationConsent } from '@/features/profile/consent'
 import { RouteEditor } from '@/features/route/editor/RouteEditor'
 import {
-  PACE_CAPTION, PACE_SYMBOL, PACE_TITLE, type PlaceSummary, type RouteCourse, type RoutePace, SPAN_NIGHTS,
+  type ContentSummary, PACE_CAPTION, PACE_SYMBOL, PACE_TITLE, type PlaceSummary, type RouteCourse, type RoutePace, SPAN_NIGHTS,
   addDays, formatDay, makeCourse, makeDay, makeStop, spanDays, toIso,
 } from '@/features/route/models'
 import { type PlanFailure, planFailureMessage } from '@/features/route/planFailure'
-import { guideDraft, routeActions, routeStore, useSortedWorks } from '@/features/route/store'
+import { guideDraft, routeActions, routeStore } from '@/features/route/store'
 import { GlassDialog } from '@/features/route/ui/GlassDialog'
 import { Pressable } from '@/features/route/ui/Press'
 import { Calendar } from '@/features/route/wizard/Calendar'
@@ -33,10 +34,12 @@ import { PrimaryButton, ProtoScreen } from './protoParts'
 import { ProtoWorkStep } from './ProtoWizardSteps'
 import { daysLabel, say } from './protoState'
 import { color, radius, shadow } from './protoTokens'
+import { useWorksBrowse } from './useWorksBrowse'
+import { MAX_PICKED_WORKS, appendPage, favoritesFirst, requestTitles, togglePick } from './worksBrowse'
 import './proto.css'
 
 /** 서버(`POST /guide/plan`)가 받는 작품 제목 수. 넘게 고르면 뒤엣것이 버려지므로 고를 때 막는다. */
-const MAX_WORKS = 5
+const MAX_WORKS = MAX_PICKED_WORKS
 /** 묶음 칸 — 앱 원래 화면의 insetGrouped 카드(흰 바탕·모서리 12·그림자 없음). */
 const GROUP_RADIUS = 12
 const HAIRLINE = '0.5px solid var(--separator)'
@@ -240,13 +243,16 @@ export function ProtoAIPlan({ onClose }: { onClose: () => void }) {
   const [nights, setNights] = useState(1)
   const [date, setDate] = useState<string | null>(null)
   const [pace, setPace] = useState<RoutePace>('loose')
-  const [workIds, setWorkIds] = useState<ReadonlySet<number>>(new Set())
+  /** 고른 작품 — 작품 자체를 든다(검색 결과·받은 쪽에 없어도 남는다). */
+  const [picked, setPicked] = useState<ContentSummary[]>([])
+  const [search, setSearch] = useState('')
   const [planning, setPlanning] = useState(false)
   const [draft, setDraft] = useState<RouteCourse | null>(null)
   const [failure, setFailure] = useState<PlanFailure | null>(null)
   const [tooMany, setTooMany] = useState(false)
-  const works = useSortedWorks()
+  const browse = useWorksBrowse(search)
   const likes = useLikes()
+  const popular = browse.popular
   const ai = useAIConsent()
   const location = useLocationConsent()
   const here = useHereOnce()
@@ -254,20 +260,24 @@ export function ProtoAIPlan({ onClose }: { onClose: () => void }) {
   const run = useRef(0)
   const preset = useRef(false)
 
+  // 촬영지 재료(초안의 촬영지 이름·주소)는 코스 스토어에서. 작품 목록은 이 단계가 따로 받는다(useWorksBrowse).
   useEffect(() => {
     void routeActions.refreshMaterials()
   }, [])
-  // 찜한 작품을 미리 골라 둔다 — 작품 목록이 온 뒤 한 번만(사람이 고친 것을 덮지 않게).
+  // 찜한 작품을 미리 골라 둔다 — 작품 첫 쪽이 온 뒤 한 번만(사람이 고친 것을 덮지 않게). 찜 목록의 작품이 먼저, 그다음 받은 것 안의 찜.
   useEffect(() => {
-    if (preset.current || works.length === 0) return
+    if (preset.current || popular.length === 0) return
     preset.current = true
-    setWorkIds(new Set(works.filter((w) => likes.contentIds.has(w.id)).slice(0, MAX_WORKS).map((w) => w.id)))
-  }, [works, likes.contentIds])
+    setPicked(appendPage(likes.likedWorks, popular).filter((w) => likes.contentIds.has(w.id)).slice(0, MAX_WORKS))
+  }, [popular, likes.likedWorks, likes.contentIds])
 
   const plan = () => {
     const mine = ++run.current
     setPlanning(true)
-    void guideDraft({ nights, startDate: date, workIds, pace, near: here, locationAllowed: location.allowed, sortedWorks: works, places: routeStore.get().places }).then((res) => {
+    void guideDraft({
+      nights, startDate: date, workIds: new Set(picked.map((w) => w.id)), pace, near: here, locationAllowed: location.allowed,
+      sortedWorks: picked.length > 0 ? picked : popular, titles: requestTitles(picked, popular), places: routeStore.get().places,
+    }).then((res) => {
       if (mine !== run.current) return
       setPlanning(false)
       if (res.ok) setDraft(res.course)
@@ -278,8 +288,11 @@ export function ProtoAIPlan({ onClose }: { onClose: () => void }) {
 
   if (draft) return <RouteEditor course={draft} isNew onClose={onClose} />
 
-  const chosen = works.filter((w) => workIds.has(w.id))
-  const posters = (chosen.length > 0 ? chosen : works.slice(0, 3)).map((w) => w.posterUrl).filter((u): u is string => !!u)
+  const chosen = picked
+  const pickedIds = new Set(picked.map((w) => w.id))
+  const shown = browse.shown
+  const emptyQuery = browse.searching && !browse.typing && !shown.loading && !shown.failed && shown.total === 0 ? browse.query : null
+  const posters = (chosen.length > 0 ? chosen : popular.slice(0, 3)).map((w) => w.posterUrl).filter((u): u is string => !!u)
   const summary = [daysLabel(nights + 1), date ? say(`${formatDay(date)} 출발`, `From ${formatDay(date)}`) : null, tr(PACE_TITLE[pace]), chosen.length > 0 ? say(`작품 ${chosen.length}`, `${chosen.length} shows`) : say('인기 작품', 'Popular shows')]
     .filter((t): t is string => !!t)
 
@@ -317,19 +330,20 @@ export function ProtoAIPlan({ onClose }: { onClose: () => void }) {
           }
         >
           <ProtoWorkStep
-            works={works}
+            works={favoritesFirst(shown.items, likes.contentIds)}
             liked={likes.contentIds}
-            selected={workIds}
-            onToggleSelect={(id) => setWorkIds((s) => {
-              const n = new Set(s)
-              if (n.delete(id)) return n
-              if (n.size >= MAX_WORKS) {
-                setTooMany(true)
-                return s
-              }
-              return n.add(id)
-            })}
+            selected={pickedIds}
+            onToggleSelect={(w) => {
+              const r = togglePick(picked, w, MAX_WORKS)
+              if (r.tooMany) setTooMany(true)
+              else setPicked(r.picked)
+            }}
             onToggleLike={(id) => void likeActions.toggle(id)}
+            search={search}
+            onSearch={setSearch}
+            emptyQuery={emptyQuery}
+            loading={shown.loading}
+            onNearEnd={browse.loadMore}
           />
         </ProtoScreen>
       )}

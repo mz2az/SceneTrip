@@ -51,6 +51,7 @@ npm run dev          # predev 가 npm run gen 을 먼저 돌린다
 계정·기록이 있어야 열리는 화면은 서버 쓰기 없이 **읽기 전용 가짜 응답**(`src/devMock.ts`)으로 연다: `?dev-account=1`(가짜 로그인 — 저장소에는 쓰지 않는다 — 과 `/me`·`/me/reviews`·`/me/blocks`·`/me/posts`), `?dev-stamps=1`(방문 기록이 찍힌 코스 `9001`), `?dev-stamps=active`(여행 중인 코스 `9001`). 둘 중 하나라도 켜면 GET 이 아닌 요청은 서버로 나가지 않고 204 로 돌아온다. 가이드 챗봇은 `?dev-fake-guide=answer|answer-text|slow|…`(`features/route/guide/devFake.ts`, 유료 `/guide/chat` 을 부르지 않는다).
 개발 서버는 DEV API 의 GET 200 응답을 10분 메모리에 둔다(`vite.config.ts`, DEV 분당 60회 한도 때문. `SCENETRIP_NO_API_CACHE=1` 로 끈다).
 새 화면(시안, `features/proto/`)은 개발 서버에서 `?proto=a|b|off` 로 켜고, 시험용 웹 `dev.scenetrip.io` 에서는 기본으로 켜진다(`features/proto/protoGate.ts`, MZ2AZ-539). 운영 주소에서는 켜지지 않는다. 「시안」 표시·스위치는 개발 서버에서만 보인다. 커뮤니티 게시판·글 검색·좋아요·댓글, 편의시설 「골고루」·이름 검색, 정한 여행 기억은 서버(계약 1.23~1.25)를 부른다 — 계획 `docs/project/plans/web-proto-apply.md`(MZ2AZ-544).
+시안 「작품으로」 의 「누구의 장면을 따라갈까요?」 는 `GET /contents` 를 30개씩 `total` 까지 이어 받고(격자 마지막 줄이 보이면 다음 쪽), 위 검색칸 「작품 이름으로 찾기」 는 0.3초 멈추면 서버 `q` 로 찾는다. 고른 작품은 검색·쪽 넘김과 상관없이 남고 AI 요청은 고른 작품 제목(없으면 인기 앞 3개)을 보낸다(`features/proto/useWorksBrowse.ts`·`worksBrowse.ts`). 코스 편집 지도 검색의 결과 줄은 왼쪽 점 없이 글만, 엔터 뒤 결과 서랍은 손잡이를 끌어 지도의 42%·78% 에 붙인다(빠르게 튕기면 그 방향, `searchDrawer.ts`). 계획 `docs/project/plans/motion-works-drawer-parity.md`(MZ2AZ-547).
 
 ## 환경 변수
 

@@ -2,8 +2,9 @@
  * AI 로 짜기 마법사의 단계 시안 — 기간은 큰 카드(며칠이면 몇 곳쯤인지 함께), 작품은 포스터 격자.
  * 원래 단계: features/route/wizard/WizardSteps.tsx. 값과 동작은 같고 모양만 다르다(로컬 개발 서버 + 시안일 때만).
  */
+import { useEffect, useRef } from 'react'
 import { Icon } from '@/design/Icon'
-import { Txt, VStack } from '@/design/primitives'
+import { HStack, Spinner, Txt, VStack } from '@/design/primitives'
 import { type ContentSummary, SPAN_NIGHTS } from '@/features/route/models'
 import { Pressable } from '@/features/route/ui/Press'
 import { daysLabel, say } from './protoState'
@@ -40,24 +41,70 @@ export function ProtoSpanStep({ nights, onPick }: { nights: number; onPick: (n: 
 /**
  * 작품 — 포스터 3열 격자. 포스터를 누르면 고름(체크), 왼쪽 위 하트는 찜.
  * 하트는 포스터 단추 **밖의 형제 단추**다 — 단추 안에 단추를 두지 않는다(A3). 둘 다 키보드로 닿는다.
+ * 안내 글 아래 검색칸 「작품 이름으로 찾기」. 마지막 줄이 보이면 `onNearEnd` 로 다음 쪽을 받는다(MZ2AZ-547).
  */
-export function ProtoWorkStep({ works, liked, selected, onToggleSelect, onToggleLike }: {
+export function ProtoWorkStep({ works, liked, selected, onToggleSelect, onToggleLike, search, onSearch, emptyQuery, loading, onNearEnd }: {
   works: readonly ContentSummary[]
   liked: ReadonlySet<number>
   selected: ReadonlySet<number>
-  onToggleSelect: (id: number) => void
+  onToggleSelect: (w: ContentSummary) => void
   onToggleLike: (id: number) => void
+  /** 검색칸 글자 그대로. */
+  search: string
+  onSearch: (text: string) => void
+  /** 검색 결과가 0개였던 검색어. 있으면 격자 대신 「「q」 에 맞는 작품이 없어요」. */
+  emptyQuery: string | null
+  /** 쪽을 받는 중 — 격자 아래 작은 스피너. */
+  loading: boolean
+  /** 마지막 줄이 화면에 들어왔다. */
+  onNearEnd: () => void
 }) {
+  /** 마지막 줄의 첫 칸 — 이것이 보이면 다음 쪽을 받는다(「목록 끝에서 한 줄 안」). */
+  const edge = useRef<HTMLLIElement>(null)
+  const nearEnd = useRef(onNearEnd)
+  useEffect(() => {
+    nearEnd.current = onNearEnd
+  })
+  const edgeIndex = Math.max(0, works.length - 3)
+  useEffect(() => {
+    const el = edge.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) nearEnd.current()
+    })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [edgeIndex, works.length])
+
   return (
     <VStack spacing={12} align="stretch">
       <Txt size={14} color="secondary">{say('여러 개 골라도 돼요. 안 고르면 인기 작품으로 짜요', 'Pick as many as you like, or none for popular picks.')}</Txt>
+      <HStack spacing={6} style={{ height: 40, padding: '0 12px', borderRadius: radius.pill, background: 'var(--system-background)' }}>
+        <Icon name="magnifyingglass" size={16} color="secondary" />
+        <input
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+          placeholder={say('작품 이름으로 찾기', 'Search by title')}
+          aria-label={say('작품 이름으로 찾기', 'Search by title')}
+          enterKeyHint="search"
+          style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: 'transparent', fontSize: 16, padding: 0, color: 'var(--label)' }}
+        />
+        {search !== '' && (
+          <Pressable plain onClick={() => onSearch('')} aria-label={say('지우기', 'Clear')} style={{ display: 'grid', placeItems: 'center', minWidth: 28, minHeight: 28 }}>
+            <Icon name="xmark.circle.fill" size={16} color="tertiary" />
+          </Pressable>
+        )}
+      </HStack>
+      {emptyQuery !== null && (
+        <Txt size={14} color="secondary" align="center" style={{ display: 'block', padding: '24px 0' }}>{say(`「${emptyQuery}」 에 맞는 작품이 없어요`, `No shows match “${emptyQuery}”`)}</Txt>
+      )}
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
-        {works.map((w) => {
+        {works.map((w, i) => {
           const on = selected.has(w.id)
           const heart = liked.has(w.id)
           return (
-            <li key={w.id} style={{ position: 'relative', minWidth: 0 }}>
-              <Pressable plain className="proto-press" onClick={() => onToggleSelect(w.id)} aria-pressed={on} style={{ display: 'block', width: '100%', textAlign: 'left' }}>
+            <li key={w.id} ref={i === edgeIndex ? edge : undefined} style={{ position: 'relative', minWidth: 0 }}>
+              <Pressable plain className="proto-press" onClick={() => onToggleSelect(w)} aria-pressed={on} style={{ display: 'block', width: '100%', textAlign: 'left' }}>
                 <VStack spacing={6} align="stretch">
                   <div
                     style={{
@@ -76,7 +123,7 @@ export function ProtoWorkStep({ works, liked, selected, onToggleSelect, onToggle
               </Pressable>
               <Pressable
                 plain
-            className="proto-press"
+                className="proto-press"
                 onClick={() => onToggleLike(w.id)}
                 aria-pressed={heart}
                 aria-label={say(`${w.title} 찜`, `Like ${w.title}`)}
@@ -90,6 +137,7 @@ export function ProtoWorkStep({ works, liked, selected, onToggleSelect, onToggle
           )
         })}
       </ul>
+      {loading && <VStack align="center" style={{ padding: 12 }}><Spinner size={18} /></VStack>}
     </VStack>
   )
 }
