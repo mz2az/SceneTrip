@@ -262,6 +262,8 @@ Adapter · ViewHolder · DiffUtil 이 붙어 코드가 두세 배가 되고, 그
 | `routetab/MapSearchPanel.kt` · `MapSearchResults.kt` · `MapSearchDrawerRules.kt` | 가게 줄 왼쪽 40×40 칸·갈래 점을 뺐다(글·구분선 왼쪽 16). 결과 서랍은 손잡이를 끌거나 목록 맨 위에서 아래로 끌면 따라오고(42% 아래·78% 위는 고무줄), 떼면 42%/78% 로 0.28초에 붙는다(초당 600dp 넘게 튕기면 그 방향) |
 | `ui/PressScale.kt` | 시안 단추 누름 — 누르는 동안 0.97배·0.12초(`pressScale`·`pressClickable`). 탭바·떠 있는 단추·새 코스 단추·카드·커뮤니티 머리줄·좋아요. 예전 흐려짐(0.7)은 뺐다 |
 | `ui/ProtoMotion.kt` | 공용 곡선(`cubic-bezier(.32,.72,0,1)` 등) · `CoverHost`(덮는 화면 아래에서 0.3초 오르내림) · `reveal`(알약 모양으로 잘라 보이는 폭만 넓힘) · `appearIn`(0.08초 뒤 6dp 비켜 있다 0.22초에 나타남) |
+| `ui/StepTransition.kt` · `newcourse/CityQuestionView.kt` · `WorksPlanView.kt` · `NewCourseParts.kt` | §5 질문 단계 넘김: 「도시로 시작」(도시 → 며칠 → 어떻게 → 추천 코스/직접 고르기)과 「작품으로」(여행 정보 → 작품 → 짜는 중). 화면은 제자리에서 0.28초 서서히 바뀌고, 본문·아래 단추(`stepSlide`)만 앞으로면 오른쪽 24dp 에서 들어오고 이전 것은 왼쪽으로 24dp 밀려 나간다(뒤로면 반대, 곡선 `EaseOutSheet`). 위 줄의 단계 점은 밀리지 않고 이전 단계 모양에서 0.28초에 자란다. 동작 줄이기면 밀림·자람 없이 0.2초 서서히. 넘기는 동안 두 화면이 반투명이어도 아래 홈이 비치지 않게 바탕색을 깐다 |
+| `newcourse/SceneFlipRules.kt` | §6 추천 코스 카드 장면 그림 뒤집기의 순수 규칙(어떤 그림·처음 한 번 살짝 돌기 카드)만 있다 — 화면에는 아직 쓰지 않는다 |
 
 | # | 어디 | 안드로이드 |
 | --- | --- | --- |
