@@ -23,6 +23,7 @@ import {
   StepTransition, saveCourse, useCities,
 } from './protoParts'
 import { type Pace, type Proto, markFreshCourse, protoActions, protoStore, say, tripLength } from './protoState'
+import { onceWhileBusy } from './onceWhileBusy'
 import { showsPrototypeMarks } from './protoGate'
 import { color, heading, radius, shadow, z } from './protoTokens'
 import './proto.css'
@@ -224,6 +225,9 @@ function PlanPreview({ cityKey, cityName, days, pace, onBack }: { cityKey: strin
       .catch(() => live && setPlanFailed(true))
     return () => { live = false }
   }, [cityKey, days, pace, attempt])
+  // 빠르게 두 번 눌러 코스가 둘 생기지 않게(MZ2AZ-551) — busy 상태는 다음 그리기 전까지 두 번째 누름을 못 막는다.
+  const saveLatest = useRef<() => Promise<void>>(async () => {})
+  const saveOnce = useRef(onceWhileBusy(() => saveLatest.current()))
 
   if (!plan) {
     return (
@@ -262,6 +266,7 @@ function PlanPreview({ cityKey, cityName, days, pace, onBack }: { cityKey: strin
     markFreshCourse(id)
     router.openCourse(id)
   }
+  saveLatest.current = save
 
   return (
     <ProtoScreen
@@ -276,7 +281,7 @@ function PlanPreview({ cityKey, cityName, days, pace, onBack }: { cityKey: strin
       footer={
         <VStack spacing={6} align="stretch">
           {failed && <Txt size={13} color="red">{say('저장하지 못했어요. 다시 눌러 주세요', "Couldn't save. Try again")}</Txt>}
-          <PrimaryButton disabled={busy || plan.flat().length === 0} onClick={() => void save()}>{busy ? say('저장하는 중…', 'Saving…') : say('이 코스로 만들기', 'Make this course')}</PrimaryButton>
+          <PrimaryButton disabled={busy || plan.flat().length === 0} onClick={() => void saveOnce.current()}>{busy ? say('저장하는 중…', 'Saving…') : say('이 코스로 만들기', 'Make this course')}</PrimaryButton>
         </VStack>
       }
     >

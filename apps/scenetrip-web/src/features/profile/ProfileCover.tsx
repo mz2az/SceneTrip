@@ -23,7 +23,7 @@ import { useAccount } from './auth/account'
 import { type SectionName, ProfileSections } from './ProfileSections'
 import { ProfileHeader } from './ProfileHeader'
 import {
-  AccountSection, ConsentSettingsSection, DeviceDataSection, FootprintSection, HelpSection, InstallIdFooter, LegalSection, SoonSection, StatisticsSection,
+  AccountSection, ConsentSettingsSection, DeviceDataSection, FootprintSection, HelpSection, InstallIdFooter, LegalSection, StatisticsSection,
 } from './ProfileSettings'
 import { useProfileData } from './profileData'
 import { BlockedUsersSheet } from './sheets/BlockedUsersSheet'
@@ -124,7 +124,7 @@ export function ProfileCover({ onClose }: { onClose: () => void }) {
           <LegalSection />
           <AccountSection onDeleted={onClose} />
           <DeviceDataSection />
-          <SoonSection />
+          {/* 「준비 중(알림)」 줄은 걷어 냈다(MZ2AZ-551) — 눌러도 아무 일이 없다. */}
           <InstallIdFooter />
         </div>
       </div>

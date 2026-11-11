@@ -8,7 +8,7 @@ import { appEvent, track } from '@/analytics'
 import { Icon } from '@/design/Icon'
 import { Sheet } from '@/design/overlay'
 import { Pressable, Spinner, Txt, VStack } from '@/design/primitives'
-import { tr } from '@/i18n'
+import { say, tr } from '@/i18n'
 import { ModerationSheets, type ModerationTarget, useModerationChange, useModerationController } from '@/features/moderation'
 import { useAccount } from '@/features/profile/auth/account'
 import { ListDivider, FONT, ListMoreRetry } from '@/features/search/ui/common'
@@ -153,7 +153,7 @@ function ReviewsBody({ onClose, subject, title, focusReviewId, onChanged }: { on
     if (account.signedIn) setComposing(true)
     else {
       setComposeAfterSignIn(true)
-      promptSignIn()
+      promptSignIn(say('후기를 쓰려면 로그인이 필요해요', 'Sign in to write a review'))
     }
   }
 

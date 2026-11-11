@@ -133,7 +133,7 @@ describe('PlaceDetail — 길찾기', () => {
     })
     await settle()
     expect(account.store.get().showingSignIn).toBe(true)
-    expect(account.store.get().signInReason).toBe('로그인하면 바로 길안내를 시작해요')
+    expect(account.store.get().signInReason).toBe('길 안내는 유료 지도 API 를 써서 가입한 분께만 열려 있어요')
     expect(writes()).toEqual([])
     expect(opened).toEqual([])
   })

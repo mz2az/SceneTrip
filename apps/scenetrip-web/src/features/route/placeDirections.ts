@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { type AppEvent, appEvent, track } from '@/analytics'
 import { account, accountActions } from '@/features/profile/auth/account'
-import { tr } from '@/i18n'
+import { say, tr } from '@/i18n'
 import { authStore } from '@/state/auth'
 import { makeCourse, makeDay, makeStop, placeIdOf, type PlaceSummary, type RouteCourse } from './models'
 import { courseSaveMessage, routeActions, routeStore } from './store'
@@ -135,10 +135,15 @@ export const madeDirectionsCourses = new Map<number, number>()
 
 const NETWORK_MESSAGE = () => tr('연결이 원활하지 않아요. 잠시 뒤 다시 해 주세요')
 
+/** 길 안내의 로그인 이유 — 길 안내는 유료 지도 API 를 써서 가입한 사람만 쓸 수 있다(서버 규칙). MZ2AZ-551 에서 문구를 바꿨다. */
+export function directionsSignInReason(): string {
+  return say('길 안내는 유료 지도 API 를 써서 가입한 분께만 열려 있어요', "Turn-by-turn directions use a paid map service, so they're for signed-in travelers.")
+}
+
 /** 로그인 시트를 이유 문구와 함께 띄우고, 로그인되거나 시트가 닫힐 때까지 기다린다. */
 export function askSignInForDirections(): Promise<boolean> {
   const store = account.store
-  accountActions.openSignInFor(tr('로그인하면 바로 길안내를 시작해요'))
+  accountActions.openSignInFor(directionsSignInReason())
   return new Promise((resolve) => {
     const settle = (): boolean => {
       const s = store.get()

@@ -2,7 +2,7 @@
  * 커뮤니티 규칙 — iOS `CommunityRules` (CommunityTab/CommunityClient.swift). 값만 보는 순수 함수.
  */
 import { ApiFailure } from '@/api/failure'
-import { tr } from '@/i18n'
+import { say, tr } from '@/i18n'
 import { isTextNotAllowedCode, textNotAllowedMessage } from '@/features/moderation/rules'
 import type { PostBlock, PostCourse, PostDetail } from './model'
 
@@ -10,6 +10,11 @@ export const PHOTO_LIMIT = 8
 export const PAGE_SIZE = 20
 export const TITLE_LIMIT = 100
 export const BODY_LIMIT = 5000
+
+/** 글 화면의 제목 — 그 글의 게시판(MZ2AZ-551). 모르면(기기 옛 글·목록에 없는 글) 여행후기. */
+export function postPageTitle(board: 'review' | 'free' | null | undefined): string {
+  return board === 'free' ? say('자유게시판', 'Free board') : say('여행후기', 'Trip review')
+}
 
 export const normalized = (text: string): string => text.trim()
 

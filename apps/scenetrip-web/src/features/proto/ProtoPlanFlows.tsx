@@ -31,6 +31,7 @@ import { tr, trAt } from '@/i18n'
 import { type CartItem, useCart } from '@/state/cart'
 import { likeActions, useLikes } from '@/state/likes'
 import { PrimaryButton, ProtoScreen, StepTransition } from './protoParts'
+import { placesForNewCourse } from './savedPlan'
 import { ProtoWorkStep } from './ProtoWizardSteps'
 import { daysLabel, say } from './protoState'
 import { color, radius, shadow } from './protoTokens'
@@ -428,52 +429,81 @@ export function splitEven<T>(items: readonly T[], days: number): T[][] {
   return out
 }
 
-/** 담은 곳으로 — 기간·날짜만 묻고, 담은 곳 전부를 날마다 나눠 넣은 편집 화면을 연다. 고르기·빼기는 편집 화면에서. */
+/**
+ * 담은 곳으로 — 기간·날짜와 넣을 곳을 묻고, 고른 곳을 날마다 나눠 넣은 편집 화면을 연다.
+ * 넣을 곳은 담아 둔 곳 중에서 고른다 — 처음에는 아무것도 골라져 있지 않다(MZ2AZ-551: 전에는 담아 둔 곳이 전부 들어갔다).
+ */
 export function ProtoSavedPlan({ onClose }: { onClose: () => void }) {
   const cart = useCart()
   const items = cart.items.filter((i) => !i.delisted)
   const [nights, setNights] = useState(1)
   const [date, setDate] = useState<string | null>(null)
   const [course, setCourse] = useState<RouteCourse | null>(null)
+  const [picked, setPicked] = useState<ReadonlySet<number>>(() => new Set())
 
   if (course) return <RouteEditor course={course} isNew onClose={onClose} />
 
+  const chosen = placesForNewCourse(items, picked)
   const create = () => {
-    const days = splitEven(arrange(items.map(placeOf)), spanDays(nights))
+    const days = splitEven(arrange(chosen.map(placeOf)), spanDays(nights))
     setCourse(makeCourse({ title: trAt('내 코스', '코스 제목'), startDate: date, days: days.map((ps) => makeDay(ps.map((p) => makeStop(p)))) }))
   }
-  const photos = items.filter((i) => i.imageUrl).slice(0, 4)
+  const toggle = (id: number) => {
+    const next = new Set(picked)
+    if (!next.delete(id)) next.add(id)
+    setPicked(next)
+  }
 
   return (
     <div style={{ position: 'relative', height: '100%' }}>
       <ProtoScreen
         title={say('며칠 다녀오나요?', 'How long is the trip?')}
         onBack={onClose}
-        footer={<PrimaryButton onClick={create}>{say('코스 만들기', 'Create trip')}</PrimaryButton>}
+        footer={<PrimaryButton onClick={create}>{chosen.length > 0 ? say(`${chosen.length}곳으로 코스 만들기`, `Create trip with ${chosen.length}`) : say('코스 만들기', 'Create trip')}</PrimaryButton>}
       >
         <TripGroup nights={nights} date={date} onNights={setNights} onDate={setDate} />
         <Group
           label={say('넣을 곳', 'Places')}
           footnote={items.length > 0
-            ? say('가까운 곳끼리 날마다 나눠 넣어요. 빼거나 순서를 바꾸는 건 다음 화면에서 할 수 있어요', 'Split by day, nearest first. Remove or reorder on the next screen.')
+            ? say('넣을 곳을 골라 주세요. 가까운 곳끼리 날마다 나눠 넣고, 빼거나 순서를 바꾸는 건 다음 화면에서 할 수 있어요', 'Pick the places to include. We split them by day, nearest first — reorder on the next screen.')
             : say('담아 둔 곳이 없어 빈 코스로 시작해요. 다음 화면에서 하나씩 넣으면 돼요', 'Nothing saved, so this starts empty. Add places on the next screen.')}
         >
-          <Row first pad="10px 14px">
-            <HStack spacing={12} style={{ width: '100%' }}>
-              <HStack spacing={0} aria-hidden style={{ flex: 'none' }}>
-                {photos.length > 0
-                  ? photos.map((i, k) => (
-                    <div key={i.placeId} style={{ width: 32, height: 32, marginLeft: k > 0 ? -8 : 0, borderRadius: radius.s, overflow: 'hidden', border: '2px solid var(--system-background)', background: color.brandFill }}>
-                      <img src={i.imageUrl!} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                  ))
-                  : <Icon name="bag" size={20} color="secondary" />}
+          {items.length === 0 ? (
+            <Row first pad="10px 14px">
+              <HStack spacing={12} style={{ width: '100%' }}>
+                <Icon name="bag" size={20} color="secondary" />
+                <Txt size={15}>{say('담아 둔 곳', 'Saved places')}</Txt>
+                <Spacer />
+                <Txt size={15} color="secondary">{say('0곳', '0')}</Txt>
               </HStack>
-              <Txt size={15}>{say('담아 둔 곳', 'Saved places')}</Txt>
-              <Spacer />
-              <Txt size={15} color="secondary">{say(`${items.length}곳`, `${items.length}`)}</Txt>
-            </HStack>
-          </Row>
+            </Row>
+          ) : (
+            items.map((i, k) => {
+              const on = picked.has(i.placeId)
+              return (
+                <Pressable
+                  key={i.placeId}
+                  plain
+                  role="checkbox"
+                  aria-checked={on}
+                  onClick={() => toggle(i.placeId)}
+                  style={{ width: '100%', textAlign: 'left', padding: '10px 14px', borderTop: k > 0 ? HAIRLINE : undefined }}
+                >
+                  <HStack spacing={12} style={{ width: '100%' }}>
+                    <div aria-hidden style={{ width: 36, height: 36, flex: 'none', borderRadius: radius.s, overflow: 'hidden', background: color.brandFill, display: 'grid', placeItems: 'center' }}>
+                      {i.imageUrl
+                        ? <img src={i.imageUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <Icon name="mappin.and.ellipse" size={16} color="secondary" />}
+                    </div>
+                    <Txt size={15} lines={1} style={{ flex: 1, minWidth: 0 }}>{i.name}</Txt>
+                    <span aria-hidden style={{ width: 22, height: 22, flex: 'none', borderRadius: 6, display: 'grid', placeItems: 'center', background: on ? color.primaryFill : undefined, border: on ? undefined : '1.5px solid var(--system-gray3)' }}>
+                      {on && <Icon name="checkmark" size={12} weight="bold" color="white" />}
+                    </span>
+                  </HStack>
+                </Pressable>
+              )
+            })
+          )}
         </Group>
       </ProtoScreen>
     </div>

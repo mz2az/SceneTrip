@@ -7,10 +7,10 @@
 import { api } from '@/api/client'
 import { reloadHome } from '@/features/home/homeModel'
 import { routeActions, routeStore } from '@/features/route/store'
-import { currentLang } from '@/i18n'
 import { cartActions } from '@/state/cart'
 import { installHeader } from '@/state/install'
 import { createStore, readJSON, writeJSON } from '@/state/storage'
+import { say } from '@/i18n'
 import { pickProto, protoEnabled } from './protoGate'
 
 export type Proto = 'a' | 'b'
@@ -174,8 +174,8 @@ export const protoActions = {
   pick: (city: string | null) => patch({ picking: city }),
 }
 
-/** 한국어·영어 두 벌 문구 — 시안이라 번역표에 넣지 않는다. */
-export const say = (ko: string, en: string): string => (currentLang() === 'en' ? en : ko)
+/** 한국어·영어 두 벌 문구 — 시안이라 번역표에 넣지 않는다. 정본은 i18n 의 `say`. */
+export { say }
 
 export const PACE_STOPS: Record<Pace, number> = { relaxed: 3, normal: 5, packed: 7 }
 
