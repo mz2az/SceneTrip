@@ -188,6 +188,19 @@ _REGION_SUFFIX = re.compile(r"(특별자치도|특별자치시|특별시|광역�
 _REGION_FETCH = 60  # 지역 검색은 넉넉히 받아 주소로 거른다(서버 상한 200)
 
 
+def _title_places(
+    session: Session, matched: str | None, hits: list[Place]
+) -> dict[str, Any]:
+    """한 작품의 촬영지를 기억하고 지도에 띄운다 — `list_title_places` 와, 작품 이름으로 찾은 `search_places` 의 모양."""
+    session.remember(hits)
+    session.show(op="map.focus", placeIds=_ids(hits))
+    return {
+        "작품": matched,
+        "안내": "대표적인 순서다. 앞에 오는 것이 더 대표적인 촬영지다",
+        "촬영지": [_brief(p) for p in hits],
+    }
+
+
 def _clean_query(query: str) -> str:
     """검색어에서 「성지·촬영지」 같은 일반 단어를 뺀다 — 모든 장소가 촬영지라 걸러 줄 말이 아니다."""
     return re.sub(r"\s+", " ", _GENERIC_WORDS.sub(" ", query)).strip()
@@ -453,6 +466,11 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
         if not query:
             return _refuse("무엇으로 찾을지(지역·작품·장소 이름) 사용자에게 물어봐라")
         limit = args.get("limit", 8)
+        # 검색어가 작품 제목·별칭과 **정확히** 같으면 그 작품의 촬영지만 준다(MZ2AZ-555). `/places?q=` 는 낱말이 걸린
+        # 다른 작품의 장소(「kpop demon hunters」 에 경이로운 소문의 원주시청)를 섞고 실제 촬영지를 빠뜨린다.
+        matched, titled = book.exact_title(query, limit)
+        if titled:
+            return _title_places(session, matched, titled)
         hits = book.search(query, _REGION_FETCH)
         # **검색어가 지역이면 주소가 그 지역인 곳만 남긴다.** 하나도 안 맞으면 지역이 아니라
         # 작품·장소 이름으로 찾은 것이라 그대로 둔다.
@@ -511,13 +529,7 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
                 ),
                 "찾은 곳": [_brief(p) for p in found],
             }
-        session.remember(hits)
-        session.show(op="map.focus", placeIds=_ids(hits))
-        return {
-            "작품": matched,
-            "안내": "대표적인 순서다. 앞에 오는 것이 더 대표적인 촬영지다",
-            "촬영지": [_brief(p) for p in hits],
-        }
+        return _title_places(session, matched, hits)
 
     if name == "title_info":
         # 줄거리·출연진은 모델이 아는 척 지어내기 쉬운 말이라 서버의 작품 상세로만 답한다(MZ2AZ-554).

@@ -80,7 +80,11 @@ WONJU = _item(
 )
 JEONJU = _item(301, "전주 한옥마을", "전북특별자치도 전주시 완산구 기린대로 99", GOBLIN)
 DEOKSU = _item(
-    302, "덕수궁돌담길", "서울특별시 중구 세종대로 99", GOBLIN, "공유가 걷던 길, 전주 아님"
+    302,
+    "덕수궁돌담길",
+    "서울특별시 중구 세종대로 99",
+    GOBLIN,
+    "공유가 걷던 길, 전주 아님",
 )
 
 # 작품의 촬영지 — 서버가 정한 대표 순서.
@@ -234,9 +238,7 @@ class 서버창구_exact_title(unittest.TestCase):
     def test_별칭이_같아도_그_작품(self):
         matched, places = 가짜서버().exact_title("케데헌")
         self.assertEqual(matched, "KPop Demon Hunters")
-        self.assertEqual(
-            [p.place_id for p in places], ["102", "101", "103"]
-        )
+        self.assertEqual([p.place_id for p in places], ["102", "101", "103"])
 
     def test_다른_작품의_장소는_없다(self):
         _, places = 가짜서버().exact_title("kpop demon hunters")
@@ -400,7 +402,9 @@ class 프롬프트(unittest.TestCase):
             for ln in text.splitlines()
             if "kpop demon hunters" in ln.lower() and "list_title_places" in ln
         ]
-        self.assertTrue(rows, "「kpop demon hunters 성지」 → list_title_places 줄이 없다")
+        self.assertTrue(
+            rows, "「kpop demon hunters 성지」 → list_title_places 줄이 없다"
+        )
 
 
 if __name__ == "__main__":

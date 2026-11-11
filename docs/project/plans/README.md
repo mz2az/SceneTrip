@@ -61,7 +61,7 @@
 | [place-key-seed.md](./place-key-seed.md) | 촬영지 적재를 고유 키로 — 지우지 않고 갱신·추가, CSV 에서 빠지면 숨김 (MZ2AZ-361) |
 | [delisted-items.md](./delisted-items.md) | 사용자가 담은 것이 목록에서 빠졌을 때 알린다 — 장바구니·코스·찜에 `delisted`(숨긴 촬영지·작품)·`closed`(폐업 편의시설), DB 변경 없음 (MZ2AZ-451) |
 | [review.md](./review.md) | 리뷰와 별점 — 촬영지·편의시설 상세, 한 테이블, 단순 평균·보정 평균, 사진첩에 리뷰 사진, 탈퇴하면 함께 삭제(2026-10-15 바뀜, MZ2AZ-466) (MZ2AZ-362) |
-| [guide-title-info-directions.md](./guide-title-info-directions.md) | 가이드 작품 정보 도구 `title_info`(줄거리·출연은 도구로만) + 답의 장소 카드 「길찾기」 — 로그인 → 담기 → 여행 시작/목적지 바꾸기 (MZ2AZ-554) |
+| [guide-title-info-directions.md](./guide-title-info-directions.md) | 가이드 작품 정보 도구 `title_info`(줄거리·출연은 도구로만) + 답의 장소 카드 「길찾기」 — 로그인 → 담기 → 여행 시작/목적지 바꾸기 (MZ2AZ-554). 장소 검색어가 작품 이름이면 그 작품의 촬영지만 (MZ2AZ-555) |
 | [guide-rate-subject.md](./guide-rate-subject.md) | 가이드 에이전트의 읽기 요청을 사용자 몫으로 센다 — 자격 증명 대신 한도 열쇠(`X-Rate-Subject`) + 서비스 비밀값(`X-Service-Token`) (MZ2AZ-412) |
 | [rate-limit.md](./rate-limit.md) | 요청 한도 — 계정별 제한, 유료 API(챗봇·길찾기) 하루 한도, 챗봇 멱등 키, 요금제별 설정 (MZ2AZ-334) |
 | [review-app.md](./review-app.md) | 리뷰·별점·사진첩·닉네임 — 앱 화면. 한 벌의 리뷰 시트를 세 곳에서, PR 다섯으로 (MZ2AZ-363) |
