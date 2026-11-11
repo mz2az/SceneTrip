@@ -148,8 +148,7 @@ object CommunityFeedRules {
      * 「글쓰기」를 누르면 — 로그인했으면 글쓰기 화면을 열고, 아니면 로그인 창만 띄운다(웹 `CommunityTab.tsx` `onCompose`, iOS `composeTap(signedIn:)`).
      * 로그인을 마쳐도 글쓰기 화면을 저절로 열지 않는다 — 다시 누른다.
      */
-    @Suppress("UNUSED_PARAMETER")
-    fun composeTap(signedIn: Boolean): ComposeTap = ComposeTap.Open
+    fun composeTap(signedIn: Boolean): ComposeTap = if (signedIn) ComposeTap.Open else ComposeTap.SignIn
 
     /** 글자 수 — 코드 포인트로 센다(이모지 하나 = 1). */
     private fun length(text: String): Int = text.codePointCount(0, text.length)

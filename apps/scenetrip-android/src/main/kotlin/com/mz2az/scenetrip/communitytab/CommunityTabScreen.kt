@@ -132,7 +132,13 @@ fun CommunityTabScreen() {
             searchText = searchText,
             onBoard = { board = it },
             onSearch = { searchText = it },
-            onCompose = { CommunityNav.open(CommunityPage.Compose(board)) },
+            // 로그인하지 않았으면 글쓰기 화면을 열지 않고 로그인 창만(계획 §11).
+            onCompose = {
+                when (CommunityFeedRules.composeTap(AuthStore.signedIn)) {
+                    CommunityFeedRules.ComposeTap.Open -> CommunityNav.open(CommunityPage.Compose(board))
+                    CommunityFeedRules.ComposeTap.SignIn -> AuthStore.promptSignIn()
+                }
+            },
         )
         CommunityPostList(store, board = board, term = term)
     }
