@@ -115,6 +115,7 @@ class 도구_결과(unittest.TestCase):
     def _run(self, detail: dict) -> dict:
         from src.session import Session
         from src.tools import run_tool
+
         from tests.fixtures import FakeBook as Book
 
         return run_tool(
