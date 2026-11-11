@@ -1,6 +1,6 @@
 /*
  * 탭바 시안 — 떠 있는 알약 하나에 세 탭을 같은 크기로(사용자 요청 2026-11-07: 탭이 셋뿐인데 홈만 위로 솟아 있어 어색하다).
- * 고른 탭은 단색 보라 알약(흰 글씨 대비 6:1)이 뒤에 깔리며 미끄러져 옮겨 간다. 반투명 유리 효과는 앱에서 이 탭바 한 곳에만 쓴다(S4). 홈 아이콘은 해태 얼굴을 작게. 바닥 줄은 자리만 잡고 비운다.
+ * 고른 탭은 단색 보라 알약(흰 글씨 대비 6:1)이 뒤에 깔리며 미끄러져 옮겨 간다. 반투명 유리 효과는 앱에서 이 탭바 한 곳에만 쓴다(S4) — 뒤가 비치게 바탕은 얇게(iOS 리퀴드 글라스와 맞춤). 홈 아이콘은 해태 얼굴을 작게. 바닥 줄은 자리만 잡고 비운다.
  * 원래 탭바: app/TabBar.tsx. 로컬 개발 서버 + 시안이 켜졌을 때만(docs/project/plans/web-trip-first-prototypes.md).
  */
 import { Icon } from '@/design/Icon'
@@ -32,8 +32,11 @@ export function ProtoTabBar({ selected, onSelect }: { selected: TabId; onSelect:
       <div
         style={{
           position: 'absolute', left: 16, right: 16, bottom: 'calc(var(--safe-bottom) + 8px)', height: 58, borderRadius: radius.pill,
-          background: 'color-mix(in srgb, var(--system-background) 88%, transparent)', backdropFilter: 'blur(18px) saturate(1.6)', WebkitBackdropFilter: 'blur(18px) saturate(1.6)',
-          boxShadow: shadow.float, display: 'flex', padding: 5, pointerEvents: 'auto',
+          // 유리 — 바탕은 얇게(40%)만 깔고 흐림을 세게 둬 뒤가 비친다. 88% 를 깔았더니 흰 카드 위에서 불투명한 판으로 보였다
+          // (iOS 가 같은 이유로 리퀴드 글라스로 바꿨다, 2026-11-10 사용자 지적). 가장자리의 얇은 빛 줄이 유리 테두리 몫이다.
+          background: 'color-mix(in srgb, var(--system-background) 40%, transparent)', backdropFilter: 'blur(24px) saturate(1.8)', WebkitBackdropFilter: 'blur(24px) saturate(1.8)',
+          border: '0.5px solid color-mix(in srgb, var(--system-background) 70%, transparent)',
+          boxShadow: `${shadow.float}, inset 0 1px 0 color-mix(in srgb, var(--system-background) 60%, transparent)`, display: 'flex', padding: 5, pointerEvents: 'auto',
         }}
       >
         {/* 고른 탭 뒤의 알약 — 탭을 바꾸면 미끄러져 옮겨 간다 */}
