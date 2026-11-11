@@ -459,9 +459,24 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
         return out
 
     if name == "list_title_places":
-        matched, hits = book.by_title(args["title"], args.get("limit", 8))
+        # 모델이 「kpop demon hunters 성지」 처럼 일반 단어를 붙여 넘긴다(MZ2AZ-553) — 떼고 찾는다.
+        title = _clean_query(args["title"])
+        if not title:
+            return _refuse("어느 작품의 촬영지를 찾을지 사용자에게 물어봐라")
+        limit = args.get("limit", 8)
+        matched, hits = book.by_title(title, limit)
         if not hits:
-            return _refuse(f"「{args['title']}」 라는 작품의 촬영지 데이터가 없다")
+            # 작품 목록에 없는 말(「남산 성지」)이면 장소 검색(`/places?q=`)으로 한 번만 더 찾는다.
+            # 둘 다 비어야 거절한다.
+            found = book.search(title, limit)[:limit]
+            if not found:
+                return _refuse(f"「{title}」 라는 작품의 촬영지 데이터가 없다")
+            session.remember(found)
+            session.show(op="map.focus", placeIds=_ids(found))
+            return {
+                "출처": "작품 이름으로는 못 찾아 장소 검색으로 찾았다",
+                "찾은 곳": [_brief(p) for p in found],
+            }
         session.remember(hits)
         session.show(op="map.focus", placeIds=_ids(hits))
         return {
