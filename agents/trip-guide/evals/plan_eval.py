@@ -56,7 +56,14 @@ def eval_book() -> PoiBook:
     편의시설까지 아는 창구를 쓴다 — `poi_nearby` 사례가 「이 창구엔 자료가 없다」로
     떨어지면 도구 선택을 잰 것이 아니라 창구를 잰 것이 된다.
     """
-    return PoiBook({"도깨비": SEOUL + INCHEON, "이태원 클라쓰": [SEOUL[1], *INCHEON]})
+    return PoiBook(
+        {
+            "도깨비": SEOUL + INCHEON,
+            "이태원 클라쓰": [SEOUL[1], *INCHEON],
+            # 영어 제목 작품 — 「kpop demon hunters 성지」 처럼 일반 단어가 붙어 와도 찾는지 본다(MZ2AZ-553).
+            "KPop Demon Hunters": [SEOUL[5], SEOUL[2]],
+        }
+    )
 
 
 @dataclass
