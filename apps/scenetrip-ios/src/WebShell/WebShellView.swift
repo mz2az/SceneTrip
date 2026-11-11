@@ -49,7 +49,9 @@ final class WebShellController: UIViewController, WKNavigationDelegate, WKUIDele
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.allowsBackForwardNavigationGestures = true
-        // 안전 영역은 웹이 viewport-fit=cover + env(safe-area-inset-*) 로 맞춘다 — 여기서 또 띄우면 두 번 밀린다.
+        // 아래 안전 영역은 웹이 viewport-fit=cover + env(safe-area-inset-bottom) 으로 맞춘다(떠 있는 탭바).
+        // 위는 웹 홈 머리가 상태 막대를 비켜 주지 않아(2026-11-12 시뮬레이터) 웹뷰를 상태 막대 아래에서 시작한다 —
+        // 그러면 웹의 env(safe-area-inset-top) 은 0 이 되어 두 번 밀리지 않는다.
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.bounces = false
         #if DEBUG
@@ -60,7 +62,7 @@ final class WebShellController: UIViewController, WKNavigationDelegate, WKUIDele
         webView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(webView)
         NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: view.topAnchor),
+            webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
