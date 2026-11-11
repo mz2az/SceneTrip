@@ -380,25 +380,32 @@ def _revision_result(rev: Revision) -> dict[str, Any]:
     return out
 
 
+_PLOT_LIMIT = 600  # 줄거리가 길면 답이 늘어진다 — 이만큼에서 자른다
+
+
 def _title_info(detail: dict[str, Any]) -> dict[str, Any]:
     """ContentDetail(scene-api `GET /contents/{id}`) 을 모델에게 줄 모양으로. 비어 있는 칸은 싣지 않는다."""
-    actors = [
-        c.get("name")
-        for c in detail.get("cast") or []
-        if c.get("roleType") == "actor" and c.get("name")
-    ]
+    cast = detail.get("cast") or []
+
+    def names(role: str) -> list[str]:
+        return [c["name"] for c in cast if c.get("roleType") == role and c.get("name")]
+
+    plot = (detail.get("description") or "").strip()
+    if len(plot) > _PLOT_LIMIT:
+        plot = plot[:_PLOT_LIMIT].rstrip() + "…"
     out: dict[str, Any] = {
         "작품": detail.get("title"),
         "종류": detail.get("category"),
         "연도": detail.get("releaseYear"),
         "장르": list(detail.get("genres") or []),
-        "출연": actors,
-        "줄거리": (detail.get("description") or "").strip(),
+        "출연": names("actor"),
+        "감독": names("director"),
+        "줄거리": plot,
         "촬영지 수": detail.get("placeCount"),
     }
     out = {k: v for k, v in out.items() if v not in (None, "", [])}
     out["할 일"] = (
-        "줄거리·출연은 여기 적힌 것만 말해라. 없는 칸은 모른다고 한 문장으로 밝히고 지어내지 마라"
+        "줄거리·출연·감독은 여기 적힌 것만 말해라. 없는 칸은 모른다고 한 문장으로 밝히고 지어내지 마라"
     )
     return out
 

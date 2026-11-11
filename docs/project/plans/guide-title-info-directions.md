@@ -14,10 +14,12 @@
 - 스키마: `agents/trip-guide/schemas/tools.json` — 인자 `title`(문자열, 필수) 하나, `additionalProperties: false`.
 - 실행(`src/tools.py`): 「성지·촬영지」 같은 일반 단어를 떼고(`_clean_query`) `book.title_detail(title)` 을 부른다.
   못 찾으면 「「X」 라는 작품 정보가 없다」 로 거절한다 — 지어낼 재료를 주지 않는다.
-- 창구(`src/sceneapi.py` `SceneApiPlaceBook.title_detail`): `GET /contents?q=`(5 개) → 제목이 정확히 같은 것, 없으면 1 위 →
-  `GET /contents/{id}`. 검색이 비면 한 번만 부르고 None. CSV 창구(`PlaceSource` 기본)는 줄거리 열이 없어 None.
-- 결과 키: `작품`·`종류`(category 그대로)·`연도`·`장르`·`출연`(roleType `actor` 인 이름)·`줄거리`·`촬영지 수`. 빈 칸은 싣지 않는다.
-- 프롬프트 §3 표에 한 줄, §4 에 「title_info 가 준 것만 — 지어내지 마라」. 평가 `evals/cases.json` 에 「기생충 무슨 내용이야」.
+- 창구(`src/sceneapi.py` `SceneApiPlaceBook.title_detail`): `GET /contents?q=`(5 개). 목록 제목이 정확히 같으면 그 상세
+  (`GET /contents/{id}`). 아니면 후보마다(최대 5) 상세를 받아 별칭까지 보고, 제목·별칭이 같은 것 → 세 글자 이상인 물음이
+  제목·별칭에 든 것 순으로 받는다. 둘 다 없으면 None — 검색 1 위가 설명·출연으로 걸린 다른 작품일 수 있어서다(검증 지적).
+  검색이 비면 한 번만 부르고 None. CSV 창구(`PlaceSource` 기본)는 줄거리 열이 없어 None.
+- 결과 키: `작품`·`종류`(category 그대로)·`연도`·`장르`·`출연`(roleType `actor`)·`감독`(roleType `director`)·`줄거리`(600 자에서 「…」)·`촬영지 수`. 빈 칸은 싣지 않는다.
+- 프롬프트 §3 표에 한 줄(「감독 누구야」 포함), §4 에 「title_info 가 준 것만 — 지어내지 마라」. 평가 `evals/cases.json` 에 「기생충 무슨 내용이야」.
 - 서버 계약은 그대로다 — `GuideToolUse.tool` 은 문자열이라 옛 앱도 새 이름을 읽는다(설명의 도구 표만 열 개로).
 
 ## 3. 앱 — 카드 「길찾기」 단계
