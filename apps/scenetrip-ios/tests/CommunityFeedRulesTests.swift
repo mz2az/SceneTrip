@@ -161,4 +161,14 @@ final class CommunityFeedRulesTests: XCTestCase {
         XCTAssertEqual(CommunityFeedRules.commentPlaceholderKey(total: 1), "댓글을 남겨 보세요")
         XCTAssertEqual(CommunityFeedRules.commentPlaceholderKey(total: 12), "댓글을 남겨 보세요")
     }
+
+    // MARK: 글쓰기
+
+    func testComposeTapOpensComposeWhenSignedIn() {
+        XCTAssertEqual(CommunityFeedRules.composeTap(signedIn: true), .open)
+    }
+
+    func testComposeTapShowsSignInWhenSignedOut() {
+        XCTAssertEqual(CommunityFeedRules.composeTap(signedIn: false), .signIn)
+    }
 }
