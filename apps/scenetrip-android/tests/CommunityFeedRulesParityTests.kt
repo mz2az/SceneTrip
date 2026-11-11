@@ -189,6 +189,18 @@ class CommunityFeedRulesParityTests {
         assertEquals("댓글을 남겨 보세요", CommunityFeedRules.commentPlaceholderKey(12))
     }
 
+    // ── 글쓰기 ──
+
+    @Test
+    fun composeTapOpensComposeWhenSignedIn() {
+        assertEquals(CommunityFeedRules.ComposeTap.Open, CommunityFeedRules.composeTap(signedIn = true))
+    }
+
+    @Test
+    fun composeTapShowsSignInWhenSignedOut() {
+        assertEquals(CommunityFeedRules.ComposeTap.SignIn, CommunityFeedRules.composeTap(signedIn = false))
+    }
+
     // ── 새 영어 문구 ──
 
     @Test

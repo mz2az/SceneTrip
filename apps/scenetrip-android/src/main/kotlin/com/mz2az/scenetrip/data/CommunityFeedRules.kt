@@ -141,6 +141,16 @@ object CommunityFeedRules {
     /** 댓글 입력칸의 안내 문구 열쇠 — 댓글이 없으면 「첫 댓글을 남겨 보세요」, 있으면 「댓글을 남겨 보세요」. */
     fun commentPlaceholderKey(total: Int): String = if (total == 0) "첫 댓글을 남겨 보세요" else "댓글을 남겨 보세요"
 
+    /** 머리줄 「✎ 글쓰기」를 눌렀을 때 할 일 — 글쓰기 화면 열기(Open) / 열지 않고 로그인 창만 띄우기(SignIn). */
+    enum class ComposeTap { Open, SignIn }
+
+    /**
+     * 「글쓰기」를 누르면 — 로그인했으면 글쓰기 화면을 열고, 아니면 로그인 창만 띄운다(웹 `CommunityTab.tsx` `onCompose`, iOS `composeTap(signedIn:)`).
+     * 로그인을 마쳐도 글쓰기 화면을 저절로 열지 않는다 — 다시 누른다.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun composeTap(signedIn: Boolean): ComposeTap = ComposeTap.Open
+
     /** 글자 수 — 코드 포인트로 센다(이모지 하나 = 1). */
     private fun length(text: String): Int = text.codePointCount(0, text.length)
 }
