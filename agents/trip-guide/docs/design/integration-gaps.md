@@ -20,7 +20,7 @@
 | 도구 | 부르는 API | 계약에 있나 |
 | --- | --- | --- |
 | `search_places` | `GET /places?q=&limit=` | ✅ |
-| `list_title_places` | `GET /contents?q=&limit=` → `GET /contents/{id}/places?limit=` | ✅ |
+| `list_title_places` | `GET /contents?q=&limit=` → `GET /contents/{id}/places?limit=`, 비면 `GET /places?q=&limit=` (MZ2AZ-553) | ✅ |
 | `places_near` | `GET /places?bbox=&sort=distance` | ✅ |
 | `place_detail` | `GET /places/{placeId}` | ✅ |
 | `plan_course` | `GET /contents/{id}/places?limit=20` | ✅ |
