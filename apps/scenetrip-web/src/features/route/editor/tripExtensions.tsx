@@ -15,13 +15,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, installHeader, ok } from '@/api/client'
 import { consumePending, pendingStore } from '@/app/tabRouter'
-import { tr } from '@/i18n'
+import { Alert } from '@/design/overlay'
+import { say, tr } from '@/i18n'
 import { PhotoGallery } from '@/features/reviews/photoGallery'
 import { bookOf } from '@/features/reviews/photoGalleryRules'
 import { GalleryViewer } from '@/features/reviews/PhotoViewers'
 import { ReviewsSheet } from '@/features/reviews/ReviewsSheet'
 import { cartActions, useCart } from '@/state/cart'
 import { footprintStore, kilometersOf } from '@/state/footprints'
+import { authStore, promptSignIn } from '@/state/auth'
 import { createStore, useStore } from '@/state/storage'
 import { nextUnvisited } from '../availability'
 import { type GuidePlan, type PlaceLookup, placeLookup } from '../draft'
@@ -31,7 +33,7 @@ import { GuideSheet } from '../guide/GuideSheet'
 import { planOf, revising } from '../guide/guidePlan'
 import { type GuideContext, type ContextSpot, type ContextTrip, buildContext } from '../guide/guideRequest'
 import { type GuideSession, sharedGuide, useGuideState } from '../guide/guideSession'
-import { guideEntryPlacement, parseDirective, resolveAnchor } from '../guide/guideRules'
+import { guideDirectionsSteps, guideEntryPlacement, parseDirective, resolveAnchor } from '../guide/guideRules'
 import type { GuideAnswer } from '../guide/guideSender'
 import { distanceMeters } from '../nav/geo'
 import { KakaoNotice } from '../nav/KakaoNotice'
@@ -51,7 +53,8 @@ import { protoAvailable, protoOn, protoStore } from '@/features/proto/protoState
 import { MapPoiBar, fetchSpread, spreadPois } from '@/features/proto/protoPoi'
 import { cameraMotionOnMap, motionOptions } from '@/features/proto/cameraMotion'
 import { type RouteCourse, type RouteStop, canNavigate, makePoiStop, makeStop, placeIdOf, poiIdOf } from '../models'
-import { routeStore } from '../store'
+import { directionsSignInReason } from '../placeDirections'
+import { routeActions, routeStore } from '../store'
 import { addStops, replaceDay } from './courseEdit'
 import { type EditorHost, registerEditorExtensions } from './editorExtensions'
 
@@ -450,12 +453,13 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
   const picked = guideState.picked
   const pickedStop = picked ? host.stops.find((s) => isSameSpot(picked, refOf(s))) ?? null : null
   const addPlace = useCallback(
-    (place: RoutePlace) => {
+    (place: RoutePlace): boolean => {
       const h = hostRef.current
       const res = addStops(h.course, h.dayIndex, [stopForPlace(place)], { asNext: true, target: tripSession.state.target as RouteStop | null, arrived: tripSession.state.phase === 'arrived' })
-      if (res.added === 0) return
+      if (res.added === 0) return false
       h.setCourse(res.course)
       h.fit()
+      return true
     },
     [],
   )
@@ -472,6 +476,51 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
         if (stop) void startTripTo(hostRef.current, stop)
       }
     : undefined
+
+  // 가이드 카드 「길찾기」(MZ2AZ-554, iOS RouteEditorView.guideDirections) — 로그인 → 담기 → 여행 시작/목적지 바꾸기.
+  // 담은 줄은 다음 화면에야 `host.stops` 에 보이므로, 할 일을 적어 두고 그 줄이 나타나면 안내를 켠다.
+  const [directionsTo, setDirectionsTo] = useState<{ place: RoutePlace; start: boolean } | null>(null)
+  // 담지 못했으면 창을 접은 채 조용히 끝내지 않고 알린다(검증 지적).
+  const [addFailed, setAddFailed] = useState(false)
+  const directions = useCallback(
+    (place: RoutePlace) => {
+      const h = hostRef.current
+      const steps = guideDirectionsSteps({ signedIn: authStore.get().session !== null, inCourse: isAdded(place), tripRunning: h.course.isRunning })
+      if (steps.includes('signIn')) {
+        promptSignIn(directionsSignInReason())
+        return
+      }
+      // 창을 접어 지도와 안내 띠가 보이게 한다.
+      patchUi({ guideOpen: false })
+      if (steps.includes('add') && !addPlace(place)) {
+        setAddFailed(true)
+        return
+      }
+      setDirectionsTo({ place, start: steps.includes('startTrip') })
+    },
+    [addPlace, isAdded],
+  )
+  useEffect(() => {
+    if (!directionsTo) return
+    const h = hostRef.current
+    const stop = h.stops.find((s) => isSameSpot(directionsTo.place, refOf(s)))
+    if (!stop) {
+      // 다른 일차에 담겨 있으면 그 일차로 옮겨 다시 본다 — 안내 번호는 일차 안의 순서다.
+      const day = h.course.days.findIndex((d) => d.stops.some((s) => isSameSpot(directionsTo.place, refOf(s))))
+      if (day >= 0 && day !== h.dayIndex) h.setDayIndex(day)
+      else setDirectionsTo(null)
+      return
+    }
+    setDirectionsTo(null)
+    void (async () => {
+      // 여행 전이면 「코스 시작」과 같은 순서 — 서버가 여행 중을 안 뒤에 길을 묻는다(2026-09-17). 갈 수 없는 곳이면 카드만 연다.
+      if (directionsTo.start && canNavigate(stop)) {
+        h.setCourse({ ...h.course, isRunning: true })
+        await routeActions.setRunning(h.course, true, h.dayIndex + 1)
+      }
+      await startTripTo(hostRef.current, stop)
+    })()
+  }, [directionsTo, host.stops, host.dayIndex])
 
   return (
     <>
@@ -515,7 +564,7 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
           onAdd={addPlace}
           isAdded={isAdded}
           onRemove={removePlace}
-          onReroute={reroute}
+          onDirections={directions}
           onOpenPlanner={() => {
             host.requestPlanner()
             patchUi({ guideOpen: false })
@@ -525,6 +574,8 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
           cardProps={{ reloadToken: state.reloadToken, onOpenReviews: openReviews, onOpenPhotos: openPhotos }}
         />
       </GuidePanel>
+
+      <Alert open={addFailed} title={say('코스에 넣지 못했어요', "Couldn't add to the trip")} onClose={() => setAddFailed(false)} buttons={[{ label: tr('확인'), role: 'cancel' }]} />
 
       <ReviewsSheet
         open={reviewing !== null}

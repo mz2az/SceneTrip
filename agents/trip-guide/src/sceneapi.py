@@ -179,6 +179,37 @@ class SceneApiPlaceBook(PlaceSource):
         data = self._get("/places", {"city": city, "limit": limit})
         return [self._to_place(i) for i in data.get("items", [])]
 
+    def title_detail(self, title: str) -> dict[str, Any] | None:
+        """작품 상세(ContentDetail) — 줄거리·출연·연도·장르(MZ2AZ-554). **물은 작품이 맞을 때만** 준다.
+
+        `GET /contents?q=` 는 설명·출연·장소까지 훑어 1 위가 다른 작품일 수 있다 — 그 줄거리를 물은 작품의 것으로
+        말하면 지어낸 것과 같다. 그래서 제목·별칭이 같은 것을 먼저, 없으면 세 글자 이상인 물음이 제목·별칭에 든 것을
+        받고, 둘 다 없으면 None(도구가 거절). 별칭은 목록에 없어 후보마다 `GET /contents/{id}` 로 본다(최대 5 곳).
+        """
+        found = self._get("/contents", {"q": title, "limit": 5}).get("items", [])
+        want = norm(title)
+        if not found or not want:
+            return None
+        # 목록의 제목이 정확히 같으면 상세 한 번으로 끝난다.
+        exact = next((c for c in found if norm(c.get("title", "")) == want), None)
+        if exact is not None:
+            return self._get(f"/contents/{exact['id']}") or None
+        partial: dict[str, Any] | None = None
+        for cand in found[:5]:
+            detail = self._get(f"/contents/{cand['id']}")
+            if not detail:
+                continue
+            names = [
+                norm(n)
+                for n in [detail.get("title"), *(detail.get("aliases") or [])]
+                if n
+            ]
+            if want in names:
+                return detail
+            if partial is None and len(want) >= 3 and any(want in n for n in names):
+                partial = detail
+        return partial
+
     def near(
         self,
         lat: float,

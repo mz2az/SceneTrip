@@ -45,7 +45,7 @@ from src.planner import (
 )
 from src.session import Anchor, Session
 from src.tools import run_tool
-from tests.fixtures import INCHEON, SEOUL, PoiBook
+from tests.fixtures import INCHEON, PARASITE_DETAIL, SEOUL, PoiBook
 
 _CASES = Path(__file__).absolute().parent / "cases.json"
 
@@ -62,7 +62,9 @@ def eval_book() -> PoiBook:
             "이태원 클라쓰": [SEOUL[1], *INCHEON],
             # 영어 제목 작품 — 「kpop demon hunters 성지」 처럼 일반 단어가 붙어 와도 찾는지 본다(MZ2AZ-553).
             "KPop Demon Hunters": [SEOUL[5], SEOUL[2]],
-        }
+        },
+        # 작품 상세 — 「기생충 무슨 내용이야」 가 title_info 로 가는지 본다(MZ2AZ-554).
+        details=[PARASITE_DETAIL],
     )
 
 
