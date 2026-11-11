@@ -141,6 +141,33 @@
       }
     },
     {
+      "name": "작품이름에-성지가-붙어도-list_title_places",
+      "_설명": "모델이 「성지」 를 붙인 채 작품 이름으로 넘긴다. 일반 단어를 떼고 찾아야 한다 (MZ2AZ-553).",
+      "utterance": "kpop demon hunters 성지좀 찾아줄래",
+      "expect": "list_title_places",
+      "args": {
+        "title": "kpop demon hunters 성지"
+      }
+    },
+    {
+      "name": "작품으로-없으면-장소검색으로-잇는다",
+      "_설명": "작품 목록에 없는 말이면 /places?q= 로 한 번 더 찾는다. 둘 다 비어야 거절한다 (MZ2AZ-553).",
+      "utterance": "남산 성지 알려줘",
+      "expect": "list_title_places",
+      "args": {
+        "title": "남산 성지"
+      }
+    },
+    {
+      "_설명": "작품의 줄거리·출연진을 물으면 작품 정보를 받는다. 줄거리·출연은 지어내지 않고 도구 결과로만 답한다 (MZ2AZ-554).",
+      "name": "작품내용을-물으면-title_info",
+      "utterance": "기생충 무슨 내용이야",
+      "expect": "title_info",
+      "args": {
+        "title": "기생충"
+      }
+    },
+    {
       "name": "근처를-물으면-places_near",
       "utterance": "이 근처 촬영지 뭐 있어",
       "expect": "places_near",

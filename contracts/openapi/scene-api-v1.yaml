@@ -6542,12 +6542,13 @@ components:
           type: string
           description: |
             부른 도구 이름. enum 이 아니라 문자열이다 — 에이전트가 도구를 하나 더할 때 옛 앱이
-            응답 전체를 못 읽지 않게. 앱은 모르는 이름도 그대로 보여 주면 된다. 지금 정의된 아홉 개:
+            응답 전체를 못 읽지 않게. 앱은 모르는 이름도 그대로 보여 주면 된다. 지금 정의된 열 개:
 
             | 도구 | 언제 |
             | --- | --- |
             | `search_places` | 무엇을 찾는지 분명하지 않을 때 — 작품·배우·장소·주소를 한꺼번에 |
             | `list_title_places` | 작품을 콕 집어 말했을 때 |
+            | `title_info` | 「기생충 무슨 내용이야」·「출연진 누구야」 — 작품 정보 |
             | `places_near` | 「이 근처」·「2번 주변」 촬영지 |
             | `place_detail` | 「거기 무슨 장면이야?」 |
             | `update_cart` | 「그거 담아 줘」·「빼 줘」 → `cart.*` effect |
@@ -6561,7 +6562,7 @@ components:
     GuideToolArguments:
       type: object
       description: |
-        모델이 넣은 인자 — 검증을 통과한 값만. 아홉 도구의 인자를 한 모양에 모았다(생성기가 자유 객체를
+        모델이 넣은 인자 — 검증을 통과한 값만. 열 도구의 인자를 한 모양에 모았다(생성기가 자유 객체를
         못 만들어서다). 도구마다 쓰는 필드만 채워지고 나머지는 없다. 정본은 `contracts/schemas/guide/tools/`.
 
         **이름은 이 계약의 것(camelCase)이다.** 에이전트가 모델과 주고받는 이름(`radius_m`·`to_day`)은
@@ -6592,7 +6593,7 @@ components:
         title:
           type: string
           nullable: true
-          description: "`list_title_places` — 작품 제목"
+          description: "`list_title_places`·`title_info` — 작품 제목"
         limit:
           type: integer
           nullable: true

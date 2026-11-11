@@ -69,9 +69,16 @@ class FakeBook(PlaceSource):
     (planner.collect_candidates 가 그 순서를 점수로 쓴다).
     """
 
-    def __init__(self, catalog: dict[str, list[Place]]) -> None:
+    def __init__(
+        self,
+        catalog: dict[str, list[Place]],
+        details: list[dict] | None = None,
+    ) -> None:
         self.catalog = catalog
         self.calls: list[tuple[str, int]] = []
+        # 작품 상세 — scene-api `GET /contents/{id}` 의 ContentDetail 모양 그대로(MZ2AZ-554).
+        self.details: list[dict] = list(details or [])
+        self.detail_calls: list[str] = []
 
     def by_title(self, title: str, limit: int = 10) -> tuple[str | None, list[Place]]:
         self.calls.append((title, limit))
@@ -79,6 +86,16 @@ class FakeBook(PlaceSource):
             if norm(key) == norm(title):
                 return key, places[:limit]
         return None, []
+
+    def title_detail(self, title: str) -> dict | None:
+        """SceneApiPlaceBook.title_detail 과 같은 계약 — 제목·별칭이 같은 작품의 ContentDetail, 없으면 None."""
+        self.detail_calls.append(title)
+        want = norm(title)
+        for d in self.details:
+            names = [d.get("title", ""), *(d.get("aliases") or [])]
+            if any(norm(n) == want for n in names):
+                return d
+        return None
 
     def search(self, query: str, limit: int = 10) -> list[Place]:
         hits = [
@@ -122,6 +139,29 @@ class FakeBook(PlaceSource):
         else:
             found.sort(key=lambda t: (t[1], t[0].name))
         return found[:limit]
+
+
+# 작품 상세 표본. scene-api `GET /contents/{contentId}` 가 돌려주는 모양 그대로다
+# (contracts/openapi §ContentDetail = ContentSummary + description·aliases·cast[PersonRef]).
+PARASITE_DETAIL = {
+    "id": 42,
+    "category": "movie",
+    "title": "기생충",
+    "posterUrl": None,
+    "producerUrl": None,
+    "broadcaster": None,
+    "releaseYear": 2019,
+    "genres": ["드라마", "스릴러"],
+    "placeCount": 7,
+    "delisted": False,
+    "description": "전원 백수인 기택네 가족이 부잣집 박 사장네에 하나둘 들어가며 벌어지는 이야기.",
+    "aliases": ["Parasite"],
+    "cast": [
+        {"personId": 1, "name": "송강호", "roleType": "actor"},
+        {"personId": 2, "name": "최우식", "roleType": "actor"},
+        {"personId": 3, "name": "봉준호", "roleType": "director"},
+    ],
+}
 
 
 def seoul_incheon_book() -> FakeBook:
@@ -168,8 +208,8 @@ SEOUL_POIS = [
 class PoiBook(FakeBook):
     """편의시설까지 아는 창구. scene-api 창구를 흉내 낸다."""
 
-    def __init__(self, catalog, pois=None):
-        super().__init__(catalog)
+    def __init__(self, catalog, pois=None, details=None):
+        super().__init__(catalog, details)
         self.pois = list(pois if pois is not None else SEOUL_POIS)
         self.poi_calls: list[tuple] = []
 
