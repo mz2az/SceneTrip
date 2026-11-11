@@ -114,6 +114,6 @@ enum CommunityFeedRules {
     /// 「글쓰기」를 누르면 — 로그인했으면 글쓰기 화면을 열고, 아니면 로그인 창만 띄운다(웹 `CommunityTab.tsx` `onCompose`).
     /// 로그인을 마쳐도 글쓰기 화면을 저절로 열지 않는다 — 다시 누른다.
     static func composeTap(signedIn: Bool) -> ComposeTap {
-        .open
+        signedIn ? .open : .signIn
     }
 }
