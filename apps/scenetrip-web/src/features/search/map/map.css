@@ -67,6 +67,10 @@
   transform: scale(1.3);
   transform-origin: 19px 45px;
 }
+/* 시안 번호 핀은 감싼 칸이 이미 1.2배로 키운다 — 위 규칙까지 겹치면 1.6배에 기준점도 어긋났다(2026-11-10). */
+.st-pin-selected .st-pin-proto svg {
+  transform: none;
+}
 .st-pin-selected .st-pin-cap {
   /* 이름표는 핀 위에 둔다 — 아래는 지도 자체의 지명(장소 좌표 바로 밑에 붙는다)과 겹친다. 키운 핀 머리 끝(-13.5px) 위에 바닥을 맞춘다. */
   top: auto;

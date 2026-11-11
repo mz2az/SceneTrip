@@ -37,6 +37,8 @@ export interface AccountState {
   signedIn: boolean
   /** 로그인 시트를 띄울 것인가. */
   showingSignIn: boolean
+  /** 시트를 띄운 까닭 한 줄 — 있으면 기본 설명 대신 보인다(예: 촬영지 상세 「길찾기」, MZ2AZ-532). */
+  signInReason: string | null
   /** 계정이 바뀔 때마다 오른다(로그인·로그아웃·탈퇴·세션 소실). */
   epoch: number
   busy: boolean
@@ -92,7 +94,7 @@ class StillRunning extends Error {}
 
 export function createAccount(deps: AccountDeps = defaultAccountDeps) {
   const store = createStore<AccountState>({
-    me: null, signedIn: hasSession(), showingSignIn: false, epoch: 0, busy: false, appleSignInEnabled: true, message: null, askingNickname: false,
+    me: null, signedIn: hasSession(), showingSignIn: false, signInReason: null, epoch: 0, busy: false, appleSignInEnabled: true, message: null, askingNickname: false,
   })
   const patch = (p: Partial<AccountState>) => store.set((s) => ({ ...s, ...p }))
   let nicknameTimer: ReturnType<typeof setTimeout> | null = null
@@ -216,9 +218,14 @@ export function createAccount(deps: AccountDeps = defaultAccountDeps) {
       if (store.get().signedIn) void actions.loadMe()
     },
 
+    /** 인자를 받지 않는다 — `onClick={accountActions.openSignIn}` 처럼 그대로 걸어도 클릭 이벤트가 이유로 새지 않는다. */
     openSignIn(): void {
+      actions.openSignInFor(null)
+    },
+    /** 로그인 시트를 이유 한 줄과 함께 연다 — 그 줄이 기본 설명 자리에 보인다(MZ2AZ-532). */
+    openSignInFor(reason: string | null): void {
       if (store.get().signedIn) return
-      patch({ message: null, showingSignIn: true })
+      patch({ message: null, showingSignIn: true, signInReason: reason })
     },
     closeSignIn(): void {
       patch({ showingSignIn: false })
@@ -294,11 +301,11 @@ export function createAccount(deps: AccountDeps = defaultAccountDeps) {
       forget()
       patch({ message: tr('로그인이 풀렸어요. 다시 로그인해 주세요') })
       if (!wasAskingNickname) {
-        patch({ showingSignIn: true })
+        patch({ showingSignIn: true, signInReason: null })
         return
       }
       setTimeout(() => {
-        if (!store.get().signedIn) patch({ showingSignIn: true })
+        if (!store.get().signedIn) patch({ showingSignIn: true, signInReason: null })
       }, deps.nicknamePromptDelayMs)
     },
 

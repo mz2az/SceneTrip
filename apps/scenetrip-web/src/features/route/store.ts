@@ -278,6 +278,11 @@ export interface DraftRequest {
   /** 위치기반서비스에 동의했나 — 아니면 좌표를 싣지 않는다. */
   locationAllowed: boolean
   sortedWorks: readonly ContentSummary[]
+  /**
+   * 보낼 작품 제목을 부르는 쪽이 이미 정했으면 그것(시안의 작품 고르기 — 고른 작품 제목, 없으면 인기 앞 3개. `worksBrowse.requestTitles`).
+   * 이때 `workIds` 가 비어 있으면 「고른 것 없음」 으로 보고 초안 제목을 인기 작품 기준으로 짓는다. 없으면 `sortedWorks`·`workIds` 로 고른다.
+   */
+  titles?: readonly string[]
   /** 받아 둔 촬영지(앱 언어) — 초안의 한국어 촬영지 이름·주소를 바꾼다(MZ2AZ-530). */
   places: readonly PlaceSummary[]
 }
@@ -287,8 +292,8 @@ export interface DraftRequest {
  * 속도는 앱의 둘(빡빡·널널)을 계약의 양끝(packed·relaxed)으로 보낸다. 작품을 하나도 안 골랐으면 인기 작품 셋의 제목을 보낸다 — 계약이 titles 를 최소 하나 요구한다.
  */
 export async function guideDraft(r: DraftRequest): Promise<DraftResult> {
-  let titles = r.sortedWorks.filter((w) => r.workIds.has(w.id)).map((w) => w.title)
-  const chosen = titles
+  let titles = r.titles ? [...r.titles] : r.sortedWorks.filter((w) => r.workIds.has(w.id)).map((w) => w.title)
+  const chosen = r.titles ? (r.workIds.size > 0 ? titles : []) : titles
   if (titles.length === 0) titles = r.sortedWorks.slice(0, 3).map((w) => w.title)
   if (titles.length === 0) return { ok: false, failure: { kind: 'badRequest' } }
   try {

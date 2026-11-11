@@ -1,0 +1,50 @@
+/* 홈 「지금 뜨는 작품」 전체 격자(MZ2AZ-534). 폭은 화면이 아니라 앱 틀(데스크톱은 402 폭)을 따른다 — 그래서 미디어 질의가 아닌 컨테이너 질의다. */
+.trending-scroll {
+  container-type: inline-size;
+  container-name: trending;
+}
+.trending-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 12px;
+  row-gap: 18px;
+  padding: 4px 20px 28px;
+}
+@container trending (min-width: 401px) {
+  .trending-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 10px;
+  }
+}
+.trending-poster {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 108 / 144; /* 선반 포스터(108x144)와 같은 비율 */
+  overflow: hidden;
+  border-radius: 14px;
+  background: linear-gradient(to bottom right, color-mix(in srgb, var(--pin-deep) 70%, transparent), var(--pin-deep));
+}
+.trending-skeleton .trending-poster,
+.trending-skeleton .trending-line {
+  background: var(--system-gray5);
+  animation: st-trending-pulse 1.2s ease-in-out infinite alternate;
+}
+.trending-line {
+  height: 11px;
+  width: 55%;
+  border-radius: 4px;
+}
+@keyframes st-trending-pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.45;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trending-skeleton .trending-poster,
+  .trending-skeleton .trending-line {
+    animation: none;
+  }
+}

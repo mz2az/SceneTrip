@@ -1,6 +1,7 @@
 import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MapHandle, MarkerSpec } from '@/map'
+import { protoAvailable, protoStore } from '@/features/proto/protoState'
 import { spot } from '../testkit'
 import { RouteMap, type RouteMapProps } from './RouteMap'
 
@@ -294,5 +295,48 @@ describe('RouteMap — 위치 안내와 정리', () => {
     expect(map.fitBounds).not.toHaveBeenCalled()
     expect(onLocateStatus).not.toHaveBeenCalled()
     expect(geo.clearWatch).toHaveBeenCalledWith(1)
+  })
+})
+
+describe('RouteMap — 장소 카드를 닫을 때', () => {
+  it('시안에서는 카드를 닫아도(선택 해제) 사람이 맞춰 둔 화면을 그대로 둔다', () => {
+    // 시험 환경에서도 시안을 켤 수 있어야 이 시험이 뜻을 가진다.
+    expect(protoAvailable).toBe(true)
+    const before = protoStore.get().proto
+    protoStore.set((s) => ({ ...s, proto: 'a' }))
+    try {
+      const p = props({ focused: seoul[0] })
+      const view = render(<RouteMap {...p} />)
+      advance()
+      advance(500)
+      map.setView.mockClear()
+      map.fitBounds.mockClear()
+      view.rerender(<RouteMap {...p} focused={null} />)
+      advance()
+      advance(500)
+      expect(map.setView).not.toHaveBeenCalled()
+      expect(map.fitBounds).not.toHaveBeenCalled()
+    } finally {
+      protoStore.set((s) => ({ ...s, proto: before }))
+    }
+  })
+
+  it('시안이 아니면 카드를 닫을 때 지금처럼 그날 코스 전체를 맞춘다', () => {
+    const before = protoStore.get().proto
+    protoStore.set((s) => ({ ...s, proto: null }))
+    try {
+      const p = props({ focused: seoul[0] })
+      const view = render(<RouteMap {...p} />)
+      advance()
+      advance(500)
+      map.setView.mockClear()
+      map.fitBounds.mockClear()
+      view.rerender(<RouteMap {...p} focused={null} />)
+      advance()
+      advance(500)
+      expect(map.fitBounds).toHaveBeenCalled()
+    } finally {
+      protoStore.set((s) => ({ ...s, proto: before }))
+    }
   })
 })

@@ -6,14 +6,17 @@
  *  - 주변 편의시설 점: **개별 핀, 클러스터링 없음**(MZ2AZ-447). 같은 위치의 서로 다른 장소를 합치거나 옮기지 않는다. 이름은 크게 확대했을 때만(줌 18),
  *    고른 점은 줌과 무관하게 단다 — 눌렀으면 그게 어딘지는 봐야 한다.
  *  - 가이드가 찾아 준 곳(「AI 장소」): 작은 해태, 고른 하나만 빨간 해태(2026-09-17). 이름은 줌 17 부터.
+ *    시안이면 해태를 그리지 않는다 — 가이드 장소는 그 곳의 갈래 아이콘, 고른 곳은 같은 아이콘을 크게(26→40, motion-works-drawer-parity.md §9·§10-1).
  *  - 여행 안내: 실제 경로선(도보는 점선·대중교통은 실선), 목적지까지 마지막 몇십 m 의 회색 점선, 「내 자리 → 다음 곳」 점선 미리보기, 내 자리 파문.
  *    걸으면 지나온 구간은 지우고 남은 길만 그린다(`trailRemaining`).
  */
 import type { LatLng, MapBounds, MapHandle, MapLayer, MarkerSpec } from '@/map'
 import { poiCaption } from '../poi/poiLabelLines'
 import { PIN_DEEP, haetaePinSvg } from '../map/pinSvg'
-import { poiDotHtml, DOT_IMAGE } from '../poi/PoiDot'
+import { poiDotHtml, DOT_IMAGE, DOT_PICKED_IMAGE } from '../poi/PoiDot'
+import { protoOn } from '@/features/proto/protoState'
 import { type RoutePlace, placeGroup, placeLabel, placeSymbol } from '../poi/poiPlace'
+import { poiTone } from '../poi/poiGroup'
 import { validPlaces } from '../poi/poiMarkerRules'
 import { type Leg, trailRemaining } from './navModels'
 import './tripMap.css'
@@ -26,6 +29,9 @@ const AI_SCALE = 0.85
 const PICKED_SCALE = 1.1
 /** 지도 위 z 순서 — iOS marker.zIndex: 점 3 · AI 15 · 고른 30. */
 const Z_DOT = 3
+const Z_MINOR = 2
+/** 작은 점 — 보이는 원 9, 누르는 칸 16. */
+const MINOR = 16
 const Z_AI = 15
 const Z_PICKED = 30
 /** 안내 경로선 — 도보 7(점선)·대중교통 9(실선). iOS NMFPath.width. */
@@ -47,6 +53,8 @@ export interface OverlayHandlers {
 export interface OverlayState {
   /** 주변 편의시설(갈래 칩과 촬영지 핀 밑 규칙을 이미 거친 것). */
   ambient: readonly RoutePlace[]
+  /** 칸마다 1등이 아니라 작게만 찍는 편의시설(시안 — 골고루 퍼뜨리기). 없으면 없다. */
+  minor?: readonly RoutePlace[]
   /** 가이드가 찾아 준 곳. */
   guidePlaces: readonly RoutePlace[]
   /** 지금 고른 곳(가이드 장소이거나 주변 점). */
@@ -75,6 +83,14 @@ function pinSpec(scale: number, picked: boolean, name: string | null, when: 'alw
   return { className: 'route-pin tm-pin', size: [w, h], anchor: [w / 2, h - 4 * scale], html: svg + (name ? caption(name, h - 3, when) : '') }
 }
 
+/** 시안 — 해태 대신 갈래 아이콘. 가운데가 그 자리다. */
+function iconSpec(p: RoutePlace, size: number, when: 'always' | 'ai'): Pick<MarkerSpec, 'html' | 'className' | 'size' | 'anchor'> {
+  return {
+    className: 'route-pin tm-dot', size: [size, size], anchor: [size / 2, size / 2],
+    html: poiDotHtml(placeGroup(p), placeSymbol(p), size) + caption(poiCaption(placeLabel(p)), size - 3, when),
+  }
+}
+
 const ME_HTML = '<span class="tm-me-ring"></span><span class="tm-me-dot"></span>'
 
 export function createMapOverlay(map: MapHandle, handlers: OverlayHandlers = {}): MapOverlay {
@@ -99,7 +115,8 @@ export function createMapOverlay(map: MapHandle, handlers: OverlayHandlers = {})
     update(s) {
       // ---- 주변 편의시설 점 (PoiMarkerRenderer) — 개별 핀, 같은 위치도 합치지 않는다.
       const ambient = validPlaces(s.ambient)
-      const ambientKey = `${ambient.map((p) => p.id).join(',')}|${s.picked?.id ?? '-'}`
+      const minor = validPlaces(s.minor ?? [])
+      const ambientKey = `${ambient.map((p) => p.id).join(',')}|${minor.map((p) => p.id).join(',')}|${s.picked?.id ?? '-'}`
       if (ambientKey !== keys.ambient) {
         keys.ambient = ambientKey
         dots.clear()
@@ -116,20 +133,36 @@ export function createMapOverlay(map: MapHandle, handlers: OverlayHandlers = {})
             onClick: select(p),
           })
         }
+        for (const p of minor) {
+          if (p.id === s.picked?.id) continue
+          dots.addMarker({
+            position: { lat: p.latitude, lng: p.longitude },
+            className: 'route-pin tm-dot',
+            size: [MINOR, MINOR],
+            anchor: [MINOR / 2, MINOR / 2],
+            html: `<span style="display:block;width:9px;height:9px;margin:3.5px;border-radius:50%;background:${poiTone(placeGroup(p))};border:1.5px solid #fff;box-sizing:border-box;box-shadow:0 1px 2px rgba(0,0,0,0.3)"></span>`,
+            zIndex: Z_MINOR,
+            title: poiCaption(placeLabel(p)),
+            onClick: select(p),
+          })
+        }
       }
 
       // ---- 가이드가 찾아 준 곳 + 고른 곳
-      const pinKey = `${s.guidePlaces.map((p) => p.id).join(',')}|${s.picked?.id ?? '-'}`
+      const proto = protoOn()
+      const pinKey = `${s.guidePlaces.map((p) => p.id).join(',')}|${s.picked?.id ?? '-'}|${proto}`
       if (pinKey !== keys.pins) {
         keys.pins = pinKey
         pins.clear()
         for (const p of s.guidePlaces) {
           if (p.id === s.picked?.id) continue
-          pins.addMarker({ position: { lat: p.latitude, lng: p.longitude }, ...pinSpec(AI_SCALE, false, poiCaption(placeLabel(p)), 'ai'), zIndex: Z_AI, onClick: select(p) })
+          const look = proto ? iconSpec(p, DOT_IMAGE, 'ai') : pinSpec(AI_SCALE, false, poiCaption(placeLabel(p)), 'ai')
+          pins.addMarker({ position: { lat: p.latitude, lng: p.longitude }, ...look, zIndex: Z_AI, onClick: select(p) })
         }
         if (s.picked) {
           const p = s.picked
-          pins.addMarker({ position: { lat: p.latitude, lng: p.longitude }, ...pinSpec(PICKED_SCALE, true, poiCaption(placeLabel(p)), 'always'), zIndex: Z_PICKED, onClick: select(p) })
+          const look = proto ? iconSpec(p, DOT_PICKED_IMAGE, 'always') : pinSpec(PICKED_SCALE, true, poiCaption(placeLabel(p)), 'always')
+          pins.addMarker({ position: { lat: p.latitude, lng: p.longitude }, ...look, zIndex: Z_PICKED, onClick: select(p) })
         }
       }
 

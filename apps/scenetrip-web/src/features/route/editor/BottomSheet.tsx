@@ -8,17 +8,22 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 export type Detent = 'collapsed' | 'medium' | 'expanded'
 const COLLAPSED_FRACTION = 0.14
 const MIN_HEIGHT = 80
+/** 단 사이를 옮겨 가는 시간 — 서랍이 다 올라간 뒤에 화면을 바꾸는 쪽도 이 값을 기다린다. */
+export const SLIDE_MS = 320
 
-export function BottomSheet({ detent, onDetentChange, mediumFraction = 0.6, topInset = 8, onHeightChange, children }: {
+export function BottomSheet({ detent, onDetentChange, mediumFraction = 0.6, topInset = 8, onHeightChange, settleFirst = false, children }: {
   detent: Detent
   onDetentChange: (d: Detent) => void
   mediumFraction?: number
   topInset?: number
   onHeightChange?: (px: number) => void
+  /** 처음 높이를 잴 때는 움직이지 않고 그 자리에 바로 선다 — 화면 전체 목록에서 서랍으로 바뀌는 시안이 「맨 위에서 내려앉기」 를 보이려고 쓴다. */
+  settleFirst?: boolean
   children: ReactNode
 }) {
   const box = useRef<HTMLDivElement>(null)
   const [total, setTotal] = useState(0)
+  const [settled, setSettled] = useState(!settleFirst)
   const [drag, setDrag] = useState(0)
   const start = useRef<{ y: number; id: number } | null>(null)
 
@@ -27,9 +32,14 @@ export function BottomSheet({ detent, onDetentChange, mediumFraction = 0.6, topI
     if (!el) return
     const update = () => setTotal(el.clientHeight)
     update()
+    // 잰 높이로 한 번 그린 다음부터 움직임을 켠다.
+    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setSettled(true)))
     const ro = new ResizeObserver(update)
     ro.observe(el)
-    return () => ro.disconnect()
+    return () => {
+      ro.disconnect()
+      cancelAnimationFrame(raf)
+    }
   }, [])
 
   const maxH = Math.max(MIN_HEIGHT, total - topInset)
@@ -65,7 +75,7 @@ export function BottomSheet({ detent, onDetentChange, mediumFraction = 0.6, topI
         style={{
           position: 'absolute', left: 0, right: 0, bottom: 0, height, display: 'flex', flexDirection: 'column', pointerEvents: 'auto',
           background: 'var(--system-background)', borderRadius: '16px 16px 0 0', boxShadow: '0 -2px 16px rgba(0,0,0,0.15)',
-          transition: drag === 0 ? 'height 0.32s cubic-bezier(.32,.72,0,1)' : 'none',
+          transition: drag === 0 && settled ? `height ${SLIDE_MS}ms cubic-bezier(.32,.72,0,1)` : 'none',
         }}
       >
         <div

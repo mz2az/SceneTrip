@@ -47,7 +47,8 @@
 .st-toast {
   position: absolute;
   left: 50%;
-  bottom: 40px;
+  /* 시안의 떠 있는 탭바 위로 올린다(시안이 아니면 0). */
+  bottom: calc(40px + var(--proto-tab-inset, 0px));
   transform: translateX(-50%);
   z-index: 30;
   padding: 10px 16px;

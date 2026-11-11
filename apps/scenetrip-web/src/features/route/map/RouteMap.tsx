@@ -15,6 +15,9 @@ import { scheduleCachedFallback } from '../nav/cachedFix'
 import { LOCATE_WAIT_MS, locateStatus, type LocateStatus } from './locateStatus'
 import { containsPoint, pointsWithMe, visibleBounds } from './meCamera'
 import { HAETAE_SIZE, NUMBERED_SIZE, PIN_DEEP, haetaePinSvg, numberedPinSvg, pawPinSvg } from './pinSvg'
+import { protoOn } from '@/features/proto/protoState'
+import { PROTO_NUMBERED, PROTO_PIN_BIG, protoNumberedPinSvg } from '@/features/proto/protoPoi'
+import { cameraMotionOnMap, motionOptions } from '@/features/proto/cameraMotion'
 import { PinCaption } from './wording'
 import './routeMap.css'
 
@@ -53,6 +56,8 @@ export interface RouteMapProps {
   showingMe: boolean
   /** 목록에서 고른 장소. 그 장소로 카메라를 옮긴다. */
   focused: RouteStop | null
+  /** 지금 길 안내 중인 코스 장소(uid). 시안이면 그 번호 핀을 1.4배로 그린다(§10-1). */
+  targetUid?: string | null
   /** 아직 코스에 없는데 지금 고르는 중인 곳 — 빨간 해태. */
   previews: readonly PlaceSummary[]
   /** 일정 시트가 덮고 있는 높이(px). 카메라가 이 위 영역에만 맞춘다. */
@@ -183,13 +188,18 @@ export function RouteMap(props: RouteMapProps) {
   }, [])
 
   // ---- 핀과 선 (장소·순서가 그대로면 다시 그리지 않는다)
-  const { stops, focused, previews, pending, pinning } = props
+  const { stops, focused, previews, pending, pinning, targetUid = null } = props
   useEffect(() => {
     const g = layer.current
     if (!g) return
     const key = [
-      stops.map(stopKey).join(','), focused?.uid ?? '-', previews.map((p) => p.id).join(','), pending ? `${pending.latitude},${pending.longitude}` : '-',
+      stops.map(stopKey).join(','), focused?.uid ?? '-', targetUid ?? '-', previews.map((p) => p.id).join(','), pending ? `${pending.latitude},${pending.longitude}` : '-',
     ].join('|')
+    // 시안 — 해태를 그리지 않는다(motion-works-drawer-parity.md §9·§10-1). 고른 코스 장소는 같은 번호 핀 1.4배, 담을까 보는 곳은 번호 없는 보라 핀,
+    // 핀 찍기 자리는 번호 없는 보라 핀을 크게.
+    const proto = protoOn()
+    const protoPin = (n: number | null, scale: number, caption?: string) =>
+      pin(protoNumberedPinSvg(n, scale), PROTO_NUMBERED.w * scale, PROTO_NUMBERED.h * scale, PROTO_NUMBERED.tipX * scale, PROTO_NUMBERED.tipY * scale, caption)
     if (key === seen.current.drawKey) return
     seen.current.drawKey = key
     g.clear()
@@ -212,25 +222,32 @@ export function RouteMap(props: RouteMapProps) {
       const onClick = () => latest.current.onTapStop(s)
       if (s.visited) {
         g.addMarker({ position, ...pin(pawPinSvg(), 30, 30, 15, 15, s.place.name), zIndex: 800, onClick })
+      } else if (proto && s.uid === targetUid) {
+        g.addMarker({ position, ...protoPin(i + 1, PROTO_PIN_BIG, s.place.name), zIndex: 1000, onClick })
       } else if (s.uid === focused?.uid) {
-        g.addMarker({ position, ...pin(haetaePinSvg(false), HAETAE_SIZE.w, HAETAE_SIZE.h, HAETAE_SIZE.w / 2, HAETAE_SIZE.h - 4, s.place.name), zIndex: 1000, onClick })
+        const marker = proto ? protoPin(i + 1, PROTO_PIN_BIG, s.place.name) : pin(haetaePinSvg(false), HAETAE_SIZE.w, HAETAE_SIZE.h, HAETAE_SIZE.w / 2, HAETAE_SIZE.h - 4, s.place.name)
+        g.addMarker({ position, ...marker, zIndex: 1000, onClick })
       } else {
-        g.addMarker({ position, ...pin(numberedPinSvg(i + 1), NUMBERED_SIZE.w, NUMBERED_SIZE.h, NUMBERED_SIZE.tipX, NUMBERED_SIZE.tipY, s.place.name), onClick })
+        // 시안(로컬 개발 서버 전용)이면 단색 동그라미 번호 핀(protoPoi.protoNumberedPinSvg).
+        const marker = proto
+          ? protoPin(i + 1, 1, s.place.name)
+          : pin(numberedPinSvg(i + 1), NUMBERED_SIZE.w, NUMBERED_SIZE.h, NUMBERED_SIZE.tipX, NUMBERED_SIZE.tipY, s.place.name)
+        g.addMarker({ position, ...marker, onClick })
       }
     })
-    // 담을까 보는 곳 — 빨간 해태. 코스 핀보다 위에 올려 가리지 않게 한다.
+    // 담을까 보는 곳 — 빨간 해태(시안은 번호 없는 보라 핀). 코스 핀보다 위에 올려 가리지 않게 한다.
     previews.forEach((p) => {
       const w = HAETAE_SIZE.w * 1.1
       const h = HAETAE_SIZE.h * 1.1
-      g.addMarker({
-        position: { lat: p.latitude, lng: p.longitude }, ...pin(haetaePinSvg(true), w, h, w / 2, h - 4, p.name), zIndex: 2000, onClick: () => latest.current.onTapPreview(p),
-      })
+      const marker = proto ? protoPin(null, 1, p.name) : pin(haetaePinSvg(true), w, h, w / 2, h - 4, p.name)
+      g.addMarker({ position: { lat: p.latitude, lng: p.longitude }, ...marker, zIndex: 2000, onClick: () => latest.current.onTapPreview(p) })
     })
     if (pending) {
       const w = HAETAE_SIZE.w
-      g.addMarker({ position: { lat: pending.latitude, lng: pending.longitude }, ...pin(haetaePinSvg(false), w, HAETAE_SIZE.h, w / 2, HAETAE_SIZE.h - 4) })
+      const marker = proto ? protoPin(null, PROTO_PIN_BIG) : pin(haetaePinSvg(false), w, HAETAE_SIZE.h, w / 2, HAETAE_SIZE.h - 4)
+      g.addMarker({ position: { lat: pending.latitude, lng: pending.longitude }, ...marker, zIndex: 2000 })
     }
-  }, [ready, stops, focused, previews, pending])
+  }, [ready, stops, focused, targetUid, previews, pending])
 
   // ---- 핀 찍기 모드에서는 십자 커서, 로고·축척은 시트 바로 위에 붙는다.
   useEffect(() => {
@@ -319,15 +336,36 @@ export function RouteMap(props: RouteMapProps) {
     const map = mapRef.current
     if (!map) return
     const s = seen.current
-    const content = `${stops.map((p) => p.uid).join(',')}|${previews.map((p) => p.id).join(',')}`
+    // 시안 — 코스 핀이 바뀐 것(순서 끌기·빼기)만으로는 다시 맞추지 않는다. 일차 바꾸기·장소 넣기는 `fitToken` 을 올려 따로 알린다.
+    const proto = protoOn()
+    const content = `${proto ? '' : stops.map((p) => p.uid).join(',')}|${previews.map((p) => p.id).join(',')}`
     const cameraKey = `${focused?.uid ?? '-'}|${showingMe}|${content}`
     const courseFit = courseFitToken !== s.courseFit
+    // 시안 — 고른 곳을 놓기만 했으면(정보 카드 ✕) 카메라는 그대로 둔다. 일차 전체로 다시 맞추면 사람이 확대해 둔 화면이 풀렸다(2026-11-10 사용자 지적).
+    // 다시 맞추는 계기는 일차 바꾸기·장소 넣기(`fitToken`)와 코스 전체 맞추기뿐이다.
+    const rest = (key: string) => key.slice(key.indexOf('|'))
+    if (proto && !focused && s.cameraKey !== '' && !s.cameraKey.startsWith('-|') && rest(s.cameraKey) === rest(cameraKey) && fitToken === s.fit && !courseFit) {
+      s.cameraKey = cameraKey
+    }
     const changed = cameraKey !== s.cameraKey || fitToken !== s.fit || courseFit
     if (!changed && Math.abs(bottomInset - s.inset) <= INSET_EPSILON) return
     // 인셋만 바뀔 때는 시트 스프링의 마지막 높이로 한 번 맞춘다(2026-11-03 사용자 지적).
     // 다른 계기도 첫 화면의 지도 크기를 받은 다음 차례에 맞춘다.
     const timer = window.setTimeout(() => {
       const here = latest.current.here ?? hereRef.current
+      // 시안(로컬 개발 서버 전용) — 서랍 높이만 바뀌었으면 다시 맞추지 않는다. 확대 정도는 그대로 두고, 보이던 가운데가 새로 보이는 영역의
+      // 가운데에 오도록 옮기기만 한다(네이버 지도의 contentInset 과 같은 느낌). 다시 맞추면 사람이 확대해 둔 화면이 풀렸다(2026-11-08 사용자 지적).
+      if (!changed && proto) {
+        const m = mapRef.current
+        const delta = latest.current.bottomInset - s.inset
+        s.inset = latest.current.bottomInset
+        if (m && delta !== 0) {
+          const size = m.getSize()
+          const center = m.containerPointToLatLng([size.x / 2, size.y / 2 + delta / 2])
+          m.setView(center, null, { animate: true, seconds: 0.25 })
+        }
+        return
+      }
       s.inset = latest.current.bottomInset
       s.cameraKey = cameraKey
       s.fit = fitToken
@@ -348,7 +386,10 @@ export function RouteMap(props: RouteMapProps) {
         else {
           const m = mapRef.current
           m?.stop()
-          m?.setView({ lat: there.latitude, lng: there.longitude }, FOCUS_ZOOM, { animate: true, seconds: 0.4, shiftY: latest.current.bottomInset / 2 })
+          const to = { lat: there.latitude, lng: there.longitude }
+          // 시안 — 화면 너비 3배 안이면 0.6초 부드럽게, 밖이면 한 번에(§10-3).
+          const motion = m && proto ? motionOptions(cameraMotionOnMap(m, to)) : { animate: true, seconds: 0.4 }
+          m?.setView(to, FOCUS_ZOOM, { ...motion, shiftY: latest.current.bottomInset / 2 })
         }
         return
       }

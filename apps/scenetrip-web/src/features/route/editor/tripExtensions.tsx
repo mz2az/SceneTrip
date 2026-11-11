@@ -47,6 +47,9 @@ import { type PlaceTarget, courseEntry, drawnPlaceIds, isSameSpot, rowOf, target
 import { POI_GROUPS, type PoiGroup } from '../poi/poiGroup'
 import { type RoutePlace, dedupeKey, placeGroup, placeKey, serverIdOf } from '../poi/poiPlace'
 import { useAmbientPois } from '../poi/useAmbientPois'
+import { protoAvailable, protoOn, protoStore } from '@/features/proto/protoState'
+import { MapPoiBar, fetchSpread, spreadPois } from '@/features/proto/protoPoi'
+import { cameraMotionOnMap, motionOptions } from '@/features/proto/cameraMotion'
 import { type RouteCourse, type RouteStop, canNavigate, makePoiStop, makeStop, placeIdOf, poiIdOf } from '../models'
 import { routeStore } from '../store'
 import { addStops, replaceDay } from './courseEdit'
@@ -74,6 +77,11 @@ interface UiState {
   preferMap: boolean
   /** 정보 카드를 다시 읽으라는 신호(리뷰·사진을 닫은 뒤). */
   reloadToken: number
+  /** 「편의시설 켤 때만」 시안 — 받으라는 신호(0 이면 받지 않는다), 받은 뒤 지도가 움직였나, 너무 넓나, 받는 중인가. */
+  poiAsk: number
+  poiStale: boolean
+  poiTooWide: boolean
+  poiLoading: boolean
   /** 서버에 방문 기록을 남기는 중인 항목 id. */
   visitSaving: ReadonlySet<number>
   /** 남기지 못한 항목 id. */
@@ -82,6 +90,7 @@ interface UiState {
 
 const ui = createStore<UiState>({
   guideOpen: false, groupsOn: new Set(POI_GROUPS), aiOn: true, ambient: [], arrivalHeight: 0, mapCenter: null, preferMap: false, reloadToken: 0,
+  poiAsk: 0, poiStale: false, poiTooWide: false, poiLoading: false,
   visitSaving: new Set(), visitFailed: new Set(),
 })
 const patchUi = (p: Partial<UiState>) => ui.set((s) => ({ ...s, ...p }))
@@ -329,10 +338,29 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
   }, [host.map])
 
   // 주변 편의시설 — 안내 중에는 점을 다 끈다(경로선이 주인공). 기기 위치에서 비롯한 지도는 위치 동의가 있어야 부른다.
-  const ambient = useAmbientPois({ map: host.map, enabled: !trip.target, source: 'userSelected', locationAllowed: () => true, bottomInset: host.panelHeight })
+  // 시안(로컬 개발 서버 전용)이면 처음엔 다 꺼 두고, 지도 위 칩을 켜거나 「이 지역에서 다시 찾기」 를 누를 때만 그 갈래들을 받는다(protoPoi).
+  const proto = useStore(protoStore, (p) => protoAvailable && p.proto !== null)
+  useEffect(() => {
+    if (proto) patchUi({ groupsOn: new Set(), poiAsk: 0 })
+  }, [proto])
+  const ambient = useAmbientPois({
+    map: host.map, enabled: !trip.target, source: 'userSelected', locationAllowed: () => true, bottomInset: host.panelHeight,
+    ...(proto ? { manualToken: state.poiAsk, fetchPois: fetchSpread([...state.groupsOn], host.map), minZoom: 0 } : {}),
+  })
+  // 시안 — 줌이 바뀌면 받은 것을 다시 칸으로 솎는다(다시 받지 않는다). 확대하면 큰 점이 늘어난다.
+  const [zoom, setZoom] = useState(() => host.map?.getZoom() ?? 0)
+  useEffect(() => {
+    const map = host.map
+    if (!map || !proto) return
+    setZoom(map.getZoom())
+    return map.on('zoomend', () => setZoom(map.getZoom()))
+  }, [host.map, proto])
   useEffect(() => {
     patchUi({ ambient: ambient.places })
   }, [ambient.places])
+  useEffect(() => {
+    if (proto) patchUi({ poiStale: !!ambient.stale, poiTooWide: ambient.tooWide, poiLoading: !!ambient.loading })
+  }, [proto, ambient.stale, ambient.tooWide, ambient.loading])
 
   // 챗봇의 답 — 같은 답을 두 번 적용하지 않는다.
   const applied = useRef(guideState.answerTick)
@@ -370,9 +398,12 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
     () => withoutDotsUnderPins(state.ambient.filter((p) => state.groupsOn.has(placeGroup(p)) && !shown.has(placeKey(p)) && !taken.has(placeKey(p))), drawn, takenPoi),
     [state.ambient, state.groupsOn, shown, taken, drawn, takenPoi],
   )
+  const spread = useMemo(() => (proto ? spreadPois(visibleAmbient, zoom) : null), [proto, visibleAmbient, zoom])
   const overlayState = useMemo(
     () => ({
-      ambient: visibleAmbient,
+      ambient: spread ? spread.major : visibleAmbient,
+      // 칸마다 1등만 아이콘, 나머지는 그리지 않는다 — 구글처럼 확대하면 나타난다(2026-11-10 사용자 결정, 작은 점은 뺐다).
+      minor: [],
       guidePlaces,
       picked: guideState.picked,
       legs: trip.result?.legs ?? [],
@@ -380,7 +411,7 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
       target: trip.target ? { latitude: trip.target.place.latitude, longitude: trip.target.place.longitude } : null,
       preview: previewOn(trip, host.stops),
     }),
-    [visibleAmbient, guidePlaces, guideState.picked, trip, host.stops],
+    [visibleAmbient, spread, guidePlaces, guideState.picked, trip, host.stops],
   )
   useMapOverlay(host.map, overlayState, { onSelectPlace: (p) => sharedGuide.setPicked(p) })
 
@@ -395,7 +426,10 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
       const lngs = pts.map((c) => c.lng)
       const bounds = { southWest: { lat: Math.min(...lats), lng: Math.min(...lngs) }, northEast: { lat: Math.max(...lats), lng: Math.max(...lngs) } }
       map.fitBounds(bounds, { paddingTopLeft: [40, 40], paddingBottomRight: [40, host.panelHeight + 40], maxZoom: 17 })
-    } else map.setView(pts[0], Math.max(map.getZoom(), 15))
+    } else {
+      // 시안 — 목적지로 옮길 때 화면 너비 3배 안이면 0.6초 부드럽게, 밖이면 한 번에(motion-works-drawer-parity.md §10-3).
+      map.setView(pts[0], Math.max(map.getZoom(), 15), protoOn() ? motionOptions(cameraMotionOnMap(map, pts[0])) : undefined)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip.recenterTick, host.map])
 
@@ -585,7 +619,10 @@ function EditorChips({ host }: { host: EditorHost }) {
   // 갈래 칩이 세는 대상 — 주변 편의시설만. 챗봇 결과는 「AI 장소」 칩이 따로 센다.
   const counted = useMemo(() => withoutDotsUnderPins(state.ambient.filter((p) => !shown.has(placeKey(p))), drawn), [state.ambient, shown, drawn])
   const aiCount = guideState.places.length
+  const proto = useStore(protoStore, (p) => protoAvailable && p.proto !== null)
   if (trip.target) return null
+  // 시안 — 편의시설 갈래 칩은 지도 위(MapTop)로 옮겼다. 여기엔 「AI 장소」 칩만 남는다.
+  if (proto && aiCount === 0) return null
   if (counted.length === 0 && aiCount === 0) return null
   const extras =
     aiCount > 0
@@ -604,7 +641,7 @@ function EditorChips({ host }: { host: EditorHost }) {
   return (
     <div style={{ padding: '8px 0 0', background: 'var(--system-background)' }}>
       <PoiChips
-        places={counted}
+        places={proto ? [] : counted}
         groupsOn={state.groupsOn}
         onChange={(next) => patchUi({ groupsOn: next })}
         onGroupOff={(g) => {
@@ -615,6 +652,41 @@ function EditorChips({ host }: { host: EditorHost }) {
         extras={extras}
       />
     </div>
+  )
+}
+
+/** 시안 — 지도 맨 위의 편의시설 갈래 칩과 「이 지역에서 다시 찾기」(protoPoi.MapPoiBar). 안내 중에는 숨긴다. */
+function EditorMapTop({ host }: { host: EditorHost }) {
+  const trip = useTripState(tripSession)
+  const guideState = useGuideState(sharedGuide)
+  const state = useStore(ui, (s) => s)
+  if (trip.target) return null
+  return (
+    <MapPoiBar
+      map={host.map}
+      bottomInset={host.panelHeight}
+      // 검색 결과 — 지도는 MapPoiBar 가 시트 위 가운데로 옮겼다. 여기서는 정보 카드를 띄운다(카드의 「코스에 담기」 로 넣는다).
+      onPick={(place) => sharedGuide.setPicked(place)}
+      pickedId={guideState.picked?.id ?? null}
+      groupsOn={state.groupsOn}
+      loading={state.poiLoading}
+      stale={state.poiStale}
+      tooWide={state.poiTooWide}
+      onToggle={(g) => {
+        const next = new Set(state.groupsOn)
+        if (!next.delete(g)) next.add(g)
+        // 켰으면 새 갈래까지 지금 범위에서 받는다. 다 껐으면 받지 않는다.
+        patchUi({ groupsOn: next, poiAsk: next.size === 0 ? 0 : state.poiAsk + 1 })
+        const picked = sharedGuide.state.picked
+        if (!next.has(g) && picked && placeGroup(picked) === g) sharedGuide.setPicked(null)
+      }}
+      onAll={() => {
+        const all = state.groupsOn.size === POI_GROUPS.length
+        patchUi({ groupsOn: all ? new Set() : new Set(POI_GROUPS), poiAsk: all ? 0 : state.poiAsk + 1 })
+        if (all) sharedGuide.setPicked(null)
+      }}
+      onRefresh={() => patchUi({ poiAsk: state.poiAsk + 1 })}
+    />
   )
 }
 
@@ -643,6 +715,7 @@ export function registerTripExtensions(): () => void {
     Overlay: EditorTripLayer,
     PanelTop: EditorTripPanelTop,
     PanelChips: EditorChips,
+    MapTop: EditorMapTop,
     BottomBar: EditorBottomBar,
     rowExtras: (stop, host) => {
       const t = tripSession.state

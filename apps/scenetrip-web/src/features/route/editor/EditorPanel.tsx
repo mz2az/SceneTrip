@@ -51,6 +51,10 @@ export interface PanelProps {
   onShowStay: () => void
   onMoveStop: (from: number, to: number) => void
   onRemoveStop: (uid: string) => void
+  /** 「장소 사진」 시안(로컬 개발 서버 전용) — 있으면 줄마다 오른쪽에 장소 사진, 사진의 ⓘ 로 장소 상세를 연다. */
+  photos?: { onOpen: (stop: RouteStop) => (() => void) | null }
+  /** 「보기 / 편집」 시안 — 보기 상태면 일차 ＋/−·동작 버튼·끌기·밀어서 빼기·출발/도착 고정을 숨긴다. */
+  viewing?: boolean
 }
 
 export function EditorPanel(p: PanelProps) {
@@ -63,8 +67,10 @@ export function EditorPanel(p: PanelProps) {
       <DayTabs {...p} />
       {p.chips}
       <Summary {...p} />
-      <Actions {...p} />
-      <CartHintNotice hint={p.cartHint} />
+      {!p.viewing && <Actions {...p} />}
+      {!p.viewing && !p.photos && <CartHintNotice hint={p.cartHint} />}
+      {/* 시안 — 위의 일차·요약·버튼과 장소 목록을 나누는 선 */}
+      {p.photos && <div style={{ height: 1, background: 'var(--separator)', transform: 'scaleY(0.5)' }} />}
       {p.stops.map((stop, index) => {
         const extras = p.rowExtras?.(stop)
         const dragging = reorder.draggingUid === stop.uid
@@ -72,12 +78,12 @@ export function EditorPanel(p: PanelProps) {
         return (
           <div key={stop.uid} className={dragging ? 'stop-row-dragging' : undefined} style={dragging ? { transform: `translateY(${reorder.offsetY}px)` } : undefined}>
             <SwipeRow
-              open={isOpen}
-              onOpenChange={(o) => setOpenUid(o ? stop.uid : null)}
+              open={isOpen && !p.viewing}
+              onOpenChange={(o) => !p.viewing && setOpenUid(o ? stop.uid : null)}
               revealWidth={STOP_REVEAL}
               pressedFill
               action={<SwipeDelete width={50} height={53} onPress={() => { setOpenUid(null); p.onRemoveStop(stop.uid) }} />}
-              onFullSwipe={() => p.onRemoveStop(stop.uid)}
+              onFullSwipe={() => !p.viewing && p.onRemoveStop(stop.uid)}
             >
               <StopRow
                 stop={stop}
@@ -87,12 +93,13 @@ export function EditorPanel(p: PanelProps) {
                 isFocused={p.focusedUid === stop.uid}
                 works={p.worksOf(stop)}
                 // 첫 줄에 「출발 고정」, 마지막 줄에 「도착 고정」. 한 곳뿐이면 고정할 것이 없다 — 그 하나가 출발이자 도착이라 뜻이 없다.
-                pinKind={p.stops.length > 1 ? (index === 0 ? 'start' : index === p.stops.length - 1 ? 'end' : null) : null}
+                pinKind={!p.viewing && p.stops.length > 1 ? (index === 0 ? 'start' : index === p.stops.length - 1 ? 'end' : null) : null}
                 isPinned={index === 0 ? p.pinStart : p.pinEnd}
                 onFocus={() => p.onFocus(stop)}
                 onTogglePin={() => p.onTogglePin(index === 0 ? 'start' : 'end')}
-                onRemove={() => p.onRemoveStop(stop.uid)}
-                handleProps={reorder.handleProps(stop.uid)}
+                onRemove={p.viewing ? undefined : () => p.onRemoveStop(stop.uid)}
+                handleProps={p.viewing ? undefined : reorder.handleProps(stop.uid)}
+                photo={p.photos ? { url: stop.place.imageUrl ?? null, symbol: stop.kind.type === 'pin' ? 'mappin.and.ellipse' : stop.kind.type === 'poi' ? 'storefront' : 'photo', onOpen: p.photos.onOpen(stop) } : undefined}
                 {...extras}
               />
             </SwipeRow>
@@ -105,7 +112,8 @@ export function EditorPanel(p: PanelProps) {
           <Txt size={13} color="secondary" align="center">{tr('아직 담은 장소가 없습니다\n장바구니에서 담거나 지도에 핀을 찍어 보세요')}</Txt>
         </div>
       )}
-      <div style={{ height: 40 }} />
+      {/* 시안의 떠 있는 「지도」 알약(44 + 아래 16)에 마지막 줄이 가리지 않게 더 띄운다. */}
+      <div style={{ height: p.photos ? 80 : 40 }} />
     </div>
   )
 }
@@ -140,12 +148,16 @@ function DayTabs(p: PanelProps) {
           })}
         </HStack>
       </div>
-      <Pressable plain onClick={p.onRemoveDay} disabled={!canRemove} aria-label={tr('일차 빼기')} style={{ opacity: canRemove ? 1 : 0.3 }}>
-        <Icon name="minus.circle" size={19} />
-      </Pressable>
-      <Pressable plain onClick={p.onAddDay} disabled={!canAdd} aria-label={tr('일차 더하기')} style={{ opacity: canAdd ? 1 : 0.3 }}>
-        <Icon name="plus.circle" size={19} />
-      </Pressable>
+      {!p.viewing && (
+        <>
+          <Pressable plain onClick={p.onRemoveDay} disabled={!canRemove} aria-label={tr('일차 빼기')} style={{ opacity: canRemove ? 1 : 0.3 }}>
+            <Icon name="minus.circle" size={19} />
+          </Pressable>
+          <Pressable plain onClick={p.onAddDay} disabled={!canAdd} aria-label={tr('일차 더하기')} style={{ opacity: canAdd ? 1 : 0.3 }}>
+            <Icon name="plus.circle" size={19} />
+          </Pressable>
+        </>
+      )}
     </HStack>
   )
 }
@@ -180,8 +192,9 @@ function Actions(p: PanelProps) {
     <HStack spacing={8} style={{ padding: '0 16px 10px', background: 'var(--system-background)', alignItems: 'stretch' }}>
       {/* 동선 최적화는 지금 보고 있는 일차 안에서만 순서를 바꾼다. 일차를 넘나들며 옮기면 사용자가 나눠 둔 하루가 무너진다. */}
       <ActionButton label={tr('동선 최적화')} symbol="arrow.triangle.swap" highlight={p.optimizeNudge} onPress={p.onOptimize} />
-      <ActionButton label={tr('검색')} symbol="magnifyingglass" onPress={p.onSearch} />
-      <ActionButton label={tr('장바구니')} symbol="bag" ring={p.cartHint.highlighted} onPress={() => { p.cartHint.dismiss(); p.onCart() }} />
+      {/* 시안(장소 사진이 켜진 화면)에서는 검색·장바구니가 떠 있는 ＋ 로 옮겨 갔다 — 남는 것은 최적화와 핀 찍기. */}
+      {!p.photos && <ActionButton label={tr('검색')} symbol="magnifyingglass" onPress={p.onSearch} />}
+      {!p.photos && <ActionButton label={tr('장바구니')} symbol="bag" ring={p.cartHint.highlighted} onPress={() => { p.cartHint.dismiss(); p.onCart() }} />}
       <ActionButton label={p.pinning ? tr('취소') : tr('핀 찍기')} symbol="mappin.and.ellipse" onPress={p.onPin} />
     </HStack>
   )

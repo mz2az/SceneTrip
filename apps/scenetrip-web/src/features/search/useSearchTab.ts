@@ -9,12 +9,14 @@ import { matchPath, useLocation, useNavigate } from 'react-router'
 import { appEvent, track } from '@/analytics'
 import { api, ok } from '@/api/client'
 import { consumePending, pendingStore } from '@/app/tabRouter'
-import { patterns, paths } from '@/app/routes'
+import { patterns } from '@/app/routes'
 import { useLocationConsent } from '@/features/profile/consent'
 import { cartActions, useCart } from '@/state/cart'
 import { likeActions, useLikes } from '@/state/likes'
 import { useOnAccountChange } from '@/state/shared'
 import { useStore } from '@/state/storage'
+import { protoAvailable, protoStore } from '@/features/proto/protoState'
+import { type BackStep, contentBack, placeBack } from './detailBack'
 import { type ListTab, isInitialScreen, numbersOnPins, visiblePlacesOf } from './listRules'
 import type { LocateOutcome, MapCameraHandle } from './map/MapView'
 import { CHIP_ALL } from './rules/placeType'
@@ -31,7 +33,18 @@ const summaryOf = (w: ContentDetail): ContentSummary => ({
   id: w.id, category: w.category, title: w.title, posterUrl: w.posterUrl, broadcaster: w.broadcaster, releaseYear: w.releaseYear, genres: w.genres, placeCount: w.placeCount,
 })
 
-export function useSearchTab() {
+/** 이 앱 안에서 한 칸 뒤로 갈 수 있는가 — react-router 가 history.state 에 남기는 위치 번호(idx)가 0 보다 크면. 새로 고침·직접 연 주소면 0 이다. */
+function canGoBack(): boolean {
+  const idx = (window.history.state as { idx?: unknown } | null)?.idx
+  return typeof idx === 'number' && idx > 0
+}
+
+/** `active` — 탭이 지금 보이는가. 홈에서 건 지역 필터는 탭을 떠날 때 지운다(일회성, MZ2AZ-531). */
+/**
+ * `embedded` — 다른 화면 위에 띄운 검색(코스 편집의 「지도에서 추가」 시안)이다. 주소를 읽지도 바꾸지도 않는다 —
+ * 상세를 닫을 때 주소를 검색 탭으로 옮기면 띄운 화면 밑의 코스 편집이 사라진다.
+ */
+export function useSearchTab(active = true, embedded = false) {
   const dataRef = useRef<SceneData | null>(null)
   if (!dataRef.current) dataRef.current = new SceneData()
   const data = dataRef.current
@@ -40,7 +53,7 @@ export function useSearchTab() {
   const likes = useLikes()
   const location = useLocationConsent()
   const navigate = useNavigate()
-  const { pathname } = useLocation()
+  const { pathname, state: navState } = useLocation()
 
   const [draft, setDraft] = useState('')
   /** 확정된 검색어. `draft` 는 타이핑하는 동안에도 바뀌므로 「지금 이 목록이 무엇을 검색한 결과인가」 를 그것으로 판단하면 헤더가 글자마다 깜빡인다. */
@@ -75,13 +88,24 @@ export function useSearchTab() {
   const pendingFocusPlaceId = useRef<number | null>(null)
   const selectedContentId = useRef<number | null>(null)
   const topWorkRef = useRef<TopWork>(null)
+  /** 지금의 지도 범위 검색이 홈 「지도에서 보기」 쪽지로 걸린 것인가 — 탭을 떠나면 지운다. 사용자가 직접 건 범위 검색·검색어는 해당 없다. */
+  const regionFromHome = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const initial = isInitialScreen(committed, nearby, selectedContent !== null)
   const visiblePlaces = useMemo(() => visiblePlacesOf(scene.places, chip, initial), [scene.places, chip, initial])
   /** 지도에 꽂는 핀 — 작품을 골랐으면 그 작품의 촬영지, 아니면 검색 결과. 시트 목록과 같은 배열이라 행 번호가 곧 핀 번호다. */
-  const mapPlaces = selectedContent ? contentPlaces : visiblePlaces
-  const numbered = numbersOnPins(initial, tab)
+  const proto = useStore(protoStore, (s) => protoAvailable && s.proto !== null)
+  /** 시안(로컬 개발 서버 전용): 첫 화면 지도에는 보관함에 담은 곳만 꽂는다 — 번호는 보관함 목록 순서. 좌표 없는 곳·목록에서 빠진 곳은 뺀다. */
+  const savedPins = useMemo<PlaceSummary[]>(
+    () =>
+      cart.items
+        .filter((i) => i.latitude != null && i.longitude != null && !i.delisted)
+        .map((i) => ({ id: i.placeId, name: i.name, address: i.address, latitude: i.latitude!, longitude: i.longitude!, imageUrl: i.imageUrl })),
+    [cart.items],
+  )
+  const mapPlaces = selectedContent ? contentPlaces : proto && initial ? savedPins : visiblePlaces
+  const numbered = (proto && initial && !selectedContent) || numbersOnPins(initial, tab)
 
   const blurSearch = () => {
     setSearchFocused(false)
@@ -100,6 +124,7 @@ export function useSearchTab() {
       setTab(nextTab)
       setDraft(term)
       setCommitted(term.trim())
+      regionFromHome.current = false
       // 단어로 검색하는 순간 반경 모드는 끝난다 — 두 조건이 함께 걸려 있으면 결과가 왜 그렇게 나왔는지 화면만 보고는 설명할 수 없다.
       setNearby(false)
       setChip(CHIP_ALL)
@@ -172,21 +197,24 @@ export function useSearchTab() {
     [commit],
   )
 
+  // 상세에서 나올 때 주소 — 직접 연 상세면 탭 주소로, 격자(지금 뜨는 작품)가 연 작품이면 격자로(MZ2AZ-534). 정하는 규칙은 detailBack.ts.
+  const applyBack = (step: BackStep) => {
+    if (embedded) return
+    if (step.kind === 'pop') navigate(-1)
+    else if (step.kind === 'replace') navigate(step.to, { replace: true, state: step.state })
+  }
   const closePlace = () => {
     setSelectedPlace(null)
     setFitToken((n) => n + 1)
-    leaveDetailUrl()
+    applyBack(placeBack({ pathname, state: navState, contentId: selectedContentId.current }))
   }
   const closeContent = () => {
+    const closing = selectedContentId.current
     selectedContentId.current = null
     setSelectedContent(null)
     setContentPlaces([])
     setFitToken((n) => n + 1)
-    leaveDetailUrl()
-  }
-  /** URL 로 직접 연 상세에서 나오면 주소를 탭 주소로 되돌린다. */
-  function leaveDetailUrl() {
-    if (pathname.startsWith(paths.search + '/')) navigate(paths.search, { replace: true })
+    applyBack(contentBack({ pathname, state: navState, contentId: closing, canGoBack: canGoBack() }))
   }
 
   const clearSearch = () => {
@@ -227,6 +255,7 @@ export function useSearchTab() {
   const searchViewport = useCallback(() => {
     const box = camera.current?.boundingBox()
     if (!box) return
+    regionFromHome.current = false
     const source = camera.current!.source()
     // 기기 위치에서 나온 범위면 위치 동의를 먼저 거친다.
     if (source === 'device') location.request(() => applyViewportSearch(box, source))
@@ -235,6 +264,7 @@ export function useSearchTab() {
 
   const toggleNearby = () => {
     if (nearby) {
+      regionFromHome.current = false
       // 해제도 카메라를 건드리지 않는다 — 켤 때 안 움직인 화면이 끌 때 움직이면 무엇 때문에 움직였는지 알 수 없다.
       setNearby(false)
       setDraft('')
@@ -318,8 +348,34 @@ export function useSearchTab() {
     setFocusToken((n) => n + 1)
   }, [pendingPlace])
 
+  // 홈 「도시의 성지」의 「지도에서 보기」(MZ2AZ-531) — 그 도시 촬영지를 감싼 범위로 「현 지도 내 성지 검색」을 걸고, 결과가 오면 핀에 카메라를 맞춘다.
+  const pendingRegion = useStore(pendingStore, (s) => s.region)
+  useEffect(() => {
+    if (!pendingRegion) return
+    const bbox = consumePending('region')
+    if (!bbox) return
+    blurSearch()
+    applyViewportSearch(bbox, 'userSelected')
+    regionFromHome.current = true
+    pendingFit.current = true
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 쪽지가 올 때만.
+  }, [pendingRegion])
+
+  // 홈에서 건 지역 필터는 일회성이다 — 탭을 떠나면 지워, 탭바·「전체 보기」·오늘의 성지 등 다른 길로 다시 오면 필터 없이 연다(사용자 피드백).
+  useEffect(() => {
+    if (active || !regionFromHome.current) return
+    regionFromHome.current = false
+    setNearby(false)
+    setDraft('')
+    setCommitted('')
+    setChip(CHIP_ALL)
+    data.search('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 숨겨질 때만.
+  }, [active])
+
   // URL(`/search/content/:id`, `/search/place/:id`)로 직접 열었을 때도 같은 상세가 열려야 한다.
   useEffect(() => {
+    if (embedded) return
     const c = matchPath(patterns.searchContent, pathname)
     const p = matchPath(patterns.searchPlace, pathname)
     if (c) {

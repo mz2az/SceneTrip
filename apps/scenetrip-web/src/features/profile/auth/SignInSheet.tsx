@@ -57,7 +57,7 @@ function LegalNotice() {
 const SHEET_HEIGHT = 450
 
 export function SignInSheet() {
-  const { showingSignIn, busy, message, appleSignInEnabled } = useAccount()
+  const { showingSignIn, busy, message, appleSignInEnabled, signInReason } = useAccount()
   return (
     <GlassSheet open={showingSignIn} onClose={accountActions.closeSignIn} detent={SHEET_HEIGHT} grabber={false} dismissDisabled={busy} zIndex={60} label={tr('SceneTrip 로그인')}>
       <div className="scroll-y" style={{ flex: 1, minHeight: 0 }}>
@@ -65,7 +65,7 @@ export function SignInSheet() {
           <img src="/generated/haetae-joy.png" alt="" draggable={false} style={{ height: 69, width: 63, marginTop: 17 }} />
           <Txt as="h2" size={20} weight="bold" kerning={-0.45} style={{ marginTop: 14, lineHeight: '23px' }}>{tr('SceneTrip 로그인')}</Txt>
           <Txt as="p" size={15} color="secondary" align="center" kerning={-0.3} style={{ marginTop: 6, lineHeight: '17.9px' }}>
-            {tr('담아 둔 장바구니·코스·찜이 계정에 저장돼요.\n다른 기기에서도 그대로 이어집니다.')}
+            {signInReason ?? tr('담아 둔 장바구니·코스·찜이 계정에 저장돼요.\n다른 기기에서도 그대로 이어집니다.')}
           </Txt>
 
           <div style={{ height: 16, flex: 'none' }} /> {/* ScrollView 안의 Spacer(minLength: 16) 는 16 으로 접힌다 */}

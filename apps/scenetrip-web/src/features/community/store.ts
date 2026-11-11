@@ -13,7 +13,7 @@
 import { useMemo } from 'react'
 import { accountGeneration, merged, onAccountReset } from '@/state/shared'
 import { type Store, createStore, readStorage, useStore } from '@/state/storage'
-import { type CommunityClient, serverCommunityClient } from './client'
+import { type CommunityClient, type PostBoard, serverCommunityClient } from './client'
 import { type CommunityPost, LEGACY_POSTS_KEY, type PostDetail, type PostSummary, parseLegacyPosts, postFromDetail, postFromSummary, summaryFromDetail } from './model'
 import { PAGE_SIZE, failureText } from './rules'
 
@@ -31,6 +31,16 @@ export interface CommunityState {
   message: string | null
   total: number
   mineTotal: number
+  /** 모두의 목록 조건(1.24.0) — 게시판·검색어. null 이면 서버 기본(여행후기, 검색 없음). */
+  filter: FeedFilter
+  /** 모두의 목록 다음 쪽 커서. 서버가 주지 않았으면 null — 그때 「더 보기」 는 옛 길(offset)이다. */
+  nextCursor: string | null
+}
+
+/** 모두의 목록 조건. */
+export interface FeedFilter {
+  board: PostBoard | null
+  q: string | null
 }
 
 export interface RefreshOptions {
@@ -53,10 +63,12 @@ export interface CommunityStoreApi extends CommunityState {
   remove(serverId: number): Promise<void>
   /** 후기의 코스를 내 코스로 담는다 — 새 코스의 서버 id. */
   saveCourse(serverId: number): Promise<number>
+  /** 게시판·검색어를 바꾼다 — 목록을 비우고 나가 있던 받기를 무효로 한 뒤 첫 쪽부터 받는다. */
+  setFilter(filter: FeedFilter): Promise<void>
 }
 
 type Actions = Omit<CommunityStoreApi, keyof CommunityState>
-const STATE_KEYS = ['posts', 'myPosts', 'legacyPosts', 'loading', 'mineLoading', 'message', 'total', 'mineTotal'] as const
+const STATE_KEYS = ['posts', 'myPosts', 'legacyPosts', 'loading', 'mineLoading', 'message', 'total', 'mineTotal', 'filter', 'nextCursor'] as const
 
 export interface CommunityStoreOptions {
   client?: CommunityClient
@@ -77,6 +89,7 @@ export function createCommunityStore(options: CommunityStoreOptions = {}): Commu
   const epochNow = options.accountEpoch ?? accountGeneration
   const store = createStore<CommunityState>({
     posts: [], myPosts: [], legacyPosts: options.legacy ?? [], loading: false, mineLoading: false, message: null, total: 0, mineTotal: 0,
+    filter: { board: null, q: null }, nextCursor: null,
   })
   const patch = (p: Partial<CommunityState>) => store.set((s) => ({ ...s, ...p }))
   const get = store.get
@@ -110,19 +123,31 @@ export function createCommunityStore(options: CommunityStoreOptions = {}): Commu
       const generation = generationOf(mine)
       const old = mine ? get().myPosts : get().posts
       try {
-        const page = await client.list(mine, PAGE_SIZE, more ? old.length : 0)
+        // 모두의 목록은 게시판·검색어(1.24.0)를 붙이고, 다음 쪽은 서버가 준 커서가 있으면 커서로 — 없으면 옛 길(받은 줄 수만큼 건너뛰기).
+        const { filter, nextCursor } = get()
+        const cursor = !mine && more ? nextCursor : null
+        const options = mine
+          ? undefined
+          : { board: filter.board ?? undefined, q: filter.q ?? undefined, cursor: cursor ?? undefined }
+        const page = await client.list(mine, PAGE_SIZE, more && !cursor ? old.length : 0, options)
         if (epochNow() !== epoch || generation !== generationOf(mine)) return
         const items = more ? merged(old, page.items, (p) => p.id) : page.items
         // 같은 id 가 다시 오면 새 값으로 바꾼다(서명된 사진 주소가 새것이다).
         const byId = new Map(page.items.map((p) => [p.id, p]))
         const next = more ? items.map((p) => byId.get(p.id) ?? p) : items
-        patch(mine ? { myPosts: next, mineTotal: page.total } : { posts: next, total: page.total })
+        patch(mine ? { myPosts: next, mineTotal: page.total } : { posts: next, total: page.total, nextCursor: page.nextCursor ?? null })
       } catch (error) {
         if (epochNow() !== epoch || generation !== generationOf(mine)) return
         patch({ message: failureText(error) })
       } finally {
         if (generation === generationOf(mine)) patch(mine ? { mineLoading: false } : { loading: false })
       }
+    },
+    async setFilter(filter) {
+      // 나가 있던 받기를 버리고(늦게 와도 무시) 목록을 비운 뒤 새 조건의 첫 쪽부터.
+      invalidateFeed()
+      patch({ filter, posts: [], total: 0, nextCursor: null })
+      await actions.refresh()
     },
     drop(postId) {
       invalidateFeed()

@@ -20,6 +20,8 @@ import { trAt } from '@/i18n'
 import { useStore } from '@/state/storage'
 import { CourseList } from './CourseList'
 import { ForkSheet } from './ForkSheet'
+import { ProtoCourseList } from '@/features/proto/ProtoCourse'
+import { protoAvailable, protoStore } from '@/features/proto/protoState'
 import { RouteEditor } from './editor/RouteEditor'
 import './editor/tripExtensions'
 import { type RouteCourse, makeCourse, makeDay } from './models'
@@ -101,8 +103,26 @@ export function RouteCover({ onClose }: { onClose: () => void }) {
   }
 
   const shown = opening.editing ?? lastEditing.current
+  const proto = useStore(protoStore, (p) => (protoAvailable ? p.proto : null))
   return (
-    <VStack style={{ height: '100%', background: 'var(--grouped-background)', paddingTop: 'var(--safe-top)' }}>
+    <VStack style={{ position: 'relative', height: '100%', background: 'var(--grouped-background)', paddingTop: 'var(--safe-top)' }}>
+      {/* 「어디로 가세요?」 시안이 켜져 있으면(로컬 개발 서버 전용) 머리·목록 자리를 사진 카드 목록으로 — docs/project/plans/web-trip-first-prototypes.md. */}
+      {proto !== null ? (
+        <>
+          <ProtoCourseList onClose={onClose} onNew={() => setFork(true)} onOpen={(c) => void opening.open(c)} onDelete={setDoomed} />
+          {/* 코스 속을 받는 동안(시험용 웹은 2~3초) 목록에 멈춘 것처럼 보이지 않게 덮는다. 실패하면 다시 시도를 띄운다 — 예전엔 조용히 목록에 남았다. */}
+          {opening.isLoading && (
+            <div role="status" aria-label={tr('불러오는 중입니다')} style={{ position: 'absolute', inset: 0, zIndex: 5, display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--grouped-background) 70%, transparent)' }}>
+              <Spinner />
+            </div>
+          )}
+          {opening.failedCourse && !opening.isLoading && (
+            <div style={{ position: 'absolute', left: 0, right: 0, top: 'calc(var(--safe-top) + 56px)', zIndex: 5 }}>
+              <DetailLoadError onRetry={() => void opening.retry()} />
+            </div>
+          )}
+        </>
+      ) : (<>
       <Header onClose={onClose} onAdd={() => setFork(true)} />
       {opening.failedCourse && <DetailLoadError onRetry={() => void opening.retry()} />}
       {courses.length === 0 ? (
@@ -114,6 +134,7 @@ export function RouteCover({ onClose }: { onClose: () => void }) {
       ) : (
         <CourseList courses={courses} busy={opening.isLoading} onOpen={(c) => void opening.open(c)} onDelete={setDoomed} />
       )}
+      </>)}
 
       <GlassDialog
         open={doomed !== null}
@@ -124,9 +145,14 @@ export function RouteCover({ onClose }: { onClose: () => void }) {
         onClose={() => setDoomed(null)}
       />
       <ForkSheet open={fork} onClose={closeFork} onAI={() => setWizard('aiPlan')} onManual={() => setWizard('manual')} />
-      <Sheet open={wizard !== null} onClose={() => undefined} dismissOnScrim={false} topGap={72} radius={38} bottomRadius={0}>
-        {wizard && <RouteWizard kind={wizard} onClose={() => setWizard(null)} />}
-      </Sheet>
+      {/* 시안이 켜져 있으면 서랍 대신 전체 화면으로(사용자 요청 2026-11-07). */}
+      {proto !== null ? (
+        <Cover open={wizard !== null}>{wizard && <RouteWizard kind={wizard} onClose={() => setWizard(null)} />}</Cover>
+      ) : (
+        <Sheet open={wizard !== null} onClose={() => undefined} dismissOnScrim={false} topGap={72} radius={38} bottomRadius={0}>
+          {wizard && <RouteWizard kind={wizard} onClose={() => setWizard(null)} />}
+        </Sheet>
+      )}
       <Cover open={opening.editing !== null}>
         {shown && <RouteEditor key={shown.uid} course={shown} isNew={false} onClose={closeEditor} />}
       </Cover>

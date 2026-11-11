@@ -5,6 +5,7 @@
  * 시트 안은 목록(SearchList)·작품 상세·촬영지 상세 가운데 하나다.
  */
 import { useEffect, useRef, useState } from 'react'
+import { pendingStore, useTabRouter } from '@/app/tabRouter'
 import { Alert } from '@/design/overlay'
 import { HStack, Pressable, Spinner, Txt, VStack } from '@/design/primitives'
 import { tr } from '@/i18n'
@@ -15,6 +16,8 @@ import { MapView } from './map/MapView'
 import { CAMERA_TOP_INSET } from './map/mapRules'
 import './search.css'
 import { CartSheet } from './ui/CartSheet'
+import { useStore } from '@/state/storage'
+import { protoAvailable, protoStore } from '@/features/proto/protoState'
 import { ContentDetail } from './ui/ContentDetail'
 import { BottomSheet } from './ui/BottomSheet'
 import { ErrorView, FONT } from './ui/common'
@@ -26,16 +29,26 @@ import { useSearchTab } from './useSearchTab'
 import { shownTotal } from '@/state/shared'
 
 /** 탭바 높이 — 시트는 탭바 밑으로 깔린다(tokens.css 의 --tabbar-height). */
-const TAB_BAR = 56
+const TAB_BAR_HEIGHT = 56
 /**
  * 시트의 비율(14%/48%) 기준 높이 ÷ 화면 높이. iOS 스크린샷에서 읽은 값이다(2026-10-30): 402x874 화면에서 중간 단의 윗단이 y=437 이라
  * 0.48 × 910.4 — 첫 레이아웃 기준 높이가 화면보다 4% 크다. 같은 위치에 오도록 같은 비율을 쓴다.
  */
 const SHEET_TOTAL_RATIO = 910.4 / 874
 
-export function SearchTab({ active }: { active: boolean }) {
-  const t = useSearchTab()
+/** `embedded` — 다른 화면 위에 띄운 검색이다(탭바가 없고 주소를 건드리지 않는다). 코스 편집의 「지도에서 추가」 시안이 쓴다. */
+export function SearchTab({ active, embedded = false }: { active: boolean; embedded?: boolean }) {
+  const t = useSearchTab(active, embedded)
+  // 시안(떠 있는 알약 탭바)이면 이 화면이 이미 화면 바닥까지 내려와 있다(RootTabs) — 서랍을 탭바 밑으로 더 내리지 않는다.
+  const proto = useStore(protoStore, (p) => protoAvailable && p.proto !== null)
+  const TAB_BAR = embedded || proto ? 0 : TAB_BAR_HEIGHT
   const likes = useLikes()
+  const router = useTabRouter()
+  // 촬영지 상세 「길찾기」(MZ2AZ-532) — 홈 「이어서 길찾기」와 같은 길: 코스를 열며 안내를 켠다.
+  const openTrip = (courseId: number) => {
+    pendingStore.set((s) => ({ ...s, tripStart: true }))
+    router.openCourse(courseId)
+  }
   const root = useRef<HTMLDivElement>(null)
   const [height, setHeight] = useState(0)
   const [visibleSheet, setVisibleSheet] = useState(0)
@@ -82,6 +95,7 @@ export function SearchTab({ active }: { active: boolean }) {
           sourceContentId={t.selectedContent?.id}
           load={(id) => t.data.detailOfPlace(id)}
           onBack={t.closePlace}
+          onOpenTrip={openTrip}
         />
       )
     }

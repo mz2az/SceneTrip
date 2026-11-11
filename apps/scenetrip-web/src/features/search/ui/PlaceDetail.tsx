@@ -6,9 +6,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appEvent, track } from '@/analytics'
 import { Icon } from '@/design/Icon'
-import { HStack, Txt, VStack } from '@/design/primitives'
+import { HStack, Spinner, Txt, VStack } from '@/design/primitives'
 import { tr } from '@/i18n'
 import { useModerationChange } from '@/features/moderation'
+import { usePlaceDirections } from '@/features/route/placeDirections'
 import { PhotoGallery } from '@/features/reviews/photoGallery'
 import { bookOf, bookOfPlace } from '@/features/reviews/photoGalleryRules'
 import { PhotoHero } from '@/features/reviews/PhotoSections'
@@ -24,15 +25,19 @@ import type { PlaceDetail as PlaceDetailT, PlaceSummary } from '../sceneData'
 import { recordView } from '../usage'
 import { BorderedButton, DetailHeader, FONT, ProminentButton, UnavailableNotice } from './common'
 import { SceneCard } from './SceneCard'
+import { CourseAddBar } from '@/features/proto/protoCourseAdd'
 import { ScenePhotoViewer, ScenePopup } from './SceneViewer'
 
-export function PlaceDetail({ summary, sourceContentId, load, onBack }: {
+export function PlaceDetail({ summary, sourceContentId, load, onBack, onOpenTrip = noop }: {
   summary: PlaceSummary
   sourceContentId?: number | null
   load: (placeId: number) => Promise<PlaceDetailT>
   onBack: () => void
+  /** 「길찾기」가 만든 코스를 열며 안내를 켠다(MZ2AZ-532). 부모가 탭 길잡이로 잇는다. */
+  onOpenTrip?: (courseId: number) => void
 }) {
   const cart = useCart()
+  const directions = usePlaceDirections(summary.id, onOpenTrip)
   const [detail, setDetail] = useState<PlaceDetailT | null>(null)
   const [popup, setPopup] = useState<SceneItem | null>(null)
   const [popupOpen, setPopupOpen] = useState(false)
@@ -96,25 +101,41 @@ export function PlaceDetail({ summary, sourceContentId, load, onBack }: {
 
           {detail?.delisted === true && <UnavailableNotice kind="place" />}
 
-          {/* 베타의 장소 상세와 같은 두 버튼이다 — 담기와 네이버 지도. 길찾기와 영업정보는 우리가 만들 것이 아니다. */}
-          <HStack spacing={8} style={{ width: '100%' }}>
+          {/* 「길찾기」가 주 버튼이다(MZ2AZ-532 — 한 곳만 가려는 사람에게 코스 만들기는 병목). 누르면 그 장소 하나로 된 코스를 만들어 바로 안내를 켠다.
+              담기는 보조 버튼, 네이버 지도 링크는 그대로. */}
+          <VStack spacing={8} align="stretch" style={{ width: '100%' }}>
+            {/* 「지도에서 추가」 시안 — 코스 편집 위에 띄운 검색이면 맨 위에 「N일차에 추가」(문맥이 없으면 아무것도 그리지 않는다). */}
+            <CourseAddBar place={summary} />
             <ProminentButton
-              disabled={!canToggle(detail?.delisted, saved)}
-              onClick={() => void (saved ? cartActions.remove(summary.id) : cartActions.add(summary.id, sourceContentId))}
-              style={{ flex: 1, minHeight: 36 }}
+              disabled={directions.busy || detail?.delisted === true}
+              onClick={() => void directions.start(summary)}
+              style={{ width: '100%', minHeight: 44 }}
             >
-              <Icon name={saved ? 'checkmark' : 'bag.badge.plus'} size={FONT.body} color="white" />
-              <Txt size={FONT.body} color="white">{saved ? tr('담김 · 누르면 빼기') : tr('장바구니에 담기')}</Txt>
+              {directions.busy ? <Spinner size={16} /> : <Icon name="location.north.fill" size={FONT.body} color="white" />}
+              <Txt size={FONT.body} weight="semibold" color="white">{tr('길찾기')}</Txt>
             </ProminentButton>
-            {naver && (
-              <a href={naver} target="_blank" rel="noopener noreferrer" style={{ flex: 'none' }}>
-                <BorderedButton style={{ minHeight: 34, width: 129, padding: 0, pointerEvents: 'none' }}>
-                  <Icon name="arrow.up.right.square" size={FONT.body} color="accent" />
-                  <Txt size={FONT.body} color="accent">{tr('네이버 지도')}</Txt>
-                </BorderedButton>
-              </a>
+            <HStack spacing={8} style={{ width: '100%' }}>
+              <BorderedButton
+                disabled={!canToggle(detail?.delisted, saved)}
+                onClick={() => void (saved ? cartActions.remove(summary.id) : cartActions.add(summary.id, sourceContentId))}
+                style={{ flex: 1, minHeight: 34 }}
+              >
+                <Icon name={saved ? 'checkmark' : 'bag.badge.plus'} size={FONT.body} color="accent" />
+                <Txt size={FONT.body} color="accent">{saved ? tr('담김 · 누르면 빼기') : tr('장바구니에 담기')}</Txt>
+              </BorderedButton>
+              {naver && (
+                <a href={naver} target="_blank" rel="noopener noreferrer" style={{ flex: 'none' }}>
+                  <BorderedButton style={{ minHeight: 34, width: 129, padding: 0, pointerEvents: 'none' }}>
+                    <Icon name="arrow.up.right.square" size={FONT.body} color="accent" />
+                    <Txt size={FONT.body} color="accent">{tr('네이버 지도')}</Txt>
+                  </BorderedButton>
+                </a>
+              )}
+            </HStack>
+            {directions.error && (
+              <Txt as="div" size={FONT.caption} color="red" role="alert">{directions.error}</Txt>
             )}
-          </HStack>
+          </VStack>
 
           {scenes.length > 0 && (
             // 목업 §2.6 — 「이 장소의 장면 · N개 작품이 이곳에서 촬영」. 한 장소를 여러 작품이 함께 쓰는 일이 실제로 있다 — 작품마다 장면 설명이 다르므로 목록으로 편다.
@@ -163,3 +184,5 @@ export function PlaceDetail({ summary, sourceContentId, load, onBack }: {
     </VStack>
   )
 }
+
+const noop = () => {}

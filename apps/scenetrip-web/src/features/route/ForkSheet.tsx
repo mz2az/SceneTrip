@@ -8,6 +8,9 @@ import { Sheet } from '@/design/overlay'
 import { HStack, Spacer, Txt, VStack, rr, shadow } from '@/design/primitives'
 import { Pressable } from './ui/Press'
 import { tr } from '@/i18n'
+import { ProtoForkSheet } from '@/features/proto/ProtoFork'
+import { protoAvailable, protoStore } from '@/features/proto/protoState'
+import { useStore } from '@/state/storage'
 import './ui/icons'
 
 /** iOS 실측: 떠 있는 판이 y 433 에서 866(화면 아래 8pt 위)까지 — 높이 433, 위 모서리 약 30. */
@@ -49,6 +52,9 @@ export function ForkCards({ onAI, onManual }: { onAI: () => void; onManual: () =
 }
 
 export function ForkSheet({ open, onClose, onAI, onManual }: { open: boolean; onClose: () => void; onAI: () => void; onManual: () => void }) {
+  // 「어디로 가세요?」 시안이 켜져 있으면(로컬 개발 서버 전용) 시안의 새 코스 시트를 띄운다 — docs/project/plans/web-trip-first-prototypes.md.
+  const proto = useStore(protoStore, (s) => s.proto)
+  if (protoAvailable && proto !== null) return <ProtoForkSheet open={open} onClose={onClose} onAI={onAI} onManual={onManual} />
   return (
     <Sheet open={open} onClose={onClose} dim={0.2} floating detent={FORK_HEIGHT} radius={FORK_RADIUS} label={tr('코스를 어떻게 만들까요?')}>
       <VStack spacing={16} align="center" style={{ paddingTop: 8 }}>

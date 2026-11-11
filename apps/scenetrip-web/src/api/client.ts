@@ -6,7 +6,7 @@
  *   const list = await ok(api.GET('/contents', { params: { header: installHeader(), query: { limit: 20 } } }))
  *
  * 하는 일 (iOS 의 AuthRequestBuilder · RetryingSession · AppLocale 에 해당):
- *  - `Accept-Language` 를 앱 언어로 항상 싣는다.
+ *  - `Accept-Language` 를 앱 언어로 싣는다. 호출부가 직접 준 값은 그대로 둔다(홈 「도시의 성지」가 도시 열쇠용 한국어 목록을 받는다, MZ2AZ-531).
  *  - 로그인했으면 `Authorization: Bearer`.
  *  - 조회/PUT/DELETE 는 끊김·502~504·429 를 규칙(retry.ts)대로 다시 보낸다.
  *  - 응답 시간 벽(조회 15초·쓰기 30초).
@@ -164,7 +164,7 @@ async function guardedFetch(input: Request): Promise<Response> {
   const headers = new Headers(input.headers)
   const noRetry = headers.has(NO_RETRY_HEADER)
   headers.delete(NO_RETRY_HEADER)
-  headers.set('Accept-Language', currentLang())
+  if (!headers.has('Accept-Language')) headers.set('Accept-Language', currentLang())
   const identity = tokenSnapshot()
   const sent = identity.accessToken
   // 로그인·갱신·로그아웃 창구는 토큰을 받지 않는다(계약 `security: []`) — 낡은 토큰을 실어 보내지 않는다.

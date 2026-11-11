@@ -69,7 +69,7 @@ export interface NaverMap {
   setSize(size: unknown): void
   setOptions(key: string, value: unknown): void
   panTo(c: NaverLatLng, opts?: { duration?: number; easing?: string }): void
-  morph(c: NaverLatLng, zoom: number, opts?: { duration?: number }): void
+  morph(c: NaverLatLng, zoom: number, opts?: { duration?: number; easing?: string }): void
   updateBy(c: NaverLatLng, zoom: number): void
   fitBounds(bounds: unknown, opts?: NaverFitOptions): void
   destroy(): void

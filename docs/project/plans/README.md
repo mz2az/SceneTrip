@@ -5,6 +5,8 @@
 | 문서 | 대상 |
 | --- | --- |
 | [ios-1.0.1.md](ios-1.0.1.md) | iOS 1.0.1 — 웹에 먼저 들어간 첫 실행·비회원 설치 번호·오늘의 성지·참고자료 접기·Sentry·PostHog 따라잡기와 출시 (MZ2AZ-525) |
+| [web-home-city-spots.md](web-home-city-spots.md) | 웹 홈 「도시의 성지」 — 인사 아래 도시 칩·촬영지 카드·지도 보기, 한국어 주소로 도시 열쇠, 위치는 이미 허용됐을 때만 (MZ2AZ-531, DEV 실험) |
+| [web-place-directions.md](web-place-directions.md) | 웹 촬영지 상세 「길찾기」 — 한 곳짜리 코스를 만들어 바로 여행 모드, 비회원은 로그인 뒤 이어서 (MZ2AZ-532, DEV 실험) |
 | [web-release.md](web-release.md) | 웹앱(`apps/scenetrip-web`) 출시 — Cloudflare Pages, CORS 요청서, 소셜 로그인 웹 설정, GA4, 처리방침 초안 |
 | [metabase-prd.md](metabase-prd.md) | PRD 데이터 보기 — EKS 안 Metabase, `analytics` 뷰만 읽는 계정, Cloudflare Access(계획, ADR 0027 제안) |
 | [place-photo-credit.md](place-photo-credit.md) | 촬영지 사진에 출처·이용 조건 — `place_image` 세 칸, 주소 열쇠 TSV, 앱 수정 없음, 60 곳 150 장(MZ2AZ-514, 로컬 적용) |
@@ -83,6 +85,8 @@
 오래 영향을 남기는 결정은 [ADR](../../architecture/adr/README.md) 로 승격한다.
 
 - [iOS 배포 패키지 준비](ios-release-package.md) — MZ2AZ-440·416
+- [웹 「어디로 가세요?」 시안](web-trip-first-prototypes.md) — 로컬 전용 껍데기의 결정·화면
+- [웹 시안을 실제 앱으로](web-proto-apply.md) — 화면별 바꿀 것, 백엔드 작업(B1~B7), 정할 것, 순서
 - [편의시설 「골고루」 정렬과 이름 검색](poi-spread-search.md) — MZ2AZ-540·283, GET /pois 의 sort=spread·q
 - [커뮤니티 보강 — 좋아요·댓글·게시판·글 검색·커서](community-social.md) — MZ2AZ-538, 계약 1.24.0
 - [정한 여행(도시·며칠) 기억 — /me/trip](trip-memory.md) — MZ2AZ-542, 계약 1.25.0

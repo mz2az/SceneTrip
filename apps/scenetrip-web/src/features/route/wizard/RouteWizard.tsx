@@ -23,6 +23,9 @@ import { AIBanner } from '../ui/AIBanner'
 import { GlassDialog } from '../ui/GlassDialog'
 import { LargeButton } from '../ui/LargeButton'
 import { DateStep, PaceStep, ReviewStep, SpanStep, WorkStep } from './WizardSteps'
+import { protoAvailable, protoStore } from '@/features/proto/protoState'
+import { ProtoAIPlan, ProtoSavedPlan } from '@/features/proto/ProtoPlanFlows'
+import { useStore } from '@/state/storage'
 
 export type WizardKind = 'aiPlan' | 'manual'
 type Step = 'span' | 'dates' | 'works' | 'pace' | 'review'
@@ -63,6 +66,13 @@ function useLocatorOnce(enabled: boolean) {
 }
 
 export function RouteWizard({ kind, onClose }: { kind: WizardKind; onClose: () => void }) {
+  // 「어디로 가세요?」 시안이 켜져 있으면(로컬 개발 서버 전용) 시안의 두 흐름 — 여행 앱 레퍼런스를 따라 질문을 줄인 모양(docs/project/plans/web-trip-first-prototypes.md).
+  const proto = useStore(protoStore, (p) => protoAvailable && p.proto !== null)
+  if (proto) return kind === 'aiPlan' ? <ProtoAIPlan onClose={onClose} /> : <ProtoSavedPlan onClose={onClose} />
+  return <ClassicWizard kind={kind} onClose={onClose} />
+}
+
+function ClassicWizard({ kind, onClose }: { kind: WizardKind; onClose: () => void }) {
   useLang()
   const steps = stepsOf(kind)
   const [index, setIndex] = useState(0)
