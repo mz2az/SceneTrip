@@ -98,6 +98,11 @@ export function tr(korean: string, ...args: Array<string | number>): string {
   return args.length ? format(found, args) : found
 }
 
+/** 한국어·영어 두 벌을 코드에 함께 적는 문구 — iOS 에 아직 없는 웹 전용 문구(번역표 밖). */
+export function say(ko: string, en: string): string {
+  return current === 'en' ? en : ko
+}
+
 /** 같은 한국어가 자리에 따라 다른 영어일 때 — 열쇠는 `원문|자리`. 없으면 자리 없는 번역으로 물러선다. */
 export function trAt(korean: string, place: string, ...args: Array<string | number>): string {
   const found = lookup(`${korean}|${place}`) ?? lookup(korean) ?? korean

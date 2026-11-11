@@ -7,7 +7,7 @@
  *
  * 하는 일:
  *  1. 앱이 뜨면 저장된 세션을 되살린다(`/me`)·401 처리 갈고리를 건다.
- *  2. 어디서든 `promptSignIn()`(state/auth.ts)이 불리면 로그인 시트를 올린다.
+ *  2. 어디서든 `promptSignIn(이유?)`(state/auth.ts)이 불리면 로그인 시트를 올린다 — 이유가 있으면 그 한 줄을 설명 자리에.
  *  3. 가이드·길찾기의 동의 문(`consentPort`)이 부탁하는 AI·위치 동의 시트를 올린다.
  *  4. 소셜 로그인 팝업이 돌아온 주소(`/auth/callback/<제공자>`)면 결과를 연 창에 넘기고 닫는다.
  */
@@ -30,7 +30,7 @@ export function RootSheets({ active: _active }: { active: boolean }) {
 
   useEffect(() => {
     if (!requested) return
-    accountActions.openSignIn()
+    accountActions.openSignInFor(signInPromptStore.get().reason)
     dismissSignInPrompt()
   }, [requested])
 

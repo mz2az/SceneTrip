@@ -5,6 +5,7 @@
  * (`<ModerationSheets>`). 지연 목록의 줄마다 시트를 달면 줄이 사라질 때 같이 사라진다.
  */
 import { useMemo } from 'react'
+import { say } from '@/i18n'
 import { authStore, promptSignIn as authPromptSignIn } from '@/state/auth'
 import { type Store, createStore, useStore } from '@/state/storage'
 import { type ModerationClient, serverModerationClient } from './client'
@@ -33,7 +34,7 @@ export interface ModerationState {
 export interface ModerationDeps {
   client?: ModerationClient
   signedIn?: () => boolean
-  promptSignIn?: () => void
+  promptSignIn?: (reason?: string | null) => void
   events?: ModerationEvents
 }
 
@@ -50,6 +51,9 @@ export interface ModerationController {
   dismissNotice(): void
 }
 
+/** 차단의 로그인 이유 한 줄(MZ2AZ-551). */
+const blockSignInReason = (): string => say('차단하려면 로그인이 필요해요', 'Sign in to block users')
+
 export function createModerationController(deps: ModerationDeps = {}): ModerationController {
   const client = deps.client ?? serverModerationClient
   const signedIn = deps.signedIn ?? (() => authStore.get().session !== null)
@@ -63,7 +67,7 @@ export function createModerationController(deps: ModerationDeps = {}): Moderatio
     askReport: (target) => patch({ reporting: target }),
     askBlock(target) {
       if (!signedIn()) {
-        promptSignIn()
+        promptSignIn(blockSignInReason())
         return
       }
       patch({ confirmingBlock: target })
@@ -83,7 +87,7 @@ export function createModerationController(deps: ModerationDeps = {}): Moderatio
     async block(target) {
       patch({ confirmingBlock: null })
       if (!signedIn()) {
-        promptSignIn()
+        promptSignIn(blockSignInReason())
         return false
       }
       if (store.get().sending) return false
@@ -97,7 +101,7 @@ export function createModerationController(deps: ModerationDeps = {}): Moderatio
       } finally {
         patch({ sending: false })
       }
-      if (outcome === 'signInRequired') promptSignIn()
+      if (outcome === 'signInRequired') promptSignIn(blockSignInReason())
       patch({ notice: blockMessage(outcome) })
       if (outcome === 'blocked') events.changed()
       return outcome === 'blocked'

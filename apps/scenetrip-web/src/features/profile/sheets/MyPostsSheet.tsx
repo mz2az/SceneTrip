@@ -11,7 +11,7 @@ import { PostView } from '@/features/community/PostView'
 import { type PostSummary, communityStore, postFromSummary, useCommunityStore } from '@/features/community/store'
 import { promptSignIn } from '@/state/auth'
 import { useOnAccountChange } from '@/state/shared'
-import { tr } from '@/i18n'
+import { say, tr } from '@/i18n'
 import { useAccount } from '../auth/account'
 import { dateWithMinutes } from '../dates'
 import { GlassSheet, SheetBody, SheetHeader } from '../ui/GlassSheet'
@@ -38,7 +38,7 @@ export function MyPostsSheet({ open, onClose }: { open: boolean; onClose: () => 
         <div style={{ marginTop: -2 }} />
         {store.message && <Txt as="div" size={13} color="red" style={{ padding: `10px ${PLAIN_LIST_PAD}px` }}>{store.message}</Txt>}
         {!signedIn && (
-          <PlainRow onClick={() => promptSignIn()}>
+          <PlainRow onClick={() => promptSignIn(say('내가 쓴 글을 보려면 로그인이 필요해요', 'Sign in to see your posts'))}>
             <Txt size={17} kerning={PLAIN_TEXT_KERNING}>{tr('로그인')}</Txt>
           </PlainRow>
         )}
