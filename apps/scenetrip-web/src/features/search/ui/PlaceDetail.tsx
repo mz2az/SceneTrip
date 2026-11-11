@@ -87,7 +87,8 @@ export function PlaceDetail({ summary, sourceContentId, load, onBack, onOpenTrip
   return (
     <VStack style={{ flex: 1, minHeight: 0 }}>
       <DetailHeader title={summary.name} subtitle={summary.address ?? ''} onBack={onBack} />
-      <div className="scroll-y" data-sheet-scroll style={{ flex: 1, minHeight: 0, touchAction: 'pan-y' }}>
+      {/* 떠 있는 탭바(시안)에 마지막 줄이 가리지 않게 바닥을 비운다 — 인기 목록(SearchList)과 같은 값(2026-11-11 사용자 지적: 촬영지 목록 끝이 안 보임). */}
+      <div className="scroll-y" data-sheet-scroll style={{ flex: 1, minHeight: 0, touchAction: 'pan-y', paddingBottom: 'var(--proto-tab-inset, 0px)' }}>
         <VStack spacing={18} align="start" pad={14}>
           <div style={{ width: '100%' }} key={summary.id}>
             <PhotoHero gallery={gallery} title={summary.name} onChanged={() => void refresh()} />
