@@ -36,9 +36,26 @@ class ClientRulesTests {
         )
     }
 
+    // 길 안내 중에도 해태 단추는 그대로 떠 있다 — 안내 줄 얼굴은 눌리지 않아 없앴다 (계획 12절).
     @Test
-    fun guidanceMovesTheEntryIntoTheBanner() {
-        assertEquals(RouteGuideEntry.TRIP_HEADER, RouteGuideEntry.placement(true, true, false, false, false))
+    fun guidanceKeepsTheFloatingEntry() {
+        assertEquals(RouteGuideEntry.FLOATING, RouteGuideEntry.placement(true, true, false, false, false))
+    }
+
+    // 서랍도 핀 찍기도 아니면 안내·목적지·카드가 어떻든 입구는 떠 있는 단추 하나다.
+    @Test
+    fun everyGuidanceStateUsesTheFloatingEntryWhenNothingHidesIt() {
+        for (guiding in listOf(false, true)) {
+            for (hasTarget in listOf(false, true)) {
+                for (hasCard in listOf(false, true)) {
+                    assertEquals(
+                        RouteGuideEntry.FLOATING,
+                        RouteGuideEntry.placement(guiding, hasTarget, hasCard, false, false),
+                        "guiding=$guiding hasTarget=$hasTarget hasCard=$hasCard",
+                    )
+                }
+            }
+        }
     }
 
     @Test
