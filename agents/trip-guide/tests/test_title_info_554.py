@@ -147,7 +147,9 @@ class 프롬프트(unittest.TestCase):
             for line in self.text.splitlines()
             if "title_info" in line and "지어내지 마라" in line
         ]
-        self.assertTrue(lines, "줄거리·출연을 title_info 로만 말하고 지어내지 말라는 줄이 없다")
+        self.assertTrue(
+            lines, "줄거리·출연을 title_info 로만 말하고 지어내지 말라는 줄이 없다"
+        )
 
 
 if __name__ == "__main__":

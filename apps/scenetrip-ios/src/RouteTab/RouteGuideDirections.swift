@@ -36,7 +36,8 @@ extension RouteEditorView {
         }
         // 담긴 일차가 지금 보는 일차가 아니면 그 일차로 옮긴다 — 안내 번호는 일차 안의 순서다.
         if !stops.contains(where: { place.isSameSpot(as: $0) }),
-           let day = course.days.firstIndex(where: { $0.stops.contains { place.isSameSpot(as: $0) } }) {
+           let day = course.days.firstIndex(where: { $0.stops.contains { place.isSameSpot(as: $0) } })
+        {
             dayIndex = day
         }
         guard let stop = stops.first(where: { place.isSameSpot(as: $0) }) else { return }
