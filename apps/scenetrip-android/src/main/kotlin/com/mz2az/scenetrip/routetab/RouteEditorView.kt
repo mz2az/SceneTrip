@@ -1509,7 +1509,6 @@ private fun RouteEditorContent(
                     next = RouteAvailability.nextUnvisited(stops),
                     visitStatus = visitStatus(trip.target),
                     onRetryVisit = { trip.target?.let { markVisited(it) } },
-                    onGuide = if (guideEntry == RouteGuideEntry.TRIP_HEADER) ({ showGuide = true }) else null,
                     onEnd = trip::end,
                     onHeight = { arrivalHeight = it },
                     modifier = Modifier.align(Alignment.TopCenter),
@@ -1526,7 +1525,6 @@ private fun RouteEditorContent(
                                 trip.target?.let { target ->
                                     stops.indexOfFirst { it.id == target.id }.takeIf { it >= 0 }?.plus(1)
                                 },
-                            onGuide = if (guideEntry == RouteGuideEntry.TRIP_HEADER) ({ showGuide = true }) else null,
                             onEnd = trip::end,
                             onRetry = { trip.retry(scope) },
                         )

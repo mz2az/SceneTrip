@@ -189,7 +189,6 @@ fun PawStampOverlay(
 fun TripGuidingBanner(
     trip: TripSession,
     targetNumber: Int?,
-    onGuide: (() -> Unit)?,
     onEnd: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -203,7 +202,7 @@ fun TripGuidingBanner(
                 .background(IOS.pinLight.copy(alpha = 0.10f))
                 .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 6.dp),
     ) {
-        TripHeadline(target, targetNumber, arrived = false, onGuide = onGuide, onEnd = onEnd)
+        TripHeadline(target, targetNumber, arrived = false, onEnd = onEnd)
         TripGuidingDetail(trip, target, onRetry)
     }
 }
@@ -219,7 +218,6 @@ fun TripArrivalCard(
     next: Pair<Int, RouteStop>?,
     visitStatus: VisitStatus?,
     onRetryVisit: () -> Unit,
-    onGuide: (() -> Unit)?,
     onEnd: () -> Unit,
     onHeight: (Dp) -> Unit,
     modifier: Modifier = Modifier,
@@ -243,7 +241,7 @@ fun TripArrivalCard(
                 .background(IOS.systemBackground)
                 .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
-        TripHeadline(target, targetNumber, arrived = true, onGuide = onGuide, onEnd = onEnd)
+        TripHeadline(target, targetNumber, arrived = true, onEnd = onEnd)
         if (visitStatus == VisitStatus.PENDING || visitStatus == VisitStatus.FAILED) {
             VisitSaveNotice(visitStatus, onRetryVisit)
         } else {
@@ -283,7 +281,6 @@ private fun TripHeadline(
     target: RouteStop,
     number: Int?,
     arrived: Boolean,
-    onGuide: (() -> Unit)?,
     onEnd: () -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -301,7 +298,6 @@ private fun TripHeadline(
             color = IOS.label,
             modifier = Modifier.weight(1f),
         )
-        if (onGuide != null) Box(Modifier.clickable(onClick = onGuide)) { RouteGuideChipBody(bubble = false) }
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier.size(28.dp).clickable(onClick = onEnd),
