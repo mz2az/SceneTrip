@@ -102,4 +102,18 @@ enum CommunityFeedRules {
     static func commentPlaceholderKey(total: Int) -> String {
         total == 0 ? "첫 댓글을 남겨 보세요" : "댓글을 남겨 보세요"
     }
+
+    /// 머리줄 「✎ 글쓰기」를 눌렀을 때 할 일.
+    enum ComposeTap: Equatable {
+        /// 글쓰기 화면을 연다.
+        case open
+        /// 글쓰기 화면을 열지 않고 로그인 창만 띄운다.
+        case signIn
+    }
+
+    /// 「글쓰기」를 누르면 — 로그인했으면 글쓰기 화면을 열고, 아니면 로그인 창만 띄운다(웹 `CommunityTab.tsx` `onCompose`).
+    /// 로그인을 마쳐도 글쓰기 화면을 저절로 열지 않는다 — 다시 누른다.
+    static func composeTap(signedIn: Bool) -> ComposeTap {
+        signedIn ? .open : .signIn
+    }
 }

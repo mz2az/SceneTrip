@@ -8,7 +8,8 @@ import SwiftUI
 /// (`TripPostCreate.board`). 제목 → 본문(글 조각과 사진을 쓴 순서대로, `CommunityArticleEditor`) → 다녀온 코스.
 /// 폼의 칸을 채우는 느낌이 아니라 **글을 쓰는 종이**여야 한다 — 그래서 테두리 없는 큰 제목과 넓은 본문이 화면의 대부분이다.
 ///
-/// 비로그인도 화면은 열린다 — 사진 넣기·올리기를 누르면 로그인으로 안내한다.
+/// 로그인한 사람만 연다 — 커뮤니티 「글쓰기」 는 비로그인이면 로그인 창만 띄운다(계획 §11).
+/// 쓰는 도중 로그아웃·세션 만료에 대비해 사진 넣기·올리기도 로그인을 다시 본다.
 /// 코스를 붙이면 일차·장소까지 글에 사본으로 담긴다. 읽는 사람이 그 코스를 보고 내 코스로 담을 수 있다(`CommunityPostView`).
 struct CommunityComposeView: View {
     @ObservedObject private var store = CommunityStore.shared

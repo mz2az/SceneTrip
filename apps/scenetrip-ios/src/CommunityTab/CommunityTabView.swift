@@ -135,7 +135,11 @@ struct CommunityTabView: View {
             .accessibilityLabel(tr("글 검색"))
             .accessibilityIdentifier("community-search")
             Button {
-                path.append(.compose(board))
+                // 로그인하지 않았으면 글쓰기 화면을 열지 않고 로그인 창만(계획 §11).
+                switch CommunityFeedRules.composeTap(signedIn: auth.signedIn) {
+                case .open: path.append(.compose(board))
+                case .signIn: auth.promptSignIn()
+                }
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "square.and.pencil").font(.system(size: 13, weight: .bold))
