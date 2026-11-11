@@ -15,8 +15,8 @@ from src.tools import run_tool
 from tests.fixtures import FakeBook, make_place
 
 KPDH = [
-    make_place("k1", "남산서울타워", 37.5512, 126.9882, title="KPop Demon Hunters"),
-    make_place("k2", "북촌한옥마을", 37.5826, 126.9830, title="KPop Demon Hunters"),
+    make_place("101", "남산서울타워", 37.5512, 126.9882, title="KPop Demon Hunters"),
+    make_place("102", "북촌한옥마을", 37.5826, 126.9830, title="KPop Demon Hunters"),
 ]
 GOBLIN = [make_place("g1", "덕수궁돌담길", 37.5658, 126.9751, title="도깨비")]
 
@@ -53,13 +53,15 @@ class 작품이름의_일반단어를_뗀다(unittest.TestCase):
 
     def test_by_title_에는_정리한_이름이_간다(self):
         b = book()
-        run_tool("list_title_places", {"title": "kpop demon hunters 촬영지"}, Session(book=b))
+        run_tool(
+            "list_title_places", {"title": "kpop demon hunters 촬영지"}, Session(book=b)
+        )
         self.assertEqual(b.calls[0][0], "kpop demon hunters")
 
     def test_정리해서_찾으면_기억하고_지도에_띄운다(self):
         s = Session(book=book())
         run_tool("list_title_places", {"title": "kpop demon hunters 성지"}, s)
-        self.assertEqual({p.place_id for p in s.shown}, {"k1", "k2"})
+        self.assertEqual({p.place_id for p in s.shown}, {"101", "102"})
         self.assertIn("map.focus", ops(s))
 
 
@@ -84,7 +86,7 @@ class 작품으로_못찾으면_장소검색으로(unittest.TestCase):
     def test_장소검색으로_찾아도_기억하고_지도에_띄운다(self):
         s = Session(book=book())
         run_tool("list_title_places", {"title": "북촌 성지"}, s)
-        self.assertEqual([p.place_id for p in s.shown], ["k2"])
+        self.assertEqual([p.place_id for p in s.shown], ["102"])
         focus = [d for d in s.ui if d.get("op") == "map.focus"]
         self.assertEqual(len(focus), 1)
         self.assertEqual(len(focus[0]["placeIds"]), 1)
