@@ -283,9 +283,16 @@ describe('가이드 입구와 떠 있는 동그라미 (RouteGuideChipTests)', ()
   it('열린 카드가 있으면 안내 중에도 떠 있는 입구, 서랍·핀 찍기 중에는 숨긴다', () => {
     expect(guideEntryPlacement({ guiding: true, hasTarget: true, hasCard: true, panelOpen: false, pinning: false })).toBe('floating')
     expect(guideEntryPlacement({ guiding: true, hasTarget: true, hasCard: true, panelOpen: true, pinning: false })).toBe('hidden')
-    expect(guideEntryPlacement({ guiding: true, hasTarget: true, panelOpen: false, pinning: false })).toBe('tripHeader')
     for (const [guiding, hasTarget] of [[false, false], [false, true], [true, false]] as const) expect(guideEntryPlacement({ guiding, hasTarget, panelOpen: false, pinning: false })).toBe('floating')
     for (const guiding of [false, true]) for (const [panelOpen, pinning] of [[true, false], [false, true], [true, true]] as const) expect(guideEntryPlacement({ guiding, hasTarget: true, panelOpen, pinning })).toBe('hidden')
+  })
+
+  it('길 안내 중에도 해태 단추는 그대로 떠 있다 — 안내 줄 자리는 없다 (계획 12절)', () => {
+    expect(guideEntryPlacement({ guiding: true, hasTarget: true, panelOpen: false, pinning: false })).toBe('floating')
+    // 서랍도 핀 찍기도 아니면 안내·목적지·카드가 어떻든 떠 있는 단추 하나
+    for (const guiding of [false, true]) for (const hasTarget of [false, true]) for (const hasCard of [false, true]) {
+      expect(guideEntryPlacement({ guiding, hasTarget, hasCard, panelOpen: false, pinning: false }), `guiding=${guiding} hasTarget=${hasTarget} hasCard=${hasCard}`).toBe('floating')
+    }
   })
 
   it('세로 — 카드가 없으면 둔 자리 그대로, 있으면 윗변 위 8pt, 이미 더 위면 그대로', () => {
