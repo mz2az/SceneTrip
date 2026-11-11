@@ -474,7 +474,11 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
             session.remember(found)
             session.show(op="map.focus", placeIds=_ids(found))
             return {
-                "출처": "작품 이름으로는 못 찾아 장소 검색으로 찾았다",
+                "출처": f"「{title}」 라는 작품은 못 찾아 장소 검색으로 찾았다",
+                "할 일": (
+                    "이 장소들을 사용자가 물은 작품의 촬영지라고 말하지 마라. "
+                    "작품으로는 못 찾았다고 한 문장으로 알리고, 각 장소의 작품을 그대로 전해라"
+                ),
                 "찾은 곳": [_brief(p) for p in found],
             }
         session.remember(hits)
