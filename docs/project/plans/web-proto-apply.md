@@ -7,6 +7,10 @@
 - **배포 길**: 먼저 `dev` 브랜치 → `dev.scenetrip.io`(Pages Preview, `API_UPSTREAM=https://api-dev.scenetrip.io` 이미 설정). 확인한 뒤 `main`
   - `dev` 에는 main 에 없는 커밋 11개(#416 도시별 성지·#534 작품 격자 등)가 있다 — **덮지 않는다**. 이 브랜치는 `origin/dev`(`f0351f4c`) 위에서 시작해 앞으로감기(fast-forward)로 올라간다. 되돌릴 기준점: `f0351f4c`
   - 켜는 곳은 `features/proto/protoGate.ts`: 로컬 개발 서버(`?proto=`) · 시험용 웹 주소(`dev.scenetrip.io`, `dev.scenetrip-app.pages.dev`)면 기본 A. 운영 주소는 켜지지 않는다 — Pages 변수 없이 주소로 가른다
+  - **운영도 켠다(2026-11-11 사용자 결정, 「prd 도 올려줘」).** iOS·안드로이드에 반영한 새 화면을 운영 웹에도 낸다. 운영 주소(시험용 웹·로컬 개발 서버가 아닌 곳)는
+    **늘 시안 A** — 주소의 `?proto=` 값(`off`·`b`)과 탭이 기억한 값을 보지 않는다(운영에서 덜 된 B 나 옛 화면으로 바뀌지 않게).
+    시험용 웹·로컬 개발 서버는 그대로(`?proto=` 로 고르고 끈다). 「시안」 표시·스위치는 그대로 로컬에서만.
+    규칙: `protoEnabled(dev, hostname)` 은 언제나 참, `pickProto` 는 운영 주소에서 언제나 `'a'`.
 
 ---
 
