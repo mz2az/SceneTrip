@@ -56,6 +56,14 @@ export function showsMenu(isMine: boolean, onServer = true): boolean {
   return !isMine && onServer
 }
 
+/** 글 상세 「⋯」 메뉴의 항목(MZ2AZ-551). 내 글은 지우기만, 남의 글은 신고(+작성자가 있으면 차단). 서버에 없는 기기 옛 글은 없음. */
+export type PostMenuAction = 'delete' | 'report' | 'block'
+export function postMenuActions({ isMine, onServer, hasAuthor }: { isMine: boolean; onServer: boolean; hasAuthor: boolean }): PostMenuAction[] {
+  if (!onServer) return []
+  if (isMine) return ['delete']
+  return hasAuthor ? ['report', 'block'] : ['report']
+}
+
 /** 차단을 둘 글인가 — 자기 글이 아니고 작성자가 있어야 한다(탈퇴한 작성자는 `BLOCK_TARGET_HAS_NO_AUTHOR`). */
 export function canBlock(isMine: boolean, hasAuthor: boolean): boolean {
   return !isMine && hasAuthor

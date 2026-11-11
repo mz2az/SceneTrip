@@ -10,7 +10,7 @@ import './moderation.css'
 import { Alert, Sheet } from '@/design/overlay'
 import { Icon, registerIcon } from '@/design/Icon'
 import { HStack, Pressable, Spinner, Txt, VStack, rr } from '@/design/primitives'
-import { tr } from '@/i18n'
+import { say, tr } from '@/i18n'
 import { signInPromptStore } from '@/state/auth'
 import { useStore } from '@/state/storage'
 import { type ModerationController, reportSheetPresence, useModerationState } from './controller'
@@ -18,6 +18,7 @@ import { PopupMenu } from './PopupMenu'
 import {
   DETAIL_LIMIT,
   type ModerationTarget,
+  type PostMenuAction,
   type ReportOutcome,
   type ReportReason,
   REPORT_REASONS,
@@ -43,21 +44,39 @@ const MENU_FRAME = { width: 32, height: 28 } // ModerationViews.swift:28
 const MENU_HIT_INSET = 8 // `.contentShape(Rectangle().inset(by: -8))` — 그림은 작아도 누르는 자리는 넉넉히
 
 /** 자기 글에는 그리지 않는다(`showsMenu`) — 부르는 쪽이 거른다. 누르면 화면에 단 `<ModerationSheets>` 가 시트·확인 창을 올린다. */
-export function ModerationMenu({ target, canBlock, controller }: { target: ModerationTarget; canBlock: boolean; controller: ModerationController }) {
+/**
+ * `actions` 를 주면 그 항목만 그린다(글 상세 — `postMenuActions`). 「지우기」 는 `onDelete` 를 부른다(MZ2AZ-551: 내 글 상세에서 지울 길이 없었다).
+ * 주지 않으면 전처럼 신고(+`canBlock` 이면 차단).
+ */
+export function ModerationMenu({ target, canBlock, controller, actions, onDelete }: {
+  target: ModerationTarget
+  canBlock: boolean
+  controller: ModerationController
+  actions?: readonly PostMenuAction[]
+  onDelete?: () => void
+}) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null)
-  const items = [
-    { label: tr('신고'), icon: 'exclamationmark.bubble', onPress: () => controller.askReport(target) },
-    ...(canBlock ? [{ label: tr('이 사용자 차단'), icon: 'nosign', destructive: true, onPress: () => controller.askBlock(target) }] : []),
-  ]
+  const shown: readonly PostMenuAction[] = actions ?? (canBlock ? ['report', 'block'] : ['report'])
+  const items = shown.flatMap((action) => {
+    switch (action) {
+      case 'report': return [{ label: tr('신고'), icon: 'exclamationmark.bubble', onPress: () => controller.askReport(target) }]
+      case 'block': return [{ label: tr('이 사용자 차단'), icon: 'nosign', destructive: true, onPress: () => controller.askBlock(target) }]
+      case 'delete': return onDelete ? [{ label: say('삭제', 'Delete'), icon: 'trash', destructive: true, onPress: onDelete }] : []
+    }
+  })
+  if (items.length === 0) return null
+  const ownOnly = !shown.includes('report')
   return (
     <>
       <Pressable
-        aria-label={tr('신고·차단 메뉴')}
+        aria-label={ownOnly ? say('글 메뉴', 'Post menu') : tr('신고·차단 메뉴')}
         aria-haspopup="menu"
         data-testid="moderation-menu"
         onClick={(e) => {
           e.stopPropagation()
-          setAnchor(e.currentTarget.getBoundingClientRect())
+          // 열려 있으면 닫는다 — 메뉴 밖 누름은 PopupMenu 가 닫지만 이 단추 위 누름은 여기서 가른다.
+          const rect = e.currentTarget.getBoundingClientRect()
+          setAnchor((cur) => (cur ? null : rect))
         }}
         style={{ position: 'relative', flex: 'none', ...MENU_FRAME, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >

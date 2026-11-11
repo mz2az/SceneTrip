@@ -11,6 +11,7 @@ import { Icon, registerIcon } from '@/design/Icon'
 import { HStack, Spinner, Txt, VStack } from '@/design/primitives'
 import { type PostComment, socialClient } from '@/features/community/client'
 import { relativeTime } from '@/features/community/format'
+import { communityStore } from '@/features/community/store'
 import type { CommunityPost } from '@/features/community/model'
 import { ModerationMenu, ModerationSheets, canBlock, useModerationController } from '@/features/moderation'
 import { commentTarget } from '@/features/moderation/rules'
@@ -63,17 +64,20 @@ export function PostLike({ post }: { post: CommunityPost }) {
   const postId = post.serverId
   const toggle = async () => {
     if (!signedIn) {
-      promptSignIn()
+      promptSignIn(say('좋아요를 누르려면 로그인이 필요해요', 'Sign in to like posts'))
       return
     }
     if (busy) return
     const next = !liked
+    const nextCount = Math.max(0, count + (next ? 1 : -1))
     setBusy(true)
     setLiked(next)
-    setCount((n) => Math.max(0, n + (next ? 1 : -1)))
+    setCount(nextCount)
     setPop((n) => n + 1)
     try {
       await socialClient.like(postId, next)
+      // 목록 줄의 숫자도 바로 맞춘다(MZ2AZ-551) — 전에는 목록을 다시 받을 때까지 옛 숫자였다.
+      communityStore.api.patchPost(postId, { liked: next, likeCount: nextCount })
     } catch {
       setLiked(!next)
       setCount((n) => Math.max(0, n + (next ? -1 : 1)))
@@ -135,14 +139,15 @@ export function PostComments({ postId }: { postId: number }) {
   const send = async () => {
     if (body === '' || sending) return
     if (!signedIn) {
-      promptSignIn()
+      promptSignIn(say('댓글을 쓰려면 로그인이 필요해요', 'Sign in to comment'))
       return
     }
     setSending(true)
     try {
       const created = await socialClient.addComment(postId, body.slice(0, BODY_MAX))
       setItems((cur) => [...(cur ?? []), created])
-      setTotal((n) => n + 1)
+      setTotal(total + 1)
+      communityStore.api.patchPost(postId, { commentCount: total + 1 })
       setText('')
     } catch {
       setFailed(true)
@@ -151,10 +156,12 @@ export function PostComments({ postId }: { postId: number }) {
     }
   }
   const remove = async (c: PostComment) => {
+    const nextTotal = Math.max(0, total - 1)
     setItems((cur) => (cur ?? []).filter((x) => x.id !== c.id))
-    setTotal((n) => Math.max(0, n - 1))
+    setTotal(nextTotal)
     try {
       await socialClient.deleteComment(postId, c.id)
+      communityStore.api.patchPost(postId, { commentCount: nextTotal })
     } catch {
       void load()
     }
@@ -208,8 +215,9 @@ export function PostComments({ postId }: { postId: number }) {
           enterKeyHint="send"
           style={{ flex: 1, minWidth: 0, height: 40, padding: '0 14px', border: 0, outline: 0, borderRadius: radius.pill, background: 'var(--system-gray6)', fontSize: 16 }}
         />
-        <Pressable plain type="submit" disabled={body === '' || sending} style={{ flex: 'none', minHeight: 44, padding: '0 6px' }}>
-          <Txt size={15} weight="bold" style={{ color: body === '' || sending ? 'var(--label-tertiary)' : color.primaryText }}>{say('등록', 'Post')}</Txt>
+        <Pressable plain type="submit" disabled={body === '' || sending} aria-busy={sending} aria-label={say('등록', 'Post')} style={{ flex: 'none', minHeight: 44, minWidth: 40, padding: '0 6px', display: 'grid', placeItems: 'center' }}>
+          {/* 보내는 동안은 글자 대신 도는 표시 — 눌렸는지 모르고 또 누르지 않게(MZ2AZ-551). */}
+          {sending ? <Spinner size={16} /> : <Txt size={15} weight="bold" style={{ color: body === '' ? 'var(--label-tertiary)' : color.primaryText }}>{say('등록', 'Post')}</Txt>}
         </Pressable>
       </form>
       {/* 신고·차단 — 글과 같은 시트·확인 창. 차단하면 서버가 그 사람의 댓글을 빼므로 다시 받는다. */}

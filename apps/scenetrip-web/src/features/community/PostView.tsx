@@ -8,8 +8,8 @@ import { useTabRouter } from '@/app/tabRouter'
 import { Alert } from '@/design/overlay'
 import { Icon } from '@/design/Icon'
 import { HStack, Pressable, Spinner, Txt, VStack, rr } from '@/design/primitives'
-import { ModerationMenu, ModerationSheets, canBlock, postTarget, showsMenu, useModerationController } from '@/features/moderation'
-import { currentLang, tr } from '@/i18n'
+import { ModerationMenu, ModerationSheets, canBlock, postMenuActions, postTarget, useModerationController } from '@/features/moderation'
+import { currentLang, say, tr } from '@/i18n'
 import { promptSignIn, useIsSignedIn } from '@/state/auth'
 import { accountGeneration, useOnAccountChange } from '@/state/shared'
 import { ArticleView, type PhotoSource } from './ArticleView'
@@ -41,6 +41,11 @@ export function PostView({ initialPost, onClose, page = false }: { initialPost: 
   /** 담은 코스의 서버 id. 담고 나면 단추가 「코스 보기」로 바뀐다. */
   const [savedCourseId, setSavedCourseId] = useState<number | null>(null)
   const [saveFailed, setSaveFailed] = useState(false)
+  /** 내 글 지우기(MZ2AZ-551) — 묻는 창, 지우는 중(두 번 누름 막기), 실패 안내. */
+  const [askingDelete, setAskingDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const deletingRef = useRef(false)
+  const [deleteFailed, setDeleteFailed] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const generation = useRef(0)
   const renewal = useMemo(() => createPhotoRenewal(), [])
@@ -100,9 +105,24 @@ export function PostView({ initialPost, onClose, page = false }: { initialPost: 
   const photos: PhotoSource[] = (post.remotePhotos ?? []).map((url) => ({ kind: 'remote', url }))
   const blocks: PostBlock[] = post.bodyBlocks ?? legacyBlocks(post.body, photos.length)
 
+  const removePost = async () => {
+    const id = post.serverId
+    if (id === undefined || deletingRef.current) return
+    deletingRef.current = true
+    setDeleting(true)
+    try {
+      const removed = await communityStore.api.remove(id)
+      if (removed) onClose()
+      else setDeleteFailed(true)
+    } finally {
+      deletingRef.current = false
+      setDeleting(false)
+    }
+  }
+
   const save = async () => {
     if (!signedIn) {
-      promptSignIn()
+      promptSignIn(say('코스를 담으려면 로그인이 필요해요', 'Sign in to save this course'))
       return
     }
     if (saving || post.serverId === undefined) return
@@ -141,9 +161,16 @@ export function PostView({ initialPost, onClose, page = false }: { initialPost: 
               <VStack spacing={16} align="start" pad={`18px ${SECTION_PADDING_X}px`} style={{ width: '100%' }}>
                 <Txt as="h1" size={22} weight="bold" style={{ width: '100%' }}>{post.title}</Txt>
                 <AuthorRow post={post} myNickname={myNickname}>
-                  {post.serverId !== undefined && showsMenu(isMine(post)) && (
-                    <ModerationMenu target={postTarget(post.serverId)} canBlock={canBlock(isMine(post), post.author != null)} controller={moderation} />
-                  )}
+                  {/* 남의 글은 신고·차단, 내 글은 지우기(MZ2AZ-551 — 전에는 내 글이면 메뉴가 통째로 없었다). */}
+                  {post.serverId !== undefined && (deleting ? <Spinner size={16} /> : (
+                    <ModerationMenu
+                      target={postTarget(post.serverId)}
+                      canBlock={canBlock(isMine(post), post.author != null)}
+                      controller={moderation}
+                      actions={postMenuActions({ isMine: isMine(post), onServer: true, hasAuthor: post.author != null })}
+                      onDelete={() => setAskingDelete(true)}
+                    />
+                  ))}
                 </AuthorRow>
                 <ArticleView blocks={blocks} photos={photos} foldReferences />
                 {post.course ? (
@@ -189,6 +216,16 @@ export function PostView({ initialPost, onClose, page = false }: { initialPost: 
         }}
       />
       <Alert open={saveFailed} title={tr('코스를 담지 못했어요. 잠시 뒤 다시 해 주세요')} onClose={() => setSaveFailed(false)} buttons={[{ label: tr('확인'), role: 'cancel' }]} />
+      <Alert
+        open={askingDelete}
+        title={tr('후기를 지울까요?')}
+        onClose={() => setAskingDelete(false)}
+        buttons={[
+          { label: tr('취소'), role: 'cancel' },
+          { label: tr('지우기'), role: 'destructive', onPress: () => void removePost() },
+        ]}
+      />
+      <Alert open={deleteFailed} title={say('글을 지우지 못했어요. 잠시 뒤 다시 해 주세요', "Couldn't delete the post. Please try again later.")} onClose={() => setDeleteFailed(false)} buttons={[{ label: tr('확인'), role: 'cancel' }]} />
     </PhotoRenewContext.Provider>
   )
 }

@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appEvent, track } from '@/analytics'
 import { Alert, Sheet } from '@/design/overlay'
 import { Icon } from '@/design/Icon'
-import { HStack, Pressable, Txt, VStack, rr } from '@/design/primitives'
+import { HStack, Pressable, Spinner, Txt, VStack, rr } from '@/design/primitives'
 import { useAccount } from '@/features/profile/auth/account'
 import { tr } from '@/i18n'
 import { promptSignIn } from '@/state/auth'
@@ -142,8 +142,9 @@ export function ComposeView({ onClose, registerClose, board: initialBoard }: { o
           <Pressable disabled={!canCompose(story)} onClick={() => setPreviewing(true)}>
             <Txt size={17} color={canCompose(story) ? 'accent' : 'tertiary'}>{tr('미리보기')}</Txt>
           </Pressable>
-          <Pressable disabled={!canSubmit} onClick={() => void submit()}>
-            <Txt size={17} weight="semibold" color={canSubmit ? 'accent' : 'tertiary'}>{tr('올리기')}</Txt>
+          {/* 올리는 동안은 글자 대신 도는 표시 — 눌렸는지 모르고 또 누르지 않게(MZ2AZ-551). */}
+          <Pressable disabled={!canSubmit} aria-label={tr('올리기')} aria-busy={sub.working} onClick={() => void submit()} style={{ minWidth: 40, display: 'grid', placeItems: 'center' }}>
+            {sub.working ? <Spinner size={18} /> : <Txt size={17} weight="semibold" color={canSubmit ? 'accent' : 'tertiary'}>{tr('올리기')}</Txt>}
           </Pressable>
         </HStack>
       </HStack>
@@ -160,7 +161,7 @@ export function ComposeView({ onClose, registerClose, board: initialBoard }: { o
             </>
           )}
           {!signedIn ? (
-            <Pressable onClick={() => promptSignIn()} style={{ padding: '0 20px' }}><Txt size={17} color="accent">{tr('로그인한 뒤에 쓸 수 있어요')}</Txt></Pressable>
+            <Pressable onClick={() => promptSignIn(say('글을 쓰려면 로그인이 필요해요', 'Sign in to write a post'))} style={{ padding: '0 20px' }}><Txt size={17} color="accent">{tr('로그인한 뒤에 쓸 수 있어요')}</Txt></Pressable>
           ) : (
             composingEpoch !== account.epoch && <Txt size={13} color="red" style={{ padding: '0 20px' }}>{tr('계정이 바뀌었어요. 이 초안을 닫고 새로 작성해 주세요')}</Txt>
           )}
