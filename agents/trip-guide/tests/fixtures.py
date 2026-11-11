@@ -87,6 +87,25 @@ class FakeBook(PlaceSource):
                 return key, places[:limit]
         return None, []
 
+    def exact_title(
+        self, query: str, limit: int = 10
+    ) -> tuple[str | None, list[Place]]:
+        """작품 제목·별칭과 **정확히** 같을 때만 그 작품의 촬영지(MZ2AZ-555). 별칭은 `details` 의 aliases 로 본다.
+
+        `by_title` 과 달리 부분 일치를 받지 않는다 — 검색어가 작품 이름일 때만 장소 검색을 작품 모드로 바꾼다.
+        """
+        want = norm(query)
+        if not want:
+            return None, []
+        for key, places in self.catalog.items():
+            names = [key]
+            for d in self.details:
+                if norm(d.get("title", "")) == norm(key):
+                    names += list(d.get("aliases") or [])
+            if any(norm(n) == want for n in names):
+                return key, places[:limit]
+        return None, []
+
     def title_detail(self, title: str) -> dict | None:
         """SceneApiPlaceBook.title_detail 과 같은 계약 — 제목·별칭이 같은 작품의 ContentDetail, 없으면 None."""
         self.detail_calls.append(title)

@@ -1,4 +1,4 @@
-# 가이드 작품 정보와 카드 「길찾기」 (MZ2AZ-554)
+# 가이드 작품 정보와 카드 「길찾기」 (MZ2AZ-554) · 작품 이름 장소 검색 (MZ2AZ-555)
 
 상태: 구현됨 — 에이전트·iOS·웹. Android 는 범위 밖.
 
@@ -47,3 +47,21 @@
 
 - 에이전트: `tests/test_title_info_554.py`(스키마·결과·거절·scene-api 두 번 부름·프롬프트), 평가 사례 하나.
 - iOS: `tests/RouteGuideDirectionsTests.swift`. 웹: `guideDirections.test.ts`, `GuideSheet.directions.test.tsx`.
+- 에이전트(555): `tests/test_title_query_search_555.py`(두 창구의 `exact_title`·`search_places` 작품 모드와 부분 일치·도구 설명·프롬프트).
+
+## 5. 장소 검색이 작품 이름이면 그 작품의 촬영지만 (MZ2AZ-555)
+
+dev 에서 「kpop demon hunters 성지 알려줘」 에 모델이 `search_places` 를 불렀고, `/places?q=` 가 낱말이 걸린 인기 장소를
+돌려줘 다른 작품(경이로운 소문)의 원주시청이 섞이고 실제 촬영지 몇 곳은 빠졌다.
+
+| 문제 | 바꾼 것 |
+| --- | --- |
+| `search_places` 가 작품 이름도 `/places?q=` 로 찾았다 | 지역 결과(주소로 거른 곳)가 아닐 때만, 일반 단어를 뗀 검색어가 작품 제목·별칭과 **정확히** 같으면 `book.exact_title(query, limit)` 로 그 작품의 촬영지만, `list_title_places` 와 같은 모양(`작품`·`안내`·`촬영지`)으로 준다. 기억하고 지도에 띄운다. 부분 일치(제목의 일부·지역·배우)는 예전 장소 검색 그대로 |
+| 도구 설명이 「작품 이름」 으로도 찾으라 했다 | `schemas/tools.json` `search_places` 설명에서 작품 이름을 빼고, 작품을 말했으면 `list_title_places` 를 부르라고 적었다 |
+| 프롬프트 표에 영어 제목·「성지」 예가 없었다 | §3 표에 「kpop demon hunters 성지」 · 「Crash Landing on You filming spots」 → `list_title_places`, 그리고 한 문장 — 작품 이름이 들어 있으면 `search_places` 말고 `list_title_places` 부터 |
+
+- 창구 `exact_title`: scene-api(`src/sceneapi.py`)는 `title_detail` 과 같은 고르기(`_match_content`)를 부분 일치 없이 쓴다 —
+  `GET /contents?q=` 목록 제목이 같으면 그것, 아니면 후보마다(최대 5) `GET /contents/{id}` 의 별칭까지. 찾으면
+  `GET /contents/{id}/places?limit=`, 못 찾으면 (None, []) 이고 촬영지는 부르지 않는다. CSV(`src/places.py`)는 `by_title` 과
+  같은 훑기(`_title_rows`)를 부분 일치 없이 — 제목·영문 제목이 같은 것만. `PlaceSource` 기본은 (None, []).
+- 지역이 먼저다 — 「해운대」·「밀양」 처럼 지역과 이름이 같은 작품이 있고, 지역 검색에 작품 확인 호출(scene-api 최대 6 번)을 더하지 않으려고 지역 결과면 `exact_title` 을 아예 부르지 않는다.

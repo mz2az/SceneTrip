@@ -248,7 +248,7 @@ DB 것을 넘기면 챗봇이 **이미 없는 것을 빼려 하거나 옛 일정
 
 | 도구 | 사용자 말 | 부르는 GET | effects | ui |
 | --- | --- | --- | --- | --- |
-| `search_places` | "공유 나온 데 어디야" | `/places?q=` | — | `map.focus` |
+| `search_places` | "공유 나온 데 어디야" | `/places?q=`. 지역 결과가 아니면 `/contents` → (`/contents/{id}`) → 작품 이름이 맞으면 `/contents/{id}/places` (MZ2AZ-555) | — | `map.focus` |
 | `list_title_places` | "도깨비 촬영지" | `/contents` → `/contents/{id}/places` | — | `map.focus` |
 | `places_near` | "이 근처" | `/places?lat&lng&radiusMeters` | — | `map.focus` |
 | `place_detail` | "거기 무슨 장면이야" | `/places/{id}` | — | `place.card` |

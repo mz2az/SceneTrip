@@ -57,6 +57,7 @@ TESTS = [
     "tests/test_scope.py",
     "tests/test_title_detail_match_554.py",
     "tests/test_title_info_554.py",
+    "tests/test_title_query_search_555.py",
     "tests/test_title_search_553.py",
     "tests/test_tools.py",
     "tests/test_tracing.py",
