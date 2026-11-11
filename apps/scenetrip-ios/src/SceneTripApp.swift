@@ -23,23 +23,35 @@ struct SceneTripApp: App {
         // 앱 언어를 모든 요청의 Accept-Language 로 (MZ2AZ-305). 서버는 없으면 ko 로 폴백한다.
         _ = AppLanguage.shared // 고른 언어를 먼저 읽는다 — 아래 헤더가 그것을 쓴다.
         AppLocale.install()
+        // 웹뷰 껍데기(MZ2AZ-557 실험)면 네이티브 계정·분석을 켜지 않는다 — 웹이 자기 것을 쓴다(두 번 세지 않게).
+        guard Self.webShellBase == nil else { return }
         // 로그인 — 요청에 토큰을 싣고 401(만료·폐기)을 처리한다 (MZ2AZ-336).
         AuthStore.shared.start()
         // 앱 분석 — 설정 파일(GoogleService-Info.plist)이 번들에 있을 때만 켜진다 (MZ2AZ-353).
         AppAnalytics.start(language: AppLanguage.current.rawValue, member: AuthStore.shared.signedIn)
     }
 
+    /// 웹뷰 껍데기 스위치 (MZ2AZ-557, ADR 0029 제안). 빌드에 주소를 넣지 않으면 nil — 기존 네이티브 앱 그대로다.
+    private static let webShellBase = WebShellRules.baseURL(WebShellBuild.url)
+
     /// `Scene` 을 한정한다 — 명세에 같은 이름의 모델(장면)이 있어 생성 클라이언트의
     /// SceneApiClient.Scene 과 SwiftUI.Scene 이 부딪힌다.
     var body: some SwiftUI.Scene {
         WindowGroup {
-            // 스플래시 → (처음이면) 사용법 → 앱. AppRoot 가 그 순서만 든다.
-            AppRoot()
-                .onChange(of: scenePhase) { _, phase in
-                    if phase == .active {
-                        MetaAnalytics.shared.activate()
+            if let base = Self.webShellBase {
+                WebShellView(base: base)
+                    .ignoresSafeArea()
+                    // 구글 로그인 창이 돌아오는 주소 (로그인 다리, WebShellAuthBridge).
+                    .onOpenURL { _ = GoogleOAuth.handle($0) }
+            } else {
+                // 스플래시 → (처음이면) 사용법 → 앱. AppRoot 가 그 순서만 든다.
+                AppRoot()
+                    .onChange(of: scenePhase) { _, phase in
+                        if phase == .active {
+                            MetaAnalytics.shared.activate()
+                        }
                     }
-                }
+            }
         }
     }
 }

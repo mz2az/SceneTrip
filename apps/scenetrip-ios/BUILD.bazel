@@ -68,6 +68,20 @@ EOF""",
     tags = ["ios"],
 )
 
+# 웹뷰 껍데기 실험 스위치 (MZ2AZ-557, ADR 0029 제안). 기본 빈 값(.bazelrc) = 끔 — 기존 앱 그대로.
+# 값은 `just ios-run-webshell` 만 넣는다. 주소 검증은 앱이 `WebShellRules.baseURL` 로 한다(틀리면 끔).
+genrule(
+    name = "web_shell_swift",
+    outs = ["WebShellBuild.swift"],
+    cmd = """cat > $@ <<'EOF'
+// 생성 파일 — 고치지 않는다. //apps/scenetrip-ios:web_shell_swift 가 만든다.
+enum WebShellBuild {
+    static let url = "$(scenetrip_web_shell_url)"
+}
+EOF""",
+    tags = ["ios"],
+)
+
 mobile_api_config(
     name = "api_configuration",
     out = "ApiConfiguration.swift",
@@ -193,6 +207,7 @@ swift_library(
         "src/SearchTab/SceneZoomView.swift",
         ":api_configuration",
         ":secrets_swift",
+        ":web_shell_swift",
     ],
     # 마스코트 일러스트(진도 캐릭터 시트에서 오려 낸 6장). rules_apple 이
     # xcassets 를 Assets.car 로 구워 번들에 넣는다.

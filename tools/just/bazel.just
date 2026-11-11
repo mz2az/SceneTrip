@@ -117,6 +117,18 @@ ios-run-cloud endpoint *args:
     {{BAZEL}} build //apps/scenetrip-ios:bin --define=scenetrip_api_base_url={{quote(endpoint)}} --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}" --define=sentry_dsn_ios="${SENTRY_DSN_IOS:-}" --define=posthog_key="${POSTHOG_KEY:-}"
     bash ./tools/scripts/ios-run.sh {{args}}
 
+# 웹뷰 껍데기 실험(MZ2AZ-557) — 앱이 네이티브 화면 대신 웹앱을 연다. 스위치를 넣지 않은 빌드(just ios-run)는 기존 앱 그대로다.
+# 시험판 웹은 https://dev.scenetrip.io, 이 저장소의 웹 변경을 보려면 just web-dev 를 띄우고 http://localhost:5173.
+
+# iOS 앱을 웹뷰 껍데기로 시뮬레이터에 띄운다 (실험). 예: `just ios-run-webshell https://dev.scenetrip.io`
+[group('build')]
+ios-run-webshell url *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case {{quote(url)}} in https://*|http://localhost:*|http://127.0.0.1:*) ;; *) echo 'https 주소(시뮬레이터 개발용은 http://localhost:포트)가 필요합니다' >&2; exit 1 ;; esac
+    {{BAZEL}} build //apps/scenetrip-ios:bin --define=scenetrip_web_shell_url={{quote(url)}} --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
+    bash ./tools/scripts/ios-run.sh {{args}}
+
 # 첫 실행에도 스플래시·언어 고르기·사용법 없이 바로 앱(홈 탭)이 뜬다 (MZ2AZ-526).
 # 저장된 언어가 없으면 영어다. 사용법 넉 장은 앱 안에서만 본다 — 마이페이지 → 사용법 다시 보기.
 # 설치 직후 상태(영어·ATT 미결정)를 다시 보려면 just ios-reinstall.
