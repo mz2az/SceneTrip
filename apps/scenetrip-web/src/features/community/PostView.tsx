@@ -111,7 +111,8 @@ export function PostView({ initialPost, onClose, page = false }: { initialPost: 
     deletingRef.current = true
     setDeleting(true)
     try {
-      const removed = await communityStore.api.remove(id)
+      // 실패 안내는 이 화면의 알림창 하나로 — 목록의 안내 줄까지 띄우면 두 번 보인다.
+      const removed = await communityStore.api.remove(id, { quiet: true })
       if (removed) onClose()
       else setDeleteFailed(true)
     } finally {
@@ -218,7 +219,7 @@ export function PostView({ initialPost, onClose, page = false }: { initialPost: 
       <Alert open={saveFailed} title={tr('코스를 담지 못했어요. 잠시 뒤 다시 해 주세요')} onClose={() => setSaveFailed(false)} buttons={[{ label: tr('확인'), role: 'cancel' }]} />
       <Alert
         open={askingDelete}
-        title={tr('후기를 지울까요?')}
+        title={post.serverBoard === 'free' ? say('글을 지울까요?', 'Delete this post?') : say('후기를 지울까요?', 'Delete this review?')}
         onClose={() => setAskingDelete(false)}
         buttons={[
           { label: tr('취소'), role: 'cancel' },

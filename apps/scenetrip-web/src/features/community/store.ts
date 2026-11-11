@@ -59,8 +59,8 @@ export interface CommunityStoreApi extends CommunityState {
   accept(detail: PostDetail): void
   clearMyPosts(): void
   detail(post: CommunityPost): Promise<CommunityPost>
-  /** 내 글 지우기. 실패하면 글을 남기고 `message` 를 띄운다. 지웠으면 true. */
-  remove(serverId: number): Promise<boolean>
+  /** 내 글 지우기. 실패하면 글을 남기고 `message` 를 띄운다(`quiet` 면 띄우지 않는다 — 부른 쪽이 따로 알린다). 지웠으면 true. */
+  remove(serverId: number, options?: { quiet?: boolean }): Promise<boolean>
   /** 상세에서 바뀐 값(좋아요·댓글 수)을 목록 줄에도 싣는다 — 피드와 「내가 쓴 글」 의 같은 id 줄(MZ2AZ-551). */
   patchPost(serverId: number, patch: Partial<Pick<PostSummary, 'likeCount' | 'liked' | 'commentCount'>>): void
   /** 후기의 코스를 내 코스로 담는다 — 새 코스의 서버 id. */
@@ -188,7 +188,7 @@ export function createCommunityStore(options: CommunityStoreOptions = {}): Commu
       if (epoch !== epochNow()) throw new DOMException('account changed', 'AbortError')
       return postFromDetail(detail)
     },
-    async remove(serverId) {
+    async remove(serverId, options) {
       const epoch = epochNow()
       try {
         await client.delete(serverId)
@@ -202,7 +202,7 @@ export function createCommunityStore(options: CommunityStoreOptions = {}): Commu
         })
         return true
       } catch (error) {
-        patch({ message: failureText(error) })
+        if (!options?.quiet) patch({ message: failureText(error) })
         return false
       }
     },
