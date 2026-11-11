@@ -179,6 +179,19 @@ class SceneApiPlaceBook(PlaceSource):
         data = self._get("/places", {"city": city, "limit": limit})
         return [self._to_place(i) for i in data.get("items", [])]
 
+    def title_detail(self, title: str) -> dict[str, Any] | None:
+        """작품 상세(ContentDetail) — 줄거리·출연·연도·장르(MZ2AZ-554).
+
+        `by_title` 과 같이 `GET /contents?q=` 로 찾아 제목이 정확히 같은 것을, 없으면 1 위를 고르고
+        `GET /contents/{id}` 로 상세를 받는다. 검색이 비면 한 번만 부르고 None.
+        """
+        found = self._get("/contents", {"q": title, "limit": 5}).get("items", [])
+        if not found:
+            return None
+        want = norm(title)
+        best = next((c for c in found if norm(c.get("title", "")) == want), found[0])
+        return self._get(f"/contents/{best['id']}") or None
+
     def near(
         self,
         lat: float,
