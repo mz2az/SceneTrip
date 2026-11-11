@@ -175,8 +175,9 @@ export function useSearchTab(active = true, embedded = false) {
   )
 
   /** 작품을 고르면 작품 상세로 들어간다. 검색어·검색 결과·탭은 건드리지 않는다 — 뒤로 가면 고르기 전 화면 그대로다. */
-  const openContent = useCallback(
-    (content: ContentSummary) => {
+  /** `syncUrl` — 주소에 싣는가. 홈 쪽지·주소창이 연 것은 이미 그 주소다(먼저 실으면 홈 주소 위에 쌓인다). */
+  const showContent = useCallback(
+    (content: ContentSummary, syncUrl: boolean) => {
       selectedContentId.current = content.id
       setSelectedContent(content)
       setContentPlaces([])
@@ -184,7 +185,7 @@ export function useSearchTab(active = true, embedded = false) {
       setSelectedPlace(null)
       blurSearch()
       setDetent('medium')
-      showDetailUrl(paths.searchContent(content.id), inSearchDetail)
+      if (syncUrl) showDetailUrl(paths.searchContent(content.id), inSearchDetail)
       void data
         .placesOfContent(content.id)
         .catch(() => [] as PlaceSummary[])
@@ -198,6 +199,7 @@ export function useSearchTab(active = true, embedded = false) {
     },
     [data, showDetailUrl],
   )
+  const openContent = useCallback((content: ContentSummary) => showContent(content, true), [showContent])
 
   const openPlace = useCallback((place: PlaceSummary) => {
     setSelectedPlace(place)
@@ -357,17 +359,21 @@ export function useSearchTab(active = true, embedded = false) {
       if (place) {
         setSelectedPlace(place)
         setFocusToken((n) => n + 1)
+        // 목록·핀에서 연 것과 같이 주소를 쌓는다(MZ2AZ-551).
+        showDetailUrl(paths.searchPlace(place.id), onPlacePath)
         return
       }
       // 받아 둔 첫 쪽에 없을 수 있다(흔한 이름이면 결과가 한 쪽을 넘는다) — 그 곳을 직접 받는다(MZ2AZ-372).
       void data.detailOfPlace(wanted).then((found) => {
         if (selectedContentId.current !== null) return
+        const opening = selectedPlaceId.current === null
         setSelectedPlace((cur) => cur ?? placeSummaryOf(found))
         setFocusToken((n) => n + 1)
+        if (opening) showDetailUrl(paths.searchPlace(found.id), onPlacePath)
       }).catch(() => {})
     }
     setFitToken((n) => n + 1)
-  }, [scene.phase, scene.places, data])
+  }, [scene.phase, scene.places, data, showDetailUrl])
 
   // 홈이 남긴 「이 작품/이 촬영지 열어 줘」 쪽지 — 요약을 그대로 받아 상세를 연다. 자기 목록에서 찾지 않는다(검색한 뒤면 목록이 걸러져 있다). 쪽지는 한 번 읽고 버린다.
   const pendingContent = useStore(pendingStore, (s) => s.content)
@@ -375,8 +381,8 @@ export function useSearchTab(active = true, embedded = false) {
   useEffect(() => {
     if (!pendingContent) return
     const wanted = consumePending('content')
-    if (wanted) openContent(wanted)
-  }, [pendingContent, openContent])
+    if (wanted) showContent(wanted, false)
+  }, [pendingContent, showContent])
   useEffect(() => {
     if (!pendingPlace) return
     const wanted = consumePending('place')
@@ -425,7 +431,8 @@ export function useSearchTab(active = true, embedded = false) {
     prevPath.current = pathname
     const stack = pushedDetails.current
     const at = stack.lastIndexOf(pathname)
-    if (pathname === paths.search) stack.length = 0
+    // 작품검색 탭을 떠나면(홈·커뮤니티·덮개) 쌓은 기록을 버린다 — 홈에서 같은 상세 주소로 다시 와도 그 칸은 우리가 쌓은 것이 아니다.
+    if (pathname === paths.search || !(pathname === paths.search || inSearchDetail(pathname))) stack.length = 0
     else if (at >= 0) stack.length = at + 1
     if (pathname === paths.search) {
       if (!inSearchDetail(before)) return
@@ -448,7 +455,7 @@ export function useSearchTab(active = true, embedded = false) {
         setFitToken((n) => n + 1)
       }
       if (!Number.isFinite(id) || selectedContentId.current === id || pending?.id === id) return
-      void ok(api.GET('/contents/{contentId}', { params: { path: { contentId: id } } })).then((detail) => openContent(summaryOf(detail))).catch(() => {})
+      void ok(api.GET('/contents/{contentId}', { params: { path: { contentId: id } } })).then((detail) => showContent(summaryOf(detail), false)).catch(() => {})
     } else if (p) {
       const id = Number(p.params.placeId)
       const pending = pendingStore.get().place
