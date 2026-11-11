@@ -150,6 +150,15 @@
       }
     },
     {
+      "name": "영어작품이름-성지-알려줘도-list_title_places",
+      "_설명": "dev 에서 모델이 search_places 를 불러 다른 작품(경이로운 소문)의 원주시청이 섞이고 실제 촬영지는 빠졌다. 작품을 말하면 그 작품의 촬영지 도구다 (MZ2AZ-555).",
+      "utterance": "kpop demon hunters 성지 알려줘",
+      "expect": "list_title_places",
+      "args": {
+        "title": "kpop demon hunters"
+      }
+    },
+    {
       "name": "작품으로-없으면-장소검색으로-잇는다",
       "_설명": "작품 목록에 없는 말이면 /places?q= 로 한 번 더 찾는다. 둘 다 비어야 거절한다 (MZ2AZ-553).",
       "utterance": "남산 성지 알려줘",
