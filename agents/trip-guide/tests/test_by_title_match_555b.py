@@ -98,7 +98,9 @@ class 가짜서버(SceneApiPlaceBook):
             return {"items": [], "total": 0}
         parts = path.strip("/").split("/")
         if parts[0] == "contents" and len(parts) == 3 and parts[2] == "places":
-            items = TITLE_PLACES.get(int(parts[1]), [])[: int(params.get("limit") or 200)]
+            items = TITLE_PLACES.get(int(parts[1]), [])[
+                : int(params.get("limit") or 200)
+            ]
             return {"items": [dict(i) for i in items], "total": len(items)}
         if parts[0] == "contents" and len(parts) == 2:
             return dict(DETAILS.get(int(parts[1]), {}))
@@ -140,7 +142,9 @@ class 작품찾기는_첫_검색결과로_넘어가지_않는다(unittest.TestCa
     def test_상세_호출은_다섯_번까지(self):
         book = 가짜서버()
         book.by_title("demon hunters", 10)
-        details = [p for p in book.paths() if p.count("/") == 2 and not p.endswith("/places")]
+        details = [
+            p for p in book.paths() if p.count("/") == 2 and not p.endswith("/places")
+        ]
         self.assertLessEqual(len(details), 5)
 
     def test_list_title_places_는_물은_작품의_촬영지(self):
@@ -148,7 +152,9 @@ class 작품찾기는_첫_검색결과로_넘어가지_않는다(unittest.TestCa
         s = Session(book=book)
         out = run_tool("list_title_places", {"title": "demon hunters"}, s)
         self.assertEqual(out.get("작품"), "KPop Demon Hunters")
-        self.assertNotIn("원주시청", [c.get("이름") or c.get("name") for c in out["촬영지"]])
+        self.assertNotIn(
+            "원주시청", [c.get("이름") or c.get("name") for c in out["촬영지"]]
+        )
         self.assertNotIn("/contents/39/places", book.paths())
 
 

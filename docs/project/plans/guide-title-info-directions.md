@@ -65,3 +65,4 @@ dev 에서 「kpop demon hunters 성지 알려줘」 에 모델이 `search_place
   `GET /contents/{id}/places?limit=`, 못 찾으면 (None, []) 이고 촬영지는 부르지 않는다. CSV(`src/places.py`)는 `by_title` 과
   같은 훑기(`_title_rows`)를 부분 일치 없이 — 제목·영문 제목이 같은 것만. `PlaceSource` 기본은 (None, []).
 - 지역이 먼저다 — 「해운대」·「밀양」 처럼 지역과 이름이 같은 작품이 있고, 지역 검색에 작품 확인 호출(scene-api 최대 6 번)을 더하지 않으려고 지역 결과면 `exact_title` 을 아예 부르지 않는다.
+- 후속(dev 19d3349d): `list_title_places` 「demon hunters」 에 `/contents?q=` 1 위(설명이 걸린 경이로운 소문)의 촬영지가 나갔다. scene-api `by_title` 도 `_match_content(partial=True)` 로 고른다 — 제목·별칭이 같은 것, 아니면 세 글자 이상 물음이 제목·별칭에 든 것, 둘 다 없으면 (None, []) 이고 도구의 장소 검색 대체(「작품으로는 못 찾았다」)가 맡는다. 첫 검색 결과로 넘어가지 않는다.

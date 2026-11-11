@@ -160,19 +160,17 @@ class SceneApiPlaceBook(PlaceSource):
         지목했을 때만** 장면 설명을 채워 주기 때문이다. `/places?q=도깨비` 로
         한 번에 받으면 장면 설명이 비어 나온다 — 사용자가 가장 보고 싶어 하는
         바로 그 문장이다.
+
+        작품은 `title_detail` 과 같이 고른다(`_match_content(..., partial=True)`) — 제목·별칭이 같은 것, 없으면
+        세 글자 이상인 물음이 제목·별칭에 든 것. 둘 다 없으면 (None, []) 이다. `/contents?q=` 의 1 위로 넘어가지
+        않는다 — 「demon hunters」 에 설명이 걸린 경이로운 소문이 1 위로 와서 그 촬영지를 물은 작품의 것처럼
+        돌려줬다(MZ2AZ-555, dev). 못 찾으면 `list_title_places` 가 장소 검색으로 대신 찾는다.
         """
-        found = self._get("/contents", {"q": title, "limit": 5}).get("items", [])
-        if not found:
+        hit, _ = self._match_content(title, partial=True)
+        if hit is None:
             return None, []
-
-        # 서버는 인기도순으로 준다. 그중 제목이 정확히 같은 것이 있으면 그것을
-        # 고른다 — 「도깨비」 를 물었는데 설명에 그 말이 든 다른 작품이 1 위로
-        # 올라오는 경우를 막는다.
-        want = norm(title)
-        best = next((c for c in found if norm(c.get("title", "")) == want), found[0])
-
-        data = self._get(f"/contents/{best['id']}/places", {"limit": limit})
-        return best.get("title"), [self._to_place(i) for i in data.get("items", [])]
+        data = self._get(f"/contents/{hit['id']}/places", {"limit": limit})
+        return hit.get("title"), [self._to_place(i) for i in data.get("items", [])]
 
     def by_city(self, city: str, limit: int = 200) -> list[Place]:
         """`GET /places?city=` — 서버의 기본 정렬(인기도 내림차순) 그대로(MZ2AZ-548)."""
