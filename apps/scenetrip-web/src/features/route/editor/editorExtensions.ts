@@ -45,6 +45,8 @@ export interface EditorHost {
   fit(): void
   /** 장바구니 시트를 연다. */
   openCart(): void
+  /** 해태 동그라미의 바닥 여백(편집 화면 바닥에서). 새 코스 편집에서 아래 줄이 보이면 그만큼 올라간다(MZ2AZ-556). 없으면 기본 자리. */
+  chipBottom?: number
   /** 그 줄의 정보 카드를 연다(iOS `pickedStop = stop`). 안내를 못 켜는 곳을 누르면 이것이 불린다. */
   openInfo?(stop: RouteStop): void
 }

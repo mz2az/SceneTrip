@@ -12,6 +12,9 @@ import type { RouteCourse, RouteStop } from '../models'
 import { LargeButton } from '../ui/LargeButton'
 
 const BAR_BUTTON = { fontSize: 15, height: 32 }
+const BAR_PAD_Y = 8
+/** 아래 줄의 높이(단추 + 위아래 여백). 편집 화면의 ＋·해태가 이만큼 비켜 선다(features/proto/addFabLayout, MZ2AZ-556). */
+export const BOTTOM_BAR_HEIGHT = BAR_BUTTON.height + BAR_PAD_Y * 2
 
 export function BottomBar({ course, stops, isNew, saving, onCreate, onToggleRunning, onNavigate }: {
   course: RouteCourse
@@ -49,7 +52,7 @@ export function BottomBar({ course, stops, isNew, saving, onCreate, onToggleRunn
       </>
     )
   }
-  return <div style={{ flex: 'none', display: 'flex', gap: 10, padding: '8px 16px', background: 'var(--system-background)', alignItems: 'center' }}>{body}</div>
+  return <div style={{ flex: 'none', display: 'flex', gap: 10, padding: `${BAR_PAD_Y}px 16px`, background: 'var(--system-background)', alignItems: 'center' }}>{body}</div>
 }
 
 /** 갈 수 있는 곳이 다 폐업·숨김이면 「오늘 일정을 모두 돌았어요」 라고 말하지 않는다. */

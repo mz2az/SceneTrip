@@ -72,6 +72,7 @@ export function placeLookup(places: readonly PlaceSummary[]): PlaceLookup {
 /**
  * 초안을 코스로. **촬영지의 이름·주소는 앱 언어로 바꾼다**(MZ2AZ-530) — 에이전트는 Accept-Language 와 무관하게 한국어로 주는데,
  * 저장 뒤 다시 열면 서버가 앱 언어로 준다. `places` 에 없으면 초안 그대로 둔다. 편의시설·핀 줄은 건드리지 않는다.
+ * 사진은 목록의 것, 없으면 초안 정지점의 것을 쓴다(MZ2AZ-556).
  */
 export function courseFromPlan(plan: GuidePlan, p: { title: string; startDate: string | null; pace: RoutePace; places?: PlaceLookup }): RouteCourse {
   const skipped: string[] = []
@@ -93,6 +94,8 @@ export function courseFromPlan(plan: GuidePlan, p: { title: string; startDate: s
                 {
                   id: identity === null ? missingId(stop) : (stop.placeId ?? NO_PLACE_ID),
                   name: known?.name ?? stop.name, type: null, address: known?.address ?? stop.address ?? null, latitude: stop.latitude, longitude: stop.longitude,
+                  // 줄 사진 — 목록의 사진 → 초안 정지점의 사진 순(MZ2AZ-556). 없으면 줄이 빈 칸으로 그려진다.
+                  imageUrl: known?.imageUrl ?? stop.imageUrl ?? null,
                 },
                 identity?.kind ?? { type: 'place' },
                 {
