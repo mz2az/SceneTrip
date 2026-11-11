@@ -39,6 +39,7 @@ extension RouteEditorView {
             onAdd: addGuidePlace,
             isAdded: isAdded,
             onRemove: removeGuidePlace,
+            onDirections: guideDirections,
             onOpenPlanner: leaveForPlanner,
             onClose: { showGuide = false }
         )
