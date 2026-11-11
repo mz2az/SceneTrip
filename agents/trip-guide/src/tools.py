@@ -466,11 +466,6 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
         if not query:
             return _refuse("무엇으로 찾을지(지역·작품·장소 이름) 사용자에게 물어봐라")
         limit = args.get("limit", 8)
-        # 검색어가 작품 제목·별칭과 **정확히** 같으면 그 작품의 촬영지만 준다(MZ2AZ-555). `/places?q=` 는 낱말이 걸린
-        # 다른 작품의 장소(「kpop demon hunters」 에 경이로운 소문의 원주시청)를 섞고 실제 촬영지를 빠뜨린다.
-        matched, titled = book.exact_title(query, limit)
-        if titled:
-            return _title_places(session, matched, titled)
         hits = book.search(query, _REGION_FETCH)
         # **검색어가 지역이면 주소가 그 지역인 곳만 남긴다.** 하나도 안 맞으면 지역이 아니라
         # 작품·장소 이름으로 찾은 것이라 그대로 둔다.
@@ -498,6 +493,13 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
                     f"인기 순서로 {len(shown)}곳만 보여 준다. 더 있다고 한 문장으로 알려라"
                 )
         else:
+            # 지역이 아닐 때만 작품 이름인지 본다(MZ2AZ-555). 검색어가 작품 제목·별칭과 **정확히** 같으면
+            # 그 작품의 촬영지만 — `/places?q=` 는 낱말이 걸린 다른 작품의 장소(「kpop demon hunters」 에 경이로운
+            # 소문의 원주시청)를 섞고 실제 촬영지를 빠뜨린다. 지역이 먼저인 까닭은 「해운대」·「밀양」 처럼 지역과
+            # 이름이 같은 작품이 있어서고, 지역 검색에 작품 확인 호출(scene-api 최대 6 번)을 더하지 않기 위해서다.
+            matched, titled = book.exact_title(query, limit)
+            if titled:
+                return _title_places(session, matched, titled)
             shown = hits[:limit]
             out = {"찾은 곳": [_brief(p) for p in shown]}
         if not shown:

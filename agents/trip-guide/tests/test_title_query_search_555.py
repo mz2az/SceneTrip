@@ -407,5 +407,61 @@ class 프롬프트(unittest.TestCase):
         )
 
 
+# ── 4. 지역이 먼저 — 지역 결과면 작품 이름을 확인하지 않는다 ──────────────────
+
+HAEUNDAE = {
+    "id": 60,
+    "category": "movie",
+    "title": "해운대",
+    "aliases": ["Haeundae"],
+    "placeCount": 1,
+}
+HAEUNDAE_BEACH = _item(
+    401, "해운대해수욕장", "부산광역시 해운대구 해운대해변로 264", HAEUNDAE
+)
+DONGBAEK = _item(402, "동백섬", "부산광역시 해운대구 우동 710-1", GOBLIN)
+
+
+class 지역서버(가짜서버):
+    """「해운대」 는 지역이면서 작품 제목이다. 「전주」 는 `/contents?q=` 에 후보 다섯이 걸린다."""
+
+    def _get(self, path, params=None):
+        q = norm(str((params or {}).get("q") or ""))
+        if path == "/places" and q == norm("해운대"):
+            self.calls.append((path, dict(params or {})))
+            items = [HAEUNDAE_BEACH, DONGBAEK]
+            return {"items": [dict(i) for i in items], "total": len(items)}
+        if path == "/contents" and q in (norm("해운대"), norm("전주")):
+            self.calls.append((path, dict(params or {})))
+            many = [HAEUNDAE] if q == norm("해운대") else [GOBLIN] * 5
+            return {"items": [_summary(d) for d in many], "total": len(many)}
+        return super()._get(path, params)
+
+
+class 지역이_먼저(unittest.TestCase):
+    def run_search(self, query: str):
+        book = 지역서버()
+        s = Session(book=book)
+        return book, s, run_tool("search_places", {"query": query}, s)
+
+    def _no_content_calls(self, book: 지역서버) -> None:
+        self.assertFalse(
+            [p for p in book.paths() if p.startswith("/contents")],
+            f"지역 검색인데 작품을 확인했다: {book.paths()}",
+        )
+
+    def test_작품과_이름이_같은_지역은_지역결과(self):
+        book, _, out = self.run_search("해운대")
+        self.assertEqual(out.get("지역"), "해운대", out)
+        self.assertNotIn("작품", out, out)
+        self.assertEqual(_names(out["찾은 곳"]), ["해운대해수욕장", "동백섬"])
+        self._no_content_calls(book)
+
+    def test_지역검색은_작품확인_호출을_더하지_않는다(self):
+        book, _, out = self.run_search("전주")
+        self.assertEqual(out.get("지역"), "전주", out)
+        self._no_content_calls(book)
+
+
 if __name__ == "__main__":
     unittest.main()
