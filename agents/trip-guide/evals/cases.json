@@ -159,6 +159,15 @@
       }
     },
     {
+      "_설명": "작품의 줄거리·출연진을 물으면 작품 정보를 받는다. 줄거리·출연은 지어내지 않고 도구 결과로만 답한다 (MZ2AZ-554).",
+      "name": "작품내용을-물으면-title_info",
+      "utterance": "기생충 무슨 내용이야",
+      "expect": "title_info",
+      "args": {
+        "title": "기생충"
+      }
+    },
+    {
       "name": "근처를-물으면-places_near",
       "utterance": "이 근처 촬영지 뭐 있어",
       "expect": "places_near",
