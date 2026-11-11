@@ -380,6 +380,36 @@ def _revision_result(rev: Revision) -> dict[str, Any]:
     return out
 
 
+_PLOT_LIMIT = 600  # 줄거리가 길면 답이 늘어진다 — 이만큼에서 자른다
+
+
+def _title_info(detail: dict[str, Any]) -> dict[str, Any]:
+    """ContentDetail(scene-api `GET /contents/{id}`) 을 모델에게 줄 모양으로. 비어 있는 칸은 싣지 않는다."""
+    cast = detail.get("cast") or []
+
+    def names(role: str) -> list[str]:
+        return [c["name"] for c in cast if c.get("roleType") == role and c.get("name")]
+
+    plot = (detail.get("description") or "").strip()
+    if len(plot) > _PLOT_LIMIT:
+        plot = plot[:_PLOT_LIMIT].rstrip() + "…"
+    out: dict[str, Any] = {
+        "작품": detail.get("title"),
+        "종류": detail.get("category"),
+        "연도": detail.get("releaseYear"),
+        "장르": list(detail.get("genres") or []),
+        "출연": names("actor"),
+        "감독": names("director"),
+        "줄거리": plot,
+        "촬영지 수": detail.get("placeCount"),
+    }
+    out = {k: v for k, v in out.items() if v not in (None, "", [])}
+    out["할 일"] = (
+        "줄거리·출연·감독은 여기 적힌 것만 말해라. 없는 칸은 모른다고 한 문장으로 밝히고 지어내지 마라"
+    )
+    return out
+
+
 def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str, Any]:
     """도구 하나를 실행한다. 돌려주는 사전이 그대로 모델에게 간다."""
     specs = {t["function"]["name"]: t["function"] for t in load_tool_specs()}
@@ -459,9 +489,28 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
         return out
 
     if name == "list_title_places":
-        matched, hits = book.by_title(args["title"], args.get("limit", 8))
+        # 모델이 「kpop demon hunters 성지」 처럼 일반 단어를 붙여 넘긴다(MZ2AZ-553) — 떼고 찾는다.
+        title = _clean_query(args["title"])
+        if not title:
+            return _refuse("어느 작품의 촬영지를 찾을지 사용자에게 물어봐라")
+        limit = args.get("limit", 8)
+        matched, hits = book.by_title(title, limit)
         if not hits:
-            return _refuse(f"「{args['title']}」 라는 작품의 촬영지 데이터가 없다")
+            # 작품 목록에 없는 말(「남산 성지」)이면 장소 검색(`/places?q=`)으로 한 번만 더 찾는다.
+            # 둘 다 비어야 거절한다.
+            found = book.search(title, limit)[:limit]
+            if not found:
+                return _refuse(f"「{title}」 라는 작품의 촬영지 데이터가 없다")
+            session.remember(found)
+            session.show(op="map.focus", placeIds=_ids(found))
+            return {
+                "출처": f"「{title}」 라는 작품은 못 찾아 장소 검색으로 찾았다",
+                "할 일": (
+                    "이 장소들을 사용자가 물은 작품의 촬영지라고 말하지 마라. "
+                    "작품으로는 못 찾았다고 한 문장으로 알리고, 각 장소의 작품을 그대로 전해라"
+                ),
+                "찾은 곳": [_brief(p) for p in found],
+            }
         session.remember(hits)
         session.show(op="map.focus", placeIds=_ids(hits))
         return {
@@ -469,6 +518,16 @@ def run_tool(name: str, raw_args: dict[str, Any], session: Session) -> dict[str,
             "안내": "대표적인 순서다. 앞에 오는 것이 더 대표적인 촬영지다",
             "촬영지": [_brief(p) for p in hits],
         }
+
+    if name == "title_info":
+        # 줄거리·출연진은 모델이 아는 척 지어내기 쉬운 말이라 서버의 작품 상세로만 답한다(MZ2AZ-554).
+        title = _clean_query(args["title"])
+        if not title:
+            return _refuse("어느 작품을 물었는지 사용자에게 물어봐라")
+        detail = book.title_detail(title)
+        if not detail:
+            return _refuse(f"「{title}」 라는 작품 정보가 없다")
+        return _title_info(detail)
 
     if name == "places_near":
         anchor, err = session.resolve_anchor(args["near"])

@@ -45,7 +45,7 @@ from src.planner import (
 )
 from src.session import Anchor, Session
 from src.tools import run_tool
-from tests.fixtures import INCHEON, SEOUL, PoiBook
+from tests.fixtures import INCHEON, PARASITE_DETAIL, SEOUL, PoiBook
 
 _CASES = Path(__file__).absolute().parent / "cases.json"
 
@@ -56,7 +56,16 @@ def eval_book() -> PoiBook:
     편의시설까지 아는 창구를 쓴다 — `poi_nearby` 사례가 「이 창구엔 자료가 없다」로
     떨어지면 도구 선택을 잰 것이 아니라 창구를 잰 것이 된다.
     """
-    return PoiBook({"도깨비": SEOUL + INCHEON, "이태원 클라쓰": [SEOUL[1], *INCHEON]})
+    return PoiBook(
+        {
+            "도깨비": SEOUL + INCHEON,
+            "이태원 클라쓰": [SEOUL[1], *INCHEON],
+            # 영어 제목 작품 — 「kpop demon hunters 성지」 처럼 일반 단어가 붙어 와도 찾는지 본다(MZ2AZ-553).
+            "KPop Demon Hunters": [SEOUL[5], SEOUL[2]],
+        },
+        # 작품 상세 — 「기생충 무슨 내용이야」 가 title_info 로 가는지 본다(MZ2AZ-554).
+        details=[PARASITE_DETAIL],
+    )
 
 
 @dataclass

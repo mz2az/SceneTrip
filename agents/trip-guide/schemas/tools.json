@@ -98,6 +98,27 @@
     {
       "type": "function",
       "function": {
+        "name": "title_info",
+        "description": "한 작품의 정보 — 종류·연도·장르·출연·줄거리·촬영지 수 — 를 준다. 「기생충 무슨 내용이야」·「출연진 누구야」 처럼 작품 자체를 물을 때 쓴다. 줄거리·출연은 이 도구가 준 것만 말한다.",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "title"
+          ],
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "description": "작품 이름. 한국어와 영어 제목 모두 걸린다. '성지'·'촬영지' 같은 말은 붙이지 마라"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
         "name": "places_near",
         "description": "어떤 지점을 중심으로 반경 안의 촬영지를 찾는다. '이 근처', '2번 주변', '경복궁 근처' 같은 물음에만 쓴다. 어떤 지점이 어디인지 묻는 물음에는 부르지 마라 — 그 답은 이미 위의 '지금 상태' 에 있다.",
         "parameters": {

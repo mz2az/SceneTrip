@@ -107,9 +107,9 @@ class 장바구니는기억하지않는다(unittest.TestCase):
 
 
 class 도구목록(unittest.TestCase):
-    def test_계약과_같은_아홉_개다(self):
+    def test_계약과_같은_열_개다(self):
         names = {t["function"]["name"] for t in load_tool_specs()}
-        self.assertEqual(len(names), 9)
+        self.assertEqual(len(names), 10)  # MZ2AZ-554 title_info
         self.assertNotIn("draft_course", names)
 
     def test_없는_도구를_부르면_거절한다(self):
