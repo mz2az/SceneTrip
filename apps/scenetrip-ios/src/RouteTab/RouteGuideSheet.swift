@@ -352,7 +352,7 @@ struct RouteGuideSheet: View {
             composerRow
             aiNotice
         }
-        .background(.thinMaterial)
+        .background(Color(.systemBackground))
     }
 
     private var composerRow: some View {
@@ -423,7 +423,8 @@ extension View {
             if isOpen {
                 panel()
                     .frame(width: 316, height: 470)
-                    .background(.regularMaterial)
+                    // 불투명 — 뒤 지도·목록이 비쳐 글이 안 읽혔다(2026-11-11 사용자).
+                    .background(Color(.systemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 20))
                     .shadow(color: .black.opacity(0.22), radius: 14, y: 6)
                     .padding(.trailing, 6)
