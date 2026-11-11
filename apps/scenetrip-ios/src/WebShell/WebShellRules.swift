@@ -101,11 +101,11 @@ enum WebShellRules {
         ]
     }
 
-    private static func sameOrigin(_ a: URL, _ b: URL) -> Bool {
-        guard let schemeA = a.scheme?.lowercased(), let schemeB = b.scheme?.lowercased(), schemeA == schemeB,
-              let hostA = a.host?.lowercased(), let hostB = b.host?.lowercased(), hostA == hostB
+    private static func sameOrigin(_ lhs: URL, _ rhs: URL) -> Bool {
+        guard let schemeL = lhs.scheme?.lowercased(), let schemeR = rhs.scheme?.lowercased(), schemeL == schemeR,
+              let hostL = lhs.host?.lowercased(), let hostR = rhs.host?.lowercased(), hostL == hostR
         else { return false }
-        return effectivePort(a, schemeA) == effectivePort(b, schemeB)
+        return effectivePort(lhs, schemeL) == effectivePort(rhs, schemeR)
     }
 
     private static func effectivePort(_ url: URL, _ scheme: String) -> Int {
