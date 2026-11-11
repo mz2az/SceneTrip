@@ -20,22 +20,53 @@ import { ListSection, Row, ToggleRow } from './ui/ListUI'
 import { firstSentence } from './wording'
 
 /** 문의하기 — 주소를 **글자로** 보인다. 메일 앱이 없는 기기에서도 주소를 눌러 복사할 수 있다. 옆의 단추는 메일 앱을 연다(MZ2AZ-461, App Store 1.2). */
+/**
+ * 글자를 클립보드에 넣는다. `navigator.clipboard` 가 없거나(오래된 브라우저·http) 거절하면 숨긴 글상자를 골라 `execCommand('copy')` 로 한 번 더.
+ * 둘 다 안 되면 false.
+ */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {
+    // 아래 옛 방식으로
+  }
+  try {
+    const area = document.createElement('textarea')
+    area.value = text
+    area.setAttribute('readonly', '')
+    area.style.position = 'fixed'
+    area.style.opacity = '0'
+    area.style.pointerEvents = 'none'
+    document.body.appendChild(area)
+    area.select()
+    const ok = typeof document.execCommand === 'function' && document.execCommand('copy')
+    area.remove()
+    return ok
+  } catch {
+    return false
+  }
+}
+
 function SupportContactRow() {
   // 메일 앱이 없는 기기(데스크톱 웹·일부 안드로이드)에서는 「메일 쓰기」 가 아무 일도 안 한다 — 주소를 복사하는 단추를 함께 둔다(MZ2AZ-551).
   const [copied, setCopied] = useState(false)
+  const [copyFailed, setCopyFailed] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current)
   }, [])
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(LEGAL_LINKS.supportEmail)
-      setCopied(true)
-      if (timer.current) clearTimeout(timer.current)
-      timer.current = setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // 클립보드를 쓸 수 없는 곳(권한 없음) — 주소는 글자로 보이니 눌러 고를 수 있다.
-    }
+    const done = await copyText(LEGAL_LINKS.supportEmail)
+    setCopied(done)
+    setCopyFailed(!done)
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => {
+      setCopied(false)
+      setCopyFailed(false)
+    }, 2000)
   }
   const linkStyle = { color: 'var(--accent)', fontSize: 15, fontWeight: 600, lineHeight: '20px' } as const
   return (
@@ -53,6 +84,7 @@ function SupportContactRow() {
           <span role="status" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
             {copied ? say('문의 메일 주소를 복사했어요', 'Support email copied') : ''}
           </span>
+          {copyFailed && <Txt size={13} color="red">{say('복사하지 못했어요', "Couldn't copy")}</Txt>}
           <a href={SUPPORT_MAIL_URL} aria-label={LEGAL_LINKS.supportEmail} style={linkStyle}>
             {tr('메일 쓰기')}
           </a>
