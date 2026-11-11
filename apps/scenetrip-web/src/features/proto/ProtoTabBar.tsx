@@ -8,7 +8,7 @@ import { Pressable } from '@/design/primitives'
 import { tr, useLang } from '@/i18n'
 import { say } from './protoState'
 import type { TabId } from '@/app/routes'
-import { color, radius, shadow, z } from './protoTokens'
+import { color, radius, z } from './protoTokens'
 import './proto.css'
 
 const TABS: ReadonlyArray<{ id: TabId; label: () => string }> = [
@@ -32,11 +32,11 @@ export function ProtoTabBar({ selected, onSelect }: { selected: TabId; onSelect:
       <div
         style={{
           position: 'absolute', left: 16, right: 16, bottom: 'calc(var(--safe-bottom) + 8px)', height: 58, borderRadius: radius.pill,
-          // 유리 — 바탕은 얇게(40%)만 깔고 흐림을 세게 둬 뒤가 비친다. 88% 를 깔았더니 흰 카드 위에서 불투명한 판으로 보였다
-          // (iOS 가 같은 이유로 리퀴드 글라스로 바꿨다, 2026-11-10 사용자 지적). 가장자리의 얇은 빛 줄이 유리 테두리 몫이다.
-          background: 'color-mix(in srgb, var(--system-background) 40%, transparent)', backdropFilter: 'blur(24px) saturate(1.8)', WebkitBackdropFilter: 'blur(24px) saturate(1.8)',
+          // 유리 — 바탕은 아주 얇게(15%)만 깔고 흐림을 둬 뒤가 비친다. 88% 를 깔았더니 흰 카드 위에서 불투명한 판으로 보였다
+          // (iOS 가 같은 이유로 리퀴드 글라스로 바꿨다, 2026-11-10 사용자 지적). 40% 도 휴대폰에서 불투명해 보였다(11-11). 가장자리의 얇은 빛 줄이 유리 테두리 몫이다.
+          background: 'color-mix(in srgb, var(--system-background) 15%, transparent)', backdropFilter: 'blur(14px) saturate(1.8)', WebkitBackdropFilter: 'blur(14px) saturate(1.8)',
           border: '0.5px solid color-mix(in srgb, var(--system-background) 70%, transparent)',
-          boxShadow: `${shadow.float}, inset 0 1px 0 color-mix(in srgb, var(--system-background) 60%, transparent)`, display: 'flex', padding: 5, pointerEvents: 'auto',
+          boxShadow: `0 4px 14px rgba(0, 0, 0, 0.08), inset 0 1px 0 color-mix(in srgb, var(--system-background) 60%, transparent)`, display: 'flex', padding: 5, pointerEvents: 'auto',
         }}
       >
         {/* 고른 탭 뒤의 알약 — 탭을 바꾸면 미끄러져 옮겨 간다 */}
