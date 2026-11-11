@@ -50,7 +50,7 @@ export function rememberProtoCourse(id: number): void {
 }
 
 function initialProto(): Proto | null {
-  // 로컬 개발 서버는 `?proto=` 로, 시험용 웹(dev.scenetrip.io)은 기본으로 켠다. 운영 번들은 주소에 값을 붙여도 켜지지 않는다(protoGate).
+  // 로컬 개발 서버는 `?proto=` 로, 시험용 웹(dev.scenetrip.io)은 기본으로 켠다. 운영은 늘 A — 주소 값을 보지 않는다(protoGate, 2026-11-11).
   const asked = new URLSearchParams(window.location.search).get('proto')
   const picked = pickProto({ dev: import.meta.env.DEV, hostname: window.location.hostname, asked, stored: sessionStorage.getItem(PROTO_KEY) })
   if (picked) sessionStorage.setItem(PROTO_KEY, picked)
@@ -58,7 +58,7 @@ function initialProto(): Proto | null {
   return picked
 }
 
-/** 새 화면(시안)을 띄울 수 있는가 — 로컬 개발 서버와 시험용 웹(MZ2AZ-539). */
+/** 새 화면(시안)을 띄울 수 있는가 — 로컬 개발 서버·시험용 웹(MZ2AZ-539), 2026-11-11 부터 운영도. */
 export const protoAvailable = protoEnabled(import.meta.env.DEV, window.location.hostname)
 
 const proto = initialProto()
@@ -69,7 +69,7 @@ export const protoStore = createStore<ProtoState>({ proto, trip, asking: false, 
 /** 지금 시안이 켜져 있나 — 지도 핀 모양처럼 시안 밖 코드가 시안일 때만 다르게 그릴 때. */
 export const protoOn = (): boolean => protoAvailable && protoStore.get().proto !== null
 const patch = (p: Partial<ProtoState>) => protoStore.set((s) => ({ ...s, ...p }))
-// 새 화면이 켜진 곳에서만 서버와 맞춘다(시험 환경·운영 주소에서는 부르지 않는다).
+// 새 화면이 켜진 곳에서만 서버와 맞춘다(시험 환경에서는 부르지 않는다).
 if (protoAvailable && proto !== null && typeof window !== 'undefined' && import.meta.env.MODE !== 'test') {
   queueMicrotask(() => void syncTrip())
 }

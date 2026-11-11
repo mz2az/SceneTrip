@@ -3,7 +3,7 @@
  *
  * - 로컬 개발 서버(`just web-dev`): 지금처럼 `?proto=a|b|off` 로 켜고 끈다. 값이 없으면 꺼진다.
  * - 시험용 웹(dev.scenetrip.io = Pages `dev` 브랜치): **기본으로 켠다(시안 A)**. `?proto=off` 로만 끈다.
- * - 운영(그 밖의 주소): 켜지지 않는다.
+ * - 운영(그 밖의 주소): **늘 시안 A**(2026-11-11 사용자 결정 — iOS·안드로이드에 반영한 새 화면을 운영 웹에도). `?proto=` 와 기억한 값은 보지 않는다.
  * 「시안」 표시·스위치는 로컬에서만 보인다. 서버가 없어 숨겼던 기능(자유게시판·글 검색·좋아요·댓글)은 서버가 생겨(MZ2AZ-538) 이제 어디서나 보인다.
  */
 import type { Proto } from './protoState'
@@ -15,17 +15,18 @@ export function isDevSite(hostname: string): boolean {
   return DEV_SITE_HOSTS.includes(hostname.toLowerCase())
 }
 
-/** 새 화면 장치를 켤 수 있는 곳 — 로컬 개발 서버 또는 시험용 웹. */
-export function protoEnabled(dev: boolean, hostname: string): boolean {
-  return dev || isDevSite(hostname)
+/** 새 화면 장치를 켤 수 있는 곳 — 이제 어디서나(운영도 2026-11-11 부터). 인자는 부르는 쪽과 시험을 그대로 두려고 남긴다. */
+export function protoEnabled(_dev: boolean, _hostname: string): boolean {
+  return true
 }
 
 /**
  * 어느 시안을 보일까. `asked` 는 주소의 `?proto=`, `stored` 는 탭이 기억한 값. 주소가 이긴다.
  * 옛 시안 C 는 B 의 「알아서 짜 주세요」 로 합쳤다. 값이 없으면 시험용 웹은 A(사용자가 다듬어 온 안), 로컬은 끈다.
+ * 운영 주소는 무엇을 물어도 A — 운영에서 덜 된 B 나 옛 화면으로 바뀌지 않게.
  */
 export function pickProto({ dev, hostname, asked, stored }: { dev: boolean; hostname: string; asked: string | null; stored: string | null }): Proto | null {
-  if (!protoEnabled(dev, hostname)) return null
+  if (!dev && !isDevSite(hostname)) return 'a'
   if (asked === 'off') return null
   const value = asked ?? stored
   const merged = value === 'c' ? 'b' : value
