@@ -418,6 +418,7 @@ struct RouteEditorView: View {
         }
         // 가이드 카드 「길찾기」의 로그인 안내(MZ2AZ-554) — 이 화면은 덮개 안이라 탭의 로그인 자리가 안 닿는다.
         .signInSheet()
+        .nicknameSheet()
         .sheet(isPresented: $showNearby) {
             if let nearbyMapAnchor {
                 RouteNearbySheet(mapAnchor: nearbyMapAnchor, deviceLocation: mapHere, taken: takenPlaceIds) {

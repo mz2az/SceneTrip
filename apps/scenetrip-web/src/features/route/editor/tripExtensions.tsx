@@ -15,7 +15,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, installHeader, ok } from '@/api/client'
 import { consumePending, pendingStore } from '@/app/tabRouter'
-import { tr } from '@/i18n'
+import { Alert } from '@/design/overlay'
+import { say, tr } from '@/i18n'
 import { PhotoGallery } from '@/features/reviews/photoGallery'
 import { bookOf } from '@/features/reviews/photoGalleryRules'
 import { GalleryViewer } from '@/features/reviews/PhotoViewers'
@@ -452,12 +453,13 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
   const picked = guideState.picked
   const pickedStop = picked ? host.stops.find((s) => isSameSpot(picked, refOf(s))) ?? null : null
   const addPlace = useCallback(
-    (place: RoutePlace) => {
+    (place: RoutePlace): boolean => {
       const h = hostRef.current
       const res = addStops(h.course, h.dayIndex, [stopForPlace(place)], { asNext: true, target: tripSession.state.target as RouteStop | null, arrived: tripSession.state.phase === 'arrived' })
-      if (res.added === 0) return
+      if (res.added === 0) return false
       h.setCourse(res.course)
       h.fit()
+      return true
     },
     [],
   )
@@ -478,6 +480,8 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
   // 가이드 카드 「길찾기」(MZ2AZ-554, iOS RouteEditorView.guideDirections) — 로그인 → 담기 → 여행 시작/목적지 바꾸기.
   // 담은 줄은 다음 화면에야 `host.stops` 에 보이므로, 할 일을 적어 두고 그 줄이 나타나면 안내를 켠다.
   const [directionsTo, setDirectionsTo] = useState<{ place: RoutePlace; start: boolean } | null>(null)
+  // 담지 못했으면 창을 접은 채 조용히 끝내지 않고 알린다(검증 지적).
+  const [addFailed, setAddFailed] = useState(false)
   const directions = useCallback(
     (place: RoutePlace) => {
       const h = hostRef.current
@@ -486,9 +490,12 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
         promptSignIn(directionsSignInReason())
         return
       }
-      if (steps.includes('add')) addPlace(place)
       // 창을 접어 지도와 안내 띠가 보이게 한다.
       patchUi({ guideOpen: false })
+      if (steps.includes('add') && !addPlace(place)) {
+        setAddFailed(true)
+        return
+      }
       setDirectionsTo({ place, start: steps.includes('startTrip') })
     },
     [addPlace, isAdded],
@@ -567,6 +574,8 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
           cardProps={{ reloadToken: state.reloadToken, onOpenReviews: openReviews, onOpenPhotos: openPhotos }}
         />
       </GuidePanel>
+
+      <Alert open={addFailed} title={say('코스에 넣지 못했어요', "Couldn't add to the trip")} onClose={() => setAddFailed(false)} buttons={[{ label: tr('확인'), role: 'cancel' }]} />
 
       <ReviewsSheet
         open={reviewing !== null}
