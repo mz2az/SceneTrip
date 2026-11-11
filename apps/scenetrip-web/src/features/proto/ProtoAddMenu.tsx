@@ -15,6 +15,7 @@ import { RemoteImage } from '@/features/route/ui/RemoteImage'
 import { SearchTab } from '@/features/search/SearchTab'
 import { useCart } from '@/state/cart'
 import { CourseAddContext, DayList, DayPopup } from './protoCourseAdd'
+import { FAB_SIZE } from './addFabLayout'
 import { say } from './protoState'
 import { color, radius, shadow } from './protoTokens'
 import './proto.css'
@@ -23,7 +24,7 @@ import './proto.css'
  * 떠 있는 ＋ — 해태 가이드 동그라미(route/guide/GuideChip, 얼굴 46)와 같은 크기·같은 오른쪽 여백(12)으로 세로 한 줄에 선다.
  * 누르면 그 위로 두 갈래 메뉴가 펼쳐진다. 메뉴와 어두운 바탕은 가이드 동그라미(겹침 순서 30·35)보다 위에 둔다 — 메뉴가 해태에 가려졌다(2026-11-07 사용자 지적).
  */
-const FAB = 46
+const FAB = FAB_SIZE
 const FAB_EDGE = 12
 /** 가이드 동그라미보다 위. */
 const MENU_Z = 40

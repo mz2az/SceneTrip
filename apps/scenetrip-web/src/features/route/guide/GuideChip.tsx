@@ -43,11 +43,13 @@ export interface GuideFloatingChipProps {
   cardTop?: number | null
   /** 카드를 비켜 선 자리에서 덮으면 안 되는 단추의 틀(컨테이너 좌표) — 일차 머리줄의 「머무는 시간 ›」. */
   keepClear?: Box | null
+  /** 기본 자리의 바닥 여백. 새 코스 편집에서 아래 줄이 보이면 그만큼 올린다(MZ2AZ-556). 없으면 CHIP_BOTTOM. */
+  bottom?: number
   onTap: () => void
 }
 
 /** 컨테이너(position: relative 인 오버레이 층) 안의 오른쪽 아래에 붙는다. */
-export function GuideFloatingChip({ hidden = false, cardTop = null, keepClear = null, onTap }: GuideFloatingChipProps) {
+export function GuideFloatingChip({ hidden = false, cardTop = null, keepClear = null, bottom = CHIP_BOTTOM, onTap }: GuideFloatingChipProps) {
   const root = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ width: 402, height: 874 })
   const [stored, setStored] = useState(() => ({ x: num(KEY_X), y: num(KEY_Y) }))
@@ -69,7 +71,7 @@ export function GuideFloatingChip({ hidden = false, cardTop = null, keepClear = 
   const clear = clearanceOf(keepClear, { x: 0, y: 0, width: size.width, height: size.height })
   /** 지금 서 있을 자리(기본 자리에서 잰 이동) — 저장된 자리 + 카드·단추를 비킨 만큼 + 끄는 만큼. */
   const spot = (d: { x: number; y: number }) =>
-    clampChip({ x: chipOffsetX({ storedX: stored.x, storedY: stored.y, dragging: d.x, cardTop, clear }), y: chipOffsetY({ stored: stored.y, dragging: d.y, cardTop }) }, size)
+    clampChip({ x: chipOffsetX({ storedX: stored.x, storedY: stored.y, dragging: d.x, cardTop, clear, bottom }), y: chipOffsetY({ stored: stored.y, dragging: d.y, cardTop, bottom }) }, size, bottom)
   const at = spot(drag ?? { x: 0, y: 0 })
 
   const onDown = (e: React.PointerEvent) => {
@@ -130,7 +132,7 @@ export function GuideFloatingChip({ hidden = false, cardTop = null, keepClear = 
         setLifted(false)
       }}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onTap()}
-      style={{ right: CHIP_EDGE, bottom: CHIP_BOTTOM, transform: `translate(${at.x}px, ${at.y}px) scale(${lifted ? LIFT_SCALE : 1})`, filter: lifted ? 'drop-shadow(0 4px 10px rgba(0,0,0,0.3))' : undefined }}
+      style={{ right: CHIP_EDGE, bottom, transform: `translate(${at.x}px, ${at.y}px) scale(${lifted ? LIFT_SCALE : 1})`, filter: lifted ? 'drop-shadow(0 4px 10px rgba(0,0,0,0.3))' : undefined }}
     >
       <GuideChipBody bubble={cardTop === null} />
     </div>

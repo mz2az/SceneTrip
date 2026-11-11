@@ -546,7 +546,7 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
         </div>
       )}
 
-      <GuideFloatingChip hidden={entry !== 'floating'} cardTop={cardTop} onTap={() => patchUi({ guideOpen: true })} />
+      <GuideFloatingChip hidden={entry !== 'floating'} cardTop={cardTop} bottom={host.chipBottom} onTap={() => patchUi({ guideOpen: true })} />
       <GuidePanel open={state.guideOpen}>
         <GuideSheet
           session={session}

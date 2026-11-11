@@ -91,9 +91,10 @@ export function revising(original: RouteCourse, plan: GuidePlan, places?: PlaceL
             serverItemId: previous.serverItemId,
             visited: previous.visited,
             // 촬영지 이름·주소는 목록(앱 언어) → 앞 줄 → 초안 순이다(MZ2AZ-530). 앞 줄도 한국어 초안이었을 수 있어 목록이 먼저다.
+            // 사진은 새 줄에 없을 때만 앞 줄의 것을 이어받는다(MZ2AZ-556).
             place: key.startsWith('place:') && !places?.has(placeIdOf(stop) ?? -1)
-              ? { ...merged.place, type: previous.place.type, name: previous.place.name, address: previous.place.address }
-              : { ...merged.place, type: previous.place.type },
+              ? { ...merged.place, type: previous.place.type, name: previous.place.name, address: previous.place.address, imageUrl: merged.place.imageUrl ?? previous.place.imageUrl ?? null }
+              : { ...merged.place, type: previous.place.type, imageUrl: merged.place.imageUrl ?? previous.place.imageUrl ?? null },
             poiText: previous.poiText,
           }
         }

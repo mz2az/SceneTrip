@@ -15,7 +15,7 @@ import { accountGeneration, onAccountReset } from '@/state/shared'
 import { createStore, useStore } from '@/state/storage'
 import { rejection } from './availability'
 import { type CourseSummary, courseFromDetail, courseFromSummary, replaceBody } from './bridge'
-import { courseFromPlan, placeLookup } from './draft'
+import { type GuidePlan, type PlaceLookup, courseFromPlan, identityOf, placeLookup } from './draft'
 import {
   type ContentSummary, type PlaceSummary, type RouteCourse, type RoutePace, type RouteStop, courseCanSave, coursePlaceCount, makeCourse, makeDay,
   placeIdOf, spanDays, spanLabel,
@@ -309,10 +309,32 @@ export async function guideDraft(r: DraftRequest): Promise<DraftResult> {
       }),
     )
     track(appEvent.generatePlan(spanDays(r.nights), Math.min(titles.length, 5)))
-    return { ok: true, course: courseFromPlan(reply.plan, { title: draftTitle(chosen, r.nights), startDate: r.startDate, pace: r.pace, places: placeLookup(r.places) }) }
+    const places = await withMissingPlaces(reply.plan, r.places)
+    return { ok: true, course: courseFromPlan(reply.plan, { title: draftTitle(chosen, r.nights), startDate: r.startDate, pace: r.pace, places }) }
   } catch (error) {
     return { ok: false, failure: classifyPlanFailure(error) }
   }
+}
+
+/**
+ * 받아 둔 목록(인기 200곳)에 없는 초안 촬영지를 GET /places/{id} 로 한꺼번에 물어 목록에 더한다(MZ2AZ-556) — 서버가 앱 언어로
+ * 이름·주소·사진을 준다. 편의시설·핀 줄은 묻지 않는다. 물음이 실패한 곳은 빠진 채로 둔다 — 그 줄은 초안의 이름·주소로 열린다.
+ */
+async function withMissingPlaces(plan: GuidePlan, listed: readonly PlaceSummary[]): Promise<PlaceLookup> {
+  const lookup = new Map(placeLookup(listed))
+  const missing = [...new Set(plan.days.flatMap((d) => d.stops).map((s) => identityOf(s)).flatMap((id) => (id?.kind.type === 'place' && !lookup.has(id.id) ? [id.id] : [])))]
+  const found = await Promise.all(
+    missing.map(async (placeId) => {
+      try {
+        const d = await ok(api.GET('/places/{placeId}', { params: { path: { placeId } } }))
+        return { id: d.id, name: d.name, type: d.type ?? null, address: d.address ?? null, latitude: d.latitude, longitude: d.longitude, imageUrl: d.imageUrl ?? null } satisfies PlaceSummary
+      } catch {
+        return null
+      }
+    }),
+  )
+  for (const p of found) if (p && !lookup.has(p.id)) lookup.set(p.id, p)
+  return lookup
 }
 
 // ---------------------------------------------------------------- 훅
