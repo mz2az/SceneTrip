@@ -53,7 +53,9 @@ enum WebShellRules {
         guard let url, let scheme = url.scheme?.lowercased() else { return .cancel }
         switch scheme {
         case "http", "https":
-            if sameOrigin(url, base) { return .allow }
+            if sameOrigin(url, base) {
+                return .allow
+            }
             return isMainFrame ? .openExternally : .allow
         case "about", "blob", "data":
             return .allow
@@ -88,7 +90,8 @@ enum WebShellRules {
 
     /// 이름이 없으면 NSNull — JS 에서 null 로 보인다.
     static func appleReply(identityToken: String, authorizationCode: String, nonce: String,
-                           givenName: String?, familyName: String?) -> [String: Any] {
+                           givenName: String?, familyName: String?) -> [String: Any]
+    {
         [
             "identityToken": identityToken,
             "authorizationCode": authorizationCode,

@@ -6,7 +6,9 @@ import XCTest
 final class WebShellRulesTests: XCTestCase {
     private let base = URL(string: "https://dev.scenetrip.io")!
 
-    private func url(_ raw: String) -> URL? { URL(string: raw) }
+    private func url(_ raw: String) -> URL? {
+        URL(string: raw)
+    }
 
     // MARK: - baseURL
 
@@ -76,8 +78,8 @@ final class WebShellRulesTests: XCTestCase {
                        .openExternally)
     }
 
-    func testNavigationLocalhostBaseMatchesPort() {
-        let local = URL(string: "http://localhost:5173")!
+    func testNavigationLocalhostBaseMatchesPort() throws {
+        let local = try XCTUnwrap(URL(string: "http://localhost:5173"))
         XCTAssertEqual(WebShellRules.navigation(url: url("http://localhost:5173/map"), isMainFrame: true, base: local), .allow)
         XCTAssertEqual(WebShellRules.navigation(url: url("http://localhost:8081/v1"), isMainFrame: true, base: local),
                        .openExternally)

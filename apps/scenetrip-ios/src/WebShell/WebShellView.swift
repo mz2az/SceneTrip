@@ -29,7 +29,9 @@ final class WebShellController: UIViewController, WKNavigationDelegate, WKUIDele
     }
 
     @available(*, unavailable)
-    required init?(coder _: NSCoder) { fatalError("not used") }
+    required init?(coder _: NSCoder) {
+        fatalError("not used")
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -51,7 +53,9 @@ final class WebShellController: UIViewController, WKNavigationDelegate, WKUIDele
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.bounces = false
         #if DEBUG
-            if #available(iOS 16.4, *) { webView.isInspectable = true }
+            if #available(iOS 16.4, *) {
+                webView.isInspectable = true
+            }
         #endif
         webView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(webView)
@@ -114,13 +118,16 @@ final class WebShellController: UIViewController, WKNavigationDelegate, WKUIDele
     // MARK: WKNavigationDelegate
 
     func webView(_: WKWebView, decidePolicyFor action: WKNavigationAction,
-                 decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
+                 decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void)
+    {
         let isMainFrame = action.targetFrame?.isMainFrame ?? true
         switch WebShellRules.navigation(url: action.request.url, isMainFrame: isMainFrame, base: base) {
         case .allow:
             decisionHandler(.allow)
         case .openExternally:
-            if let url = action.request.url { openOutside(url) }
+            if let url = action.request.url {
+                openOutside(url)
+            }
             decisionHandler(.cancel)
         case .cancel:
             decisionHandler(.cancel)
@@ -148,21 +155,30 @@ final class WebShellController: UIViewController, WKNavigationDelegate, WKUIDele
     private func showFailure(_ error: Error) {
         spinner.stopAnimating()
         // 바깥으로 넘긴 이동(취소)은 실패가 아니다.
-        if (error as NSError).code == NSURLErrorCancelled { return }
-        if (error as NSError).domain == "WebKitErrorDomain", (error as NSError).code == 102 { return }
-        if !loadedOnce { failure.isHidden = false }
+        if (error as NSError).code == NSURLErrorCancelled {
+            return
+        }
+        if (error as NSError).domain == "WebKitErrorDomain", (error as NSError).code == 102 {
+            return
+        }
+        if !loadedOnce {
+            failure.isHidden = false
+        }
     }
 
     // MARK: WKUIDelegate
 
     /// `target=_blank`·`window.open` — 같은 출처는 본 창에서, 나머지는 바깥으로. 새 웹뷰는 만들지 않는다.
     func webView(_ webView: WKWebView, createWebViewWith _: WKWebViewConfiguration,
-                 for action: WKNavigationAction, windowFeatures _: WKWindowFeatures) -> WKWebView? {
+                 for action: WKNavigationAction, windowFeatures _: WKWindowFeatures) -> WKWebView?
+    {
         switch WebShellRules.newWindow(url: action.request.url, base: base) {
         case .loadInPlace:
             webView.load(action.request)
         case .openExternally:
-            if let url = action.request.url { openOutside(url) }
+            if let url = action.request.url {
+                openOutside(url)
+            }
         case .ignore:
             break
         }
@@ -170,14 +186,16 @@ final class WebShellController: UIViewController, WKNavigationDelegate, WKUIDele
     }
 
     func webView(_: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
-                 initiatedByFrame _: WKFrameInfo, completionHandler: @escaping @MainActor () -> Void) {
+                 initiatedByFrame _: WKFrameInfo, completionHandler: @escaping @MainActor () -> Void)
+    {
         let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in completionHandler() })
         present(alert, animated: true)
     }
 
     func webView(_: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
-                 initiatedByFrame _: WKFrameInfo, completionHandler: @escaping @MainActor (Bool) -> Void) {
+                 initiatedByFrame _: WKFrameInfo, completionHandler: @escaping @MainActor (Bool) -> Void)
+    {
         let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in completionHandler(false) })
         alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in completionHandler(true) })
@@ -191,7 +209,8 @@ final class WebShellController: UIViewController, WKNavigationDelegate, WKUIDele
 /// 메시지 처리기는 컨트롤러와 따로 둔다 — `WKUserContentController` 가 처리기를 강하게 잡아 순환 참조가 생기지 않게.
 final class WebShellAuthBridge: NSObject, WKScriptMessageHandlerWithReply {
     func userContentController(_: WKUserContentController, didReceive message: WKScriptMessage,
-                               replyHandler: @escaping @MainActor (Any?, String?) -> Void) {
+                               replyHandler: @escaping @MainActor (Any?, String?) -> Void)
+    {
         guard let provider = WebShellRules.authProvider(from: message.body) else {
             replyHandler(nil, WebShellRules.failedMessage)
             return
