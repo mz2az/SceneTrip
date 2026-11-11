@@ -121,7 +121,7 @@ extension RouteEditorView {
         return cardHeight
     }
 
-    /// 안내 중에는 배너의 얼굴 단추가 입구다 — 큰 글자의 안내·넘기기 단추를 덮지 않는다.
+    /// 가이드 입구 — 언제나 떠 있는 해태 단추(길 안내 중에도, 계획 §12). 창이 열렸거나 핀을 찍는 동안만 숨긴다.
     var guideEntry: RouteGuideEntry {
         RouteGuideEntry.placement(
             guiding: trip.phase == .guiding, hasTarget: trip.target != nil,

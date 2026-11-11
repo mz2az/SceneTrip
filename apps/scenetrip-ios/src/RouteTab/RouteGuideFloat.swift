@@ -1,19 +1,17 @@
 import SwiftUI
 
-/// 가이드 입구는 언제나 한 곳에 둔다. 안내 배너 안 배치는 MZ2AZ-387에서 검증한다.
+/// 가이드 입구는 언제나 떠 있는 해태 단추 하나다 — 가이드 창이 열렸거나 핀을 찍는 동안만 숨긴다.
+///
+/// 길 안내 중에는 단추를 숨기고 안내 줄에 얼굴만 붙였는데(MZ2AZ-387), 단추가 사라지고 그 얼굴은 눌리지 않았다
+/// (2026-11-11 사용자 지적, 계획 motion-works-drawer-parity §12). 안내 중에도 그대로 둔다. 큰 글자 안내 줄을
+/// 덮으면 사용자가 꾹 눌러 옮긴다. 안내 중인지·목적지·카드는 이제 자리를 바꾸지 않지만 부르는 쪽 모양을 지키려 받는다.
 enum RouteGuideEntry: Equatable {
-    case floating, tripHeader, hidden
+    case floating, hidden
 
     static func placement(
-        guiding: Bool, hasTarget: Bool, hasCard: Bool = false, panelOpen: Bool, pinning: Bool
+        guiding _: Bool, hasTarget _: Bool, hasCard _: Bool = false, panelOpen: Bool, pinning: Bool
     ) -> Self {
-        if panelOpen || pinning {
-            return .hidden
-        }
-        if hasCard {
-            return .floating
-        }
-        return guiding && hasTarget ? .tripHeader : .floating
+        panelOpen || pinning ? .hidden : .floating
     }
 }
 

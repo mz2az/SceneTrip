@@ -598,14 +598,11 @@ function visitNoticeFor(stop: RouteStop | null, state: Pick<UiState, 'visitSavin
 function EditorTripPanelTop({ host }: { host: EditorHost }) {
   const trip = useTripState(tripSession)
   const nextNumber = nextUnvisited(host.stops)
-  const guide = guideEntryPlacement({ guiding: trip.phase === 'guiding', hasTarget: trip.target !== null, hasCard: host.cardOpen || sharedGuide.state.picked !== null, panelOpen: ui.get().guideOpen, pinning: host.pinning })
   return (
     <TripBanner
       session={tripSession}
       state={trip}
       next={nextNumber ? { number: nextNumber.number, name: nextNumber.stop.place.name } : null}
-      guideInHeader={guide === 'tripHeader'}
-      onOpenGuide={() => patchUi({ guideOpen: true })}
     />
   )
 }
