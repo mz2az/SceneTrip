@@ -3,11 +3,11 @@
  * (iOS ProfileTabView.swift:192~620, ProfileAISettings.swift, ProfileDeviceDataSection.swift, BlockedUsersView.swift 의 SupportContactRow).
  * 광고 추적 허용(ATT) 줄은 웹에 없어 숨긴다 — docs/project/web-app.md §5.
  */
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { appEvent, track } from '@/analytics'
 import { Alert } from '@/design/overlay'
 import { Spinner, Txt } from '@/design/primitives'
-import { chooseLanguage, langName, tr, useLang, LANG_CHOICES } from '@/i18n'
+import { chooseLanguage, langName, say, tr, useLang, LANG_CHOICES } from '@/i18n'
 import { footprintActions, useFootprints } from '@/state/footprints'
 import { installId } from '@/state/install'
 import { accountActions, useAccount } from './auth/account'
@@ -21,12 +21,42 @@ import { firstSentence } from './wording'
 
 /** 문의하기 — 주소를 **글자로** 보인다. 메일 앱이 없는 기기에서도 주소를 눌러 복사할 수 있다. 옆의 단추는 메일 앱을 연다(MZ2AZ-461, App Store 1.2). */
 function SupportContactRow() {
+  // 메일 앱이 없는 기기(데스크톱 웹·일부 안드로이드)에서는 「메일 쓰기」 가 아무 일도 안 한다 — 주소를 복사하는 단추를 함께 둔다(MZ2AZ-551).
+  const [copied, setCopied] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current)
+  }, [])
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(LEGAL_LINKS.supportEmail)
+      setCopied(true)
+      if (timer.current) clearTimeout(timer.current)
+      timer.current = setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // 클립보드를 쓸 수 없는 곳(권한 없음) — 주소는 글자로 보이니 눌러 고를 수 있다.
+    }
+  }
+  const linkStyle = { color: 'var(--accent)', fontSize: 15, fontWeight: 600, lineHeight: '20px' } as const
   return (
     <Row icon="envelope" tint="var(--accent)" title={tr('문의하기')} subtitle={<span style={{ userSelect: 'text' }}>{LEGAL_LINKS.supportEmail}</span>}
       trailing={
-        <a href={SUPPORT_MAIL_URL} aria-label={LEGAL_LINKS.supportEmail} style={{ color: 'var(--accent)', fontSize: 15, fontWeight: 600, lineHeight: '20px' }}>
-          {tr('메일 쓰기')}
-        </a>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 14 }}>
+          <button
+            type="button"
+            onClick={() => void copy()}
+            aria-label={copied ? say('주소 복사됨', 'Address copied') : say('주소 복사', 'Copy address')}
+            style={{ ...linkStyle, background: 'none', border: 0, padding: 0, cursor: 'pointer' }}
+          >
+            {copied ? say('복사됨', 'Copied') : say('복사', 'Copy')}
+          </button>
+          <span role="status" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+            {copied ? say('문의 메일 주소를 복사했어요', 'Support email copied') : ''}
+          </span>
+          <a href={SUPPORT_MAIL_URL} aria-label={LEGAL_LINKS.supportEmail} style={linkStyle}>
+            {tr('메일 쓰기')}
+          </a>
+        </span>
       }
     />
   )
