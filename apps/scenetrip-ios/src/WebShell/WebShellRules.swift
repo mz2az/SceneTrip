@@ -56,13 +56,16 @@ enum WebShellRules {
             if sameOrigin(url, base) {
                 return .allow
             }
+            // 다른 출처 하위 프레임(지도·영상 삽입)은 그 안에서만 읽힌다. 로그인 다리는 메인 프레임·같은 출처만
+            // 받으므로(acceptsAuthMessage) 자격에 닿지 못한다.
             return isMainFrame ? .openExternally : .allow
         case "about", "blob", "data":
             return .allow
         case "javascript":
             return .cancel
         default:
-            return .openExternally
+            // 하위 프레임(삽입 화면)이 사람 손 없이 전화·App Store·지도 앱을 열지 못하게 한다.
+            return isMainFrame ? .openExternally : .cancel
         }
     }
 
@@ -76,6 +79,20 @@ enum WebShellRules {
         default:
             return .openExternally
         }
+    }
+
+    /// 로그인 다리 메시지를 받아도 되는가 — 설정한 웹의 **메인 프레임**이고 출처가 같을 때만.
+    /// `WKSecurityOrigin` 의 값을 그대로 받는다(포트 0 = 기본 포트).
+    static func acceptsAuthMessage(isMainFrame: Bool, originScheme: String, originHost: String,
+                                   originPort: Int, base: URL) -> Bool
+    {
+        guard isMainFrame else { return false }
+        let scheme = originScheme.lowercased()
+        guard !scheme.isEmpty, !originHost.isEmpty, scheme == base.scheme?.lowercased(),
+              originHost.lowercased() == base.host?.lowercased()
+        else { return false }
+        let port = originPort == 0 ? defaultPort(scheme) : originPort
+        return port == effectivePort(base, scheme)
     }
 
     /// 웹이 보낸 `{provider: 'google'|'apple'}`.
@@ -109,6 +126,10 @@ enum WebShellRules {
     }
 
     private static func effectivePort(_ url: URL, _ scheme: String) -> Int {
-        url.port ?? (scheme == "https" ? 443 : 80)
+        url.port ?? defaultPort(scheme)
+    }
+
+    private static func defaultPort(_ scheme: String) -> Int {
+        scheme == "https" ? 443 : 80
     }
 }

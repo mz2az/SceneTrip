@@ -42,7 +42,7 @@ final class WebShellController: UIViewController, WKNavigationDelegate, WKUIDele
         configuration.allowsInlineMediaPlayback = true
         // 로그인 다리 — 웹의 nativeAuth.ts 가 `window.webkit.messageHandlers.scenetripAuth` 로 부른다. 응답은 Promise 로 돌아간다.
         configuration.userContentController.addScriptMessageHandler(
-            WebShellAuthBridge(), contentWorld: .page, name: WebShellRules.handlerName
+            WebShellAuthBridge(base: base), contentWorld: .page, name: WebShellRules.handlerName
         )
 
         webView = WKWebView(frame: .zero, configuration: configuration)
@@ -210,10 +210,22 @@ final class WebShellController: UIViewController, WKNavigationDelegate, WKUIDele
 ///
 /// 메시지 처리기는 컨트롤러와 따로 둔다 — `WKUserContentController` 가 처리기를 강하게 잡아 순환 참조가 생기지 않게.
 final class WebShellAuthBridge: NSObject, WKScriptMessageHandlerWithReply {
+    private let base: URL
+
+    init(base: URL) {
+        self.base = base
+    }
+
     func userContentController(_: WKUserContentController, didReceive message: WKScriptMessage,
                                replyHandler: @escaping @MainActor (Any?, String?) -> Void)
     {
-        guard let provider = WebShellRules.authProvider(from: message.body) else {
+        // 출처가 다른 iframe 이 네이티브 로그인을 띄우고 자격 원문을 받아 가지 못하게 — 메인 프레임·같은 출처만.
+        let origin = message.frameInfo.securityOrigin
+        guard WebShellRules.acceptsAuthMessage(isMainFrame: message.frameInfo.isMainFrame,
+                                               originScheme: origin.protocol, originHost: origin.host,
+                                               originPort: origin.port, base: base),
+            let provider = WebShellRules.authProvider(from: message.body)
+        else {
             replyHandler(nil, WebShellRules.failedMessage)
             return
         }

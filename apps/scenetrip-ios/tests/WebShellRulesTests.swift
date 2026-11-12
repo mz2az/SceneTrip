@@ -111,6 +111,21 @@ final class WebShellRulesTests: XCTestCase {
                        .openExternally)
     }
 
+    /// 하위 프레임(광고·삽입 화면)이 사람 손 없이 전화·App Store·지도 앱을 열지 못한다.
+    func testNavigationNonWebSchemesFromSubFrameAreCancelled() {
+        let raws = [
+            "mailto:hello@scenetrip.io",
+            "tel:+821012345678",
+            "sms:+821012345678",
+            "nmap://route/public?dlat=37.5&dlng=127.0&appname=io.scenetrip",
+            "kakaomap://look?p=37.5,127.0",
+            "itms-apps://apps.apple.com/app/id123",
+        ]
+        for raw in raws {
+            XCTAssertEqual(WebShellRules.navigation(url: url(raw), isMainFrame: false, base: base), .cancel, raw)
+        }
+    }
+
     func testNavigationJavascriptIsCancelled() {
         XCTAssertEqual(WebShellRules.navigation(url: url("javascript:alert(1)"), isMainFrame: true, base: base), .cancel)
         XCTAssertEqual(WebShellRules.navigation(url: url("javascript:alert(1)"), isMainFrame: false, base: base), .cancel)
@@ -162,6 +177,37 @@ final class WebShellRulesTests: XCTestCase {
         XCTAssertNil(WebShellRules.authProvider(from: 42))
         XCTAssertNil(WebShellRules.authProvider(from: ["provider": 1] as NSDictionary))
         XCTAssertNil(WebShellRules.authProvider(from: NSNull()))
+    }
+
+    // MARK: - acceptsAuthMessage (출처가 다른 iframe 이 자격을 받아 가지 못하게)
+
+    func testAuthMessageFromMainFrameSameOriginIsAccepted() throws {
+        XCTAssertTrue(WebShellRules.acceptsAuthMessage(isMainFrame: true, originScheme: "https",
+                                                       originHost: "dev.scenetrip.io", originPort: 0, base: base))
+        XCTAssertTrue(WebShellRules.acceptsAuthMessage(isMainFrame: true, originScheme: "https",
+                                                       originHost: "DEV.scenetrip.io", originPort: 443, base: base))
+        let local = try XCTUnwrap(URL(string: "http://localhost:5174"))
+        XCTAssertTrue(WebShellRules.acceptsAuthMessage(isMainFrame: true, originScheme: "http",
+                                                       originHost: "localhost", originPort: 5174, base: local))
+    }
+
+    func testAuthMessageFromSubFrameIsRejectedEvenIfSameOrigin() {
+        XCTAssertFalse(WebShellRules.acceptsAuthMessage(isMainFrame: false, originScheme: "https",
+                                                        originHost: "dev.scenetrip.io", originPort: 0, base: base))
+    }
+
+    func testAuthMessageFromOtherOriginIsRejected() throws {
+        XCTAssertFalse(WebShellRules.acceptsAuthMessage(isMainFrame: true, originScheme: "https",
+                                                        originHost: "evil.example", originPort: 0, base: base))
+        XCTAssertFalse(WebShellRules.acceptsAuthMessage(isMainFrame: true, originScheme: "http",
+                                                        originHost: "dev.scenetrip.io", originPort: 0, base: base))
+        XCTAssertFalse(WebShellRules.acceptsAuthMessage(isMainFrame: true, originScheme: "https",
+                                                        originHost: "dev.scenetrip.io", originPort: 8443, base: base))
+        XCTAssertFalse(WebShellRules.acceptsAuthMessage(isMainFrame: true, originScheme: "",
+                                                        originHost: "", originPort: 0, base: base))
+        let local = try XCTUnwrap(URL(string: "http://localhost:5174"))
+        XCTAssertFalse(WebShellRules.acceptsAuthMessage(isMainFrame: true, originScheme: "http",
+                                                        originHost: "localhost", originPort: 8081, base: local))
     }
 
     func testGoogleReplyHasExactlyIdTokenAndNonce() {

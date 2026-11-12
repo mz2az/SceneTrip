@@ -24,7 +24,11 @@ enum GoogleOAuth {
         /// 사람이 창을 닫았다 — 오류로 알리지 않는다.
         case cancelled
         case failed
+        /// 이미 로그인 창이 떠 있다 — 두 번째 요청은 창을 또 띄우지 않는다(웹뷰 다리 MZ2AZ-557, Apple 의 alreadyInProgress 와 같다).
+        case alreadyInProgress
     }
+
+    @MainActor private static var inProgress = false
 
     /// 32 바이트 난수의 base64url. 로그인 시도마다 새로 만든다 — 남의 ID 토큰을 다시 보내는 것을 막는다.
     static func randomToken() -> String {
@@ -39,7 +43,10 @@ enum GoogleOAuth {
     /// 로그인 창을 띄우고 ID 토큰을 받아 온다.
     @MainActor
     static func signIn() async throws -> Result {
+        guard !inProgress else { throw Failure.alreadyInProgress }
         guard let presenter = topViewController() else { throw Failure.failed }
+        inProgress = true
+        defer { inProgress = false }
         GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientId)
         let nonce = randomToken()
         do {
