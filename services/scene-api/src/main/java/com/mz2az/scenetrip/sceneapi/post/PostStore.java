@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +40,7 @@ public class PostStore {
    * @param nickname 글쓴이. 탈퇴했으면 {@code null}
    * @param coverKey 첫 사진의 저장소 키. 사진이 없으면 {@code null}
    * @param courseTitle 붙인 코스 이름. 코스가 없으면 {@code null}
+   * @param coverThumbnailKey 첫 사진의 작은 사진 키(V46, MZ2AZ-561). 아직 없거나 사진이 없으면 {@code null}
    */
   public record Summary(
       long id,
@@ -55,7 +57,44 @@ public class PostStore {
       String board,
       int likeCount,
       int commentCount,
-      boolean liked) {
+      boolean liked,
+      String coverThumbnailKey) {
+
+    /** 작은 사진이 없던 때의 줄(1.29.0 이전) — 작은 사진 키 없음. */
+    public Summary(
+        long id,
+        String title,
+        String excerpt,
+        String nickname,
+        OffsetDateTime createdAt,
+        String coverKey,
+        int photoCount,
+        String courseTitle,
+        Integer courseDayCount,
+        int placeCount,
+        boolean mine,
+        String board,
+        int likeCount,
+        int commentCount,
+        boolean liked) {
+      this(
+          id,
+          title,
+          excerpt,
+          nickname,
+          createdAt,
+          coverKey,
+          photoCount,
+          courseTitle,
+          courseDayCount,
+          placeCount,
+          mine,
+          board,
+          likeCount,
+          commentCount,
+          liked,
+          null);
+    }
 
     /** 게시판·좋아요·댓글이 없던 때의 줄(1.24.0 이전) — 여행후기, 수 0. */
     public Summary(
@@ -109,9 +148,23 @@ public class PostStore {
   public record Comment(
       long id, String body, String nickname, OffsetDateTime createdAt, boolean mine) {}
 
-  /** 상세 — 목록 줄에 본문 전체와 사진 키들. */
+  /**
+   * 상세 — 목록 줄에 본문 전체와 사진 키들.
+   *
+   * @param photoThumbnailKeys 사진마다의 작은 사진 키(V46, MZ2AZ-561) — {@code photoKeys} 와 같은 길이·순서, 아직 없는 자리는
+   *     {@code null}
+   */
   public record Detail(
-      Summary head, String body, List<String> photoKeys, List<TripPostBlock> bodyBlocks) {
+      Summary head,
+      String body,
+      List<String> photoKeys,
+      List<TripPostBlock> bodyBlocks,
+      List<String> photoThumbnailKeys) {
+    public Detail(
+        Summary head, String body, List<String> photoKeys, List<TripPostBlock> bodyBlocks) {
+      this(head, body, photoKeys, bodyBlocks, Collections.nCopies(photoKeys.size(), null));
+    }
+
     public Detail(Summary head, String body, List<String> photoKeys) {
       this(head, body, photoKeys, null);
     }
@@ -135,7 +188,43 @@ public class PostStore {
       String displayName,
       String nameRoman,
       String displayAddress,
-      String categoryLabel) {}
+      String categoryLabel,
+      String imageThumbnailUrl) {
+
+    /** 작은 사진이 없던 때의 모양(1.29.0 이전). */
+    public Stop(
+        int dayNo,
+        Long placeId,
+        Long poiId,
+        String name,
+        String address,
+        String category,
+        double latitude,
+        double longitude,
+        String imageUrl,
+        int dwellMinutes,
+        String displayName,
+        String nameRoman,
+        String displayAddress,
+        String categoryLabel) {
+      this(
+          dayNo,
+          placeId,
+          poiId,
+          name,
+          address,
+          category,
+          latitude,
+          longitude,
+          imageUrl,
+          dwellMinutes,
+          displayName,
+          nameRoman,
+          displayAddress,
+          categoryLabel,
+          null);
+    }
+  }
 
   /** 붙이려는 코스가 그 사람 것이 아니거나 없다. */
   public static final class CourseRejectedException extends RuntimeException {
@@ -169,6 +258,8 @@ public class PostStore {
       p.id, p.title, left(regexp_replace(p.body, '\\s+', ' ', 'g'), %d) AS excerpt, u.nickname, p.created_at,
       (SELECT ph.storage_key FROM community_post_photo ph
         WHERE ph.post_id = p.id ORDER BY ph.sort_order LIMIT 1) AS cover_key,
+      (SELECT ph.thumbnail_key FROM community_post_photo ph
+        WHERE ph.post_id = p.id ORDER BY ph.sort_order LIMIT 1) AS cover_thumbnail_key,
       (SELECT count(*) FROM community_post_photo ph WHERE ph.post_id = p.id)::INT AS photo_count,
       p.course_title, p.course_day_count,
       (SELECT count(*) FROM community_post_item i WHERE i.post_id = p.id)::INT AS place_count,
@@ -209,6 +300,12 @@ public class PostStore {
                 ORDER BY pim.sort_order, pim.id LIMIT 1),
               (SELECT qim.url FROM poi_image_visible qim WHERE qim.poi_id = q.id
                 ORDER BY qim.sort_order, qim.id LIMIT 1)) AS image_url,
+          -- 그 대표 사진 줄의 작은 사진(1.29.0, MZ2AZ-561) — 항목은 촬영지·편의시설 중 하나라 한쪽만 줄을 낸다(CourseStore 와 같다).
+          COALESCE(
+              (SELECT pim.thumbnail_url FROM place_image pim WHERE pim.place_id = pl.id
+                ORDER BY pim.sort_order, pim.id LIMIT 1),
+              (SELECT qim.thumbnail_url FROM poi_image_visible qim WHERE qim.poi_id = q.id
+                ORDER BY qim.sort_order, qim.id LIMIT 1)) AS image_thumbnail_url,
           q.name_roman AS poi_name_roman,
           CASE WHEN q.id IS NULL OR :lang = 'ko' THEN NULL
                ELSE COALESCE(qtr.name, qte.name) END AS poi_display_name,
@@ -435,17 +532,25 @@ public class PostStore {
                         PostBody.decode(rs.getString("body_blocks"))))
             .optional();
     return head.map(
-        d ->
-            new Detail(
-                d.head(),
-                d.body(),
-                jdbc.sql(
-                        "SELECT storage_key FROM community_post_photo"
-                            + " WHERE post_id = :postId ORDER BY sort_order")
-                    .param("postId", postId)
-                    .query(String.class)
-                    .list(),
-                d.bodyBlocks()));
+        d -> {
+          record PhotoRow(String key, String thumbnailKey) {}
+          List<PhotoRow> photos =
+              jdbc.sql(
+                      "SELECT storage_key, thumbnail_key FROM community_post_photo"
+                          + " WHERE post_id = :postId ORDER BY sort_order")
+                  .param("postId", postId)
+                  .query(
+                      (rs, n) ->
+                          new PhotoRow(rs.getString("storage_key"), rs.getString("thumbnail_key")))
+                  .list();
+          return new Detail(
+              d.head(),
+              d.body(),
+              photos.stream().map(PhotoRow::key).toList(),
+              d.bodyBlocks(),
+              // 항목이 null 일 수 있다 — toList() 는 null 을 받는다(List.copyOf 와 다르다).
+              photos.stream().map(PhotoRow::thumbnailKey).toList());
+        });
   }
 
   /** 코스 사본의 장소들, 일차·순서대로. */
@@ -469,7 +574,8 @@ public class PostStore {
                     rs.getString("poi_display_name"),
                     rs.getString("poi_name_roman"),
                     rs.getString("poi_display_address"),
-                    rs.getString("poi_category_label")))
+                    rs.getString("poi_category_label"),
+                    rs.getString("image_thumbnail_url")))
         .list();
   }
 
@@ -630,10 +736,13 @@ public class PostStore {
               jdbc.sql(
                       """
                       INSERT INTO storage_deletion (storage_key)
-                      SELECT ph.storage_key
+                      SELECT k.storage_key
                       FROM community_post_photo ph
                       JOIN community_post p ON p.id = ph.post_id
+                      -- 원본과 작은 사진(V46, MZ2AZ-561) — 작은 사진이 아직 없으면 원본만
+                      CROSS JOIN LATERAL (VALUES (ph.storage_key), (ph.thumbnail_key)) k(storage_key)
                       WHERE p.id = :postId AND p.user_id = CAST(:user AS UUID)
+                        AND k.storage_key IS NOT NULL
                       ON CONFLICT (storage_key) DO NOTHING
                       """)
                   .param("postId", postId)
@@ -711,7 +820,8 @@ public class PostStore {
         rs.getString("board"),
         rs.getInt("like_count"),
         rs.getInt("comment_count"),
-        rs.getBoolean("liked"));
+        rs.getBoolean("liked"),
+        rs.getString("cover_thumbnail_key"));
   }
 
   private static Long longOrNull(ResultSet rs, String column) throws SQLException {

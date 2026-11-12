@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
@@ -127,6 +128,27 @@ final class S3PhotoStorage implements PhotoStorage {
   @Override
   public void delete(String storageKey) {
     s3.deleteObject(d -> d.bucket(bucket).key(storageKey));
+  }
+
+  @Override
+  public byte[] read(String storageKey) {
+    try {
+      return s3.getObjectAsBytes(g -> g.bucket(bucket).key(storageKey)).asByteArray();
+    } catch (NoSuchKeyException e) {
+      throw new MissingPhotoException(storageKey);
+    } catch (S3Exception e) {
+      if (e.statusCode() == 404) {
+        throw new MissingPhotoException(storageKey);
+      }
+      throw e;
+    }
+  }
+
+  @Override
+  public void put(String storageKey, byte[] bytes, String contentType) {
+    s3.putObject(
+        p -> p.bucket(bucket).key(storageKey).contentType(contentType),
+        RequestBody.fromBytes(bytes));
   }
 
   @Override

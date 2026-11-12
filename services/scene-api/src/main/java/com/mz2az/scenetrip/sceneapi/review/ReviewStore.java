@@ -4,6 +4,7 @@ import com.mz2az.scenetrip.sceneapi.moderation.BlockStore;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -61,6 +62,8 @@ public class ReviewStore {
    * @param nickname 작성자 닉네임. 탈퇴했으면 {@code null}
    * @param photoKeys 저장소 키, 올린 순서대로
    * @param mine 보는 사람이 쓴 것인가
+   * @param photoThumbnailKeys 사진마다의 작은 사진 키(V46, MZ2AZ-561) — {@code photoKeys} 와 같은 길이·순서, 아직 없는 자리는
+   *     {@code null}
    */
   public record Row(
       long id,
@@ -70,7 +73,31 @@ public class ReviewStore {
       OffsetDateTime createdAt,
       OffsetDateTime updatedAt,
       boolean mine,
-      List<String> photoKeys) {}
+      List<String> photoKeys,
+      List<String> photoThumbnailKeys) {
+
+    /** 작은 사진을 모르는 줄 — 모든 자리가 {@code null}. */
+    public Row(
+        long id,
+        int rating,
+        String body,
+        String nickname,
+        OffsetDateTime createdAt,
+        OffsetDateTime updatedAt,
+        boolean mine,
+        List<String> photoKeys) {
+      this(
+          id,
+          rating,
+          body,
+          nickname,
+          createdAt,
+          updatedAt,
+          mine,
+          photoKeys,
+          Collections.nCopies(photoKeys.size(), null));
+    }
+  }
 
   /** 목록 한 장과 전체 수. */
   public record Page<T>(List<T> items, int total) {}
@@ -87,6 +114,7 @@ public class ReviewStore {
    * @param credit 우리 사진의 저작자 표기
    * @param thumbnailUrl 우리 사진의 작은 사진(관광공사가 만든 것). 없으면 {@code null}
    * @param license 공공누리 유형({@code kogl_type1}·{@code kogl_type3}, MZ2AZ-376). 없으면 {@code null}
+   * @param thumbnailKey 리뷰 사진의 작은 사진 키(V46, MZ2AZ-561). 우리 사진이거나 아직 없으면 {@code null}
    */
   public record Photo(
       String url,
@@ -94,7 +122,18 @@ public class ReviewStore {
       Long reviewId,
       String credit,
       String thumbnailUrl,
-      String license) {
+      String license,
+      String thumbnailKey) {
+
+    public Photo(
+        String url,
+        String storageKey,
+        Long reviewId,
+        String credit,
+        String thumbnailUrl,
+        String license) {
+      this(url, storageKey, reviewId, credit, thumbnailUrl, license, null);
+    }
 
     public Photo(String url, String storageKey, Long reviewId, String credit) {
       this(url, storageKey, reviewId, credit, null, null);
@@ -282,41 +321,53 @@ public class ReviewStore {
                   .query(Long.class)
                   .single();
 
-          Set<String> attached =
-              new HashSet<>(
-                  jdbc.sql("SELECT storage_key FROM review_image WHERE review_id = :r")
-                      .param("r", reviewId)
-                      .query(String.class)
-                      .list());
+          // 붙어 있던 사진과 그 작은 사진 상태(V46) — 남기는 사진은 다시 넣을 때 그대로 옮긴다. 안 그러면 고칠 때마다 작은 사진을
+          // 잃고(파일은 고아로 남는다) 작업이 다시 만든다.
+          record Attached(String thumbnailKey, int attempts) {}
+          Map<String, Attached> attached = new LinkedHashMap<>();
+          jdbc.sql(
+                  "SELECT storage_key, thumbnail_key, thumbnail_attempts FROM review_image"
+                      + " WHERE review_id = :r")
+              .param("r", reviewId)
+              .query(
+                  rs -> {
+                    attached.put(
+                        rs.getString("storage_key"),
+                        new Attached(
+                            rs.getString("thumbnail_key"), rs.getInt("thumbnail_attempts")));
+                  });
           Set<String> seen = new HashSet<>();
           for (String key : photoKeys) {
             if (!seen.add(key)) {
               throw new PhotoKeyRejectedException("같은 사진이 두 번 있습니다");
             }
-            if (!attached.contains(key) && !uploadedKeys.contains(key)) {
+            if (!attached.containsKey(key) && !uploadedKeys.contains(key)) {
               throw new PhotoKeyRejectedException("올리지 않았거나 만료된 사진입니다");
             }
           }
 
           // 고치며 뺀 사진(붙어 있었는데 새 목록에 없는 것)은 지울 목록에 올린다(MZ2AZ-448). 아래에서 줄을 다시 넣으므로
-          // 그대로 둔 사진은 건드리지 않는다. 같은 트랜잭션이라 고치기가 실패하면 목록에도 오르지 않는다.
-          for (String key : attached) {
-            if (!seen.contains(key)) {
-              jdbc.sql(
-                      "INSERT INTO storage_deletion (storage_key) VALUES (:key)"
-                          + " ON CONFLICT (storage_key) DO NOTHING")
-                  .param("key", key)
-                  .update();
+          // 그대로 둔 사진은 건드리지 않는다. 같은 트랜잭션이라 고치기가 실패하면 목록에도 오르지 않는다. 작은 사진(V46)도 함께.
+          for (Map.Entry<String, Attached> a : attached.entrySet()) {
+            if (!seen.contains(a.getKey())) {
+              queueDeletion(a.getKey());
+              if (a.getValue().thumbnailKey() != null) {
+                queueDeletion(a.getValue().thumbnailKey());
+              }
             }
           }
           jdbc.sql("DELETE FROM review_image WHERE review_id = :r").param("r", reviewId).update();
           for (int i = 0; i < photoKeys.size(); i++) {
+            Attached kept = attached.getOrDefault(photoKeys.get(i), new Attached(null, 0));
             jdbc.sql(
-                    "INSERT INTO review_image (review_id, storage_key, sort_order)"
-                        + " VALUES (:r, :key, :order)")
+                    "INSERT INTO review_image"
+                        + " (review_id, storage_key, sort_order, thumbnail_key, thumbnail_attempts)"
+                        + " VALUES (:r, :key, :order, :thumb, :attempts)")
                 .param("r", reviewId)
                 .param("key", photoKeys.get(i))
                 .param("order", i)
+                .param("thumb", kept.thumbnailKey())
+                .param("attempts", kept.attempts())
                 .update();
           }
           // 운영자가 내린 리뷰를 고쳐도 내림은 풀리지 않는다 — 고친 것을 돌려주되 남에게는 여전히 안 보인다.
@@ -338,10 +389,13 @@ public class ReviewStore {
               jdbc.sql(
                       """
                       INSERT INTO storage_deletion (storage_key)
-                      SELECT ri.storage_key
+                      SELECT k.storage_key
                       FROM review_image ri
                       JOIN review r ON r.id = ri.review_id
+                      -- 원본과 작은 사진(V46, MZ2AZ-561) — 작은 사진이 아직 없으면 원본만
+                      CROSS JOIN LATERAL (VALUES (ri.storage_key), (ri.thumbnail_key)) k(storage_key)
                       WHERE r.%s = :id AND r.user_id = CAST(:user AS UUID)
+                        AND k.storage_key IS NOT NULL
                       ON CONFLICT (storage_key) DO NOTHING
                       """
                           .formatted(target.column))
@@ -356,6 +410,14 @@ public class ReviewStore {
                       .update()
                   > 0;
             }));
+  }
+
+  private void queueDeletion(String key) {
+    jdbc.sql(
+            "INSERT INTO storage_deletion (storage_key) VALUES (:key)"
+                + " ON CONFLICT (storage_key) DO NOTHING")
+        .param("key", key)
+        .update();
   }
 
   /** 내가 쓴 리뷰, 촬영지·편의시설을 섞어 최신순. */
@@ -432,12 +494,12 @@ public class ReviewStore {
     String union =
         """
         SELECT o.url, NULL::TEXT AS storage_key, NULL::BIGINT AS review_id, o.credit,
-               o.thumbnail_url, o.license,
+               o.thumbnail_url, o.license, NULL::TEXT AS thumbnail_key,
                0 AS part, NULL::TIMESTAMPTZ AS created_at, o.sort_order, o.id
         FROM (%s) o
         UNION ALL
         SELECT NULL, ri.storage_key, r.id, NULL,
-               NULL, NULL,
+               NULL, NULL, ri.thumbnail_key,
                1, r.created_at, ri.sort_order, r.id
         FROM review r
         JOIN review_image ri ON ri.review_id = r.id
@@ -469,7 +531,8 @@ public class ReviewStore {
                       rs.wasNull() ? null : reviewId,
                       rs.getString("credit"),
                       rs.getString("thumbnail_url"),
-                      rs.getString("license"));
+                      rs.getString("license"),
+                      rs.getString("thumbnail_key"));
                 })
             .list();
     int total =
@@ -500,14 +563,20 @@ public class ReviewStore {
       return rows;
     }
     Map<Long, List<String>> keys = new LinkedHashMap<>();
-    rows.forEach(r -> keys.put(r.id(), new ArrayList<>()));
+    Map<Long, List<String>> thumbs = new LinkedHashMap<>();
+    rows.forEach(
+        r -> {
+          keys.put(r.id(), new ArrayList<>());
+          thumbs.put(r.id(), new ArrayList<>());
+        });
     jdbc.sql(
-            "SELECT review_id, storage_key FROM review_image"
+            "SELECT review_id, storage_key, thumbnail_key FROM review_image"
                 + " WHERE review_id IN (:ids) ORDER BY review_id, sort_order")
         .param("ids", keys.keySet())
         .query(
             rs -> {
               keys.get(rs.getLong("review_id")).add(rs.getString("storage_key"));
+              thumbs.get(rs.getLong("review_id")).add(rs.getString("thumbnail_key"));
             });
     return rows.stream()
         .map(
@@ -520,7 +589,9 @@ public class ReviewStore {
                     r.createdAt(),
                     r.updatedAt(),
                     r.mine(),
-                    List.copyOf(keys.get(r.id()))))
+                    List.copyOf(keys.get(r.id())),
+                    // 항목이 null 일 수 있다 — List.copyOf 는 null 을 받지 않는다.
+                    Collections.unmodifiableList(thumbs.get(r.id()))))
         .toList();
   }
 }

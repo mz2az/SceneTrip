@@ -226,6 +226,10 @@ public class PlaceStore {
           (SELECT pim.url FROM place_image pim
             WHERE pim.place_id = p.id
             ORDER BY pim.sort_order, pim.id LIMIT 1) AS image_url,
+          -- 대표 사진 줄(같은 순서의 첫 줄)의 작은 사진(1.29.0, MZ2AZ-561) — 뒤 사진의 것을 빌려 오지 않는다.
+          (SELECT pim.thumbnail_url FROM place_image pim
+            WHERE pim.place_id = p.id
+            ORDER BY pim.sort_order, pim.id LIMIT 1) AS image_thumbnail_url,
           CASE WHEN o.point IS NULL THEN NULL
                ELSE round(ST_Distance(p.geom, o.point))::INT END AS distance_meters,
           count(*) OVER () AS total_count
@@ -669,6 +673,7 @@ public class PlaceStore {
             .type(rs.getString("type"))
             .address(rs.getString("address"))
             .imageUrl(uri(rs.getString("image_url")))
+            .imageThumbnailUrl(uri(rs.getString("image_thumbnail_url")))
             .distanceMeters(integerOrNull(rs, "distance_meters"));
     return new Row(summary, rs.getInt("total_count"), Lang.fromValue(rs.getString("shown_lang")));
   }
