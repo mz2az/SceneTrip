@@ -7,6 +7,7 @@
 import { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { appEvent, track } from '@/analytics'
+import { LayerVisibleContext } from '@/design/DeferredImg'
 import { Cover } from '@/design/overlay'
 import { CommunityTab } from '@/features/community/CommunityTab'
 import { HomeTab } from '@/features/home/HomeTab'
@@ -78,9 +79,14 @@ export function RootTabs() {
   )
 }
 
-/** 숨긴 탭은 `visibility:hidden` 으로 터치도 받지 않는다 (iOS 의 opacity 0 + allowsHitTesting false). */
-function Layer({ visible, children }: { visible: boolean; children: React.ReactNode }) {
+/**
+ * 숨긴 탭은 `visibility:hidden` 으로 터치도 받지 않는다 (iOS 의 opacity 0 + allowsHitTesting false).
+ * 숨겨도 마운트는 돼 있으므로 보이는지를 LayerVisibleContext 로 내려, 안의 DeferredImg 가 이미지를 받지 않게 한다(MZ2AZ-558).
+ */
+export function Layer({ visible, children }: { visible: boolean; children: React.ReactNode }) {
   return (
-    <div style={{ position: 'absolute', inset: 0, visibility: visible ? 'visible' : 'hidden', overflow: 'hidden' }}>{children}</div>
+    <LayerVisibleContext.Provider value={visible}>
+      <div style={{ position: 'absolute', inset: 0, visibility: visible ? 'visible' : 'hidden', overflow: 'hidden' }}>{children}</div>
+    </LayerVisibleContext.Provider>
   )
 }

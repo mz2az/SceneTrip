@@ -2,6 +2,7 @@
  * 홈의 절들 — iOS HomeTab/HomeCards.swift (인사·지금 뜨는 작품·오늘의 성지) + HomeFeed.swift (커뮤니티 지금·내 기록).
  * 숫자·문구는 전부 서버·기기 값이다. 목업이 「카드 속 숫자·글은 배치용 예시」라고 못 박았다.
  */
+import { DeferredImg } from '@/design/DeferredImg'
 import { Icon } from '@/design/Icon'
 import { HStack, Spacer, Txt, VStack, homeCard, rr, shadow } from '@/design/primitives'
 import { Pressable } from '../route/ui/Press'
@@ -88,7 +89,7 @@ function Poster({ work }: { work: ContentSummary }) {
           background: 'linear-gradient(to bottom right, color-mix(in srgb, var(--pin-deep) 70%, transparent), var(--pin-deep))',
         }}
       >
-        {work.posterUrl && <img src={work.posterUrl} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />}
+        {work.posterUrl && <DeferredImg src={work.posterUrl} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.65))' }} />
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 10 }}>
           <Txt size={13} weight="bold" color="white" lines={2}>{work.title}</Txt>
@@ -116,7 +117,7 @@ export function TodayCard({ place, saved, onOpen, onSave }: { place: PlaceSummar
               background: 'linear-gradient(to right, color-mix(in srgb, var(--pin-deep) 13%, transparent), color-mix(in srgb, var(--pin-light) 33%, transparent))',
             }}
           >
-            {place.imageUrl && <img src={place.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />}
+            {place.imageUrl && <DeferredImg src={place.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />}
             {work && (
               <span style={{ position: 'absolute', left: 16, bottom: 12, padding: '4px 10px', borderRadius: 999, background: 'var(--system-background)' }}>
                 <Txt size={12} weight="bold" color="purple">{work}</Txt>

@@ -2,6 +2,7 @@
  * 촬영지 상세의 장면 카드 — 실제 사진의 확대와 장면 설명 열기를 각각 제공한다 (MZ2AZ-420). 출처: apps/scenetrip-ios/src/SearchTab/SceneCard.swift
  * 미연결·다운로드 실패는 빈 영역이다. 포스터로 대체하지 않는다(MZ2AZ-394).
  */
+import { DeferredImg } from '@/design/DeferredImg'
 import { useEffect, useState } from 'react'
 import { Icon } from '@/design/Icon'
 import { HStack, Pressable, Spacer, Txt, VStack, rr } from '@/design/primitives'
@@ -13,7 +14,7 @@ function SceneImage({ url }: { url: string | undefined }) {
   const [failed, setFailed] = useState(false)
   useEffect(() => setFailed(false), [url])
   if (!url || failed) return null
-  return <img src={url} alt="" loading="lazy" draggable={false} onError={() => setFailed(true)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
+  return <DeferredImg src={url} alt="" loading="lazy" draggable={false} onError={() => setFailed(true)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
 }
 
 export function SceneCard({ scene, onPhoto, onDetails }: { scene: SceneItem; onPhoto: () => void; onDetails: () => void }) {

@@ -2,6 +2,7 @@
  * 지도 카드에 붙는 별점 줄과 사진 줄 — iOS Reviews/RatingLine.swift · CardPhotoStrip.swift (MZ2AZ-363).
  * 사진첩·리뷰 시트 자체는 리뷰 담당의 것이다 — 이쪽은 줄만 그리고 누르면 콜백을 부른다.
  */
+import { DeferredImg } from '@/design/DeferredImg'
 import { HStack, Pressable, Txt, VStack } from '@/design/primitives'
 import { Icon } from '@/design/Icon'
 import { tr, trAt } from '@/i18n'
@@ -66,7 +67,7 @@ export function CardPhotoStrip({ photos, onOpen }: { photos: readonly CardPhoto[
         <HStack spacing={6} pad="0 14px" style={{ width: 'max-content' }}>
           {photos.map((p, i) => (
             <Pressable key={`${p.url}-${i}`} plain onClick={() => onOpen?.(i)} aria-label={tr('크게 보기')} style={{ position: 'relative', width: THUMB.w, height: THUMB.h, flex: 'none', background: 'var(--system-gray6)', borderRadius: p.license === 'kogl_type3' ? 0 : THUMB_RADIUS, overflow: 'hidden' }}>
-              <img src={p.thumbnailUrl ?? p.url} alt="" loading="lazy" draggable={false} style={{ width: '100%', height: '100%', objectFit: p.license === 'kogl_type3' ? 'contain' : 'cover' }} />
+              <DeferredImg src={p.thumbnailUrl ?? p.url} alt="" loading="lazy" draggable={false} style={{ width: '100%', height: '100%', objectFit: p.license === 'kogl_type3' ? 'contain' : 'cover' }} />
               {p.source === 'review' && (
                 <span style={{ position: 'absolute', left: 3, bottom: 3, display: 'inline-flex', alignItems: 'center', padding: '4px 5px', borderRadius: 999, background: 'rgba(0,0,0,0.55)' }}>
                   <Icon name="person.crop.square" size={11} weight="semibold" color="#fff" />

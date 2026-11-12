@@ -3,6 +3,7 @@
  * 번호 배지는 검색 탭의 PlaceRow 와 같은 색·같은 규칙이다 — 목록의 N번이 지도의 N번이고, 그 짝을 색으로도 잇는다.
  * 머무는 시간 칩은 이 줄에 없다(2026-10-08 사용자 결정, MZ2AZ-368) — 값은 그대로 있고 일차 머리줄의 「머무는 시간」이 합을 보여 주며 거기서 고친다.
  */
+import { DeferredImg } from '@/design/DeferredImg'
 import type { PointerEventHandler, Ref } from 'react'
 import { Icon } from '@/design/Icon'
 import { HStack, Spacer, Txt, VStack } from '@/design/primitives'
@@ -53,7 +54,7 @@ const PHOTO = { w: 92, h: 69 }
 function StopPhoto({ url, symbol, onOpen, name }: { url: string | null; symbol: string; onOpen: (() => void) | null; name: string }) {
   const art = (
     <span aria-hidden style={{ position: 'relative', width: PHOTO.w, height: PHOTO.h, flex: 'none', borderRadius: 10, overflow: 'hidden', background: 'var(--system-gray6)', display: 'grid', placeItems: 'center' }}>
-      {url ? <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name={symbol} size={22} color="tertiary" />}
+      {url ? <DeferredImg src={url} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name={symbol} size={22} color="tertiary" />}
       {onOpen && (
         <span style={{ position: 'absolute', right: 5, bottom: 5, width: 22, height: 22, borderRadius: 999, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,0.55)' }}>
           <Icon name="info.circle" size={14} color="white" />

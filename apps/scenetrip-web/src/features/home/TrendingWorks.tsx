@@ -5,6 +5,7 @@
  * 포스터를 누르면 작품검색 탭의 그 작품 상세(촬영지 목록 + 지도)로 간다 — 홈 선반에서 누를 때와 같은 길이다. 상세의 「뒤로」는 이 격자로 돌아온다.
  * 순서·숫자는 서버 값 그대로다(선반과 같은 조회, 한도만 크게 — trendingModel.ts). 분석은 상세가 이미 보내는 view_title 뿐이다.
  */
+import { DeferredImg } from '@/design/DeferredImg'
 import { useCallback, useEffect, useState } from 'react'
 import { paths } from '@/app/routes'
 import { useTabRouter } from '@/app/tabRouter'
@@ -114,7 +115,7 @@ export function TrendingGrid({ state, onOpen, onRetry }: { state: TrendingState;
           <VStack spacing={6} align="stretch">
             <div className="trending-poster">
               {work.posterUrl && (
-                <img src={work.posterUrl} alt="" loading="lazy" referrerPolicy="no-referrer" draggable={false} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                <DeferredImg src={work.posterUrl} alt="" loading="lazy" referrerPolicy="no-referrer" draggable={false} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
               )}
               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.65))' }} />
               <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 10 }}>
