@@ -152,6 +152,12 @@ scenetrip:
     orphan-sweep:
       schedule-enabled: ${SCENETRIP_MEDIA_ORPHAN_SWEEP_SCHEDULE_ENABLED:true}
       cron: "0 0 4 * * SUN"
+    # 사진 작은 판(MZ2AZ-561, docs/project/plans/photo-thumbnails.md). 작은 사진이 없는 후기·리뷰 사진을 1 분마다 한 대에서
+    # 최대 20 장 골라 긴 변 720 JPEG 로 만들어 <자리>/thumb-720/ 에 올린다. 옛 사진의 백필도 같은 작업이다. 저장소(bucket)가
+    # 없는 환경에서는 켜져 있어도 아무것도 하지 않는다.
+    thumbnail:
+      schedule-enabled: ${SCENETRIP_MEDIA_THUMBNAIL_SCHEDULE_ENABLED:true}
+      cron: "30 * * * * *"
   auth:
     # 가입 판정. **기본은 켬**이고 이 값은 어느 환경에서도 여기서 바꾸지 않는다.
     #

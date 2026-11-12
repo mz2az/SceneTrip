@@ -29,6 +29,7 @@ export function placeSummaryOf(detail: PlaceDetail): PlaceSummary {
     latitude: detail.latitude,
     longitude: detail.longitude,
     imageUrl: detail.imageUrl,
+    imageThumbnailUrl: detail.imageThumbnailUrl,
     contents: worksRefs(detail.scenes, detail.contents),
   }
 }

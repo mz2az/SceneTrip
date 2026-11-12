@@ -21,9 +21,10 @@ import org.springframework.transaction.support.TransactionTemplate;
  * <p>글을 지우거나 리뷰를 고치는 길은 키를 바로 목록에 올린다. 이 작업은 그 길이 생기기 전에 남은 파일과, 앞으로 어떤 이유로 새는 파일을 잡는다. 지우는 것은
  * {@link StorageDeletionJob} 이다 — 지우는 길은 여전히 하나다.
  *
- * <p>{@code reviews/}·{@code posts/} 만 본다({@code uploads/tmp/} 는 버킷 수명 규칙이 하루 뒤 지운다). 마지막으로 바뀐 지
- * {@link #MIN_AGE} 가 넘은 파일만 — 사진은 옮겨진 <b>뒤에</b> DB 에 붙으므로 그 사이, 또는 저장에 실패해 되돌리는 도중의 파일을 지우면 안 된다.
- * 쪽(S3 는 1,000 개)마다 DB 와 비교해 목록을 한꺼번에 메모리에 올리지 않는다.
+ * <p>{@code reviews/}·{@code posts/} 만 본다 — 그 아래 작은 사진({@code thumb-720/}, MZ2AZ-561)도 함께 훑고, 사진 줄의
+ * {@code thumbnail_key} 가 가리키면 남긴다({@code uploads/tmp/} 는 버킷 수명 규칙이 하루 뒤 지운다). 마지막으로 바뀐 지 {@link
+ * #MIN_AGE} 가 넘은 파일만 — 사진은 옮겨진 <b>뒤에</b> DB 에 붙으므로 그 사이, 또는 저장에 실패해 되돌리는 도중의 파일을 지우면 안 된다. 쪽(S3 는
+ * 1,000 개)마다 DB 와 비교해 목록을 한꺼번에 메모리에 올리지 않는다.
  *
  * <p>파드가 여럿이어도 한 대만 돈다 — 트랜잭션 advisory lock {@code
  * pg_try_advisory_xact_lock(hashtext('orphan_photo_sweep'))} ({@link StorageDeletionJob} 의 {@code
@@ -115,7 +116,7 @@ public class OrphanPhotoSweep {
     return queued == null ? 0 : queued;
   }
 
-  /** 리뷰 사진·후기 사진 어디에서도 가리키지 않는 키를 목록에 올리고, 새로 오른 개수를 돌려준다. */
+  /** 리뷰 사진·후기 사진(원본·작은 사진) 어디에서도 가리키지 않는 키를 목록에 올리고, 새로 오른 개수를 돌려준다. */
   private int queueUnreferenced(List<String> keys) {
     Set<String> referenced =
         new HashSet<>(
@@ -124,6 +125,11 @@ public class OrphanPhotoSweep {
                     SELECT storage_key FROM review_image WHERE storage_key = ANY(:keys)
                     UNION
                     SELECT storage_key FROM community_post_photo WHERE storage_key = ANY(:keys)
+                    UNION
+                    -- 작은 사진(thumb-720/, V46, MZ2AZ-561)도 가리키는 파일이다 — 빠뜨리면 7 일 뒤 작은 사진이 지워진다.
+                    SELECT thumbnail_key FROM review_image WHERE thumbnail_key = ANY(:keys)
+                    UNION
+                    SELECT thumbnail_key FROM community_post_photo WHERE thumbnail_key = ANY(:keys)
                     """)
                 .param("keys", keys.toArray(String[]::new))
                 .query(String.class)

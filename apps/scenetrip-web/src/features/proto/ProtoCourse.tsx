@@ -17,6 +17,7 @@ import { MockBadge } from './protoParts'
 import { daysLabel, say } from './protoState'
 import { color, contained, heading, radius } from './protoTokens'
 import './proto.css'
+import { smallImage } from '@/shared/smallImage'
 
 // ---------------------------------------------------------------- 공통
 
@@ -35,7 +36,7 @@ function useDetail(course: RouteCourse | null): RouteCourse | null {
   return detail
 }
 
-const photoOf = (s: RouteStop | undefined) => s?.place.imageUrl ?? null
+const photoOf = (s: RouteStop | undefined) => smallImage(s?.place.imageThumbnailUrl, s?.place.imageUrl)
 
 /**
  * 촬영지 id → 작품 이름. 코스 상세의 장소에는 작품이 실려 오지 않아, 홈이 이미 받아 둔 촬영지 목록(도시별 묶음)에서 찾는다.

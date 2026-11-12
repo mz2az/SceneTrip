@@ -62,7 +62,8 @@ public class MarketStore {
           m.like_count, m.save_count, m.published_at,
           (SELECT count(*) FROM market_course_item mi WHERE mi.market_course_id = m.id)
               AS place_count,
-          (SELECT pim.url
+          -- 목록 카드용 — 그 사진의 작은 것이 있으면 작은 것, 없으면 원본(1.29.0, MZ2AZ-561, CourseSummary 와 같은 규칙).
+          (SELECT COALESCE(pim.thumbnail_url, pim.url)
              FROM market_course_item mi
              JOIN place_image pim ON pim.place_id = mi.place_id
             WHERE mi.market_course_id = m.id
@@ -99,7 +100,8 @@ public class MarketStore {
           m.like_count, m.save_count, m.published_at,
           (SELECT count(*) FROM market_course_item mi WHERE mi.market_course_id = m.id)
               AS place_count,
-          (SELECT pim.url
+          -- 목록 카드용 — 그 사진의 작은 것이 있으면 작은 것, 없으면 원본(1.29.0, MZ2AZ-561, CourseSummary 와 같은 규칙).
+          (SELECT COALESCE(pim.thumbnail_url, pim.url)
              FROM market_course_item mi
              JOIN place_image pim ON pim.place_id = mi.place_id
             WHERE mi.market_course_id = m.id
@@ -139,7 +141,11 @@ public class MarketStore {
               cd.title AS source_content_title,
               (SELECT pim.url FROM place_image pim
                 WHERE pim.place_id = p.id
-                ORDER BY pim.sort_order, pim.id LIMIT 1) AS image_url
+                ORDER BY pim.sort_order, pim.id LIMIT 1) AS image_url,
+              -- 대표 사진 줄의 작은 사진(1.29.0, MZ2AZ-561) — 같은 순서의 첫 줄
+              (SELECT pim.thumbnail_url FROM place_image pim
+                WHERE pim.place_id = p.id
+                ORDER BY pim.sort_order, pim.id LIMIT 1) AS image_thumbnail_url
           FROM market_course_item mi
           JOIN place p ON p.id = mi.place_id
           LEFT JOIN place_display pd ON pd.place_id = p.id
@@ -148,7 +154,7 @@ public class MarketStore {
       )
       SELECT
           day_no, sort_order, dwell_min, place_id, name, address, category, image_url,
-          source_content_id, source_content_title,
+          image_thumbnail_url, source_content_id, source_content_title,
           ST_Y(geom::geometry) AS latitude,
           ST_X(geom::geometry) AS longitude,
           ST_Distance(geom, lag(geom) OVER (PARTITION BY day_no ORDER BY sort_order))
@@ -522,6 +528,7 @@ public class MarketStore {
         .address(rs.getString("address"))
         .category(rs.getString("category"))
         .imageUrl(uri(rs.getString("image_url")))
+        .imageThumbnailUrl(uri(rs.getString("image_thumbnail_url")))
         .distanceMetersFromPrevious(integerOrNull(rs, "distance_from_previous"))
         .sourceContentId(longOrNull(rs, "source_content_id"))
         .sourceContentTitle(rs.getString("source_content_title"));

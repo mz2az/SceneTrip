@@ -55,7 +55,8 @@ public class CourseStore {
           c.id, c.title, c.start_date, c.day_count, c.status, c.current_day_no,
           c.origin, c.pace, c.source_market_course_id, c.created_at, c.updated_at,
           (SELECT count(*) FROM course_item i WHERE i.course_id = c.id) AS place_count,
-          (SELECT pim.url
+          -- 이름 그대로 목록 카드용 — 그 사진의 작은 것이 있으면 작은 것, 없으면 원본(1.29.0, MZ2AZ-561).
+          (SELECT COALESCE(pim.thumbnail_url, pim.url)
              FROM course_item i
              JOIN place_image pim ON pim.place_id = i.place_id
             WHERE i.course_id = c.id
@@ -72,7 +73,8 @@ public class CourseStore {
           c.id, c.title, c.start_date, c.day_count, c.status, c.current_day_no,
           c.origin, c.pace, c.source_market_course_id, c.created_at, c.updated_at,
           (SELECT count(*) FROM course_item i WHERE i.course_id = c.id) AS place_count,
-          (SELECT pim.url
+          -- 이름 그대로 목록 카드용 — 그 사진의 작은 것이 있으면 작은 것, 없으면 원본(1.29.0, MZ2AZ-561).
+          (SELECT COALESCE(pim.thumbnail_url, pim.url)
              FROM course_item i
              JOIN place_image pim ON pim.place_id = i.place_id
             WHERE i.course_id = c.id
@@ -133,7 +135,16 @@ public class CourseStore {
                     ORDER BY pim.sort_order, pim.id LIMIT 1),
                   (SELECT qim.url FROM poi_image_visible qim
                     WHERE qim.poi_id = q.id
-                    ORDER BY qim.sort_order, qim.id LIMIT 1)) AS image_url
+                    ORDER BY qim.sort_order, qim.id LIMIT 1)) AS image_url,
+              -- 그 대표 사진 줄의 작은 사진(1.29.0, MZ2AZ-561). 항목은 촬영지·편의시설 중 하나라 한쪽 질의만 줄을 낸다 —
+              -- 촬영지 사진에 작은 것이 없다고 편의시설 쪽 것을 빌려 오는 일은 없다.
+              COALESCE(
+                  (SELECT pim.thumbnail_url FROM place_image pim
+                    WHERE pim.place_id = p.id
+                    ORDER BY pim.sort_order, pim.id LIMIT 1),
+                  (SELECT qim.thumbnail_url FROM poi_image_visible qim
+                    WHERE qim.poi_id = q.id
+                    ORDER BY qim.sort_order, qim.id LIMIT 1)) AS image_thumbnail_url
           FROM course_item i
           LEFT JOIN place p ON p.id = i.place_id
           LEFT JOIN place_display pd ON pd.place_id = p.id
@@ -149,6 +160,7 @@ public class CourseStore {
       SELECT
           id, day_no, dwell_min, visited_at, place_id, poi_id, custom_pin_id,
           source_content_id, source_content_title, name, address, category, image_url,
+          image_thumbnail_url,
           poi_name_roman, poi_display_name, poi_display_address, poi_category_label,
           place_delisted, poi_closed,
           ST_Y(geom::geometry) AS latitude,
@@ -803,6 +815,7 @@ public class CourseStore {
         .address(rs.getString("address"))
         .category(rs.getString("category"))
         .imageUrl(uri(rs.getString("image_url")))
+        .imageThumbnailUrl(uri(rs.getString("image_thumbnail_url")))
         .distanceMetersFromPrevious(integerOrNull(rs, "distance_from_previous"))
         .sourceContentId(longOrNull(rs, "source_content_id"))
         .sourceContentTitle(rs.getString("source_content_title"))

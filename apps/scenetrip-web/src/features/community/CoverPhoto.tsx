@@ -1,11 +1,13 @@
 /*
  * 목록 줄의 대표 사진 — iOS `PostRemotePhoto` · `CommunityCoverPhoto` (CommunityTab/PostRemotePhoto.swift).
  * 만료되는 사진 주소는 저장하지 않는다. 안 열리면 그 글의 상세를 다시 받아 새 주소로 바꾼다(30 초에 한 번, 눌러서 하는 것은 언제나).
+ * 목록 칸이라 작은 사진(`coverThumbnail`, MZ2AZ-561)을 그린다 — 없으면 원본. 새로 받을 때도 상세의 `photoThumbnailUrls[0]` 이 먼저다.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '@/design/Icon'
 import { Pressable, Spinner } from '@/design/primitives'
 import { tr } from '@/i18n'
+import { smallImage } from '@/shared/smallImage'
 import type { CommunityPost } from './model'
 import { createPhotoRenewal, unsigned } from './renewal'
 import { communityStore } from './store'
@@ -13,14 +15,14 @@ import { communityStore } from './store'
 type Status = 'loading' | 'loaded' | 'failed'
 
 export function CoverPhoto({ post }: { post: CommunityPost }) {
-  const [url, setUrl] = useState<string | null>(post.remotePhotos?.[0] ?? null)
+  const [url, setUrl] = useState<string | null>(coverOf(post))
   const [status, setStatus] = useState<Status>('loading')
   const [attempt, setAttempt] = useState(0)
   const renewal = useMemo(() => createPhotoRenewal(), [])
   const renewedFor = useRef<string | null>(null)
 
   // 목록을 새로 받아 주소가 바뀌면 따라간다.
-  const incoming = post.remotePhotos?.[0] ?? null
+  const incoming = coverOf(post)
   useEffect(() => {
     if (incoming) setUrl(incoming)
   }, [incoming])
@@ -30,7 +32,7 @@ export function CoverPhoto({ post }: { post: CommunityPost }) {
     if (post.serverId === undefined) return
     void renewal.run(forced, async () => {
       const fresh = await communityStore.api.detail(post)
-      const first = fresh.remotePhotos?.[0]
+      const first = coverOf(fresh)
       if (first) setUrl(first)
     })
   }
@@ -70,4 +72,9 @@ export function CoverPhoto({ post }: { post: CommunityPost }) {
       )}
     </div>
   )
+}
+
+/** 목록 칸에 그릴 대표 사진 — 작은 것, 없으면 원본. */
+function coverOf(post: CommunityPost): string | null {
+  return smallImage(post.coverThumbnail, post.remotePhotos?.[0])
 }

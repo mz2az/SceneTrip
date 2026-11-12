@@ -59,6 +59,10 @@ public class CartStore {
           (SELECT pim.url FROM place_image pim
             WHERE pim.place_id = p.id
             ORDER BY pim.sort_order, pim.id LIMIT 1) AS image_url,
+          -- 대표 사진 줄의 작은 사진(1.29.0, MZ2AZ-561) — 같은 순서의 첫 줄
+          (SELECT pim.thumbnail_url FROM place_image pim
+            WHERE pim.place_id = p.id
+            ORDER BY pim.sort_order, pim.id LIMIT 1) AS image_thumbnail_url,
           ci_.source_content_id,
           cd.title AS source_content_title,
           ci_.created_at,
@@ -174,6 +178,7 @@ public class CartStore {
             .latitude(rs.getDouble("latitude"))
             .longitude(rs.getDouble("longitude"))
             .imageUrl(uri(rs.getString("image_url")))
+            .imageThumbnailUrl(uri(rs.getString("image_thumbnail_url")))
             .sourceContentId(longOrNull(rs))
             .sourceContentTitle(rs.getString("source_content_title"))
             .delisted(rs.getBoolean("delisted"));

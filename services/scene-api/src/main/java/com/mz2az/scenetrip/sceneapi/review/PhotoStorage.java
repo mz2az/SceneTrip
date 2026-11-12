@@ -47,6 +47,20 @@ public interface PhotoStorage {
    */
   void listPages(String prefix, Consumer<List<StoredObject>> onPage);
 
+  /**
+   * 파일을 통째로 읽는다(MZ2AZ-561, 작은 사진 작업). 없으면 {@link MissingPhotoException}, 저장소가 실패하면 그 밖의 예외를 던진다.
+   *
+   * <p>기본 구현은 없다고 말한다 — 이 일을 하지 않는 가짜(시험)는 고치지 않아도 된다. 실제 저장소는 {@link S3PhotoStorage}.
+   */
+  default byte[] read(String storageKey) {
+    throw new UnsupportedOperationException("이 저장소는 파일을 읽지 않습니다: " + storageKey);
+  }
+
+  /** 파일을 올린다(같은 키가 있으면 바꾼다, MZ2AZ-561). 저장소가 실패하면 던진다. 기본 구현은 {@link #read} 와 같은 이유로 없다. */
+  default void put(String storageKey, byte[] bytes, String contentType) {
+    throw new UnsupportedOperationException("이 저장소는 파일을 올리지 않습니다: " + storageKey);
+  }
+
   /** 저장소에 있는 파일 하나 — 키와 마지막으로 바뀐 때. */
   record StoredObject(String key, Instant lastModified) {}
 

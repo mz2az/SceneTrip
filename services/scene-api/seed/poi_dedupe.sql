@@ -97,6 +97,12 @@ SELECT 'poi_dedupe: 같은 가게 정리로 한 사람의 리뷰가 겹쳐 오�
 FROM t_dd_clash c
 JOIN review r ON r.id = c.dropped;
 
+-- 작은 사진(V46, MZ2AZ-561)은 보관하지 않고 지울 목록에 올린다 — 되살리면 작업(PhotoThumbnailJob)이 원본에서 다시 만든다.
+INSERT INTO storage_deletion (storage_key)
+SELECT i.thumbnail_key FROM review_image i
+WHERE i.review_id IN (SELECT dropped FROM t_dd_clash) AND i.thumbnail_key IS NOT NULL
+ON CONFLICT (storage_key) DO NOTHING;
+
 DELETE FROM review WHERE id IN (SELECT dropped FROM t_dd_clash);
 
 CREATE TEMP TABLE t_dd_moved_reviews ON COMMIT DROP AS

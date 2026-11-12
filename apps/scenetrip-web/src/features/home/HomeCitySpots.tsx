@@ -19,6 +19,7 @@ import { Pressable } from '../route/ui/Press'
 import { type LatLng, areaBbox, chooseInitialCity, cityCount, nearMeOutcome, regionBbox } from './homeCities'
 import { type HomeCity, ensureCityPlaces, homeCityStore, loadHomeCities, selectHomeCity } from './homeCityModel'
 import { hasPhoto } from './homeRules'
+import { smallImage } from '@/shared/smallImage'
 
 type PlaceSummary = components['schemas']['PlaceSummary']
 
@@ -235,7 +236,7 @@ function SpotCard({ place, onOpen }: { place: PlaceSummary; onOpen: () => void }
         }}
       >
         {hasPhoto(place) && (
-          <DeferredImg src={place.imageUrl!} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />
+          <DeferredImg src={smallImage(place.imageThumbnailUrl, place.imageUrl)!} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />
         )}
       </div>
       <VStack spacing={3} align="stretch" style={{ padding: '8px 10px 10px' }}>

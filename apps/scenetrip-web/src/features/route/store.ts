@@ -248,13 +248,14 @@ export function sortWorks(liked: readonly ContentSummary[], works: readonly Cont
 }
 
 /** 장바구니의 장소를 코스에 담을 수 있는 형태로. 좌표가 없는 항목은 지도에 찍을 수 없으므로 버린다. */
-export function cartPlaces(items: ReadonlyArray<{ placeId: number; name: string; address?: string | null; latitude?: number; longitude?: number; imageUrl?: string | null; sourceContentId?: number | null; sourceContentTitle?: string | null }>): PlaceSummary[] {
+export function cartPlaces(items: ReadonlyArray<{ placeId: number; name: string; address?: string | null; latitude?: number; longitude?: number; imageUrl?: string | null; imageThumbnailUrl?: string | null; sourceContentId?: number | null; sourceContentTitle?: string | null }>): PlaceSummary[] {
   return items.flatMap((item) =>
     item.latitude === undefined || item.longitude === undefined
       ? []
       : [{
           id: item.placeId, name: item.name, type: null, address: item.address ?? null, latitude: item.latitude, longitude: item.longitude,
           imageUrl: item.imageUrl ?? null,
+          imageThumbnailUrl: item.imageThumbnailUrl ?? null,
           contents: item.sourceContentId != null ? [{ contentId: item.sourceContentId, title: item.sourceContentTitle ?? '' }] : undefined,
         }],
   )
@@ -327,7 +328,7 @@ async function withMissingPlaces(plan: GuidePlan, listed: readonly PlaceSummary[
     missing.map(async (placeId) => {
       try {
         const d = await ok(api.GET('/places/{placeId}', { params: { path: { placeId } } }))
-        return { id: d.id, name: d.name, type: d.type ?? null, address: d.address ?? null, latitude: d.latitude, longitude: d.longitude, imageUrl: d.imageUrl ?? null } satisfies PlaceSummary
+        return { id: d.id, name: d.name, type: d.type ?? null, address: d.address ?? null, latitude: d.latitude, longitude: d.longitude, imageUrl: d.imageUrl ?? null, imageThumbnailUrl: d.imageThumbnailUrl ?? null } satisfies PlaceSummary
       } catch {
         return null
       }

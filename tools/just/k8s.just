@@ -270,6 +270,13 @@ course-pin-to-poi *flags:
 place-poi-link *flags:
     ./tools/scripts/place-poi-link.sh "$@"
 
+# 촬영지 사진의 작은 사진(긴 변 720 JPEG, MZ2AZ-561) — 기본은 미리 보기(올릴 목록·경로만, 망·AWS 없음).
+# `--sample-dir DIR` 은 앞 20 장을 받아 줄인 결과를 그 폴더에만 쓴다(실측). `--upload` 는 사람의 AWS 자격으로 공용 버킷
+# place/thumb-720/ 에 덮어쓰기 없이 올리고 seed/place_image_thumbnails.tsv 를 쓴다 — 사용자 승인 뒤에만(계획 photo-thumbnails.md §8-3).
+[group('db')]
+place-thumbnails *flags:
+    {{BAZEL}} run //services/scene-api:place_thumbnails -- {{ flags }}
+
 # 처음 적재 때 합쳐진 줄의 번호를 번호 기록(poi_source)에 넣는다 — 몇 번을 돌려도 같다(MZ2AZ-491).
 # 넣은 뒤 just seed-poi-detail 을 다시 돌리면 합쳐진 곳에도 관광공사 상세가 붙는다.
 [group('db')]

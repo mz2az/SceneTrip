@@ -39,7 +39,7 @@ const STOPS = [
   { id: 9102, placeId: 219, name: '이화 벽화마을', address: '12 Naksanseonggwakseo 1-gil, Jongno-gu, Seoul', latitude: 37.578067, longitude: 127.007135, sourceContentTitle: '해일', visitedAt: iso(2) },
   { id: 9103, placeId: 150, name: '카페 만휴정', address: '70 Gungmalli-gil, Giran-myeon, Andong-si, Gyeongsangbuk-do', latitude: 36.415621, longitude: 128.917643, sourceContentTitle: null, visitedAt: null },
 ]
-const item = (s: (typeof STOPS)[number]) => ({ source: 'place', poiId: null, customPinId: null, category: null, dwellMinutes: 60, distanceMetersFromPrevious: null, sourceContentId: null, imageUrl: null, ...s })
+const item = (s: (typeof STOPS)[number]) => ({ source: 'place', poiId: null, customPinId: null, category: null, dwellMinutes: 60, distanceMetersFromPrevious: null, sourceContentId: null, imageUrl: null, imageThumbnailUrl: null, ...s })
 
 const course = (active: boolean) => ({
   id: 9001, title: '개발용 코스', dayCount: 1, startDate: null, status: active ? 'active' : 'upcoming', currentDayNo: active ? 1 : null, origin: 'self', pace: 'loose', sourceMarketCourseId: null,
