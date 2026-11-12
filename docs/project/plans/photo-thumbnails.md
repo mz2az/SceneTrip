@@ -2,7 +2,7 @@
 
 - **작성일**: 2026-11-13
 - **티켓**: MZ2AZ-561
-- **상태**: 계획 — 사용자 확인 전. 코드 없음
+- **상태**: 구현 — 서버(V46·`PhotoThumbnailJob`·지우기·고아 청소·응답)·촬영지 도구(`just place-thumbnails`, 아직 올리지 않음 — TSV 는 머리줄뿐)·웹이 브랜치 `MZ2AZ-561-photo-thumbnails` 에 있다. 배포·올리기·실측(§6)은 아직
 - **결정 기록**: [ADR 0030](../../architecture/adr/0030-photo-thumbnails-by-server-job.md)(제안)
 - **앞선 문서**: [poster-disk-cache.md](./poster-disk-cache.md)(MZ2AZ-507, 포스터만 — 우리 S3 사진은 서버 쪽에서 따로 정하기로 함),
   [place-photo-credit.md](./place-photo-credit.md)(`place_image.thumbnail_url`, V42), [post-photo-deletion.md](./post-photo-deletion.md)(지울 목록·고아 청소)

@@ -20,6 +20,7 @@
 | `course_pin_to_poi.sql` | 개인 핀으로 저장된 편의시설을 편의시설 항목으로 바꾼다(MZ2AZ-377). `just course-pin-to-poi [--dry-run]` — **앱(MZ2AZ-380) 배포 뒤에** |
 | `place_poi_links.tsv` | 같은 곳 **사람 판정** — `place_key` · `poi_source_id` · `same`/`not` · 메모. 자동 판정(도로명 주소가 같음 · 5 m 안)보다 앞선다. 판정이 필요한 후보는 `just place-poi-link` 가 끝에 붙여 넣을 줄로 보여 준다 ([계획](../../../docs/project/plans/place-poi-link.md) §2·§3) |
 | `place_image_credits.tsv` | 촬영지 사진 **출처** — `url` · `credit` · `license`(관광공사 사진만 `kogl_type1`/`kogl_type3`) · `thumbnail_url`. `candidates.sql` 이 `place_image` 를 넣은 뒤 주소가 같은 줄에 채운다(V42). 출처 표시가 이용 조건인 사진만 적는다 ([계획](../../../docs/project/plans/place-photo-credit.md)) |
+| `place_image_thumbnails.tsv` | 우리 촬영지 사진(공용 버킷 `place/…`)의 **작은 사진** — `url` · `thumbnail_url`(`place/thumb-720/…`, 긴 변 720px JPEG). `just place-thumbnails --upload`(사용자 승인 뒤, 사람의 AWS 자격)가 올리고 쓴다 — 지금은 머리줄뿐이다. `candidates.sql` 이 **출처 TSV 뒤에**(출처 줄의 UPDATE 가 `thumbnail_url` 을 덮으므로) `thumbnail_url` 이 빈 줄만 채운다 — 관광공사 썸네일을 덮지 않는다(MZ2AZ-561, [계획](../../../docs/project/plans/photo-thumbnails.md) §2-1·§3) |
 | `remote-load.sh` | **원격 데이터 적재**(MZ2AZ-414) — 적재 이미지(`//services/scene-api:data_load_image`) 안에서 Job 이 돌린다. 위 SQL 을 로컬 스크립트와 같은 방식으로 부른다: 촬영지 → 편의시설(비었으면 처음, 아니면 `--update`) → 같은 곳 연결 → 인기도 → 검색 색인 → 건수 검사·`data_load` 기록. 지우지 않는다. 로컬에서 `just data-load-local` 로 같은 이미지를 돌려 본다(2026-10-12 실측 78 초) — [remote-data-load.md](../../../docs/project/plans/remote-data-load.md) |
 
 ```bash
