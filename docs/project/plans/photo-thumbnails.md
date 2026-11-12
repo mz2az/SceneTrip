@@ -83,7 +83,7 @@ app.scenetrip.io 첫 방문(모바일 화면)에서 바깥 이미지가 2.76MB, 
 
 | 파일 | 칸 |
 | --- | --- |
-| `features/home/HomeCards.tsx` | 오늘의 성지(350×96) — `imageThumbnailUrl` |
+| `features/home/HomeCards.tsx` | 오늘의 성지(350×96) — **원본 `imageUrl` 그대로**(§8-2) |
 | `features/home/HomeCitySpots.tsx` | 도시의 성지 카드(148×96) |
 | `features/search/ui/Rows.tsx` | 검색 줄(54×54) |
 | `features/profile/sheets/CartSheet.tsx`·`features/search/ui/CartSheet.tsx`·`features/route/editor/CartSheet.tsx` | 담기 줄 |
@@ -149,3 +149,14 @@ app.scenetrip.io 첫 방문(모바일 화면)에서 바깥 이미지가 2.76MB, 
 3. **촬영지 도구 실행** — 사용자의 AWS 콘솔(SSO) 권한으로 한 번. 실행 전에 올릴 목록·경로를 보여 주고 확인받는다.
 4. 관광공사 썸네일이 흐린 문제 — 2 와 같이, 큰 카드만 원본이라 해결된다. 나머지 칸은 작은 것.
 5. 서명 주소 캐시 — 별도 티켓으로, 이 일 뒤에.
+
+## 9. 구현 세부 (시험 작성 뒤 정함, 2026-11-13)
+
+1. **고르는 순서** — 표마다 `id` 내림차순(새로 올린 것부터). 한 차례(20 장)는 글 사진에서 먼저 채우고 남은 자리를 리뷰 사진으로.
+2. **한 장 실패** — 그 사진만 시도 +1 하고 차례의 나머지는 계속한다. 저장소 자체 오류(읽기·쓰기 연결 실패)는 그 차례를 멈춘다(다음 분에 다시).
+3. **키 확장자** — 작은 사진은 늘 JPEG 이라 키는 `thumb-720/<원래 이름에서 확장자를 뺀 것>.jpg`. 촬영지 `.png` 원본도 같다.
+4. **`review_archive`** — 리뷰를 보관할 때 작은 사진 키는 보관하지 않고 지울 목록에 올린다(되살리면 작업이 다시 만든다).
+5. **`GuidePlanStop.imageThumbnailUrl`** — 이번에는 채우지 않는다(에이전트 모듈 범위 밖, 칸만 nullable 로 있다). 웹은 없으면 원본을 쓴다.
+6. **CoverPhoto 갱신** — 서명 만료로 다시 받을 때도 작은 사진(`photoThumbnailUrls[0]`)을 쓴다. 구현 쪽이 시험을 더한다.
+7. **사진 없는 글** — `photoThumbnailUrls` 는 `photoUrls` 와 같게 빈 배열.
+8. **장바구니·코스·마켓** — 통합 시험을 구현 쪽이 하나씩 더한다(`imageThumbnailUrl`, `CourseSummary.thumbnailUrl` 의 COALESCE).
