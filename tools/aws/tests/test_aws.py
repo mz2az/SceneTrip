@@ -52,6 +52,7 @@ from tools.aws.tests.test_destroy_gateway import (
 )
 from tools.aws.tests.test_destroy_plan import DestroyPlanTest
 from tools.aws.tests.test_entrypoint import EntryPointTest
+from tools.aws.tests.test_gateway_cors import GatewayCorsChartTest
 from tools.aws.tests.test_gateway_limits import GatewayLimitsChartTest
 from tools.aws.tests.test_gateway_routes import GatewayContractRoutesTest
 from tools.aws.tests.test_lifecycle import CloudflareTest, LifecycleTest, SignozDnsTest
@@ -143,6 +144,7 @@ __all__ = [
     "ExposeSignozTest",
     "FirstDeployEmptyStateTest",
     "GatewayContractRoutesTest",
+    "GatewayCorsChartTest",
     "GatewayLimitsChartTest",
     "LegacyAuthSlotTest",
     "LifecycleTest",

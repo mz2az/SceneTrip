@@ -3,6 +3,7 @@
  * 숫자·문구는 전부 서버·기기 값이다. 목업이 「카드 속 숫자·글은 배치용 예시」라고 못 박았다.
  */
 import { DeferredImg } from '@/design/DeferredImg'
+import { smallImage } from '@/shared/smallImage'
 import { Icon } from '@/design/Icon'
 import { HStack, Spacer, Txt, VStack, homeCard, rr, shadow } from '@/design/primitives'
 import { Pressable } from '../route/ui/Press'
@@ -105,6 +106,7 @@ export function TodayCard({ place, saved, onOpen, onSave }: { place: PlaceSummar
   const scene = place.sceneDescription?.trim()
   const title = scene ? `${place.name} — ${scene}` : place.name
   const work = place.contents?.[0]?.title
+  const todayImage = smallImage(place.imageThumbnailUrl, place.imageUrl)
   return (
     <VStack spacing={10} align="stretch">
       <SectionHeader title={tr('오늘의 성지')} subtitle={tr('매일 한 장면')} />
@@ -117,7 +119,7 @@ export function TodayCard({ place, saved, onOpen, onSave }: { place: PlaceSummar
               background: 'linear-gradient(to right, color-mix(in srgb, var(--pin-deep) 13%, transparent), color-mix(in srgb, var(--pin-light) 33%, transparent))',
             }}
           >
-            {place.imageUrl && <DeferredImg src={place.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />}
+            {todayImage && <DeferredImg src={todayImage} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />}
             {work && (
               <span style={{ position: 'absolute', left: 16, bottom: 12, padding: '4px 10px', borderRadius: 999, background: 'var(--system-background)' }}>
                 <Txt size={12} weight="bold" color="purple">{work}</Txt>
