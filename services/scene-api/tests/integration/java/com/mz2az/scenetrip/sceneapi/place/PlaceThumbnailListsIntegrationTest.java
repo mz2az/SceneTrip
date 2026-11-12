@@ -37,9 +37,10 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 /**
  * 장바구니·코스·마켓의 작은 사진 칸(계약 1.29.0, MZ2AZ-561) — 계획 {@code photo-thumbnails.md} §2-4·§9-8.
  *
- * <p>{@code CartItem}·{@code CourseItem}·{@code MarketItem} 의 {@code imageThumbnailUrl} 은 대표 사진 줄({@code
- * imageUrl} 로 나가는 첫 사진)의 {@code place_image.thumbnail_url} 이다 — 뒤 사진의 것을 빌려 오지 않는다. {@code
- * CourseSummary}·{@code MarketCourseSummary.thumbnailUrl} 은 첫 장소의 대표 사진의 {@code COALESCE(thumbnail_url, url)}.
+ * <p>{@code CartItem}·{@code CourseItem}·{@code MarketItem} 의 {@code imageThumbnailUrl} 은 대표 사진
+ * 줄({@code imageUrl} 로 나가는 첫 사진)의 {@code place_image.thumbnail_url} 이다 — 뒤 사진의 것을 빌려 오지 않는다. {@code
+ * CourseSummary}·{@code MarketCourseSummary.thumbnailUrl} 은 첫 장소의 대표 사진의 {@code
+ * COALESCE(thumbnail_url, url)}.
  *
  * <p>아무도 없는 좌표에 촬영지를 만들어 쓴다. 전부 되돌리는 트랜잭션 하나 안에서 돈다.
  */
@@ -181,10 +182,7 @@ class PlaceThumbnailListsIntegrationTest {
   }
 
   private static CourseSummary summaryOf(UUID user, long courseId) {
-    return courses.list(user).stream()
-        .filter(s -> s.getId() == courseId)
-        .findFirst()
-        .orElseThrow();
+    return courses.list(user).stream().filter(s -> s.getId() == courseId).findFirst().orElseThrow();
   }
 
   private static long place(double offset) {

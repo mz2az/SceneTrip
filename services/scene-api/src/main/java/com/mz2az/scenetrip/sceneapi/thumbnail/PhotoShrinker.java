@@ -20,11 +20,11 @@ import javax.imageio.stream.ImageOutputStream;
 /**
  * 사진을 작은 사진으로 줄인다 — JDK ImageIO 만으로(계획 {@code photo-thumbnails.md} §2-1·§2-2, ADR 0030, MZ2AZ-561).
  *
- * <p>JPEG·PNG 를 읽어 긴 변 {@link ThumbnailRules#LONG_SIDE} 의 JPEG(q{@link ThumbnailRules#JPEG_QUALITY})로 쓴다. 비율은
- * 그대로, 키우지 않는다. 메타데이터(EXIF 등)는 남기지 않는다. 투명한 곳은 흰 바탕이 된다.
+ * <p>JPEG·PNG 를 읽어 긴 변 {@link ThumbnailRules#LONG_SIDE} 의 JPEG(q{@link
+ * ThumbnailRules#JPEG_QUALITY})로 쓴다. 비율은 그대로, 키우지 않는다. 메타데이터(EXIF 등)는 남기지 않는다. 투명한 곳은 흰 바탕이 된다.
  *
- * <p><b>줄여 읽기</b> — 원본을 통째로 풀지 않고 {@link ImageReadParam#setSourceSubsampling} 으로 긴 변이 720 이상인 가장 작은 크기로
- * 읽는다(2048 폰 사진은 1024 로, 약 4MB). 1Gi 파드에서 한 장씩만 다룬다.
+ * <p><b>줄여 읽기</b> — 원본을 통째로 풀지 않고 {@link ImageReadParam#setSourceSubsampling} 으로 긴 변이 720 이상인 가장 작은
+ * 크기로 읽는다(2048 폰 사진은 1024 로, 약 4MB). 1Gi 파드에서 한 장씩만 다룬다.
  *
  * <p>EXIF 방향은 보지 않는다 — 세 앱 모두 올리기 전에 방향을 그림에 굽고 다시 JPEG 로 쓴다(웹 {@code photoUpload.ts}, iOS
  * PhotoShrink). 촬영지 사진도 이미 바로 선 그림이다.
@@ -90,8 +90,7 @@ public final class PhotoShrinker {
     }
 
     ThumbnailRules.Size size = ThumbnailRules.targetSize(width, height);
-    BufferedImage out =
-        new BufferedImage(size.width(), size.height(), BufferedImage.TYPE_INT_RGB);
+    BufferedImage out = new BufferedImage(size.width(), size.height(), BufferedImage.TYPE_INT_RGB);
     Graphics2D g = out.createGraphics();
     try {
       // 투명한 곳은 흰 바탕 — JPEG 에는 알파가 없어 그냥 쓰면 검게 된다.

@@ -13,12 +13,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * 후기·리뷰 사진의 작은 사진(긴 변 720 JPEG)을 만든다 — 계획 {@code docs/project/plans/photo-thumbnails.md} §2-1·§9, ADR
- * 0030, MZ2AZ-561.
+ * 후기·리뷰 사진의 작은 사진(긴 변 720 JPEG)을 만든다 — 계획 {@code docs/project/plans/photo-thumbnails.md} §2-1·§9,
+ * ADR 0030, MZ2AZ-561.
  *
- * <p>{@code community_post_photo}·{@code review_image} 에서 {@code thumbnail_key IS NULL AND thumbnail_attempts < 3}
- * 인 줄을 새것부터 골라(글 사진을 먼저, 남은 자리를 리뷰 사진으로) 한 차례에 {@link #BATCH} 장까지, 한 장씩: 원본을 읽고 → 줄이고({@link
- * PhotoShrinker}) → {@code <자리>/thumb-720/<이름>.jpg} 에 올리고 → 같은 줄에 키를 적는다. 새 사진도 옛 사진(백필)도 같은 길이다.
+ * <p>{@code community_post_photo}·{@code review_image} 에서 {@code thumbnail_key IS NULL AND
+ * thumbnail_attempts < 3} 인 줄을 새것부터 골라(글 사진을 먼저, 남은 자리를 리뷰 사진으로) 한 차례에 {@link #BATCH} 장까지, 한 장씩:
+ * 원본을 읽고 → 줄이고({@link PhotoShrinker}) → {@code <자리>/thumb-720/<이름>.jpg} 에 올리고 → 같은 줄에 키를 적는다. 새 사진도
+ * 옛 사진(백필)도 같은 길이다.
  *
  * <p>실패:
  *
@@ -30,8 +31,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  * 3 번 실패한 줄은 더 고르지 않는다 — 응답은 원본으로 간다. 올리는 사이 글·리뷰가 지워졌으면(키를 적을 줄이 없다) 올린 작은 사진을 지울 목록에 넣는다.
  *
- * <p>파드가 여럿이어도 한 대만 돈다 — 트랜잭션 advisory lock {@code hashtext('photo_thumbnail')}. 1 분마다, 지우기 작업과 겹치지 않게
- * 30 초에. {@code scenetrip.media.thumbnail.schedule-enabled=false} 면 돌지 않는다. 저장소가 없는 환경은 켜져 있어도 0 이다.
+ * <p>파드가 여럿이어도 한 대만 돈다 — 트랜잭션 advisory lock {@code hashtext('photo_thumbnail')}. 1 분마다, 지우기 작업과 겹치지
+ * 않게 30 초에. {@code scenetrip.media.thumbnail.schedule-enabled=false} 면 돌지 않는다. 저장소가 없는 환경은 켜져 있어도 0
+ * 이다.
  */
 @Component
 @ConditionalOnProperty(
@@ -141,7 +143,8 @@ public class PhotoThumbnailJob {
   }
 
   private List<Pending> select(Table table, int limit) {
-    return jdbc.sql(
+    return jdbc
+        .sql(
             ("SELECT storage_key FROM %s"
                     + " WHERE thumbnail_key IS NULL AND thumbnail_attempts < :max"
                     + " ORDER BY %s LIMIT :limit")

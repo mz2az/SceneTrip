@@ -29,8 +29,8 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
 /**
- * {@code just place-thumbnails} — 촬영지 사진의 작은 사진을 공용 버킷에 올리고 {@code seed/place_image_thumbnails.tsv} 를 쓴다
- * (계획 {@code photo-thumbnails.md} §2-1·§4 단계 2, MZ2AZ-561).
+ * {@code just place-thumbnails} — 촬영지 사진의 작은 사진을 공용 버킷에 올리고 {@code seed/place_image_thumbnails.tsv}
+ * 를 쓴다 (계획 {@code photo-thumbnails.md} §2-1·§4 단계 2, MZ2AZ-561).
  *
  * <p><b>기본은 미리 보기다</b> — 망에도 AWS 에도 손대지 않고 올릴 목록과 경로만 찍는다. {@code --sample-dir DIR} 을 주면 앞 {@code
  * --sample N}(기본 20) 장을 공개 주소로 받아 줄인 결과를 그 폴더에만 쓰고 크기를 찍는다(실측용, 올리지 않는다).
@@ -54,8 +54,7 @@ public final class PlaceThumbnailsTool {
 
   public static void main(String[] args) throws Exception {
     Path root =
-        Path.of(
-            Optional.ofNullable(System.getenv("BUILD_WORKSPACE_DIRECTORY")).orElse("."));
+        Path.of(Optional.ofNullable(System.getenv("BUILD_WORKSPACE_DIRECTORY")).orElse("."));
     Path csv = root.resolve(CSV);
     Path tsv = root.resolve(TSV);
     boolean upload = false;
@@ -84,7 +83,8 @@ public final class PlaceThumbnailsTool {
     if (!upload) {
       Set<String> recorded = recordedKeys(tsv);
       List<String> todo = PlaceThumbnails.pending(targets, recorded);
-      System.out.printf("TSV 에 이미 적힌 것 %d 장, 새로 올릴 것 %d 장%n", targets.size() - todo.size(), todo.size());
+      System.out.printf(
+          "TSV 에 이미 적힌 것 %d 장, 새로 올릴 것 %d 장%n", targets.size() - todo.size(), todo.size());
       for (String url : todo) {
         System.out.printf(
             "  %s%n    → s3://%s/%s%n",
@@ -190,7 +190,8 @@ public final class PlaceThumbnailsTool {
 
   private static Set<String> existingKeys(S3Client s3) {
     Set<String> keys = new HashSet<>();
-    s3.listObjectsV2Paginator(
+    s3
+        .listObjectsV2Paginator(
             ListObjectsV2Request.builder()
                 .bucket(PlaceThumbnails.BUCKET)
                 .prefix("place/" + ThumbnailRules.FOLDER)
@@ -238,7 +239,8 @@ public final class PlaceThumbnailsTool {
     }
     if (count > 0) {
       System.out.printf(
-          "표본 %d 장: 평균 %d KB → %d KB (%s)%n", count, before / count / 1024, after / count / 1024, dir);
+          "표본 %d 장: 평균 %d KB → %d KB (%s)%n",
+          count, before / count / 1024, after / count / 1024, dir);
     }
   }
 

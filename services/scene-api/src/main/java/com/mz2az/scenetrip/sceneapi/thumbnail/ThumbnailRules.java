@@ -3,8 +3,8 @@ package com.mz2az.scenetrip.sceneapi.thumbnail;
 import java.util.List;
 
 /**
- * 작은 사진 규칙 — 크기 하나, 키 이름, 시도 한도(계획 {@code docs/project/plans/photo-thumbnails.md} §2-2·§9-3, ADR 0030,
- * MZ2AZ-561).
+ * 작은 사진 규칙 — 크기 하나, 키 이름, 시도 한도(계획 {@code docs/project/plans/photo-thumbnails.md} §2-2·§9-3, ADR
+ * 0030, MZ2AZ-561).
  *
  * <p>사용자 사진 작업({@code PhotoThumbnailJob})과 촬영지 사진 도구({@link PlaceThumbnails})가 같은 규칙을 쓴다.
  */
@@ -49,8 +49,8 @@ public final class ThumbnailRules {
   }
 
   /**
-   * 원본 키의 작은 사진 키 — 원래 자리 아래 {@code thumb-720/}, 하위 경로는 그대로, 확장자는 언제나 {@code .jpg}(작은 사진은 늘
-   * JPEG). 예: {@code posts/a.jpg} → {@code posts/thumb-720/a.jpg}, {@code place/x/b.png} → {@code
+   * 원본 키의 작은 사진 키 — 원래 자리 아래 {@code thumb-720/}, 하위 경로는 그대로, 확장자는 언제나 {@code .jpg}(작은 사진은 늘 JPEG).
+   * 예: {@code posts/a.jpg} → {@code posts/thumb-720/a.jpg}, {@code place/x/b.png} → {@code
    * place/thumb-720/x/b.jpg}.
    *
    * @throws IllegalArgumentException 작은 사진을 두지 않는 자리(임시 자리·장면 사진 등), 이미 작은 사진인 키, 이름이 없는 키

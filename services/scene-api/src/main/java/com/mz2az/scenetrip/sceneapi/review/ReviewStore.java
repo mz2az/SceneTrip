@@ -62,8 +62,8 @@ public class ReviewStore {
    * @param nickname 작성자 닉네임. 탈퇴했으면 {@code null}
    * @param photoKeys 저장소 키, 올린 순서대로
    * @param mine 보는 사람이 쓴 것인가
-   * @param photoThumbnailKeys 사진마다의 작은 사진 키(V46, MZ2AZ-561) — {@code photoKeys} 와 같은 길이·순서, 아직 없는 자리는
-   *     {@code null}
+   * @param photoThumbnailKeys 사진마다의 작은 사진 키(V46, MZ2AZ-561) — {@code photoKeys} 와 같은 길이·순서, 아직 없는
+   *     자리는 {@code null}
    */
   public record Row(
       long id,

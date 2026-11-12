@@ -151,8 +151,8 @@ public class PostStore {
   /**
    * 상세 — 목록 줄에 본문 전체와 사진 키들.
    *
-   * @param photoThumbnailKeys 사진마다의 작은 사진 키(V46, MZ2AZ-561) — {@code photoKeys} 와 같은 길이·순서, 아직 없는 자리는
-   *     {@code null}
+   * @param photoThumbnailKeys 사진마다의 작은 사진 키(V46, MZ2AZ-561) — {@code photoKeys} 와 같은 길이·순서, 아직 없는
+   *     자리는 {@code null}
    */
   public record Detail(
       Summary head,
