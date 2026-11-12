@@ -14,7 +14,7 @@
 | Cloudflare Pages 프로젝트 | 사용자 | 대기 | §2. **Cloudflare 에서 Pages 프로젝트를 만들고 GitHub 저장소를 연결한다** |
 | 도메인·DNS | 사용자 | 대기 | §3. **웹 주소를 정하고 Pages 의 「사용자 지정 도메인」 에 붙인다** |
 | API 주소(같은 출처 `/v1`) | 사용자 | **결정함(2026-10-31): 먼저 Pages Function 프록시** | §4. `functions/v1/[[path]].ts`·`src/proxy/forward.ts`. 사용자가 크게 늘면 서버 CORS(§5)로 바꾼다 |
-| 서버 CORS | 권호 | 요청서 있음 | §5. **§5.5 메시지를 권호 님께 전달한다** |
+| 서버 CORS | 에이전트 | gateway(nginx)에 넣음(2026-11-12) | §5.6. `platform/helm/scenetrip` 의 `gateway.corsOrigins`. DEV 에서 직접 호출 속도를 잰 뒤 PRD 를 정한다. 사진 버킷 CORS 는 아직 |
 | 사진 올리기 버킷 CORS | 권호 | 요청서 있음 | §5.5 의 두 번째 요청. **같이 전달한다** |
 | 소셜 로그인 — Google | 사용자(+권호) | 대기 | §6. **Google 콘솔에서 웹 클라이언트에 JavaScript 원본·리디렉션 URI 를 등록하고 ID 를 Pages 변수에 넣는다** |
 | 소셜 로그인 — Apple | 사용자 + 권호 | 대기(서버 수정 필요) | §6. **Apple 개발자 계정에서 Services ID 를 만들고, 권호 님께 §6.4 를 요청한다** |
@@ -138,6 +138,15 @@ Pages 대시보드 → 프로젝트 만들기 → Git 연결.
 > **3. Apple 웹 로그인** (CORS 와 별개): `/auth/apple` 이 받는 `aud` 가 번들 ID(`com.mz2az.scenetrip`) 하나라서, 웹 Services ID 로 온 토큰은 거절됩니다. 자세한 건 `docs/project/plans/web-release.md` §6.4 에 적었습니다.
 >
 > 도메인과 Services ID 가 확정되면 값을 바로 드릴게요.
+
+
+### 5.6 구현 (2026-11-12)
+
+웹이 LA 의 Cloudflare 를 거쳐 API 를 부르는 탓에 요청 한 건이 0.9~2.5초 걸렸다(직접 부르면 0.05~0.07초, 운영 실측). 그래서 §5.3 을
+API 앞 nginx(`platform/helm/scenetrip/templates/config.yaml`)에 넣었다. Spring 이 아니라 nginx 인 이유는 nginx 가 직접 내는 403·429 에도 헤더가
+실려야 해서다. 허용 주소는 `gateway.corsOrigins`(PRD `https://app.scenetrip.io`, DEV `https://dev.scenetrip.io`·`http://localhost:5173`·Pages
+미리보기 정규식). 시험: `//tools/aws/integration:gateway_test`(실제 nginx), `tools/aws/tests/test_gateway_cors.py`(렌더).
+웹이 직접 부르려면 Pages 변수 `VITE_API_BASE` 를 넣는다 — DEV 는 Preview 에 `https://api-dev.scenetrip.io`.
 
 ## 6. 소셜 로그인 (웹)
 

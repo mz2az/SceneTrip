@@ -20,6 +20,11 @@ public subnet CIDR만 신뢰하고 `real_ip_recursive off`로 마지막 주소�
 위조된 앞쪽 헤더와 직접 gateway 연결은 이 경계를 통과하지 못한다. 속도 제한은
 클라이언트 IP당 gateway Pod별 30r/s(burst 60, 동시 60)이며 전역 합산 제한은 아니다.
 
+웹앱(브라우저)이 API 를 직접 부를 수 있게 gateway 가 CORS 헤더를 낸다. 허용 웹 주소는 `gateway.corsOrigins` 이다
+(PRD `https://app.scenetrip.io`, DEV 는 시험용 웹·`localhost:5173`·Pages 미리보기 정규식). 목록 밖 Origin 에는 헤더를 내지
+않고, `OPTIONS` 사전 확인은 scene-api 로 보내지 않고 gateway 가 204 로 답한다. 403·429 에도 헤더가 실린다.
+요구 사항은 [web-release §5](../../../docs/project/plans/web-release.md)다.
+
 전용 ALB 보안 그룹의 443 허용 CIDR과 클러스터 보안 그룹의 ALB SG → 8080 규칙은
 Terraform이 관리한다. custom SG 사용 시 `inbound-cidrs` annotation은 보안 규칙을
 만들지 않으므로 Terraform 규칙이 실제 경계다. NetworkPolicy도 ALB subnet에서 오는

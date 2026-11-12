@@ -1,5 +1,8 @@
 environment: prd
 gateway:
+  # 운영 웹만(CORS).
+  corsOrigins:
+    - https://app.scenetrip.io
   replicas: 2
 sceneApi:
   replicas: 2

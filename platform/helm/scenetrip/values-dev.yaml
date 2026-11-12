@@ -1,5 +1,10 @@
 environment: dev
 gateway:
+  # 시험용 웹·로컬 개발 서버·Pages 미리보기 주소(CORS).
+  corsOrigins:
+    - https://dev.scenetrip.io
+    - http://localhost:5173
+    - '~^https://[a-z0-9-]+\.scenetrip-app\.pages\.dev$'
   replicas: 1
 sceneApi:
   replicas: 1

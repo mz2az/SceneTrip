@@ -29,9 +29,13 @@ http {
 BURST_REQUESTS = 300
 
 
-class GatewayTests(DockerTest):
+class GatewayHarness(DockerTest):
+    """컨테이너(client·ALB relay·gateway·가짜 backend)와 요청 도우미만 — 시험은 하위 클래스에."""
+
     # gateway.public 값. 기존(비공개) 동작은 명시적으로 false 로 렌더한다.
     PUBLIC = False
+    # gateway.corsOrigins 값. 비면 차트 기본값([])을 그대로 쓴다(값 파일을 넘기지 않는다).
+    CORS_ORIGINS = ()
 
     def setUp(self):
         super().setUp()
@@ -134,6 +138,14 @@ class GatewayTests(DockerTest):
         ]
         for name, value in values.items():
             arguments.extend(("--set-string", name + "=" + value))
+        if self.CORS_ORIGINS:
+            # 정규식(~^https://…\.pages\.dev$)의 역슬래시를 --set 이 먹지 않게 값 파일로 넘긴다.
+            cors = self.work / "cors-values.json"
+            cors.write_text(
+                json.dumps({"gateway": {"corsOrigins": list(self.CORS_ORIGINS)}})
+            )
+            cors.chmod(0o644)
+            arguments.extend(("--values", str(cors)))
         arguments.extend(
             ("--set", "gateway.public=" + ("true" if self.PUBLIC else "false"))
         )
@@ -207,6 +219,60 @@ class GatewayTests(DockerTest):
         )
         return int(statuses[-1]) if statuses else 0, result.stdout, response_headers
 
+    def curl(self, method, path, *, headers=None, client=None, host="api.example.test"):
+        """busybox wget 은 OPTIONS 를 못 보낸다 — 같은 이미지의 curl 로 보낸다.
+
+        응답 헤더는 이름을 소문자로, 같은 이름이 여러 번 오면 모두 모은다(Vary 등).
+        """
+        arguments = [
+            "exec",
+            client or self.client,
+            "curl",
+            "-sS",
+            "-i",
+            "--max-time",
+            "3",
+            "-X",
+            method,
+        ]
+        for key, value in {"Host": host, **(headers or {})}.items():
+            arguments.extend(("-H", key + ": " + value))
+        result = self.command(*arguments, "http://alb-relay:8080" + path, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        # subprocess text 모드가 CRLF 를 LF 로 바꾼다 — 빈 줄 하나가 헤더 끝이다.
+        head, _, body = result.stdout.replace("\r\n", "\n").partition("\n\n")
+        lines = head.split("\n")
+        status = int(lines[0].split()[1])
+        response_headers = {}
+        for line in lines[1:]:
+            name, _, value = line.partition(":")
+            response_headers.setdefault(name.strip().lower(), []).append(value.strip())
+        return status, body, response_headers
+
+    def burst_with_origin(self, origin, path="/v1/places"):
+        """한 client 에서 keep-alive 로 BURST_REQUESTS 번 보내고 (상태, ACAO) 줄을 돌려준다."""
+        result = self.command(
+            "exec",
+            self.client,
+            "curl",
+            "-sS",
+            "--max-time",
+            "30",
+            "-H",
+            "Host: api.example.test",
+            "-H",
+            "Origin: " + origin,
+            "-w",
+            "\nRESULT %{http_code} [%header{access-control-allow-origin}]\n",
+            "http://alb-relay:8080" + path + "?n=[1-" + str(BURST_REQUESTS) + "]",
+            check=False,
+        )
+        return re.findall(
+            r"^RESULT (\d{3}) \[([^\]\n]*)\]$", result.stdout, re.MULTILINE
+        )
+
+
+class GatewayTests(GatewayHarness):
     def assert_forwarding(self, marker):
         status, body, headers = self.request(
             "/v1/places?query=" + marker,
@@ -405,6 +471,179 @@ class PublicGatewayTests(GatewayTests):
         self.assert_rate_limit_uses_actual_client(
             client=self.unapproved, path="/v1/auth/refresh"
         )
+
+
+# --- 웹 CORS(docs/project/plans/web-release.md §5.3–5.4) -------------------------
+DEV_PAGES_PATTERN = r"~^https://[a-z0-9-]+\.scenetrip-app\.pages\.dev$"
+EXPOSED = {"retry-after", "ratelimit-limit", "ratelimit-remaining", "ratelimit-reset"}
+METHODS = {"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+REQUEST_HEADERS = {
+    "authorization",
+    "content-type",
+    "accept-language",
+    "x-install-id",
+    "idempotency-key",
+    "x-scenetrip-coordinate-source",
+}
+# 정확히 적힌 두 개 + 정규식에 맞는 Pages 미리보기 주소.
+ALLOWED_ORIGINS = (
+    "https://dev.scenetrip.io",
+    "http://localhost:5173",
+    "https://pr-12.scenetrip-app.pages.dev",
+)
+# 허용 목록과 비슷하게 생긴 남의 주소 — 앞부분 일치·뒤에 붙이기·다른 Pages 프로젝트.
+LOOKALIKE_ORIGINS = (
+    "https://dev.scenetrip.io.evil.test",
+    "http://dev.scenetrip.io",
+    "https://evil.pages.dev",
+    "https://x.scenetrip-app.pages.dev.evil.test",
+    "https://a.b.scenetrip-app.pages.dev",
+    "https://app.scenetrip.io",
+    "null",
+)
+
+
+def header_tokens(headers, name):
+    """쉼표로 나열된 헤더 값을 소문자 토큰 집합으로(같은 이름이 여러 줄이어도 합친다)."""
+    tokens = set()
+    for value in headers.get(name, []):
+        tokens.update(part.strip().lower() for part in value.split(",") if part.strip())
+    return tokens
+
+
+class CorsGatewayTests(GatewayHarness):
+    """gateway.corsOrigins 에 정확한 Origin 과 ~정규식을 넣었을 때(DEV 값과 같은 모양)."""
+
+    CORS_ORIGINS = (
+        "https://dev.scenetrip.io",
+        "http://localhost:5173",
+        DEV_PAGES_PATTERN,
+    )
+
+    def assert_allow_origin(self, headers, origin):
+        # 받은 Origin 을 그대로 하나만 되돌린다 — 「*」 는 안 된다.
+        self.assertEqual(headers.get("access-control-allow-origin"), [origin])
+        self.assertIn("origin", header_tokens(headers, "vary"))
+        self.assertNotIn("access-control-allow-credentials", headers)
+
+    def assert_no_cors(self, headers):
+        self.assertNotIn("access-control-allow-origin", headers)
+
+    def test_allowed_origin_gets_exact_allow_origin(self):
+        for origin in ALLOWED_ORIGINS:
+            with self.subTest(origin=origin):
+                status, body, headers = self.curl(
+                    "GET", "/v1/places", headers={"Origin": origin}
+                )
+                self.assertEqual(status, 200)
+                # 요청 자체는 그대로 backend 까지 간다.
+                self.assertEqual(json.loads(body)["host"], "api.example.test")
+                self.assert_allow_origin(headers, origin)
+                self.assertTrue(
+                    EXPOSED.issubset(
+                        header_tokens(headers, "access-control-expose-headers")
+                    ),
+                    headers.get("access-control-expose-headers"),
+                )
+                # add_header 를 location 에 새로 달면 server 단의 것이 사라진다 — 남아 있어야 한다.
+                self.assertIn("max-age=", headers["strict-transport-security"][0])
+                self.assertEqual(headers["x-content-type-options"], ["nosniff"])
+
+    def test_disallowed_or_missing_origin_gets_no_allow_origin(self):
+        for origin in LOOKALIKE_ORIGINS + (None,):
+            with self.subTest(origin=origin):
+                status, _, headers = self.curl(
+                    "GET",
+                    "/v1/places",
+                    headers={"Origin": origin} if origin else None,
+                )
+                # 거절이 아니라 헤더만 안 낸다 — 응답 상태는 평소와 같다.
+                self.assertEqual(status, 200)
+                self.assert_no_cors(headers)
+                self.assertIn("max-age=", headers["strict-transport-security"][0])
+                self.assertEqual(headers["x-content-type-options"], ["nosniff"])
+
+    def test_preflight_is_answered_by_gateway(self):
+        for origin in ALLOWED_ORIGINS:
+            for path in ("/v1/places", "/v1/me", "/v1/courses/1"):
+                with self.subTest(origin=origin, path=path):
+                    status, body, headers = self.curl(
+                        "OPTIONS",
+                        path,
+                        headers={
+                            "Origin": origin,
+                            "Access-Control-Request-Method": "POST",
+                            "Access-Control-Request-Headers": "authorization,content-type,idempotency-key",
+                        },
+                    )
+                    # 가짜 backend 는 어떤 메서드든 200 + JSON 을 돌려준다 — 204·빈 본문이면 gateway 가 답한 것.
+                    self.assertEqual(status, 204, body)
+                    self.assertEqual(body, "")
+                    self.assertEqual(
+                        headers.get("access-control-allow-origin"), [origin]
+                    )
+                    self.assertTrue(
+                        METHODS.issubset(
+                            {
+                                token.upper()
+                                for token in header_tokens(
+                                    headers, "access-control-allow-methods"
+                                )
+                            }
+                        ),
+                        headers.get("access-control-allow-methods"),
+                    )
+                    self.assertTrue(
+                        REQUEST_HEADERS.issubset(
+                            header_tokens(headers, "access-control-allow-headers")
+                        ),
+                        headers.get("access-control-allow-headers"),
+                    )
+                    self.assertEqual(headers.get("access-control-max-age"), ["86400"])
+                    self.assertNotIn("access-control-allow-credentials", headers)
+
+    def test_forbidden_client_response_carries_cors(self):
+        # 비공개 모드에서 허용 CIDR 밖 client 는 403 — 웹이 상태를 읽을 수 있게 CORS 헤더가 실린다.
+        status, _, headers = self.curl(
+            "GET",
+            "/v1/places",
+            client=self.unapproved,
+            headers={"Origin": "https://dev.scenetrip.io"},
+        )
+        self.assertEqual(status, 403)
+        self.assert_allow_origin(headers, "https://dev.scenetrip.io")
+
+    def test_rate_limited_response_carries_cors(self):
+        origin = "https://pr-12.scenetrip-app.pages.dev"
+        results = self.burst_with_origin(origin)
+        self.assertEqual(len(results), BURST_REQUESTS)
+        statuses = {status for status, _ in results}
+        self.assertTrue(statuses.issubset({"200", "429"}), statuses)
+        self.assertIn("429", statuses, "burst 가 IP 상한에 걸리지 않았습니다")
+        # 200 이든 429 든 허용 Origin 이면 모두 그 Origin 을 되돌린다 — 어긋난 것을 상태별로 센다.
+        missing = {}
+        for status, allow_origin in results:
+            if allow_origin != origin:
+                missing[status] = missing.get(status, 0) + 1
+        self.assertEqual(
+            missing, {}, "Access-Control-Allow-Origin 이 빠진 응답 수(상태별)"
+        )
+
+
+class DefaultCorsGatewayTests(GatewayHarness):
+    """차트 기본값(corsOrigins: [])이면 어떤 Origin 에도 CORS 헤더를 내지 않는다."""
+
+    def test_no_cors_headers_without_configured_origins(self):
+        for origin in ALLOWED_ORIGINS + ("https://app.scenetrip.io",):
+            with self.subTest(origin=origin):
+                status, _, headers = self.curl(
+                    "GET", "/v1/places", headers={"Origin": origin}
+                )
+                self.assertEqual(status, 200)
+                self.assertFalse(
+                    [name for name in headers if name.startswith("access-control-")],
+                    headers,
+                )
 
 
 if __name__ == "__main__":
