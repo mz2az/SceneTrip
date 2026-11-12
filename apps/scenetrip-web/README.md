@@ -98,6 +98,13 @@ Bazel 빌드(`just web-build`)는 호스트 환경 변수를 받지 않아 `VITE
 IntersectionObserver 가 없는 환경(jsdom 포함)에서는 탭이 보이면 바로 단다. 크기를 재야 하는 이미지(사진 뷰어)·로컬 그림(`/generated/…`)·
 업로드 미리보기·이미 `active` 로 거르는 리뷰 사진(`src/features/reviews/PhotoParts.tsx`)은 일반 `<img>` 로 둔다.
 
+목록·카드의 우리 S3 사진은 서버가 주는 작은 판(긴 변 720px JPEG, 계약 1.29.0)을 `src/shared/smallImage.ts` 의 `smallImage(thumb, full)`
+(= `webUrl(thumb) ?? full`)로 고른다(MZ2AZ-561, [계획](../../docs/project/plans/photo-thumbnails.md) §2-5). 칸이 없거나 쓸 수 없는 주소면 원본이다.
+작은 것을 쓰는 곳: 홈 「도시의 성지」 카드, 검색 촬영지 줄, 장바구니 줄(검색·마이페이지·코스 편집), 코스 편집·장소 찾기 줄, 시안의 촬영지 줄·담기·코스 카드
+(`imageThumbnailUrl` — 코스·초안·가이드 일정 모델이 사진과 짝으로 실어 나른다), 후기 대표 사진(`coverThumbnailUrl`, 서명 만료로 상세를 다시 받으면
+`photoThumbnailUrls[0]`), 리뷰 사진 칸(`ReviewPhoto.thumbnailUrl`, 사진첩 칸은 원래대로 `Photo.thumbnailUrl`). 원본 그대로인 곳: 홈 「오늘의 성지」 큰 카드
+(사용자 결정 §8-2), 확대 보기(`PhotoViewers.tsx`), 후기 본문 사진(`PostView.tsx`), 촬영지 상세 머리·장면 사진, 시안 도시 머리.
+
 ## 폴더 이름
 
 폴더 이름은 2026-10-31 `apps/web` 에서 `apps/scenetrip-web` 으로 바꿨다(`scripts/paths.mjs` 는 깊이만 쓴다).

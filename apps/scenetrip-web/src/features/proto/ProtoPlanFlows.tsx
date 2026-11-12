@@ -38,6 +38,7 @@ import { color, radius, shadow } from './protoTokens'
 import { useWorksBrowse } from './useWorksBrowse'
 import { MAX_PICKED_WORKS, appendPage, favoritesFirst, requestTitles, togglePick } from './worksBrowse'
 import './proto.css'
+import { smallImage } from '@/shared/smallImage'
 
 /** 서버(`POST /guide/plan`)가 받는 작품 제목 수. 넘게 고르면 뒤엣것이 버려지므로 고를 때 막는다. */
 const MAX_WORKS = MAX_PICKED_WORKS
@@ -389,6 +390,7 @@ export function regionOf(address: string | null | undefined): string {
 
 const placeOf = (i: CartItem): PlaceSummary => ({
   id: i.placeId, name: i.name, address: i.address ?? null, latitude: i.latitude ?? 0, longitude: i.longitude ?? 0, imageUrl: i.imageUrl ?? null,
+  imageThumbnailUrl: i.imageThumbnailUrl ?? null,
 })
 
 /** 지도 위 거리의 눈대중(위도·경도 차의 제곱합). 같은 시·도 안에서 순서를 정하는 데만 쓴다. */
@@ -492,7 +494,7 @@ export function ProtoSavedPlan({ onClose }: { onClose: () => void }) {
                   <HStack spacing={12} style={{ width: '100%' }}>
                     <div aria-hidden style={{ width: 36, height: 36, flex: 'none', borderRadius: radius.s, overflow: 'hidden', background: color.brandFill, display: 'grid', placeItems: 'center' }}>
                       {i.imageUrl
-                        ? <img src={i.imageUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ? <img src={smallImage(i.imageThumbnailUrl, i.imageUrl)!} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : <Icon name="mappin.and.ellipse" size={16} color="secondary" />}
                     </div>
                     <Txt size={15} lines={1} style={{ flex: 1, minWidth: 0 }}>{i.name}</Txt>

@@ -19,6 +19,7 @@ import { FAB_SIZE } from './addFabLayout'
 import { say } from './protoState'
 import { color, radius, shadow } from './protoTokens'
 import './proto.css'
+import { smallImage } from '@/shared/smallImage'
 
 /**
  * 떠 있는 ＋ — 해태 가이드 동그라미(route/guide/GuideChip, 얼굴 46)와 같은 크기·같은 오른쪽 여백(12)으로 세로 한 줄에 선다.
@@ -196,7 +197,7 @@ function SavedRow({ place, first, order, done = false, onPress }: { place: Place
       >
         <HStack spacing={14}>
           <span style={{ flex: 'none', margin: `${ROW_PAD}px 0`, display: 'grid' }}>
-            <RemoteImage url={place.imageUrl} symbol="mappin.and.ellipse" size={{ w: THUMB, h: THUMB }} radius={12} />
+            <RemoteImage url={smallImage(place.imageThumbnailUrl, place.imageUrl)} symbol="mappin.and.ellipse" size={{ w: THUMB, h: THUMB }} radius={12} />
           </span>
           {/* 글자 칸 — 위 선은 여기서부터(사진 오른쪽만 나눈다) */}
           <HStack spacing={12} style={{ flex: 1, minWidth: 0, alignSelf: 'stretch', padding: `0 16px 0 0`, borderTop: first ? undefined : '0.5px solid var(--separator)' }}>

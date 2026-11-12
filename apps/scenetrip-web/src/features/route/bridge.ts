@@ -40,7 +40,7 @@ export function stopFromItem(item: CourseItem): RouteStop {
   // 촬영지가 아니면 촬영지 id 가 없다 — 편의시설의 id 는 kind 가 든다.
   const placeId = kind.type === 'place' ? (item.placeId ?? -item.id) : kind.type === 'poi' ? NO_PLACE_ID : -item.id
   return makeStop(
-    { id: placeId, name: item.name, type: item.category ?? null, address: item.address ?? null, latitude: item.latitude, longitude: item.longitude, imageUrl: item.imageUrl ?? null },
+    { id: placeId, name: item.name, type: item.category ?? null, address: item.address ?? null, latitude: item.latitude, longitude: item.longitude, imageUrl: item.imageUrl ?? null, imageThumbnailUrl: item.imageThumbnailUrl ?? null },
     kind,
     {
       serverItemId: item.id,

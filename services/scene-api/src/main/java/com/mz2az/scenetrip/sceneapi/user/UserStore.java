@@ -378,13 +378,22 @@ public class UserStore {
                     FROM community_post_photo ph JOIN community_post p ON p.id = ph.post_id
                     WHERE p.user_id IN (SELECT id FROM owners)
                     UNION
+                    -- 작은 사진(V46, MZ2AZ-561). 아직 없으면 NULL 이라 아래에서 거른다.
+                    SELECT ri.thumbnail_key
+                    FROM review_image ri JOIN review r ON r.id = ri.review_id
+                    WHERE r.user_id IN (SELECT id FROM owners)
+                    UNION
+                    SELECT ph.thumbnail_key
+                    FROM community_post_photo ph JOIN community_post p ON p.id = ph.post_id
+                    WHERE p.user_id IN (SELECT id FROM owners)
+                    UNION
                     SELECT unnest(a.photo_keys)
                     FROM review_archive a
                     WHERE a.user_id IN (SELECT id FROM owners)
                 ),
                 queued AS (
                     INSERT INTO storage_deletion (storage_key)
-                    SELECT storage_key FROM photo_keys
+                    SELECT storage_key FROM photo_keys WHERE storage_key IS NOT NULL
                     ON CONFLICT (storage_key) DO NOTHING
                 ),
                 reviews AS (DELETE FROM review WHERE user_id IN (SELECT id FROM owners)),

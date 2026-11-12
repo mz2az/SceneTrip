@@ -18,6 +18,7 @@ import { canAddDay, canRemoveDay } from './courseEdit'
 import { type PinKind, StopRow } from './StopRow'
 import { useReorder } from './useReorder'
 import '../ui/icons'
+import { smallImage } from '@/shared/smallImage'
 
 /** 밀었을 때 줄이 좁아지는 폭(캡슐 50 + 바깥 여백) — 일정 줄은 캡슐이 50×53 이다(iOS 26 스크린샷). */
 const STOP_REVEAL = 71
@@ -99,7 +100,7 @@ export function EditorPanel(p: PanelProps) {
                 onTogglePin={() => p.onTogglePin(index === 0 ? 'start' : 'end')}
                 onRemove={p.viewing ? undefined : () => p.onRemoveStop(stop.uid)}
                 handleProps={p.viewing ? undefined : reorder.handleProps(stop.uid)}
-                photo={p.photos ? { url: stop.place.imageUrl ?? null, symbol: stop.kind.type === 'pin' ? 'mappin.and.ellipse' : stop.kind.type === 'poi' ? 'storefront' : 'photo', onOpen: p.photos.onOpen(stop) } : undefined}
+                photo={p.photos ? { url: smallImage(stop.place.imageThumbnailUrl, stop.place.imageUrl), symbol: stop.kind.type === 'pin' ? 'mappin.and.ellipse' : stop.kind.type === 'poi' ? 'storefront' : 'photo', onOpen: p.photos.onOpen(stop) } : undefined}
                 {...extras}
               />
             </SwipeRow>

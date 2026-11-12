@@ -16,6 +16,7 @@ import { DetentSheet, GlassButton, NavBar } from '../ui/DetentSheet'
 import { ErrorBlock } from '../ui/ErrorBlock'
 import { RemoteImage } from '../ui/RemoteImage'
 import { usePlaceSearch } from './placeSearch'
+import { smallImage } from '@/shared/smallImage'
 
 export interface PickSheetProps {
   open: boolean
@@ -135,7 +136,7 @@ function PlaceRow({ place, taken, order, last, onPress }: { place: PlaceSummary;
     <div style={{ opacity: taken ? 0.5 : 1 }}>
       <Pressable plain disabled={taken} onClick={onPress} style={{ width: '100%', textAlign: 'left' }}>
         <HStack spacing={12} style={{ padding: '10px 16px' }}>
-          <RemoteImage url={place.imageUrl} symbol="mappin.and.ellipse" size={{ w: 44, h: 44 }} radius={8} />
+          <RemoteImage url={smallImage(place.imageThumbnailUrl, place.imageUrl)} symbol="mappin.and.ellipse" size={{ w: 44, h: 44 }} radius={8} />
           <VStack spacing={3} align="start" style={{ flex: 1, minWidth: 0 }}>
             <Txt size={15} weight="medium">{place.name}</Txt>
             {/* 어느 작품에 나왔는지가 이름보다 중요한 단서일 때가 많다. */}

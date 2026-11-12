@@ -10,6 +10,7 @@ import com.mz2az.scenetrip.sceneapi.api.model.ReviewPhoto;
 import com.mz2az.scenetrip.sceneapi.review.PhotoStorage;
 import com.mz2az.scenetrip.sceneapi.review.ReviewStore;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,18 +64,37 @@ class ReviewViews {
 
   Review review(ReviewStore.Row r) {
     return new Review(
-            r.id(), r.rating(), photos(r.photoKeys()), r.createdAt(), r.updatedAt(), r.mine())
+            r.id(),
+            r.rating(),
+            photos(r.photoKeys(), r.photoThumbnailKeys()),
+            r.createdAt(),
+            r.updatedAt(),
+            r.mine())
         .body(r.body())
         .author(r.nickname() == null ? null : new ReviewAuthor(r.nickname()));
   }
 
-  List<ReviewPhoto> photos(List<String> keys) {
-    return keys.stream().map(k -> new ReviewPhoto(k, storage.viewUrl(k))).toList();
+  /**
+   * 사진과 그 작은 사진(1.29.0, MZ2AZ-561) — {@code thumbnailKeys} 는 {@code keys} 와 같은 길이·순서이고 아직 없는 자리는
+   * {@code null}. 없으면 {@code thumbnailUrl} 칸이 없고 앱은 {@code url} 을 쓴다.
+   */
+  List<ReviewPhoto> photos(List<String> keys, List<String> thumbnailKeys) {
+    List<ReviewPhoto> out = new ArrayList<>(keys.size());
+    for (int i = 0; i < keys.size(); i++) {
+      String key = keys.get(i);
+      String thumb = i < thumbnailKeys.size() ? thumbnailKeys.get(i) : null;
+      out.add(
+          new ReviewPhoto(key, storage.viewUrl(key))
+              .thumbnailUrl(thumb == null ? null : storage.viewUrl(thumb)));
+    }
+    return out;
   }
 
   private Photo photo(ReviewStore.Photo p) {
     if (p.storageKey() != null) {
-      return new Photo(storage.viewUrl(p.storageKey()), PhotoSource.REVIEW).reviewId(p.reviewId());
+      return new Photo(storage.viewUrl(p.storageKey()), PhotoSource.REVIEW)
+          .reviewId(p.reviewId())
+          .thumbnailUrl(p.thumbnailKey() == null ? null : storage.viewUrl(p.thumbnailKey()));
     }
     return new Photo(URI.create(p.url()), PhotoSource.OFFICIAL)
         .credit(p.credit())

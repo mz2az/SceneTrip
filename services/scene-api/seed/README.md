@@ -20,6 +20,7 @@
 | `course_pin_to_poi.sql` | 개인 핀으로 저장된 편의시설을 편의시설 항목으로 바꾼다(MZ2AZ-377). `just course-pin-to-poi [--dry-run]` — **앱(MZ2AZ-380) 배포 뒤에** |
 | `place_poi_links.tsv` | 같은 곳 **사람 판정** — `place_key` · `poi_source_id` · `same`/`not` · 메모. 자동 판정(도로명 주소가 같음 · 5 m 안)보다 앞선다. 판정이 필요한 후보는 `just place-poi-link` 가 끝에 붙여 넣을 줄로 보여 준다 ([계획](../../../docs/project/plans/place-poi-link.md) §2·§3) |
 | `place_image_credits.tsv` | 촬영지 사진 **출처** — `url` · `credit` · `license`(관광공사 사진만 `kogl_type1`/`kogl_type3`) · `thumbnail_url`. `candidates.sql` 이 `place_image` 를 넣은 뒤 주소가 같은 줄에 채운다(V42). 출처 표시가 이용 조건인 사진만 적는다 ([계획](../../../docs/project/plans/place-photo-credit.md)) |
+| `place_image_thumbnails.tsv` | 우리 촬영지 사진(공용 버킷 `place/…`)의 **작은 사진** — `url` · `thumbnail_url`(`place/thumb-720/…`, 긴 변 720px JPEG). `just place-thumbnails --upload`(사용자 승인 뒤, 사람의 AWS 자격)가 올리고 쓴다 — 지금은 머리줄뿐이다. `candidates.sql` 이 **출처 TSV 뒤에**(출처 줄의 UPDATE 가 `thumbnail_url` 을 덮으므로) `thumbnail_url` 이 빈 줄만 채운다 — 관광공사 썸네일을 덮지 않는다(MZ2AZ-561, [계획](../../../docs/project/plans/photo-thumbnails.md) §2-1·§3) |
 | `remote-load.sh` | **원격 데이터 적재**(MZ2AZ-414) — 적재 이미지(`//services/scene-api:data_load_image`) 안에서 Job 이 돌린다. 위 SQL 을 로컬 스크립트와 같은 방식으로 부른다: 촬영지 → 편의시설(비었으면 처음, 아니면 `--update`) → 같은 곳 연결 → 인기도 → 검색 색인 → 건수 검사·`data_load` 기록. 지우지 않는다. 로컬에서 `just data-load-local` 로 같은 이미지를 돌려 본다(2026-10-12 실측 78 초) — [remote-data-load.md](../../../docs/project/plans/remote-data-load.md) |
 
 ```bash
@@ -111,6 +112,16 @@ URL 을 `;` 로 이어 넣었다(2026-09-12). 업체가 등록한 사진을 앞�
 
 CJ ENM·TVING·Disney+ 는 원래 주소에 이미 크기 칸(`/resize/1000/`·`/dims/resize/480`·`width=1200`)이 있던 출처라 숫자만 바꿨다. 넷플릭스·SBS·
 MBC·JTBC·KBS 는 주소로 크기를 받지 않는다(크기 지정 7 가지를 시험, 모두 원본). 이 주소가 깨지면 앱은 자리표시자를 보인다 — 원본 주소로 되돌리면 된다.
+
+포스터 43 편을 **넷플릭스 자신의 영어판 세로 포스터(boxshot, 300×420)**로 바꿨다(2026-11-13, MZ2AZ-560). 전에는
+작품 페이지의 가로 대표 이미지(1280×720·1920×878·992×558·720×522)라 세로 3:4 칸에서 잘리고 무거웠다. 앱은 외국인용이라
+영어 제목이 박힌 그림을 쓴다. 새 주소는 넷플릭스 비회원 영어 페이지(`netflix.com/kr-en/title/…`·`/kr-en/browse/genre/…` —
+`/us-en/` 은 접속 지역에 따라 `/kr-en/` 으로 넘어간다)가 직접 싣는 boxshot 이다(`nflxso.net/dnm/api/v6/_YyUT33Ze3kFXjMydIZFIm6ajHk/…`).
+넷플릭스 40 편에 더해, 작은 세로 이미지가 JTBC 공식 사이트에 없는 JTBC 세 편(도봉순·알고있지만·삼달리)도 넷플릭스 boxshot 으로 바꿨다
+(JTBC 세로 이미지는 삼달리 PNG 904×1294 2.6MB 뿐, 썸네일 주소 `.tnNNN.jpg` 는 미리 만든 것만 있다 — 404). 작품 번호로 짝을 맞췄고,
+43 장 모두 200·JPEG·세로임과 그림이 그 작품인지 눈으로 확인했다. 같은 제목의 다른 작품(괴물 드라마·킹덤 애니)은 걸렀다.
+영어판이 없어 한글 제목 그림인 것: 명량·관상·실미도·취화선. 43 장 합계 7,617KB → 2,201KB. 그대로 둔 것: 참교육·중증외상센터(이미
+세로 450×630, 한글판), 맨 끝줄 소년(boxshot 을 싣는 공개 페이지를 못 찾음), 조립식 가족(JTBC, 이미 세로 904×1288 914KB, 넷플릭스에 없음).
 
 같은 날 `recent_rank` · `audience_acc` · `award` · `famous_rank` 네 컬럼을 뺐다. 채울 규칙을 두지 않기로
 했기 때문이다. 그래서 53 이 아니라 49 다. 거기에 키 두 칸(`content_key` 는 `title` 앞, `place_key` 는

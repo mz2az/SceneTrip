@@ -124,6 +124,8 @@ export interface CommunityPost {
   serverId?: number
   serverIsMine?: boolean
   remotePhotos?: string[] | null
+  /** 대표 사진(`remotePhotos[0]`)의 작은 것(1.29.0, MZ2AZ-561) — 목록 칸은 이것, 없으면 원본. 본문 사진은 원본 그대로다. */
+  coverThumbnail?: string | null
   detailLoaded?: boolean
   bodyBlocks?: PostBlock[] | null
   /** 서버 글의 게시판·좋아요·댓글(1.24.0, MZ2AZ-538). 옛 서버·기기 옛 글이면 없다. */
@@ -149,6 +151,7 @@ export function postFromSummary(s: PostSummary): CommunityPost {
     serverId: s.id,
     serverIsMine: s.isMine,
     remotePhotos: s.coverPhotoUrl ? [s.coverPhotoUrl] : null,
+    coverThumbnail: s.coverThumbnailUrl ?? null,
     detailLoaded: false,
     serverBoard: s.board,
     likeCount: s.likeCount,
@@ -169,6 +172,8 @@ export function postFromDetail(d: PostDetail): CommunityPost {
     serverId: d.id,
     serverIsMine: d.isMine,
     remotePhotos: d.photoUrls,
+    // 만료된 목록 대표 사진을 상세로 새로 받을 때도 작은 것을 쓴다(계획 §9-6).
+    coverThumbnail: d.photoThumbnailUrls?.[0] ?? null,
     detailLoaded: true,
     bodyBlocks: d.bodyBlocks ?? null,
     serverBoard: d.board,
@@ -187,6 +192,7 @@ export function summaryFromDetail(d: PostDetail): PostSummary {
     author: d.author,
     createdAt: d.createdAt,
     coverPhotoUrl: d.photoUrls[0] ?? null,
+    coverThumbnailUrl: d.photoThumbnailUrls?.[0] ?? null,
     photoCount: d.photoUrls.length,
     course: d.course
       ? { title: d.course.title, dayCount: d.course.days.length, placeCount: d.course.days.reduce((n, day) => n + day.stops.length, 0) }

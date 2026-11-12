@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.28.0
+  version: 1.29.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -3625,6 +3625,13 @@ components:
           type: string
           format: uri
           description: 보여 줄 주소. **한 시간 뒤 만료된다 — 저장하지 말고 그때그때 받은 것을 쓴다**
+        thumbnailUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: |
+            작은 사진(1.29.0, MZ2AZ-561) — 긴 변 720px JPEG. 목록·사진 칸은 이것, 확대 보기는 `url`. 한 시간 뒤 만료된다.
+            서버가 저장 뒤 1 분 안쪽에 만든다 — 아직 없거나 만들지 못했으면 null 이고 `url` 을 쓴다
 
     ReviewAuthor:
       type: object
@@ -3861,6 +3868,13 @@ components:
           format: uri
           nullable: true
           description: 첫 사진. 한 시간 뒤 만료된다
+        coverThumbnailUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: |
+            첫 사진의 작은 것(1.29.0, MZ2AZ-561) — 긴 변 720px JPEG, 한 시간 뒤 만료된다. 목록 카드는 이것, 없으면(아직 안
+            만들어졌거나 만들지 못함) `coverPhotoUrl`
         photoCount:
           type: integer
           format: int32
@@ -4070,6 +4084,12 @@ components:
           type: string
           format: uri
           nullable: true
+        imageThumbnailUrl:
+          type: string
+          nullable: true
+          format: uri
+          description: |
+            `imageUrl` 사진의 작은 것(1.29.0, MZ2AZ-561) — `PlaceSummary.imageThumbnailUrl` 과 같은 규칙. 없으면 `imageUrl`
         dwellMinutes:
           type: integer
           format: int32
@@ -4120,6 +4140,16 @@ components:
           items:
             type: string
             format: uri
+        photoThumbnailUrls:
+          type: array
+          description: |
+            `photoUrls` 각각의 작은 사진(1.29.0, MZ2AZ-561) — **`photoUrls` 와 같은 길이·같은 순서**. 작은 사진이 없는 자리는
+            null 이고 그 자리는 `photoUrls` 의 것을 쓴다. 한 시간 뒤 만료된다. 목록 대표 사진이 만료돼 상세로 새 주소를 받을 때
+            첫 항목을 쓴다
+          items:
+            type: string
+            format: uri
+            nullable: true
         course:
           $ref: "#/components/schemas/TripPostCourse"
         isMine:
@@ -4176,7 +4206,8 @@ components:
           nullable: true
           description: |
             작은 사진(1.21.0, MZ2AZ-376). 관광공사 사진은 관광공사가 만든 썸네일(약 300 px)이다. 목록·지도 카드는 이것, 상세는
-            `url`. 없으면 `url` 을 쓴다
+            `url`. 없으면 `url` 을 쓴다. 1.29.0(MZ2AZ-561)부터 우리 촬영지 사진과 리뷰 사진(`source: review`)도 채운다 — 긴 변
+            720px JPEG, 리뷰 사진은 `url` 처럼 한 시간 뒤 만료된다
         license:
           nullable: true
           allOf:
@@ -4587,6 +4618,13 @@ components:
           nullable: true
           format: uri
           description: 대표 이미지. 정렬 순서상 첫 번째 사진이다.
+        imageThumbnailUrl:
+          type: string
+          nullable: true
+          format: uri
+          description: |
+            `imageUrl` 사진의 작은 것(1.29.0, MZ2AZ-561) — 그 사진 줄의 작은 사진(관광공사 썸네일 약 300px, 우리 사진 긴 변
+            720px). 목록·카드는 이것, 없으면 `imageUrl`. `imageUrl` 의 뜻은 그대로다(상세 머리 사진은 `imageUrl`)
         distanceMeters:
           type: integer
           nullable: true
@@ -5146,6 +5184,12 @@ components:
           type: string
           nullable: true
           format: uri
+        imageThumbnailUrl:
+          type: string
+          nullable: true
+          format: uri
+          description: |
+            `imageUrl` 사진의 작은 것(1.29.0, MZ2AZ-561) — `PlaceSummary.imageThumbnailUrl` 과 같은 규칙. 없으면 `imageUrl`
         sourceContentId:
           type: integer
           nullable: true
@@ -5296,7 +5340,9 @@ components:
           type: string
           nullable: true
           format: uri
-          description: 첫 번째 장소의 대표 이미지. 장소가 하나도 없으면 비어 있다.
+          description: |
+            첫 번째 장소의 대표 이미지. 장소가 하나도 없으면 비어 있다. 1.29.0(MZ2AZ-561)부터 그 사진의 작은 것이 있으면 작은 것
+            (관광공사 썸네일 약 300px, 우리 사진 긴 변 720px), 없으면 원본 — 이름 그대로 목록 카드용이다.
         createdAt:
           type: string
           format: date-time
@@ -5436,6 +5482,12 @@ components:
           type: string
           nullable: true
           format: uri
+        imageThumbnailUrl:
+          type: string
+          nullable: true
+          format: uri
+          description: |
+            `imageUrl` 사진의 작은 것(1.29.0, MZ2AZ-561) — `PlaceSummary.imageThumbnailUrl` 과 같은 규칙. 없으면 `imageUrl`
         dwellMinutes:
           type: integer
           minimum: 15
@@ -5707,6 +5759,9 @@ components:
           type: string
           nullable: true
           format: uri
+          description: |
+            첫 번째 장소의 대표 이미지(`CourseSummary.thumbnailUrl` 과 같은 규칙). 1.29.0(MZ2AZ-561)부터 작은 것이 있으면 작은 것,
+            없으면 원본.
         likeCount:
           type: integer
         saveCount:
@@ -5791,6 +5846,12 @@ components:
           type: string
           nullable: true
           format: uri
+        imageThumbnailUrl:
+          type: string
+          nullable: true
+          format: uri
+          description: |
+            `imageUrl` 사진의 작은 것(1.29.0, MZ2AZ-561) — `PlaceSummary.imageThumbnailUrl` 과 같은 규칙. 없으면 `imageUrl`
         dwellMinutes:
           type: integer
         distanceMetersFromPrevious:
@@ -6409,6 +6470,12 @@ components:
           nullable: true
           description: |
             그 장소의 대표 사진 — `PlaceSummary.imageUrl` 과 같은 값(1.28.0, MZ2AZ-548). 앱이 일정 카드를 도시 촬영지 목록 없이 그리게 한다.
+        imageThumbnailUrl:
+          type: string
+          nullable: true
+          format: uri
+          description: |
+            `imageUrl` 사진의 작은 것(1.29.0, MZ2AZ-561) — `PlaceSummary.imageThumbnailUrl` 과 같은 규칙. 없으면 `imageUrl`
         contents:
           type: array
           description: |

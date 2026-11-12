@@ -95,7 +95,10 @@ export function courseFromPlan(plan: GuidePlan, p: { title: string; startDate: s
                   id: identity === null ? missingId(stop) : (stop.placeId ?? NO_PLACE_ID),
                   name: known?.name ?? stop.name, type: null, address: known?.address ?? stop.address ?? null, latitude: stop.latitude, longitude: stop.longitude,
                   // 줄 사진 — 목록의 사진 → 초안 정지점의 사진 순(MZ2AZ-556). 없으면 줄이 빈 칸으로 그려진다.
-                  imageUrl: known?.imageUrl ?? stop.imageUrl ?? null,
+                  // 작은 사진(MZ2AZ-561)은 고른 사진과 짝으로 — 다른 사진의 작은 것을 빌려 오지 않는다.
+                  ...(known?.imageUrl
+                    ? { imageUrl: known.imageUrl, imageThumbnailUrl: known.imageThumbnailUrl ?? null }
+                    : { imageUrl: stop.imageUrl ?? null, imageThumbnailUrl: stop.imageThumbnailUrl ?? null }),
                 },
                 identity?.kind ?? { type: 'place' },
                 {

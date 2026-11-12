@@ -389,7 +389,10 @@ class PostsController implements PostsApi {
     TripPostSummary out =
         new TripPostSummary(s.id(), s.title(), s.excerpt(), s.createdAt(), s.photoCount(), s.mine())
             .author(s.nickname() == null ? null : new TripPostAuthor(s.nickname()))
-            .coverPhotoUrl(s.coverKey() == null ? null : storage.viewUrl(s.coverKey()));
+            .coverPhotoUrl(s.coverKey() == null ? null : storage.viewUrl(s.coverKey()))
+            // 작은 사진(1.29.0, MZ2AZ-561) — 아직 없으면 칸이 없고 앱은 coverPhotoUrl 을 쓴다.
+            .coverThumbnailUrl(
+                s.coverThumbnailKey() == null ? null : storage.viewUrl(s.coverThumbnailKey()));
     if (s.courseTitle() != null) {
       out.course(new TripPostCourseSummary(s.courseTitle(), s.courseDayCount(), s.placeCount()));
     }
@@ -411,6 +414,11 @@ class PostsController implements PostsApi {
                 d.photoKeys().stream().map(storage::viewUrl).toList(),
                 s.mine())
             .bodyBlocks(d.bodyBlocks())
+            // photoUrls 와 같은 길이·순서, 작은 사진이 없는 자리는 null(1.29.0, MZ2AZ-561). 사진이 없으면 빈 배열.
+            .photoThumbnailUrls(
+                d.photoThumbnailKeys().stream()
+                    .map(k -> k == null ? null : storage.viewUrl(k))
+                    .toList())
             .author(s.nickname() == null ? null : new TripPostAuthor(s.nickname()))
             .board(TripPostBoard.fromValue(s.board()))
             .likeCount(s.likeCount())
@@ -449,6 +457,7 @@ class PostsController implements PostsApi {
         .address(s.address())
         .category(s.category())
         .imageUrl(s.imageUrl() == null ? null : URI.create(s.imageUrl()))
+        .imageThumbnailUrl(s.imageThumbnailUrl() == null ? null : URI.create(s.imageThumbnailUrl()))
         .displayName(s.displayName())
         .nameRoman(s.nameRoman())
         .displayAddress(s.displayAddress())

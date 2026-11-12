@@ -9,6 +9,7 @@ import { placeTypeLabel } from '../rules/placeType'
 import { canToggle, noticeForContent } from '../rules/unavailableItem'
 import { trCount } from '../rules/wording'
 import { FONT, RemoteImage, UnavailableNotice } from './common'
+import { smallImage } from '@/shared/smallImage'
 
 type ContentSummary = components['schemas']['ContentSummary']
 type PlaceSummary = components['schemas']['PlaceSummary']
@@ -81,7 +82,7 @@ export function PlaceRow({ place, number, onAdd, saved = false }: { place: Place
   return (
     <HStack spacing={12} pad="10px 14px">
       {number !== undefined && <NumberBadge number={number} />}
-      <RemoteImage url={place.imageUrl} symbol="mappin.and.ellipse" style={{ width: 54, height: 54, ...rr(6), flex: 'none' }} />
+      <RemoteImage url={smallImage(place.imageThumbnailUrl, place.imageUrl)} symbol="mappin.and.ellipse" style={{ width: 54, height: 54, ...rr(6), flex: 'none' }} />
       <VStack spacing={3} align="start" style={{ minWidth: 0, flex: 1 }}>
         <Txt size={FONT.subheadline} weight="semibold">{place.name}</Txt>
         {place.address && <Txt size={FONT.caption} color="secondary" lines={1} style={{ maxWidth: '100%' }}>{place.address}</Txt>}

@@ -85,12 +85,16 @@ export function courseEntry(p: RoutePlace): CourseEntry {
 }
 
 /** 촬영지 상세가 왔다 — 편의시설 이름으로 담아 둔 줄을 촬영지의 이름·유형·주소·좌표로 바꾼다. 다른 곳의 상세면 그대로. */
-export function adoptingPlaceDetail<T extends { id: number; name: string; type?: string | null; address?: string | null; latitude: number; longitude: number; imageUrl?: string | null }>(
-  detail: { id: number; name: string; type?: string | null; address?: string | null; latitude: number; longitude: number; imageUrl?: string | null },
+export function adoptingPlaceDetail<T extends { id: number; name: string; type?: string | null; address?: string | null; latitude: number; longitude: number; imageUrl?: string | null; imageThumbnailUrl?: string | null }>(
+  detail: { id: number; name: string; type?: string | null; address?: string | null; latitude: number; longitude: number; imageUrl?: string | null; imageThumbnailUrl?: string | null },
   over: T,
 ): T {
   if (over.id !== detail.id) return over
-  return { ...over, name: detail.name, type: detail.type ?? null, address: detail.address ?? over.address ?? null, latitude: detail.latitude, longitude: detail.longitude, imageUrl: detail.imageUrl ?? over.imageUrl ?? null }
+  // 사진과 그 작은 것(MZ2AZ-561)은 짝으로 — 상세에 사진이 있으면 상세의 짝, 없으면 앞의 짝.
+  const photo = detail.imageUrl
+    ? { imageUrl: detail.imageUrl, imageThumbnailUrl: detail.imageThumbnailUrl ?? null }
+    : { imageUrl: over.imageUrl ?? null, imageThumbnailUrl: over.imageThumbnailUrl ?? null }
+  return { ...over, name: detail.name, type: detail.type ?? null, address: detail.address ?? over.address ?? null, latitude: detail.latitude, longitude: detail.longitude, ...photo }
 }
 
 /** 코스 줄의 비교용 모양 — 호출하는 쪽의 RouteStop 에서 뽑는다. */

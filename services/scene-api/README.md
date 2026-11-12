@@ -530,6 +530,47 @@ GROUP BY 1, 2 ORDER BY 3 DESC;
 - 운영자 내림(`removed_at`)은 사진을 남긴다 — 신고·차단(MZ2AZ-438)에서 정한다. 탈퇴해도 글·사진은 남는다(처리방침·탈퇴
   확인 창에 알린다)
 
+## 사진 작은 판 — 1 분마다 만들고, 목록은 작은 것을
+
+목록·카드는 우리 S3 사진의 작은 판(긴 변 720px JPEG q0.80, JDK ImageIO)을 받는다 — 계획
+[photo-thumbnails.md](../../docs/project/plans/photo-thumbnails.md), [ADR 0030](../../docs/architecture/adr/0030-photo-thumbnails-by-server-job.md), MZ2AZ-561.
+
+- **사용자 사진(후기·리뷰)** — `PhotoThumbnailJob` 이 **1 분마다**(매분 30 초, `scenetrip.media.thumbnail.cron`)
+  `community_post_photo`·`review_image` 에서 `thumbnail_key IS NULL AND thumbnail_attempts < 3` 인 줄을 새것부터 최대 20 장
+  (글 사진 먼저, 남은 자리를 리뷰 사진) 골라 원본을 줄여 읽고(긴 변 720 이상인 가장 작은 크기로) `<posts|reviews>/thumb-720/<이름>.jpg`
+  에 올린 뒤 같은 줄에 `thumbnail_key` 를 적는다(V46). 옛 사진의 백필도 같은 작업이다
+- 실패 — 원본이 없거나 그림으로 읽을 수 없으면(WebP·HEIC·CMYK·잘린 파일) 그 줄의 `thumbnail_attempts + 1` 하고 다음 장으로,
+  저장소 오류(읽기·올리기)는 시도 +1 하고 그 차례를 멈춘다. 3 번 실패한 줄은 더 고르지 않는다 — 응답은 원본으로 간다
+- 올리는 사이 글·리뷰가 지워졌으면 올린 작은 사진을 `storage_deletion` 에 넣는다. advisory lock 열쇠 `hashtext('photo_thumbnail')`
+  — 한 대만 돈다. 저장소가 없는 환경에서는 0 이다. `scenetrip.media.thumbnail.schedule-enabled=false` 면 꺼진다
+- 지우는 길(후기·리뷰 지우기, 리뷰에서 사진 빼기, 탈퇴)은 원본과 함께 `thumbnail_key` 도 지울 목록에 올린다. 리뷰를 고칠 때 남긴 사진은
+  작은 사진을 그대로 가진다. 같은 곳 연결·같은 가게 정리가 리뷰를 보관할 때(`review_archive`) 작은 사진은 보관하지 않고 지울 목록에
+  올린다(`seed/place_poi_link.sql`·`seed/poi_dedupe.sql`). 주간 고아 청소는 `thumbnail_key` 가 가리키는 파일을 남긴다
+- 응답 — `ReviewPhoto.thumbnailUrl`·사진첩의 리뷰 사진 `Photo.thumbnailUrl`·`TripPostSummary.coverThumbnailUrl` 은 작은 사진 키의
+  한 시간 서명 주소, 없으면 칸이 없다. `TripPostDetail.photoThumbnailUrls` 는 `photoUrls` 와 같은 길이·순서이고 없는 자리는 null
+  (사진 없는 글은 빈 배열)
+- **촬영지 사진** — 공용 버킷은 파드가 쓸 수 없어 사람이 한 번 도는 `just place-thumbnails`(`:place_thumbnails`, 같은 줄이기 클래스)가
+  `place/thumb-720/…` 에 덮어쓰기 없이 올리고 `seed/place_image_thumbnails.tsv` 를 쓴다. 기본은 미리 보기, `--upload` 는 사용자
+  승인 뒤 사람의 AWS 자격으로만. 적재가 출처 TSV 뒤에 `place_image.thumbnail_url` 이 빈 줄만 채운다
+- `PlaceSummary`·`CartItem`·`CourseItem`·`MarketItem`·`TripPostCourseStop` 의 `imageThumbnailUrl` 은 대표 사진 줄(`imageUrl` 로
+  나가는 그 줄)의 `thumbnail_url` 이다 — 뒤 사진의 것을 빌려 오지 않는다. `CourseSummary`·`MarketCourseSummary.thumbnailUrl` 은
+  `COALESCE(thumbnail_url, url)`. `GuidePlanStop.imageThumbnailUrl` 은 채우지 않는다(에이전트 모듈 범위 밖, 앱은 원본을 쓴다)
+- 되돌릴 때 주의: 옛 코드의 고아 청소는 `thumbnail_key` 를 몰라 7 일 뒤 작은 사진을 지운다. 다시 올린 뒤
+  `UPDATE review_image SET thumbnail_key = NULL, thumbnail_attempts = 0` (`community_post_photo` 도) 로 다시 만들게 한다
+- 남은 것: `SELECT count(*) FROM review_image WHERE thumbnail_key IS NULL AND thumbnail_attempts < 3` (만들 차례),
+  `… AND thumbnail_attempts >= 3` (포기)
+
+**되살리기** — 저장소가 몇 분 내려가 있으면 그동안 차례 맨 앞 사진이 시도 3 번을 다 써 원본으로 남는다(응답은 원본이라 깨지지는 않는다).
+복구 뒤 한 번:
+
+```sql
+UPDATE community_post_photo SET thumbnail_attempts = 0 WHERE thumbnail_key IS NULL AND thumbnail_attempts >= 3;
+UPDATE review_image         SET thumbnail_attempts = 0 WHERE thumbnail_key IS NULL AND thumbnail_attempts >= 3;
+```
+
+다시 만든 작은 사진 키가 앞서 지울 목록(`storage_deletion`)에 올라 있었으면 작업이 키를 적을 때 목록에서 뺀다 — 리뷰 고치기와 겹친 차례가
+남긴 줄이 쓰이는 파일을 지우지 않게(MZ2AZ-561 검증).
+
 ## 목록에서 빠진 것 — 담은 것은 알리고, 새로 담기는 막는다
 
 적재 CSV 에서 빠진 촬영지·작품은 지우지 않고 `hidden_at` 을 채우고(V20), 폐업한 편의시설은 `closed_at` 을 채운다. 지도·목록·
