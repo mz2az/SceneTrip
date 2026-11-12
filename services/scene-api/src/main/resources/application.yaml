@@ -141,6 +141,9 @@ scenetrip:
     public-port: ${SCENETRIP_MEDIA_PUBLIC_PORT:}
     access-key: ${SCENETRIP_MEDIA_ACCESS_KEY:}
     secret-key: ${SCENETRIP_MEDIA_SECRET_KEY:}
+    # 보여 줄 사진 주소의 창(MZ2AZ-562). 창 안에서는 같은 사진에 같은 서명 주소가 나가 브라우저가 캐시한다. 주소는
+    # 창 + 한 시간 산다. 하루처럼 길게 못 잡는 까닭: DEV·PRD 의 Pod Identity 임시 자격 증명이 몇 시간마다 바뀌어 그 뒤 주소가 달라진다.
+    view-window: ${SCENETRIP_MEDIA_VIEW_WINDOW:PT1H}
     # 지운 글의 사진 파일 지우기(MZ2AZ-406, docs/project/plans/post-photo-deletion.md). 글을 지우면 키가
     # storage_deletion 에 오르고, 이 작업이 1 분마다 한 대에서 저장소에서 지운다. cron 이어야 한다(고정 지연은 스케줄러
     # 스레드를 붙잡는다 — 계획 §2).

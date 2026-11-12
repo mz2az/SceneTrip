@@ -547,7 +547,7 @@ GROUP BY 1, 2 ORDER BY 3 DESC;
   작은 사진을 그대로 가진다. 같은 곳 연결·같은 가게 정리가 리뷰를 보관할 때(`review_archive`) 작은 사진은 보관하지 않고 지울 목록에
   올린다(`seed/place_poi_link.sql`·`seed/poi_dedupe.sql`). 주간 고아 청소는 `thumbnail_key` 가 가리키는 파일을 남긴다
 - 응답 — `ReviewPhoto.thumbnailUrl`·사진첩의 리뷰 사진 `Photo.thumbnailUrl`·`TripPostSummary.coverThumbnailUrl` 은 작은 사진 키의
-  한 시간 서명 주소, 없으면 칸이 없다. `TripPostDetail.photoThumbnailUrls` 는 `photoUrls` 와 같은 길이·순서이고 없는 자리는 null
+  서명 주소(아래 「사진 주소」, 적어도 한 시간), 없으면 칸이 없다. `TripPostDetail.photoThumbnailUrls` 는 `photoUrls` 와 같은 길이·순서이고 없는 자리는 null
   (사진 없는 글은 빈 배열)
 - **촬영지 사진** — 공용 버킷은 파드가 쓸 수 없어 사람이 한 번 도는 `just place-thumbnails`(`:place_thumbnails`, 같은 줄이기 클래스)가
   `place/thumb-720/…` 에 덮어쓰기 없이 올리고 `seed/place_image_thumbnails.tsv` 를 쓴다. 기본은 미리 보기, `--upload` 는 사용자
@@ -570,6 +570,24 @@ UPDATE review_image         SET thumbnail_attempts = 0 WHERE thumbnail_key IS NU
 
 다시 만든 작은 사진 키가 앞서 지울 목록(`storage_deletion`)에 올라 있었으면 작업이 키를 적을 때 목록에서 뺀다 — 리뷰 고치기와 겹친 차례가
 남긴 줄이 쓰이는 파일을 지우지 않게(MZ2AZ-561 검증).
+
+## 사진 주소 — 한 시간 창마다 같은 주소 (MZ2AZ-562)
+
+후기·리뷰 사진은 S3 서명 주소로 나간다(`review/S3PhotoStorage.viewUrl`). 예전에는 응답마다 지금 시각으로 서명해
+주소가 매번 달랐고, 브라우저는 주소를 캐시 열쇠로 쓰므로 같은 사진을 방문할 때마다 다시 받았다.
+
+- 서명 시각을 **창의 시작**(UTC epoch 기준 `scenetrip.media.view-window` 의 배수, 기본 `PT1H` → 정시)으로 내린다. 같은 창
+  안에서는 같은 키에 글자 하나 다르지 않은 주소가 나간다 — 단 **파드마다**다. 파드는 저마다 임시 키를 가지므로 PRD 처럼 두 대면
+  창마다 주소가 최대 둘이다
+- 설정은 `PT1H`·`1h` 꼴로 쓴다. 단위 없는 숫자(`3600`)는 밀리초로 읽혀 기동이 실패한다
+- 만료(`X-Amz-Expires`)는 창 + 한 시간 — 창 안 언제 받아도 **적어도 한 시간, 최대 두 시간** 산다(계약 1.29.1)
+- 주소에 `response-cache-control=private, max-age=<창 초>` 를 싣는다. S3 가 그 값으로 `Cache-Control` 을 답해 브라우저가 창 길이만큼
+  다시 묻지 않는다. 서명에 들어가 바꿀 수 없다
+- 창을 하루처럼 길게 잡지 않는 까닭: DEV·PRD 의 자격 증명은 EKS Pod Identity 임시 키라 몇 시간마다 바뀌고, 바뀌면 주소(키·세션
+  토큰)가 달라진다. 서명 주소는 그 임시 키가 끝나면 함께 끝나기도 한다
+- 올릴 주소(`presignUpload`)는 그대로 지금 시각·10 분이다
+- SDK 의 `S3Presigner` 는 서명 시각을 받지 않아(2.55, `Instant.now()` 고정) 요청별 서명기 덮어쓰기에 S3 SigV4 서명기를 감싸 넣고
+  시각·만료만 바꾼다. 이 SDK API 는 deprecated 이라 SDK 를 올릴 때 `S3PhotoStorageTest` 의 창 시험이 지켜 본다
 
 ## 목록에서 빠진 것 — 담은 것은 알리고, 새로 담기는 막는다
 

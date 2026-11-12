@@ -28,7 +28,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
- * 저장소 고르기 — 설정 {@code scenetrip.media.*} 여섯 값으로 정한다(계획 review.md §14).
+ * 저장소 고르기 — 설정 {@code scenetrip.media.*} 일곱 값으로 정한다(계획 review.md §14, 보여 줄 주소의 창은 MZ2AZ-562).
  *
  * <ul>
  *   <li>bucket 이 비면 「없음」(올리기 503).
@@ -47,6 +47,13 @@ class PhotoStorageConfigurationTest {
   private static final String LOCAL_KEY = "scenetrip";
   private static final String LOCAL_SECRET = "scenetrip-local-minio";
 
+  /**
+   * {@code scenetrip.media.view-window} 의 기본값(PT1H). MZ2AZ-562 부터 {@code photoStorage} 의 마지막(일곱째)
+   * 인자는 {@code @Value("${scenetrip.media.view-window:PT1H}") Duration viewWindow} 이고 {@link
+   * S3PhotoStorage} 에 그대로 넘긴다.
+   */
+  private static final Duration DEFAULT_WINDOW = Duration.ofHours(1);
+
   private final PhotoStorageConfiguration config = new PhotoStorageConfiguration();
 
   @AfterEach
@@ -60,10 +67,17 @@ class PhotoStorageConfigurationTest {
   @DisplayName("버킷이 비었거나 공백뿐이면 available() 이 false 인 저장소 — 다른 값이 다 있어도")
   void blankBucketIsUnavailable() {
     for (String bucket : new String[] {"", "   "}) {
-      PhotoStorage prod = config.photoStorage(bucket, "ap-northeast-2", "", "", "", "");
+      PhotoStorage prod =
+          config.photoStorage(bucket, "ap-northeast-2", "", "", "", "", DEFAULT_WINDOW);
       PhotoStorage local =
           config.photoStorage(
-              bucket, "us-east-1", "http://minio:9000", "9000", LOCAL_KEY, LOCAL_SECRET);
+              bucket,
+              "us-east-1",
+              "http://minio:9000",
+              "9000",
+              LOCAL_KEY,
+              LOCAL_SECRET,
+              DEFAULT_WINDOW);
 
       for (PhotoStorage storage : List.of(prod, local)) {
         assertThat(storage.available()).isFalse();
@@ -75,7 +89,8 @@ class PhotoStorageConfigurationTest {
   @Test
   @DisplayName("저장소가 없으면 올릴 주소·옮기기는 크게 실패한다(불릴 일이 없어야 한다)")
   void unavailableStorageRefusesWork() {
-    PhotoStorage storage = config.photoStorage("", "ap-northeast-2", "", "", "", "");
+    PhotoStorage storage =
+        config.photoStorage("", "ap-northeast-2", "", "", "", "", DEFAULT_WINDOW);
 
     assertThatThrownBy(
             () ->
@@ -88,10 +103,17 @@ class PhotoStorageConfigurationTest {
   @Test
   @DisplayName("버킷 이름이 있으면 S3 저장소, available() 은 true — DEV·PRD 모양이든 로컬 모양이든")
   void bucketSelectsS3() {
-    PhotoStorage prod = config.photoStorage(DEV_BUCKET, "ap-northeast-2", "", "", "", "");
+    PhotoStorage prod =
+        config.photoStorage(DEV_BUCKET, "ap-northeast-2", "", "", "", "", DEFAULT_WINDOW);
     PhotoStorage local =
         config.photoStorage(
-            LOCAL_BUCKET, "us-east-1", "http://minio:9000", "9000", LOCAL_KEY, LOCAL_SECRET);
+            LOCAL_BUCKET,
+            "us-east-1",
+            "http://minio:9000",
+            "9000",
+            LOCAL_KEY,
+            LOCAL_SECRET,
+            DEFAULT_WINDOW);
 
     for (PhotoStorage storage : List.of(prod, local)) {
       assertThat(storage).isInstanceOf(S3PhotoStorage.class);
@@ -128,7 +150,8 @@ class PhotoStorageConfigurationTest {
     @Test
     @DisplayName("올릴·볼 주소 — https, 그 리전의 표준 S3 호스트(가상 호스트형 또는 경로형), 그 리전으로 서명")
     void presignsAgainstRegionalS3Host() {
-      PhotoStorage storage = config.photoStorage(DEV_BUCKET, "ap-northeast-2", "", "", "", "");
+      PhotoStorage storage =
+          config.photoStorage(DEV_BUCKET, "ap-northeast-2", "", "", "", "", DEFAULT_WINDOW);
 
       URI view = storage.viewUrl("reviews/abc.webp");
       URI put =
@@ -143,7 +166,8 @@ class PhotoStorageConfigurationTest {
     @Test
     @DisplayName("리전은 설정을 따른다 — 다른 리전이면 그 리전의 호스트와 서명 범위")
     void regionFollowsSetting() {
-      PhotoStorage storage = config.photoStorage("some-bucket", "us-west-2", "", "", "", "");
+      PhotoStorage storage =
+          config.photoStorage("some-bucket", "us-west-2", "", "", "", "", DEFAULT_WINDOW);
 
       assertStandardS3(
           storage.viewUrl("reviews/x.jpg"), "some-bucket", "us-west-2", "reviews/x.jpg");
@@ -152,17 +176,77 @@ class PhotoStorageConfigurationTest {
     @Test
     @DisplayName("access-key 가 비면 자격 증명은 기본 사슬에서 온다")
     void blankAccessKeyUsesDefaultChain() {
-      PhotoStorage storage = config.photoStorage(DEV_BUCKET, "ap-northeast-2", "", "", "", "");
+      PhotoStorage storage =
+          config.photoStorage(DEV_BUCKET, "ap-northeast-2", "", "", "", "", DEFAULT_WINDOW);
 
       assertThat(query(storage.viewUrl("reviews/abc.webp")).get("X-Amz-Credential"))
           .startsWith(CHAIN_KEY + "/");
     }
 
     @Test
+    @DisplayName("view-window 기본(한 시간) — 보여 줄 주소는 정시에 서명, 만료 7200 초, 캐시 private, max-age=3600")
+    void defaultViewWindow() {
+      PhotoStorage storage =
+          config.photoStorage(DEV_BUCKET, "ap-northeast-2", "", "", "", "", DEFAULT_WINDOW);
+
+      Map<String, String> q = query(storage.viewUrl("reviews/abc.webp"));
+
+      assertThat(q).containsEntry("X-Amz-Expires", "7200");
+      assertThat(q).containsEntry("response-cache-control", "private, max-age=3600");
+      // yyyyMMdd'T'HHmmss'Z' — 분·초가 0 이면 UTC 정시(창의 시작)다.
+      assertThat(q.get("X-Amz-Date")).matches("\\d{8}T\\d{2}0000Z");
+    }
+
+    @Test
+    @DisplayName("view-window 를 30 분으로 — 만료 5400 초(창 + 한 시간), max-age=1800, 서명은 :00 또는 :30 정각")
+    void viewWindowFollowsSetting() {
+      PhotoStorage storage =
+          config.photoStorage(DEV_BUCKET, "ap-northeast-2", "", "", "", "", Duration.ofMinutes(30));
+
+      Map<String, String> q = query(storage.viewUrl("reviews/abc.webp"));
+
+      assertThat(q).containsEntry("X-Amz-Expires", "5400");
+      assertThat(q).containsEntry("response-cache-control", "private, max-age=1800");
+      assertThat(q.get("X-Amz-Date")).matches("\\d{8}T\\d{2}(00|30)00Z");
+    }
+
+    @Test
+    @DisplayName("view-window 설정 키는 scenetrip.media.view-window, 기본값 PT1H, 타입 Duration")
+    void viewWindowPropertyAndDefault() {
+      java.lang.reflect.Method bean =
+          Arrays.stream(PhotoStorageConfiguration.class.getDeclaredMethods())
+              .filter(m -> m.getName().equals("photoStorage"))
+              .filter(m -> m.isAnnotationPresent(org.springframework.context.annotation.Bean.class))
+              .findFirst()
+              .orElseThrow();
+
+      java.lang.reflect.Parameter window =
+          Arrays.stream(bean.getParameters())
+              .filter(
+                  p ->
+                      p.isAnnotationPresent(
+                              org.springframework.beans.factory.annotation.Value.class)
+                          && p.getAnnotation(
+                                  org.springframework.beans.factory.annotation.Value.class)
+                              .value()
+                              .startsWith("${scenetrip.media.view-window"))
+              .findFirst()
+              .orElseThrow();
+
+      assertThat(window.getType()).isEqualTo(Duration.class);
+      assertThat(
+              window
+                  .getAnnotation(org.springframework.beans.factory.annotation.Value.class)
+                  .value())
+          .isEqualTo("${scenetrip.media.view-window:PT1H}");
+    }
+
+    @Test
     @DisplayName("요청 안에서 불려도 DEV·PRD 주소는 요청 호스트를 따르지 않는다(public-port 가 없으므로)")
     void ignoresRequestHostWithoutPublicPort() {
       bindRequest(serverName("10.0.2.2"));
-      PhotoStorage storage = config.photoStorage(DEV_BUCKET, "ap-northeast-2", "", "", "", "");
+      PhotoStorage storage =
+          config.photoStorage(DEV_BUCKET, "ap-northeast-2", "", "", "", "", DEFAULT_WINDOW);
 
       assertStandardS3(
           storage.viewUrl("reviews/abc.webp"), DEV_BUCKET, "ap-northeast-2", "reviews/abc.webp");
@@ -234,7 +318,8 @@ class PhotoStorageConfigurationTest {
     @DisplayName("옮기기 — PUT /<bucket>/<새 키>(복사), 그다음 DELETE /<bucket>/<원래 키>, 둘 다 그 endpoint 로")
     void moveGoesToEndpointPathStyle() {
       PhotoStorage storage =
-          config.photoStorage(LOCAL_BUCKET, "us-east-1", endpoint, "", LOCAL_KEY, LOCAL_SECRET);
+          config.photoStorage(
+              LOCAL_BUCKET, "us-east-1", endpoint, "", LOCAL_KEY, LOCAL_SECRET, DEFAULT_WINDOW);
 
       storage.move("uploads/tmp/x.jpg", "reviews/x.jpg");
 
@@ -257,7 +342,8 @@ class PhotoStorageConfigurationTest {
     @DisplayName("access-key·secret-key 가 있으면 그 고정 자격 증명으로, 설정한 리전(us-east-1)으로 서명한다")
     void staticCredentialsAndRegionSignServerCalls() {
       PhotoStorage storage =
-          config.photoStorage(LOCAL_BUCKET, "us-east-1", endpoint, "", LOCAL_KEY, LOCAL_SECRET);
+          config.photoStorage(
+              LOCAL_BUCKET, "us-east-1", endpoint, "", LOCAL_KEY, LOCAL_SECRET, DEFAULT_WINDOW);
 
       storage.move("uploads/tmp/y.jpg", "reviews/y.jpg");
 
@@ -275,7 +361,8 @@ class PhotoStorageConfigurationTest {
     void publicPortDoesNotRedirectServerCalls() {
       bindRequest(serverName("localhost"));
       PhotoStorage storage =
-          config.photoStorage(LOCAL_BUCKET, "us-east-1", endpoint, "9000", LOCAL_KEY, LOCAL_SECRET);
+          config.photoStorage(
+              LOCAL_BUCKET, "us-east-1", endpoint, "9000", LOCAL_KEY, LOCAL_SECRET, DEFAULT_WINDOW);
 
       storage.move("uploads/tmp/z.jpg", "reviews/z.jpg");
 
@@ -290,7 +377,8 @@ class PhotoStorageConfigurationTest {
     void missingSourceAtEndpoint() {
       copyStatus = 404;
       PhotoStorage storage =
-          config.photoStorage(LOCAL_BUCKET, "us-east-1", endpoint, "", LOCAL_KEY, LOCAL_SECRET);
+          config.photoStorage(
+              LOCAL_BUCKET, "us-east-1", endpoint, "", LOCAL_KEY, LOCAL_SECRET, DEFAULT_WINDOW);
 
       assertThatThrownBy(() -> storage.move("uploads/tmp/gone.jpg", "reviews/gone.jpg"))
           .isInstanceOf(PhotoStorage.MissingPhotoException.class);
@@ -306,7 +394,13 @@ class PhotoStorageConfigurationTest {
 
     private PhotoStorage local() {
       return config.photoStorage(
-          LOCAL_BUCKET, "us-east-1", "http://minio:9000", "9000", LOCAL_KEY, LOCAL_SECRET);
+          LOCAL_BUCKET,
+          "us-east-1",
+          "http://minio:9000",
+          "9000",
+          LOCAL_KEY,
+          LOCAL_SECRET,
+          DEFAULT_WINDOW);
     }
 
     @Test
