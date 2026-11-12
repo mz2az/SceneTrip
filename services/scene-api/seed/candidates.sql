@@ -545,6 +545,25 @@ FROM t_image_credit c
 WHERE i.url = btrim(c.url)
   AND i.place_id IN (SELECT place_id FROM t_place);
 
+-- 우리 촬영지 사진(공용 버킷 place/…)의 작은 사진(MZ2AZ-561, docs/project/plans/photo-thumbnails.md) — 긴 변 720px JPEG.
+-- `just place-thumbnails` 가 올리고 seed/place_image_thumbnails.tsv 에 주소를 열쇠로 적는다. 스크립트가 psql 이 도는 기계의
+-- /tmp/place-image-thumbnails.tsv 로 놓는다. **출처 TSV 를 적용한 뒤에** 돈다 — 위 UPDATE 가 출처 줄의 thumbnail_url 을 TSV 값으로
+-- 덮으므로(빈 칸이면 NULL), 먼저 채우면 지워진다. 그리고 비어 있는 줄만 채운다 — 관광공사 썸네일을 덮지 않는다.
+CREATE TEMP TABLE t_image_thumbnail (
+    url           TEXT,
+    thumbnail_url TEXT
+) ON COMMIT DROP;
+
+\copy t_image_thumbnail FROM '/tmp/place-image-thumbnails.tsv' WITH (FORMAT csv, DELIMITER E'\t', HEADER true, QUOTE E'\x01')
+
+UPDATE place_image i
+SET thumbnail_url = NULLIF(btrim(t.thumbnail_url), '')
+FROM t_image_thumbnail t
+WHERE i.url = btrim(t.url)
+  AND i.thumbnail_url IS NULL
+  AND NULLIF(btrim(t.thumbnail_url), '') IS NOT NULL
+  AND i.place_id IN (SELECT place_id FROM t_place);
+
 -- 장소 별칭. v6 에는 이 컬럼이 없어 place_alias 가 비어 있었다 — 이 형식은 30행에
 -- 있다(관덕정·김녕해수욕장…). ';' 로 나뉜다. 라틴 표기는 lang 을 비운다.
 INSERT INTO place_alias (place_id, alias, lang)
@@ -638,6 +657,7 @@ UNION ALL SELECT 'place_i18n',         count(*) FROM place_i18n
 UNION ALL SELECT 'place_alias',        count(*) FROM place_alias
 UNION ALL SELECT 'place_image',        count(*) FROM place_image
 UNION ALL SELECT 'place_image(출처)',   count(*) FROM place_image WHERE credit IS NOT NULL
+UNION ALL SELECT 'place_image(작은 사진)', count(*) FROM place_image WHERE thumbnail_url IS NOT NULL
 UNION ALL SELECT 'place_content_image', count(*) FROM place_content_image
 UNION ALL SELECT 'place_content',      count(*) FROM place_content
 UNION ALL SELECT 'place_content_i18n', count(*) FROM place_content_i18n
