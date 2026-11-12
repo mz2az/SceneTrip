@@ -142,6 +142,15 @@ class PlaceSource:
         """작품 상세(줄거리·출연, MZ2AZ-554). scene-api 창구만 안다 — CSV 에는 줄거리 열이 없어 None(「정보 없음」)."""
         return None
 
+    def exact_title(
+        self, query: str, limit: int = 10
+    ) -> tuple[str | None, list[Place]]:
+        """검색어가 작품 제목·별칭과 **정확히** 같을 때만 그 작품의 촬영지(MZ2AZ-555). 부분 일치는 (None, []).
+
+        모르는 창구는 (None, []) — `search_places` 가 예전 장소 검색으로 간다.
+        """
+        return None, []
+
     def order_by_walk(self, places: list[Place]) -> list[Place]:
         """담은 장소들을 가까운 것부터 이어 붙인 순서로 돌려준다.
 
@@ -386,6 +395,18 @@ class CsvPlaceBook(PlaceSource):
         이라 쳤을 때 CSV 의 "눈물의여왕" 을 찾았다는 것을 호출한 쪽이 알아야
         한다 — 모르면 못 찾았을 때와 구별이 안 된다.
         """
+        return self._title_rows(title, limit, partial=True)
+
+    def exact_title(
+        self, query: str, limit: int = 10
+    ) -> tuple[str | None, list[Place]]:
+        """작품 제목·영문 제목(별칭)이 검색어와 **정확히** 같을 때만 — 부분 일치는 받지 않는다(MZ2AZ-555)."""
+        return self._title_rows(query, limit, partial=False)
+
+    def _title_rows(
+        self, title: str, limit: int, *, partial: bool
+    ) -> tuple[str | None, list[Place]]:
+        """작품 안 순위대로. `partial` 이면 세 글자 이상인 물음이 제목에 든 것도 받는다."""
         q = norm(title)
         if not q:
             return None, []
@@ -394,10 +415,9 @@ class CsvPlaceBook(PlaceSource):
         rows: list[tuple[int, Place]] = []
         for p in self.places:
             for s in p.scenes:
-                if (
-                    q == norm(s.title)
-                    or q == norm(s.title_en)
-                    or (len(q) >= 3 and (q in norm(s.title) or q in norm(s.title_en)))
+                names = (norm(s.title), norm(s.title_en))
+                if q in names or (
+                    partial and len(q) >= 3 and any(q in n for n in names)
                 ):
                     matched = matched or s.title
                     rows.append((s.rank_in_title, p))

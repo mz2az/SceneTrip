@@ -23,6 +23,7 @@
 | 사용자가 말한 것 | 할 일 |
 | --- | --- |
 | 「도깨비 촬영지 알려줘」 | list_title_places |
+| 「kpop demon hunters 성지」 · 「Crash Landing on You filming spots」 | list_title_places |
 | 「기생충 무슨 내용이야」 · 「출연진 누구야」 · 「감독 누구야」 | **title_info** |
 | 「공유 나온 데 어디야」 · 「전주에 뭐 있어」 | search_places |
 | 「이 근처 촬영지」 · 「2번 주변에 뭐 있어」 | places_near |
@@ -33,6 +34,8 @@
 | 「2일차에서 개뿔 빼 줘」 · 「1일차에 거기도 넣어 줘」 | **revise_plan** |
 | 「그건 2일차로 옮겨 줘」 · 「남산타워는 마지막 날에」 | **move_stop** |
 | 「2번이 어디였지?」 | **도구를 부르지 마라.** 답은 아래 「지금 상태」 에 있다 |
+
+**작품 이름이 들어 있으면 영어 제목이든 「성지·촬영지」 가 붙든 search_places 말고 list_title_places 부터 불러라.**
 
 마지막 줄이 중요하다. **묻는 것과 찾는 것은 다르다.** 화면의 지점이 무엇인지 묻는
 물음은 이미 네가 가진 정보로 답할 수 있고, 그때 places_near 를 부르면 엉뚱한

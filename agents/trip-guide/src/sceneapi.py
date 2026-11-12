@@ -160,41 +160,40 @@ class SceneApiPlaceBook(PlaceSource):
         지목했을 때만** 장면 설명을 채워 주기 때문이다. `/places?q=도깨비` 로
         한 번에 받으면 장면 설명이 비어 나온다 — 사용자가 가장 보고 싶어 하는
         바로 그 문장이다.
+
+        작품은 `title_detail` 과 같이 고른다(`_match_content(..., partial=True)`) — 제목·별칭이 같은 것, 없으면
+        세 글자 이상인 물음이 제목·별칭에 든 것. 둘 다 없으면 (None, []) 이다. `/contents?q=` 의 1 위로 넘어가지
+        않는다 — 「demon hunters」 에 설명이 걸린 경이로운 소문이 1 위로 와서 그 촬영지를 물은 작품의 것처럼
+        돌려줬다(MZ2AZ-555, dev). 못 찾으면 `list_title_places` 가 장소 검색으로 대신 찾는다.
         """
-        found = self._get("/contents", {"q": title, "limit": 5}).get("items", [])
-        if not found:
+        hit, _ = self._match_content(title, partial=True)
+        if hit is None:
             return None, []
-
-        # 서버는 인기도순으로 준다. 그중 제목이 정확히 같은 것이 있으면 그것을
-        # 고른다 — 「도깨비」 를 물었는데 설명에 그 말이 든 다른 작품이 1 위로
-        # 올라오는 경우를 막는다.
-        want = norm(title)
-        best = next((c for c in found if norm(c.get("title", "")) == want), found[0])
-
-        data = self._get(f"/contents/{best['id']}/places", {"limit": limit})
-        return best.get("title"), [self._to_place(i) for i in data.get("items", [])]
+        data = self._get(f"/contents/{hit['id']}/places", {"limit": limit})
+        return hit.get("title"), [self._to_place(i) for i in data.get("items", [])]
 
     def by_city(self, city: str, limit: int = 200) -> list[Place]:
         """`GET /places?city=` — 서버의 기본 정렬(인기도 내림차순) 그대로(MZ2AZ-548)."""
         data = self._get("/places", {"city": city, "limit": limit})
         return [self._to_place(i) for i in data.get("items", [])]
 
-    def title_detail(self, title: str) -> dict[str, Any] | None:
-        """작품 상세(ContentDetail) — 줄거리·출연·연도·장르(MZ2AZ-554). **물은 작품이 맞을 때만** 준다.
+    def _match_content(
+        self, title: str, *, partial: bool
+    ) -> tuple[dict[str, Any] | None, bool]:
+        """`GET /contents?q=` 후보에서 물은 작품을 고른다 — (찾은 것, 상세인가).
 
-        `GET /contents?q=` 는 설명·출연·장소까지 훑어 1 위가 다른 작품일 수 있다 — 그 줄거리를 물은 작품의 것으로
-        말하면 지어낸 것과 같다. 그래서 제목·별칭이 같은 것을 먼저, 없으면 세 글자 이상인 물음이 제목·별칭에 든 것을
-        받고, 둘 다 없으면 None(도구가 거절). 별칭은 목록에 없어 후보마다 `GET /contents/{id}` 로 본다(최대 5 곳).
+        `GET /contents?q=` 는 설명·출연·장소까지 훑어 1 위가 다른 작품일 수 있다. 그래서 목록의 제목이 같은 것을
+        먼저(목록 항목 그대로, 상세 아님), 없으면 후보마다 `GET /contents/{id}` 로 별칭까지 본다(최대 5 곳).
+        `partial` 이면 세 글자 이상인 물음이 제목·별칭에 든 것도 받는다. 아무것도 아니면 (None, False).
         """
         found = self._get("/contents", {"q": title, "limit": 5}).get("items", [])
         want = norm(title)
         if not found or not want:
-            return None
-        # 목록의 제목이 정확히 같으면 상세 한 번으로 끝난다.
+            return None, False
         exact = next((c for c in found if norm(c.get("title", "")) == want), None)
         if exact is not None:
-            return self._get(f"/contents/{exact['id']}") or None
-        partial: dict[str, Any] | None = None
+            return exact, False
+        fallback: dict[str, Any] | None = None
         for cand in found[:5]:
             detail = self._get(f"/contents/{cand['id']}")
             if not detail:
@@ -205,10 +204,41 @@ class SceneApiPlaceBook(PlaceSource):
                 if n
             ]
             if want in names:
-                return detail
-            if partial is None and len(want) >= 3 and any(want in n for n in names):
-                partial = detail
-        return partial
+                return detail, True
+            if (
+                partial
+                and fallback is None
+                and len(want) >= 3
+                and any(want in n for n in names)
+            ):
+                fallback = detail
+        return fallback, fallback is not None
+
+    def title_detail(self, title: str) -> dict[str, Any] | None:
+        """작품 상세(ContentDetail) — 줄거리·출연·연도·장르(MZ2AZ-554). **물은 작품이 맞을 때만** 준다.
+
+        그 줄거리를 물은 작품의 것으로 잘못 말하면 지어낸 것과 같다. 제목·별칭이 같은 것을 먼저, 없으면 세 글자
+        이상인 물음이 제목·별칭에 든 것을 받고, 둘 다 없으면 None(도구가 거절). 고르는 법은 `_match_content`.
+        """
+        hit, is_detail = self._match_content(title, partial=True)
+        if hit is None:
+            return None
+        return hit if is_detail else (self._get(f"/contents/{hit['id']}") or None)
+
+    def exact_title(
+        self, query: str, limit: int = 10
+    ) -> tuple[str | None, list[Place]]:
+        """검색어가 작품 제목·별칭과 **정확히** 같을 때만 그 작품의 촬영지를 대표 순서로(MZ2AZ-555).
+
+        `search_places` 가 「kpop demon hunters」 를 `/places?q=` 로 찾으면 낱말이 걸린 다른 작품의 장소가 섞인다.
+        부분 일치(제목의 일부·지역·배우)는 받지 않는다 — 그건 예전 장소 검색이 맡는다. 못 찾으면 (None, []) 이고
+        `/contents/{id}/places` 는 부르지 않는다.
+        """
+        hit, _ = self._match_content(query, partial=False)
+        if hit is None:
+            return None, []
+        data = self._get(f"/contents/{hit['id']}/places", {"limit": limit})
+        return hit.get("title"), [self._to_place(i) for i in data.get("items", [])]
 
     def near(
         self,

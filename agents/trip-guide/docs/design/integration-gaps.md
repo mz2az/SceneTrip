@@ -19,7 +19,7 @@
 
 | 도구 | 부르는 API | 계약에 있나 |
 | --- | --- | --- |
-| `search_places` | `GET /places?q=&limit=` | ✅ |
+| `search_places` | `GET /places?q=&limit=`. 지역 결과가 아니면 작품 이름인지 `GET /contents?q=` → (별칭 확인 `GET /contents/{id}`, 최대 5) → 맞으면 `GET /contents/{id}/places?limit=` (MZ2AZ-555) | ✅ |
 | `list_title_places` | `GET /contents?q=&limit=` → `GET /contents/{id}/places?limit=`, 비면 `GET /places?q=&limit=` (MZ2AZ-553) | ✅ |
 | `places_near` | `GET /places?bbox=&sort=distance` | ✅ |
 | `place_detail` | `GET /places/{placeId}` | ✅ |
