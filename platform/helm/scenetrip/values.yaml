@@ -12,6 +12,8 @@ gateway:
   public: false
   albSubnetIds: []
   trustedProxyCidrs: []
+  # 브라우저가 API 를 직접 부를 수 있는 웹 주소(CORS). 정확한 주소, 또는 `~` 로 시작하는 nginx 정규식. 비면 CORS 헤더를 내지 않는다.
+  corsOrigins: []
   securityGroupId: ""
   replicas: 1
 sceneApi:
