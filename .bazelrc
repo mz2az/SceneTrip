@@ -57,6 +57,10 @@ build --define=posthog_key=
 # 빈 값이면 기존 시뮬레이터 주소. DEV·PRD는 just mobile-build-cloud로 HTTPS 주소 주입.
 build --define=scenetrip_api_base_url=
 
+# iOS 웹뷰 껍데기 실험 (MZ2AZ-557, ADR 0029 제안). **빈 값 = 끔** — 기존 네이티브 앱 그대로.
+# `just ios-run-webshell <웹 주소>` 만 값을 넣는다 (apps/scenetrip-ios/BUILD.bazel 의 web_shell_swift).
+build --define=scenetrip_web_shell_url=
+
 # 길찾기 키(카카오)는 2026-09-02 에 뺐다(MZ2AZ-297) — main 은 백엔드
 # 계약(`POST /navigation/next-leg`)만 부르므로 앱에 길찾기 키가 없다.
 
