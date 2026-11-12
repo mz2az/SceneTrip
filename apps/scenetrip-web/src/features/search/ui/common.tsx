@@ -1,6 +1,7 @@
 /*
  * 검색 탭·리뷰가 같이 쓰는 작은 부품. SwiftUI 의 시스템 글꼴 단계(`.headline` 등)와 기본 단추 모양을 한 곳에 둔다.
  */
+import { DeferredImg } from '@/design/DeferredImg'
 import { type CSSProperties, type ReactNode, useEffect, useState } from 'react'
 import { Icon } from '@/design/Icon'
 import { HStack, Pressable, Spinner, Txt, VStack } from '@/design/primitives'
@@ -72,7 +73,7 @@ export function RemoteImage({ url, symbol, fits = false, style }: { url: string 
   return (
     <div style={{ position: 'relative', overflow: 'hidden', background: state === 'ok' ? undefined : 'var(--system-gray5)', ...style }}>
       {url && state !== 'failed' && (
-        <img
+        <DeferredImg
           src={url}
           alt=""
           loading="lazy"

@@ -91,6 +91,13 @@ Bazel 빌드(`just web-build`)는 호스트 환경 변수를 받지 않아 `VITE
 시트 높이만 바뀌면 350ms 동안 조용해진 뒤 마지막 높이로 한 번 맞추며, 켜진 내 위치도 함께 담아 첫 위치 맞추기를 유지한다.
 권한 거부는 즉시, 첫 위치가 없으면 8초 뒤 지도 위에 안내한다(핀 찍기 안내 우선). 위치를 받은 뒤 권한이 거부돼도 안내하고 낡은 위치 점을 지운다.
 
+원격 포스터·사진은 `<img loading="lazy">` 대신 `src/design/DeferredImg.tsx` 의 `DeferredImg` 로 그린다(MZ2AZ-558). 검색·홈 탭은 항상 마운트돼
+`visibility:hidden` 으로만 숨고, 가로 줄(`.scroll-x`)의 화면 밖 포스터도 브라우저가 `loading="lazy"` 만으로는 받아 버리기 때문이다.
+`DeferredImg` 는 `<img>` 를 처음부터 그리되 `src` 속성을 달지 않고, 감싼 탭이 보이고(`RootTabs` 의 `Layer` 가 내려 주는 `LayerVisibleContext`,
+`Layer` 밖은 늘 보임) IntersectionObserver 가 화면 근처(rootMargin·scrollMargin `200px 120px` — scrollMargin 은 가로 줄·세로 목록 같은 스크롤 영역 안의 여유, 모르는 브라우저는 보이는 칸에 들어올 때)라고 알릴 때 단다. 한 번 단 `src` 는 떼지 않는다.
+IntersectionObserver 가 없는 환경(jsdom 포함)에서는 탭이 보이면 바로 단다. 크기를 재야 하는 이미지(사진 뷰어)·로컬 그림(`/generated/…`)·
+업로드 미리보기·이미 `active` 로 거르는 리뷰 사진(`src/features/reviews/PhotoParts.tsx`)은 일반 `<img>` 로 둔다.
+
 ## 폴더 이름
 
 폴더 이름은 2026-10-31 `apps/web` 에서 `apps/scenetrip-web` 으로 바꿨다(`scripts/paths.mjs` 는 깊이만 쓴다).

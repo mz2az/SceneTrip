@@ -5,6 +5,7 @@
  * 제목 · 「지도에서 N곳 보기 ›」 / 도시 칩 줄(맨 앞 「내 위치」) / 그 도시 촬영지 카드 줄. 칩·카드 줄만 가로로 스크롤한다.
  * 웹에만 있는 문구라 iOS 문구표(en.generated.json)에 없다 — 이 파일 안에서 언어별로 고른다.
  */
+import { DeferredImg } from '@/design/DeferredImg'
 import { useEffect, useRef, useState } from 'react'
 import { track, webEvent } from '@/analytics'
 import type { components } from '@/api/generated/schema'
@@ -234,7 +235,7 @@ function SpotCard({ place, onOpen }: { place: PlaceSummary; onOpen: () => void }
         }}
       >
         {hasPhoto(place) && (
-          <img src={place.imageUrl!} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />
+          <DeferredImg src={place.imageUrl!} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />
         )}
       </div>
       <VStack spacing={3} align="stretch" style={{ padding: '8px 10px 10px' }}>
