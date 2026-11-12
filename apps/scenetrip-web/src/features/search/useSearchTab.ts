@@ -9,7 +9,7 @@ import { matchPath, useLocation, useNavigate } from 'react-router'
 import { appEvent, track } from '@/analytics'
 import { api, ok } from '@/api/client'
 import { consumePending, pendingStore } from '@/app/tabRouter'
-import { patterns } from '@/app/routes'
+import { paths, patterns } from '@/app/routes'
 import { useLocationConsent } from '@/features/profile/consent'
 import { cartActions, useCart } from '@/state/cart'
 import { likeActions, useLikes } from '@/state/likes'
@@ -32,6 +32,9 @@ type TopWork = ContentDetail | null
 const summaryOf = (w: ContentDetail): ContentSummary => ({
   id: w.id, category: w.category, title: w.title, posterUrl: w.posterUrl, broadcaster: w.broadcaster, releaseYear: w.releaseYear, genres: w.genres, placeCount: w.placeCount,
 })
+
+const inSearchDetail = (path: string): boolean => path.startsWith(paths.search + '/')
+const onPlacePath = (path: string): boolean => matchPath(patterns.searchPlace, path) !== null
 
 /** 이 앱 안에서 한 칸 뒤로 갈 수 있는가 — react-router 가 history.state 에 남기는 위치 번호(idx)가 0 보다 크면. 새로 고침·직접 연 주소면 0 이다. */
 function canGoBack(): boolean {
@@ -91,6 +94,36 @@ export function useSearchTab(active = true, embedded = false) {
   /** 지금의 지도 범위 검색이 홈 「지도에서 보기」 쪽지로 걸린 것인가 — 탭을 떠나면 지운다. 사용자가 직접 건 범위 검색·검색어는 해당 없다. */
   const regionFromHome = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  /** 지금 열린 촬영지 상세의 id — 주소 효과가 이미 연 곳을 다시 받아 덮지 않게(MZ2AZ-551). */
+  const selectedPlaceId = useRef<number | null>(null)
+  selectedPlaceId.current = selectedPlace?.id ?? null
+  /** 최신 주소 — useCallback 으로 묶인 여는 함수들이 읽는다. */
+  const pathRef = useRef(pathname)
+  pathRef.current = pathname
+  /** 이 훅이 쌓은(push) 상세 주소들 — 닫을 때 그 칸이면 바꾸지 않고 한 칸 뒤로 간다(목록 주소가 두 번 쌓이지 않게). */
+  const pushedDetails = useRef<string[]>([])
+
+  /**
+   * 상세를 열면 주소를 싣는다(MZ2AZ-551) — /search 에서 열면 쌓고(브라우저 뒤로가 /search 로), 다른 상세 위에서 같은 갈래로 바꾸면 그 자리를 바꾼다.
+   * 촬영지는 작품 상세 위에 쌓인다(뒤로가 작품 상세로). 이미 그 주소면(주소창·홈이 연 경우) 그대로.
+   */
+  const showDetailUrl = useCallback(
+    (to: string, replaceWhen: (path: string) => boolean) => {
+      if (embedded) return
+      const from = pathRef.current
+      if (from === to) return
+      const stack = pushedDetails.current
+      if (replaceWhen(from)) {
+        if (stack[stack.length - 1] === from) stack[stack.length - 1] = to
+        navigate(to, { replace: true })
+      } else {
+        stack.push(to)
+        navigate(to)
+      }
+      pathRef.current = to
+    },
+    [embedded, navigate],
+  )
 
   const initial = isInitialScreen(committed, nearby, selectedContent !== null)
   const visiblePlaces = useMemo(() => visiblePlacesOf(scene.places, chip, initial), [scene.places, chip, initial])
@@ -142,8 +175,9 @@ export function useSearchTab(active = true, embedded = false) {
   )
 
   /** 작품을 고르면 작품 상세로 들어간다. 검색어·검색 결과·탭은 건드리지 않는다 — 뒤로 가면 고르기 전 화면 그대로다. */
-  const openContent = useCallback(
-    (content: ContentSummary) => {
+  /** `syncUrl` — 주소에 싣는가. 홈 쪽지·주소창이 연 것은 이미 그 주소다(먼저 실으면 홈 주소 위에 쌓인다). */
+  const showContent = useCallback(
+    (content: ContentSummary, syncUrl: boolean) => {
       selectedContentId.current = content.id
       setSelectedContent(content)
       setContentPlaces([])
@@ -151,6 +185,7 @@ export function useSearchTab(active = true, embedded = false) {
       setSelectedPlace(null)
       blurSearch()
       setDetent('medium')
+      if (syncUrl) showDetailUrl(paths.searchContent(content.id), inSearchDetail)
       void data
         .placesOfContent(content.id)
         .catch(() => [] as PlaceSummary[])
@@ -162,13 +197,15 @@ export function useSearchTab(active = true, embedded = false) {
           setFitToken((n) => n + 1)
         })
     },
-    [data],
+    [data, showDetailUrl],
   )
+  const openContent = useCallback((content: ContentSummary) => showContent(content, true), [showContent])
 
   const openPlace = useCallback((place: PlaceSummary) => {
     setSelectedPlace(place)
     setFocusToken((n) => n + 1)
-  }, [])
+    showDetailUrl(paths.searchPlace(place.id), onPlacePath)
+  }, [showDetailUrl])
 
   /** 담기 — 계약이 적어 둔 세 경로 중 목록 행의 `+`. 이미 담긴 장소면 뺀다(목록 행의 버튼은 담기 전용이 아니라 토글이다). 담는 순간 그 핀이 가운데 오게 지도를 이동만 한다. */
   const save = useCallback(
@@ -200,6 +237,13 @@ export function useSearchTab(active = true, embedded = false) {
   // 상세에서 나올 때 주소 — 직접 연 상세면 탭 주소로, 격자(지금 뜨는 작품)가 연 작품이면 격자로(MZ2AZ-534). 정하는 규칙은 detailBack.ts.
   const applyBack = (step: BackStep) => {
     if (embedded) return
+    // 이 훅이 쌓은 상세 칸이면 한 칸 뒤로 — 바꾸기(replace)로 가면 같은 주소가 두 번 쌓여 뒤로를 한 번 더 눌러야 한다.
+    const stack = pushedDetails.current
+    if (step.kind !== 'stay' && stack.length > 0 && stack[stack.length - 1] === pathname) {
+      stack.pop()
+      navigate(-1)
+      return
+    }
     if (step.kind === 'pop') navigate(-1)
     else if (step.kind === 'replace') navigate(step.to, { replace: true, state: step.state })
   }
@@ -228,8 +272,9 @@ export function useSearchTab(active = true, embedded = false) {
       if (selectedContentId.current === null) setTab('place')
       setDetent('medium')
       setFocusToken((n) => n + 1)
+      showDetailUrl(paths.searchPlace(place.id), onPlacePath)
     },
-    [],
+    [showDetailUrl],
   )
 
   // ---- 현 지도 내 성지 검색
@@ -314,17 +359,21 @@ export function useSearchTab(active = true, embedded = false) {
       if (place) {
         setSelectedPlace(place)
         setFocusToken((n) => n + 1)
+        // 목록·핀에서 연 것과 같이 주소를 쌓는다(MZ2AZ-551).
+        showDetailUrl(paths.searchPlace(place.id), onPlacePath)
         return
       }
       // 받아 둔 첫 쪽에 없을 수 있다(흔한 이름이면 결과가 한 쪽을 넘는다) — 그 곳을 직접 받는다(MZ2AZ-372).
       void data.detailOfPlace(wanted).then((found) => {
         if (selectedContentId.current !== null) return
+        const opening = selectedPlaceId.current === null
         setSelectedPlace((cur) => cur ?? placeSummaryOf(found))
         setFocusToken((n) => n + 1)
+        if (opening) showDetailUrl(paths.searchPlace(found.id), onPlacePath)
       }).catch(() => {})
     }
     setFitToken((n) => n + 1)
-  }, [scene.phase, scene.places, data])
+  }, [scene.phase, scene.places, data, showDetailUrl])
 
   // 홈이 남긴 「이 작품/이 촬영지 열어 줘」 쪽지 — 요약을 그대로 받아 상세를 연다. 자기 목록에서 찾지 않는다(검색한 뒤면 목록이 걸러져 있다). 쪽지는 한 번 읽고 버린다.
   const pendingContent = useStore(pendingStore, (s) => s.content)
@@ -332,8 +381,8 @@ export function useSearchTab(active = true, embedded = false) {
   useEffect(() => {
     if (!pendingContent) return
     const wanted = consumePending('content')
-    if (wanted) openContent(wanted)
-  }, [pendingContent, openContent])
+    if (wanted) showContent(wanted, false)
+  }, [pendingContent, showContent])
   useEffect(() => {
     if (!pendingPlace) return
     const wanted = consumePending('place')
@@ -374,19 +423,44 @@ export function useSearchTab(active = true, embedded = false) {
   }, [active])
 
   // URL(`/search/content/:id`, `/search/place/:id`)로 직접 열었을 때도 같은 상세가 열려야 한다.
+  // 브라우저 뒤로로 상세 주소에서 /search 에 오면 열린 상세를 닫는다(MZ2AZ-551). 다른 탭에서 돌아온 것은 닫지 않는다(전처럼 남는다).
+  const prevPath = useRef(pathname)
   useEffect(() => {
     if (embedded) return
+    const before = prevPath.current
+    prevPath.current = pathname
+    const stack = pushedDetails.current
+    const at = stack.lastIndexOf(pathname)
+    // 작품검색 탭을 떠나면(홈·커뮤니티·덮개) 쌓은 기록을 버린다 — 홈에서 같은 상세 주소로 다시 와도 그 칸은 우리가 쌓은 것이 아니다.
+    if (pathname === paths.search || !(pathname === paths.search || inSearchDetail(pathname))) stack.length = 0
+    else if (at >= 0) stack.length = at + 1
+    if (pathname === paths.search) {
+      if (!inSearchDetail(before)) return
+      selectedContentId.current = null
+      setSelectedContent(null)
+      setContentPlaces([])
+      setContentLoading(false)
+      setSelectedPlace(null)
+      setFitToken((n) => n + 1)
+      return
+    }
     const c = matchPath(patterns.searchContent, pathname)
     const p = matchPath(patterns.searchPlace, pathname)
     if (c) {
       const id = Number(c.params.contentId)
       const pending = pendingStore.get().content
+      // 촬영지 상세에서 뒤로 와 작품 상세 주소가 됐다 — 위에 떠 있던 촬영지를 닫는다.
+      if (selectedContentId.current === id && selectedPlaceId.current !== null && onPlacePath(before)) {
+        setSelectedPlace(null)
+        setFitToken((n) => n + 1)
+      }
       if (!Number.isFinite(id) || selectedContentId.current === id || pending?.id === id) return
-      void ok(api.GET('/contents/{contentId}', { params: { path: { contentId: id } } })).then((detail) => openContent(summaryOf(detail))).catch(() => {})
+      void ok(api.GET('/contents/{contentId}', { params: { path: { contentId: id } } })).then((detail) => showContent(summaryOf(detail), false)).catch(() => {})
     } else if (p) {
       const id = Number(p.params.placeId)
       const pending = pendingStore.get().place
-      if (!Number.isFinite(id) || pending?.id === id) return
+      // 이미 연 곳이면 다시 받지 않는다 — 받아 오면 작품 상세 위에 연 촬영지의 작품이 지워진다.
+      if (!Number.isFinite(id) || pending?.id === id || selectedPlaceId.current === id) return
       void data.detailOfPlace(id).then((found) => {
         selectedContentId.current = null
         setSelectedContent(null)

@@ -87,7 +87,19 @@ export function ArticleEditor({ items, onItems, meta, onMeta, draft, slots, lock
 
   return (
     <VStack spacing={12} align="stretch" style={{ width: '100%', opacity: locked ? 0.6 : 1, pointerEvents: locked ? 'none' : undefined }}>
-      <div ref={list} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* 본문 칸 — 테두리와 최소 높이로 「여기에 쓴다」 가 보이게(MZ2AZ-551: 테두리 없는 글상자라 어디를 눌러야 할지 몰랐다).
+          칸의 빈 곳을 눌러도 마지막 글 조각에 커서가 간다. */}
+      <div
+        ref={list}
+        role="group"
+        aria-label={tr('본문')}
+        onClick={(e) => {
+          if (e.target !== e.currentTarget) return
+          const boxes = e.currentTarget.querySelectorAll('textarea')
+          boxes[boxes.length - 1]?.focus()
+        }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 180, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--separator)', background: 'var(--system-background)', cursor: 'text' }}
+      >
         {items.map((item, index) => {
           if (item.kind === 'text') {
             // 끌어 옮길 때 이웃 높이를 재려면 글 조각에도 표식이 있어야 한다(useHoldReorder 는 data-hold-id 로 찾는다).
@@ -160,7 +172,7 @@ export function ArticleEditor({ items, onItems, meta, onMeta, draft, slots, lock
   )
 }
 
-/** 글 조각 — 쓰는 만큼 늘어나는 테두리 없는 칸. */
+/** 글 조각 — 쓰는 만큼 늘어나는 칸. 테두리는 바깥의 본문 칸(role=group)이 두른다. */
 function AutoText({ value, placeholder, onChange, onCaret }: { value: string; placeholder: string; onChange: (text: string, caret: number) => void; onCaret: (at: number) => void }) {
   const ref = useRef<HTMLTextAreaElement>(null)
   useEffect(() => {

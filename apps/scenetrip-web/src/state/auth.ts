@@ -141,8 +141,9 @@ export const authHooks: AuthHooks = { refresh: null, loseSession: null }
 // ---------------------------------------------------------------- 로그인 시트 요청
 // iOS `AuthStore.shared.promptSignIn()` — 가입 전용 기능을 비회원이 부르면 어디서든 로그인 시트를 올려 달라고 부탁한다.
 // 시트 자체는 features/profile/RootSheets.tsx 가 그린다.
-export const signInPromptStore = createStore<{ requested: boolean }>({ requested: false })
-export const promptSignIn = (): void => {
-  if (!hasSession()) signInPromptStore.set({ requested: true })
+// `reason` 은 「왜 로그인해야 하나」 한 줄 — 시트의 기본 설명 자리에 보인다(MZ2AZ-551). 없으면 기본 설명.
+export const signInPromptStore = createStore<{ requested: boolean; reason: string | null }>({ requested: false, reason: null })
+export const promptSignIn = (reason?: string | null): void => {
+  if (!hasSession()) signInPromptStore.set({ requested: true, reason: reason ?? null })
 }
-export const dismissSignInPrompt = (): void => signInPromptStore.set({ requested: false })
+export const dismissSignInPrompt = (): void => signInPromptStore.set({ requested: false, reason: null })

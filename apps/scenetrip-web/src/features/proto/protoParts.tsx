@@ -17,7 +17,9 @@ import { cartActions, useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { type Pace, daysLabel, paceLabel, rememberProtoCourse, say } from './protoState'
 import { CITY_COVERS, fixedCoverOf } from './protoCovers'
+import { onceWhileBusy } from './onceWhileBusy'
 import { showsPrototypeMarks } from './protoGate'
+import { placesForNewCourse } from './savedPlan'
 import { color, contained, heading, radius, shadow, z } from './protoTokens'
 import './proto.css'
 
@@ -345,7 +347,25 @@ export function CityPicker({ city, days, onBack, onCreated }: {
   const [askDays, setAskDays] = useState(false)
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
-  const chosen = city.places.filter((p) => cart.placeIds.has(p.id))
+  // 코스에 넣을 곳은 이 화면에서 고른다 — 처음에는 아무것도 골라져 있지 않다(MZ2AZ-551). 전에는 예전에 담아 둔 이 도시 촬영지가 전부 들어갔다.
+  // 고르면 장바구니에도 담고, 이 화면에서 담은 것을 다시 풀면 장바구니에서도 뺀다(전에 담아 둔 것은 그대로 둔다).
+  const [picked, setPicked] = useState<ReadonlySet<number>>(() => new Set())
+  const addedHere = useRef(new Set<number>())
+  const chosen = placesForNewCourse(city.places.map((p) => ({ placeId: p.id, place: p })), picked).map((i) => i.place)
+  const togglePick = (id: number) => {
+    const next = new Set(picked)
+    if (next.has(id)) {
+      next.delete(id)
+      if (addedHere.current.delete(id)) void cartActions.remove(id)
+    } else {
+      next.add(id)
+      if (!cart.placeIds.has(id)) {
+        addedHere.current.add(id)
+        void cartActions.add(id)
+      }
+    }
+    setPicked(next)
+  }
   // 도시 요약으로 만든 줄이면 이 도시 촬영지를 이제 받는다(MZ2AZ-545).
   useEffect(() => {
     if (!city.placesLoaded) void ensureCityPlaces(city.key).catch(() => setFailed(true))
@@ -354,16 +374,25 @@ export function CityPicker({ city, days, onBack, onCreated }: {
   const create = async (n: number) => {
     setBusy(true)
     setFailed(false)
-    const id = await saveCourse(say(`${city.name} 여행`, `${city.name} trip`), splitDays(chosen, n), 'normal', false)
-    setBusy(false)
-    if (id === null) return setFailed(true)
-    onCreated(id, n)
+    try {
+      const id = await saveCourse(say(`${city.name} 여행`, `${city.name} trip`), splitDays(chosen, n), 'normal', false)
+      if (id === null) return setFailed(true)
+      onCreated(id, n)
+    } catch {
+      setFailed(true)
+    } finally {
+      setBusy(false)
+    }
   }
+  // 빠르게 두 번 눌러 코스가 둘 생기지 않게(MZ2AZ-551). 감싸개는 한 번만 만들고, 부를 때는 최신 create 를 쓴다.
+  const createLatest = useRef(create)
+  createLatest.current = create
+  const createOnce = useRef(onceWhileBusy((n: number) => createLatest.current(n)))
 
   if (askDays) {
     return (
       <ProtoScreen title={say(`${city.name}, 며칠 머무세요?`, `How long in ${city.name}?`)} onBack={() => setAskDays(false)}>
-        <ChoiceRow options={DAY_OPTIONS} value={null} label={daysLabel} onPick={(n) => void create(n)} />
+        <ChoiceRow options={DAY_OPTIONS} value={null} label={daysLabel} onPick={(n) => { if (!busy) void createOnce.current(n) }} />
         {busy && <HStack spacing={8}><Spinner size={16} /><Txt size={14} color="secondary">{say('코스 만드는 중…', 'Creating your course…')}</Txt></HStack>}
         {failed && <Txt size={14} color="red">{say('코스를 만들지 못했어요. 다시 눌러 주세요', "Couldn't create the course. Try again")}</Txt>}
       </ProtoScreen>
@@ -383,7 +412,7 @@ export function CityPicker({ city, days, onBack, onCreated }: {
       footer={
         <VStack spacing={6} align="stretch">
           {failed && <Txt size={13} color="red">{say('코스를 만들지 못했어요. 다시 눌러 주세요', "Couldn't create the course. Try again")}</Txt>}
-          <PrimaryButton disabled={chosen.length === 0 || busy} onClick={() => (days ? void create(days) : setAskDays(true))}>
+          <PrimaryButton disabled={chosen.length === 0 || busy} onClick={() => (days ? void createOnce.current(days) : setAskDays(true))}>
             {busy ? say('만드는 중…', 'Creating…') : chosen.length === 0 ? say('가 볼 곳을 담아 주세요', 'Add places to start') : say(`${chosen.length}곳으로 코스 만들기`, `Make a course with ${chosen.length}`)}
           </PrimaryButton>
         </VStack>
@@ -393,7 +422,7 @@ export function CityPicker({ city, days, onBack, onCreated }: {
         {!city.placesLoaded && <div style={{ padding: 24, display: 'grid', placeItems: 'center' }}><Spinner size={18} /></div>}
         {city.placesLoaded && city.places.length === 0 && <Txt size={15} color="secondary">{say('아직 이 도시의 촬영지가 없어요. 뒤로 가서 다른 도시를 골라 주세요', 'No filming spots here yet. Go back and pick another city.')}</Txt>}
         {city.places.slice(0, 30).map((p) => (
-          <SpotRow key={p.id} place={p} saved={cart.placeIds.has(p.id)} onToggle={() => void (cart.placeIds.has(p.id) ? cartActions.remove(p.id) : cartActions.add(p.id))} />
+          <SpotRow key={p.id} place={p} saved={picked.has(p.id)} onToggle={() => togglePick(p.id)} />
         ))}
       </VStack>
     </ProtoScreen>

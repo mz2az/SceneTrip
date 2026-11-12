@@ -43,6 +43,7 @@ import { clearFreshCourse, isFreshCourse, protoAvailable, protoStore, say } from
 import { useBackGuard } from '@/features/proto/useBackGuard'
 import { CoachTour } from '@/features/proto/CoachTour'
 import { PlaceDetail } from '@/features/search/ui/PlaceDetail'
+import { addFabBottom, chipBottom } from '@/features/proto/addFabLayout'
 import { AddFab, MapAddScreen, SavedAddSheet } from '@/features/proto/ProtoAddMenu'
 import { api, ok } from '@/api/client'
 
@@ -83,10 +84,10 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
   const state = useRouteState()
   const ext = useStore(editorExtensions, (s) => s)
   const cartHint = useCartHint(course)
-  // 「지도 켜고 끄기」 시안(로컬 개발 서버 전용) — 일정 목록이 화면 전체, 「지도」 를 누르면 위에 지도가 펼쳐진다(Wanderlog 식).
-  // 여행 중이면 길찾기를 보느라 지도가 먼저라 펼친 채로 연다.
+  // 「지도 켜고 끄기」 시안(로컬 개발 서버 전용) — 지도를 펼친 채로 열고, 「목록만」 을 누르면 일정 목록이 화면 전체가 된다(Wanderlog 식).
+  // 처음엔 목록만 보이고 「지도」 를 눌러야 펼쳐졌는데, 이제 처음부터 펼친다(MZ2AZ-556).
   const proto = useStore(protoStore, (p) => protoAvailable && p.proto !== null)
-  const [mapOpen, setMapOpen] = useState(initial.isRunning)
+  const [mapOpen, setMapOpen] = useState(true)
   // 「보기 / 편집」 시안 — 저장된 코스는 보기로 열리고(‹ 뒤로 · 편집), 「편집」 을 눌러야 고친다(취소 · 저장). 새 코스는 처음부터 편집(취소 · 만들기).
   // 방금 「도시로 시작」 으로 만든 코스는 편집 상태로 열고, 저장 없이 나가면 묻고 지운다(2026-11-09 사용자 결정 — 세 가지 만들기 모두 「저장」 해야 끝).
   const [fresh, setFresh] = useState(() => proto && isFreshCourse(initial.serverId))
@@ -98,7 +99,8 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
   // 시안 — 「지도」: 화면 전체 목록이 맨 위에 선 서랍으로 바뀐 뒤 중간 단으로 내려앉는다. 「목록만」: 서랍이 맨 위까지 올라간 뒤 화면 전체 목록으로 바뀐다.
   const [switching, setSwitching] = useState(false)
   // 지도를 처음 펼칠 때만 코스 전체에 맞춘다 — 접혀 있는 동안(높이 0) 맞춘 화면은 엉뚱하다. 그 뒤로는 사람이 맞춰 둔 확대·위치를 지킨다.
-  const mapFitted = useRef(initial.isRunning)
+  // 펼친 채로 열므로 처음 화면에서 이미 맞췄다 — 접었다 다시 펼쳐도 사람이 맞춰 둔 화면을 덮지 않는다(MZ2AZ-556).
+  const mapFitted = useRef(true)
   const openMap = () => {
     setDetent('expanded')
     setMapOpen(true)
@@ -232,8 +234,12 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
   }
 
   // ---- 여행 시작/종료 (진행 상태만 바꾼다 — 코스 내용을 함께 덮어쓰면 편집 중이던 것이 저장돼 「시작」이 「저장」을 겸하게 된다)
+  // 시안 편집 중 ＋ 와 해태는 편집 화면 바닥에서 함께 잰다. 새 코스면 아래 「코스 만들기」 줄이 보여 둘 다 그만큼 올라선다(MZ2AZ-556).
+  // 그 밖의 화면(저장된 코스 편집·보기·정식 편집기)의 해태는 기본 자리(CHIP_BOTTOM) 그대로다.
+  const fabOverBar = proto && editing && isNew
   const host: EditorHost = {
     course, setCourse, dayIndex, setDayIndex, stops, isNew, map, refit, saveNow, panelHeight,
+    chipBottom: chipBottom({ bottomBarShown: fabOverBar }),
     requestClose: cancel,
     requestPlanner: () => pendingStore.set((s) => ({ ...s, planner: true })),
     here, pinning, cardOpen: pickedStop !== null, focusedUid, setFocusedUid, fit: refit, openCart: () => setShowCart(true),
@@ -483,7 +489,6 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
               {protoPanel}
             </BottomSheet>
             {!switching && <MapPill open onToggle={closeMap} />}
-            {!switching && editing && <AddFab onMap={() => setAddMenu('map')} onSaved={() => setAddMenu('saved')} />}
           </>
         )}
         {pickedStop && (
@@ -506,12 +511,15 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
       {proto && !mapOpen && (
         <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--system-background)' }}>
           <MapPill open={false} onToggle={openMap} />
-          {editing && <AddFab onMap={() => setAddMenu('map')} onSaved={() => setAddMenu('saved')} />}
           {protoPanel}
         </div>
       )}
       {/* 시안 — 저장된 코스를 고치는 동안에는 「코스 시작」 줄을 숨긴다. 저장은 위 「저장」 하나. */}
       {proto && editing && !isNew ? null : ext.BottomBar ? <ext.BottomBar host={host} fallback={bottomBar} /> : bottomBar}
+      {/* ＋ 는 해태와 같은 상자(편집 화면 전체)에서 잰다 — 목록/지도 상자에서 재면 아래 줄 높이만큼만 올라가 해태와 겹쳤다(MZ2AZ-556). */}
+      {proto && editing && !(mapOpen && switching) && (
+        <AddFab bottom={addFabBottom({ bottomBarShown: fabOverBar })} onMap={() => setAddMenu('map')} onSaved={() => setAddMenu('saved')} />
+      )}
       {ext.Overlay && <ext.Overlay host={host} />}
       {proto && addMenu === 'map' && (
         <MapAddScreen dayCounts={course.days.map((d) => d.stops.length)} current={dayIndex} taken={taken} onAdd={(place, day) => addToDay([place], day)} onClose={() => setAddMenu(null)} />
@@ -578,7 +586,7 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
         active={proto && editing && (isNew || fresh) && !confirmingLeave && !confirmingDiscard}
         delay={1200}
         steps={[
-          { target: '[data-coach="editor-map"]', title: say('지도', 'Map'), text: say('눌러서 코스를 지도로 펼쳐 동선을 확인해요. 다시 누르면 목록만 봐요.', 'Open the route on a map to check the path. Tap again for the list only.') },
+          { target: '[data-coach="editor-map"]', title: say('지도', 'Map'), text: say('지도에서 동선을 보다가 이 단추로 목록만 볼 수 있어요. 다시 누르면 지도로 돌아와요.', 'Check the path on the map, or switch to the list only with this button. Tap again to bring the map back.') },
           { target: '.gd-chip:not(.gd-chip-hidden)', title: say('해태 AI', 'Haetae AI'), text: say('「하루 줄여 줘」 「카페 하나 넣어 줘」처럼 말로 부탁하면 코스를 고쳐 줘요.', 'Ask in plain words — "make it one day shorter", "add a café" — and it edits the route.') },
           { target: '[data-coach="editor-add"]', title: say('장소 검색해서 담기', 'Search and add places'), text: say('지금은 편집 중이라 장소를 검색해서 더 넣을 수 있어요. 보관함에 담아 둔 곳도 여기서 넣어요.', "You're editing, so you can search for places and add them. Saved places are here too.") },
           { target: '[data-coach="editor-save"]', title: say('다 고쳤으면 저장', 'Save when done'), text: say('저장해야 코스가 남아요. 저장하지 않고 나가면 한 번 더 물어봐요.', "Save to keep the course. If you leave without saving, we'll ask first.") },

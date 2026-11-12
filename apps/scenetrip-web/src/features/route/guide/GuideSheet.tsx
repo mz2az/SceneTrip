@@ -49,6 +49,11 @@ export interface GuideSheetProps {
   onRemove?: (place: RoutePlace) => void
   /** 「여기로 길찾기」. 여행 중 화면만 준다 — 주면 카드에 버튼이 뜬다. */
   onReroute?: (place: RoutePlace) => void
+  /**
+   * 답의 장소 카드 「길찾기」(MZ2AZ-554) — 담겨 있든 아니든, 여행 중이든 아니든 뜬다. 무엇을 할지는 띄운 쪽이
+   * `guideDirectionsSteps` 로 정한다. 주면 `onReroute` 대신 이것이 카드 버튼을 맡는다.
+   */
+  onDirections?: (place: RoutePlace) => void
   /** 한도 안내의 「AI 로 짜기 열기」 — 일정짜기 마법사로 가는 길. 띄운 쪽이 주지 않으면 글만 보인다. */
   onOpenPlanner?: () => void
   /** 창 줄이기. 오버레이 창이라 여닫는 상태는 띄운 쪽이 든다. */
@@ -62,7 +67,7 @@ export interface GuideSheetProps {
 
 export function GuideSheet({
   session, here, coordinateSource = 'device', anchorDescription = tr('지도에 표시된 내 위치 주변을 찾아 드립니다.'), onChangeAnchor, anchorActionTitle = '',
-  cartPlaces = [], onOpenCart, onOpenNearby, context = null, onAdd, isAdded = () => false, onRemove, onReroute, onOpenPlanner, onClose, aiConsent, locationConsent, cardProps,
+  cartPlaces = [], onOpenCart, onOpenNearby, context = null, onAdd, isAdded = () => false, onRemove, onReroute, onDirections, onOpenPlanner, onClose, aiConsent, locationConsent, cardProps,
 }: GuideSheetProps) {
   const state = useGuideState(session)
   const [draft, setDraft] = useState('')
@@ -156,7 +161,7 @@ export function GuideSheet({
             <Bubble key={turn.id} role={turn.role} text={turn.text}>
               {/* 마지막 답에만 붙인다 — 무엇을 근거로 말했는지. */}
               {turn.role === 'assistant' && turn.id === lastAssistant?.id && (
-                <Evidence session={session} state={state} onAdd={onAdd} isAdded={isAdded} onRemove={onRemove} onReroute={onReroute} cardProps={cardProps} />
+                <Evidence session={session} state={state} onAdd={onAdd} isAdded={isAdded} onRemove={onRemove} onReroute={onReroute} onDirections={onDirections} cardProps={cardProps} />
               )}
             </Bubble>
           ))}
@@ -198,8 +203,9 @@ function Bubble({ role, text, children }: { role: 'user' | 'assistant'; text: st
   )
 }
 
-function Evidence({ session, state, onAdd, isAdded, onRemove, onReroute, cardProps }: { session: GuideSession; state: GuideState } & Pick<GuideSheetProps, 'onAdd' | 'isAdded' | 'onRemove' | 'onReroute' | 'cardProps'>) {
+function Evidence({ session, state, onAdd, isAdded, onRemove, onReroute, onDirections, cardProps }: { session: GuideSession; state: GuideState } & Pick<GuideSheetProps, 'onAdd' | 'isAdded' | 'onRemove' | 'onReroute' | 'onDirections' | 'cardProps'>) {
   if (state.tools.length === 0 && state.places.length === 0) return null
+  const directions = onDirections ?? onReroute
   return (
     <VStack spacing={6} align="start" fill style={{ paddingLeft: 4 }}>
       {state.tools.length > 0 && (
@@ -216,7 +222,7 @@ function Evidence({ session, state, onAdd, isAdded, onRemove, onReroute, cardPro
           <VStack key={place.id} spacing={6} align="stretch" fill data-place={place.id}>
             <PlaceRow place={place} isPicked={isPicked} added={isAdded?.(place) ?? false} onPick={() => session.setPicked(isPicked ? null : place)} onAdd={() => onAdd?.(place)} onRemove={() => onRemove?.(place)} />
             {isPicked && (
-              <PlaceCard place={place} onAdd={onAdd ? () => onAdd(place) : undefined} added={isAdded?.(place) ?? false} onRemove={onRemove ? () => onRemove(place) : undefined} onReroute={onReroute ? () => onReroute(place) : undefined} onClose={() => session.setPicked(null)} {...cardProps} />
+              <PlaceCard place={place} onAdd={onAdd ? () => onAdd(place) : undefined} added={isAdded?.(place) ?? false} onRemove={onRemove ? () => onRemove(place) : undefined} onReroute={directions ? () => directions(place) : undefined} onClose={() => session.setPicked(null)} {...cardProps} />
             )}
           </VStack>
         )

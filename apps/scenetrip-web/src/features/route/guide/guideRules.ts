@@ -142,8 +142,21 @@ export function chipOffsetX(p: { storedX: number; storedY: number; dragging?: nu
 export const chipMoved = (dx: number, dy: number, slop = MOVE_SLOP): boolean => Math.hypot(dx, dy) >= slop
 
 /** 화면 밖으로 못 나간다. 기본 자리가 오른쪽 아래이므로 왼쪽·위로만 갈 수 있고, 오른쪽·아래로는 0 까지다. */
-export function clampChip(offset: { x: number; y: number }, size: { width: number; height: number }): { x: number; y: number } {
+export function clampChip(offset: { x: number; y: number }, size: { width: number; height: number }, bottom = CHIP_BOTTOM): { x: number; y: number } {
   const minX = -(size.width - CHIP_EDGE - CHIP_BUBBLE_WIDTH)
-  const minY = -(size.height - CHIP_BOTTOM - CHIP_TOP_ROOM)
+  const minY = -(size.height - bottom - CHIP_TOP_ROOM)
   return { x: Math.min(0, Math.max(minX, offset.x)), y: Math.min(0, Math.max(minY, offset.y)) }
+}
+
+// ---------------------------------------------------------------- 카드 「길찾기」 (RouteGuideDirections, MZ2AZ-554)
+
+export type GuideDirectionsStep = 'signIn' | 'add' | 'startTrip' | 'switchTarget'
+
+/**
+ * 가이드 답의 장소 카드 「길찾기」를 누르면 할 일 — 순서대로. iOS `RouteGuideDirections.steps` 와 같은 값이다.
+ * 로그인 전이면 로그인 안내만, 코스에 없으면 먼저 담고, 여행 전이면 그곳으로 여행을 시작, 여행 중이면 목적지만 바꾼다.
+ */
+export function guideDirectionsSteps(p: { signedIn: boolean; inCourse: boolean; tripRunning: boolean }): GuideDirectionsStep[] {
+  if (!p.signedIn) return ['signIn']
+  return [...(p.inCourse ? [] : (['add'] as const)), p.tripRunning ? 'switchTarget' : 'startTrip']
 }

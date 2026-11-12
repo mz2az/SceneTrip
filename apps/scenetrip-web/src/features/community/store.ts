@@ -59,8 +59,10 @@ export interface CommunityStoreApi extends CommunityState {
   accept(detail: PostDetail): void
   clearMyPosts(): void
   detail(post: CommunityPost): Promise<CommunityPost>
-  /** 내 글 지우기. 실패하면 글을 남기고 `message` 를 띄운다. */
-  remove(serverId: number): Promise<void>
+  /** 내 글 지우기. 실패하면 글을 남기고 `message` 를 띄운다(`quiet` 면 띄우지 않는다 — 부른 쪽이 따로 알린다). 지웠으면 true. */
+  remove(serverId: number, options?: { quiet?: boolean }): Promise<boolean>
+  /** 상세에서 바뀐 값(좋아요·댓글 수)을 목록 줄에도 싣는다 — 피드와 「내가 쓴 글」 의 같은 id 줄(MZ2AZ-551). */
+  patchPost(serverId: number, patch: Partial<Pick<PostSummary, 'likeCount' | 'liked' | 'commentCount'>>): void
   /** 후기의 코스를 내 코스로 담는다 — 새 코스의 서버 id. */
   saveCourse(serverId: number): Promise<number>
   /** 게시판·검색어를 바꾼다 — 목록을 비우고 나가 있던 받기를 무효로 한 뒤 첫 쪽부터 받는다. */
@@ -186,11 +188,11 @@ export function createCommunityStore(options: CommunityStoreOptions = {}): Commu
       if (epoch !== epochNow()) throw new DOMException('account changed', 'AbortError')
       return postFromDetail(detail)
     },
-    async remove(serverId) {
+    async remove(serverId, options) {
       const epoch = epochNow()
       try {
         await client.delete(serverId)
-        if (epoch !== epochNow()) return
+        if (epoch !== epochNow()) return false
         const s = get()
         patch({
           posts: s.posts.filter((p) => p.id !== serverId),
@@ -198,9 +200,17 @@ export function createCommunityStore(options: CommunityStoreOptions = {}): Commu
           total: Math.max(0, s.total - 1),
           mineTotal: Math.max(0, s.mineTotal - 1),
         })
+        return true
       } catch (error) {
-        patch({ message: failureText(error) })
+        if (!options?.quiet) patch({ message: failureText(error) })
+        return false
       }
+    },
+    patchPost(serverId, changes) {
+      const s = get()
+      if (!s.posts.some((p) => p.id === serverId) && !s.myPosts.some((p) => p.id === serverId)) return
+      const apply = (list: readonly PostSummary[]) => list.map((p) => (p.id === serverId ? { ...p, ...changes } : p))
+      patch({ posts: apply(s.posts), myPosts: apply(s.myPosts) })
     },
     async saveCourse(serverId) {
       const epoch = epochNow()

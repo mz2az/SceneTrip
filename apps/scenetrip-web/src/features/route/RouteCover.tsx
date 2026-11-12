@@ -19,6 +19,7 @@ import { tr, useLang } from '@/i18n'
 import { trAt } from '@/i18n'
 import { useStore } from '@/state/storage'
 import { CourseList } from './CourseList'
+import { courseUrlStep } from './courseUrl'
 import { ForkSheet } from './ForkSheet'
 import { ProtoCourseList } from '@/features/proto/ProtoCourse'
 import { protoAvailable, protoStore } from '@/features/proto/protoState'
@@ -79,12 +80,29 @@ export function RouteCover({ onClose }: { onClose: () => void }) {
     void opening.open(makeCourse({ serverId: urlCourseId, days: [makeDay()] }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlCourseId, pendingCourseId])
-  // 열린 코스를 주소에 싣는다.
+  // 열린 코스를 주소에 싣는다. 목록에서 연 코스는 주소를 쌓는다(MZ2AZ-551) — 브라우저 뒤로가 목록으로 돌아온다.
+  const pushedCourse = useRef<number | null>(null)
   useEffect(() => {
     const id = opening.editing?.serverId
-    if (id != null && urlCourseId !== id) navigate(paths.course(id), { replace: true })
+    const step = courseUrlStep(pathname, id)
+    if (step.kind === 'stay') return
+    pushedCourse.current = step.kind === 'push' ? (id ?? null) : null
+    navigate(step.to, { replace: step.kind === 'replace' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opening.editing])
+  // 브라우저 뒤로로 /courses/:id → /courses 에 오면 열린 편집 화면을 닫는다.
+  const prevUrlCourseId = useRef<number | null>(urlCourseId)
+  useEffect(() => {
+    const prev = prevUrlCourseId.current
+    prevUrlCourseId.current = urlCourseId
+    if (prev === null || urlCourseId !== null || pathname !== paths.courses) return
+    pushedCourse.current = null
+    if (opening.editing?.serverId === prev) {
+      opening.close()
+      urlOpened.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlCourseId, pathname])
   useEffect(() => {
     if (pathname === paths.courseNew) setFork(true)
   }, [pathname])
@@ -92,7 +110,10 @@ export function RouteCover({ onClose }: { onClose: () => void }) {
   const closeEditor = () => {
     opening.close()
     urlOpened.current = null
-    if (urlCourseId !== null) navigate(paths.courses, { replace: true })
+    // 쌓아 둔 코스 주소면 한 칸 뒤로 — 목록 주소가 두 번 쌓여 뒤로를 한 번 더 눌러야 하는 일이 없게.
+    if (urlCourseId !== null && pushedCourse.current === urlCourseId) navigate(-1)
+    else if (urlCourseId !== null) navigate(paths.courses, { replace: true })
+    pushedCourse.current = null
     // 가이드 챗봇의 한도 안내에서 「AI 로 짜기 열기」를 눌렀다 — 편집 화면이 다 닫힌 뒤에 마법사를 띄운다(닫히는 중에 띄우면 버려진다).
     if (consumePending('planner')) setTimeout(() => setWizard('aiPlan'), 320)
   }

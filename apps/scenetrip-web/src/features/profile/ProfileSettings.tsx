@@ -3,11 +3,11 @@
  * (iOS ProfileTabView.swift:192~620, ProfileAISettings.swift, ProfileDeviceDataSection.swift, BlockedUsersView.swift 의 SupportContactRow).
  * 광고 추적 허용(ATT) 줄은 웹에 없어 숨긴다 — docs/project/web-app.md §5.
  */
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { appEvent, track } from '@/analytics'
 import { Alert } from '@/design/overlay'
 import { Spinner, Txt } from '@/design/primitives'
-import { chooseLanguage, langName, tr, useLang, LANG_CHOICES } from '@/i18n'
+import { chooseLanguage, langName, say, tr, useLang, LANG_CHOICES } from '@/i18n'
 import { footprintActions, useFootprints } from '@/state/footprints'
 import { installId } from '@/state/install'
 import { accountActions, useAccount } from './auth/account'
@@ -20,13 +20,75 @@ import { ListSection, Row, ToggleRow } from './ui/ListUI'
 import { firstSentence } from './wording'
 
 /** 문의하기 — 주소를 **글자로** 보인다. 메일 앱이 없는 기기에서도 주소를 눌러 복사할 수 있다. 옆의 단추는 메일 앱을 연다(MZ2AZ-461, App Store 1.2). */
+/**
+ * 글자를 클립보드에 넣는다. `navigator.clipboard` 가 없거나(오래된 브라우저·http) 거절하면 숨긴 글상자를 골라 `execCommand('copy')` 로 한 번 더.
+ * 둘 다 안 되면 false.
+ */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {
+    // 아래 옛 방식으로
+  }
+  try {
+    const area = document.createElement('textarea')
+    area.value = text
+    area.setAttribute('readonly', '')
+    area.style.position = 'fixed'
+    area.style.opacity = '0'
+    area.style.pointerEvents = 'none'
+    document.body.appendChild(area)
+    area.select()
+    const ok = typeof document.execCommand === 'function' && document.execCommand('copy')
+    area.remove()
+    return ok
+  } catch {
+    return false
+  }
+}
+
 function SupportContactRow() {
+  // 메일 앱이 없는 기기(데스크톱 웹·일부 안드로이드)에서는 「메일 쓰기」 가 아무 일도 안 한다 — 주소를 복사하는 단추를 함께 둔다(MZ2AZ-551).
+  const [copied, setCopied] = useState(false)
+  const [copyFailed, setCopyFailed] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current)
+  }, [])
+  const copy = async () => {
+    const done = await copyText(LEGAL_LINKS.supportEmail)
+    setCopied(done)
+    setCopyFailed(!done)
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => {
+      setCopied(false)
+      setCopyFailed(false)
+    }, 2000)
+  }
+  const linkStyle = { color: 'var(--accent)', fontSize: 15, fontWeight: 600, lineHeight: '20px' } as const
   return (
     <Row icon="envelope" tint="var(--accent)" title={tr('문의하기')} subtitle={<span style={{ userSelect: 'text' }}>{LEGAL_LINKS.supportEmail}</span>}
       trailing={
-        <a href={SUPPORT_MAIL_URL} aria-label={LEGAL_LINKS.supportEmail} style={{ color: 'var(--accent)', fontSize: 15, fontWeight: 600, lineHeight: '20px' }}>
-          {tr('메일 쓰기')}
-        </a>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 14 }}>
+          <button
+            type="button"
+            onClick={() => void copy()}
+            aria-label={copied ? say('주소 복사됨', 'Address copied') : say('주소 복사', 'Copy address')}
+            style={{ ...linkStyle, background: 'none', border: 0, padding: 0, cursor: 'pointer' }}
+          >
+            {copied ? say('복사됨', 'Copied') : say('복사', 'Copy')}
+          </button>
+          <span role="status" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+            {copied ? say('문의 메일 주소를 복사했어요', 'Support email copied') : ''}
+          </span>
+          {copyFailed && <Txt size={13} color="red">{say('복사하지 못했어요', "Couldn't copy")}</Txt>}
+          <a href={SUPPORT_MAIL_URL} aria-label={LEGAL_LINKS.supportEmail} style={linkStyle}>
+            {tr('메일 쓰기')}
+          </a>
+        </span>
       }
     />
   )

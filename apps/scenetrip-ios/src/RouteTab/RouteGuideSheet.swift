@@ -50,6 +50,10 @@ struct RouteGuideSheet: View {
     /// 「여기로 길찾기」. 여행 중 화면만 준다 — 주면 카드에 버튼이 뜬다.
     var onReroute: ((RouteGuide.Place) -> Void)?
 
+    /// 답의 장소 카드 「길찾기」(MZ2AZ-554) — 담겨 있든 아니든, 여행 중이든 아니든 뜬다. 무엇을 할지는
+    /// 띄운 쪽이 `RouteGuideDirections.steps` 로 정한다. 주면 `onReroute` 대신 이것이 카드 버튼을 맡는다.
+    var onDirections: ((RouteGuide.Place) -> Void)?
+
     /// 한도 안내의 「AI 로 짜기 열기」 — 일정짜기 마법사로 가는 길. 띄운 쪽이 주지 않으면 글만 보인다.
     var onOpenPlanner: (() -> Void)?
 
@@ -224,7 +228,7 @@ struct RouteGuideSheet: View {
                                 onAdd: { onAdd(place) },
                                 added: isAdded(place),
                                 onRemove: { onRemove(place) },
-                                onReroute: onReroute.map { fire in { fire(place) } },
+                                onReroute: (onDirections ?? onReroute).map { fire in { fire(place) } },
                                 onClose: { session.picked = nil }
                             )
                         }
@@ -352,7 +356,7 @@ struct RouteGuideSheet: View {
             composerRow
             aiNotice
         }
-        .background(.thinMaterial)
+        .background(Color(.systemBackground))
     }
 
     private var composerRow: some View {
@@ -423,7 +427,8 @@ extension View {
             if isOpen {
                 panel()
                     .frame(width: 316, height: 470)
-                    .background(.regularMaterial)
+                    // 불투명 — 뒤 지도·목록이 비쳐 글이 안 읽혔다(2026-11-11 사용자).
+                    .background(Color(.systemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 20))
                     .shadow(color: .black.opacity(0.22), radius: 14, y: 6)
                     .padding(.trailing, 6)
