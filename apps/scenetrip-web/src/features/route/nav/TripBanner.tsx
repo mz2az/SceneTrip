@@ -10,7 +10,6 @@ import { HStack, Pressable, Spinner, Txt, VStack, rr, shadow } from '@/design/pr
 import { Icon } from '@/design/Icon'
 import { tr } from '@/i18n'
 import '../poi/icons'
-import { GuideChipBody } from '../guide/GuideChip'
 import { type NavFailure, navCanRetry, navFailureMessage } from './navFailure'
 import { type DirectionsOffer, type MapApp, directionsOffers, offerOpensApp } from './externalDirections'
 import { type Leg, formatDuration, guidanceNote, legIsVehicle, legSymbol, navChips, navSummaryLine, type NavResult } from './navModels'
@@ -28,9 +27,6 @@ export interface TripBannerProps {
   state: TripState
   /** 이 일차에서 아직 안 간 첫 곳 — 도착 뒤 「다음 · N번으로」. */
   next: { number: number; name: string } | null
-  /** 가이드 입구가 안내 띠에 서는가(`guideEntryPlacement` === 'tripHeader'). */
-  guideInHeader?: boolean
-  onOpenGuide?: () => void
   /** 방문 기록 저장 상태 — 도착 직후 서버에 남기는 중이거나 못 남겼을 때의 한 줄을 호스트가 그린다. */
   visitNotice?: React.ReactNode
 }
@@ -48,11 +44,6 @@ function Headline({ props, symbol }: { props: TripBannerProps; symbol: string })
     <HStack spacing={8}>
       <Icon name={symbol} size={13} weight="bold" color="deep" />
       <Txt size={15} weight="bold" style={{ flex: 1, minWidth: 0 }}>{tripTitle(state, session.targetNumber)}</Txt>
-      {props.guideInHeader && (
-        <Pressable plain onClick={props.onOpenGuide} aria-label={tr('내가 도와줄게!')} data-testid="trip-guide-entry" style={{ cursor: 'pointer' }}>
-          <GuideChipBody bubble={false} />
-        </Pressable>
-      )}
       <Pressable plain onClick={() => session.end()} aria-label={tr('안내 끝')} style={{ width: 28, height: 28, display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
         <Icon name="xmark" size={11} weight="semibold" color="secondary" />
       </Pressable>

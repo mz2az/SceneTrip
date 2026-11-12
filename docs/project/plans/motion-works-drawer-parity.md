@@ -157,6 +157,19 @@
 (iOS `CommunityFeedRules.composeTap(signedIn:)` → `.open`/`.signIn`, 안드로이드 `CommunityFeedRules.composeTap(signedIn)` → `ComposeTap.Open`/`ComposeTap.SignIn`).
 시험을 먼저 쓴다.
 
+## 12. 길 안내 중에도 해태 단추를 그대로(2026-11-11 사용자 결정)
+
+길 안내(가는 중)가 시작되면 오른쪽 아래 해태 「내가 도와줄게!」 단추를 숨기고 일정 시트 맨 위 안내 줄(「N번 ○○로 가는 중」) 오른쪽에
+얼굴만 붙였다(MZ2AZ-387). 사용자 지적: 단추가 사라지고, 안내 글자 옆에 붙은 얼굴은 눌리지 않는다(iOS 실기 — 끌어 올리는 시트 안 목록 줄이라
+손짓을 시트가 먼저 가져가는 것으로 보인다, 재현 전 추정).
+
+- **입구는 언제나 떠 있는 해태 단추 하나.** 길 안내 중에도 숨기지 않는다. 안내 줄의 얼굴은 없앤다.
+- 가이드 창이 열렸거나 핀을 찍는 중이면 지금처럼 숨긴다. 정보 카드가 떠 있으면 지금처럼 카드 위로 비킨다.
+- 단추가 큰 글자의 안내 줄을 덮으면 사용자가 꾹 눌러 옮길 수 있다(옮긴 자리는 기기에 남는다).
+
+순수 규칙: 「가이드 입구를 어디에 두나」(iOS `RouteGuideEntry.placement`, 안드로이드 `RouteGuideEntry.placement`, 웹 `guideEntryPlacement`)는
+이제 「떠 있음」 또는 「숨김」 둘 중 하나다 — 안내 줄 자리(`tripHeader`/`TRIP_HEADER`)를 없앤다. 시험을 먼저 쓴다. iOS·웹·안드로이드 같이.
+
 ## 브랜치
 
 - 웹: `MZ2AZ-544-web-works-drawer`(지도 검색 고침 브랜치 위)

@@ -66,13 +66,15 @@ export function parseDirective(d: GuideUiDirective): Directive | null {
 
 // ---------------------------------------------------------------- 가이드 입구 (RouteGuideEntry)
 
-export type GuideEntry = 'floating' | 'tripHeader' | 'hidden'
+export type GuideEntry = 'floating' | 'hidden'
 
-/** 가이드 입구는 언제나 한 곳에 둔다(MZ2AZ-387). 서랍이 열렸거나 핀을 찍는 동안은 숨기고, 카드가 떠 있으면 떠 있는 입구, 안내 중이면 배너. */
+/**
+ * 가이드 입구는 언제나 떠 있는 해태 단추 하나 — 서랍이 열렸거나 핀을 찍는 동안만 숨긴다.
+ * 길 안내 중 안내 띠에 얼굴만 붙이던 자리(MZ2AZ-387)는 없앴다 — 단추가 사라지고 그 얼굴은 iOS 에서 눌리지 않았다(2026-11-11, 계획 §12).
+ * 안내 중인지·목적지·카드는 자리를 바꾸지 않지만 부르는 쪽 모양을 지키려 받는다.
+ */
 export function guideEntryPlacement(p: { guiding: boolean; hasTarget: boolean; hasCard?: boolean; panelOpen: boolean; pinning: boolean }): GuideEntry {
-  if (p.panelOpen || p.pinning) return 'hidden'
-  if (p.hasCard) return 'floating'
-  return p.guiding && p.hasTarget ? 'tripHeader' : 'floating'
+  return p.panelOpen || p.pinning ? 'hidden' : 'floating'
 }
 
 // ---------------------------------------------------------------- 떠 있는 동그라미의 자리 (RouteGuideFloatingChip)

@@ -13,11 +13,24 @@ final class RouteGuideChipTests: XCTestCase {
         ), .hidden)
     }
 
-    /// 큰 글자·시트 높이와 무관하게 안내 글을 덮지 않는 입구를 쓴다.
-    func testGuidingUsesTheBannerEntryInsteadOfAFloatingBubble() {
+    /// 길 안내 중에도 해태 단추는 그대로 떠 있다 — 안내 줄 얼굴은 눌리지 않아 없앴다 (계획 12절).
+    func testGuidingWithATargetKeepsTheFloatingEntry() {
         XCTAssertEqual(RouteGuideEntry.placement(
             guiding: true, hasTarget: true, panelOpen: false, pinning: false
-        ), .tripHeader)
+        ), .floating)
+    }
+
+    /// 서랍도 핀 찍기도 아니면 안내·목적지·카드가 어떻든 입구는 떠 있는 단추 하나다.
+    func testEveryGuidanceStateUsesTheFloatingEntryWhenNothingHidesIt() {
+        for guiding in [false, true] {
+            for target in [false, true] {
+                for card in [false, true] {
+                    XCTAssertEqual(RouteGuideEntry.placement(
+                        guiding: guiding, hasTarget: target, hasCard: card, panelOpen: false, pinning: false
+                    ), .floating, "guiding=\(guiding) hasTarget=\(target) hasCard=\(card)")
+                }
+            }
+        }
     }
 
     /// 안내가 끝나거나 목적지가 없으면 배너가 없다 — 떠 있는 입구가 남아야 한다.
@@ -29,7 +42,7 @@ final class RouteGuideChipTests: XCTestCase {
         }
     }
 
-    /// 서랍이 열렸거나 핀을 찍는 동안은 두 입구 모두 숨긴다.
+    /// 서랍이 열렸거나 핀을 찍는 동안은 입구를 숨긴다.
     func testOpenDrawerAndPinningHideEitherEntry() {
         for guiding in [false, true] {
             for (panel, pinning) in [(true, false), (false, true), (true, true)] {
