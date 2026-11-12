@@ -560,6 +560,17 @@ GROUP BY 1, 2 ORDER BY 3 DESC;
 - 남은 것: `SELECT count(*) FROM review_image WHERE thumbnail_key IS NULL AND thumbnail_attempts < 3` (만들 차례),
   `… AND thumbnail_attempts >= 3` (포기)
 
+**되살리기** — 저장소가 몇 분 내려가 있으면 그동안 차례 맨 앞 사진이 시도 3 번을 다 써 원본으로 남는다(응답은 원본이라 깨지지는 않는다).
+복구 뒤 한 번:
+
+```sql
+UPDATE community_post_photo SET thumbnail_attempts = 0 WHERE thumbnail_key IS NULL AND thumbnail_attempts >= 3;
+UPDATE review_image         SET thumbnail_attempts = 0 WHERE thumbnail_key IS NULL AND thumbnail_attempts >= 3;
+```
+
+다시 만든 작은 사진 키가 앞서 지울 목록(`storage_deletion`)에 올라 있었으면 작업이 키를 적을 때 목록에서 뺀다 — 리뷰 고치기와 겹친 차례가
+남긴 줄이 쓰이는 파일을 지우지 않게(MZ2AZ-561 검증).
+
 ## 목록에서 빠진 것 — 담은 것은 알리고, 새로 담기는 막는다
 
 적재 CSV 에서 빠진 촬영지·작품은 지우지 않고 `hidden_at` 을 채우고(V20), 폐업한 편의시설은 `closed_at` 을 채운다. 지도·목록·

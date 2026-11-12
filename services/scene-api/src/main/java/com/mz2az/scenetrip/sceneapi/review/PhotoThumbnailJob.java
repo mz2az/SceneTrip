@@ -198,6 +198,11 @@ public class PhotoThumbnailJob {
           .update();
       return false;
     }
+    // 같은 원본에서 같은 키가 다시 나온다. 앞선 차례가 이 키를 지울 목록에 올려 두었다면(리뷰 고치기와 겹친 경우) 이제 쓰이는
+    // 파일이므로 빼 둔다 — 남겨 두면 StorageDeletionJob 이 나중에 쓰이는 작은 사진을 지운다.
+    jdbc.sql("DELETE FROM storage_deletion WHERE storage_key = :key")
+        .param("key", thumbnailKey)
+        .update();
     return true;
   }
 

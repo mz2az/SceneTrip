@@ -303,6 +303,31 @@ class PhotoThumbnailJobIntegrationTest {
         });
   }
 
+  @Test
+  @DisplayName("같은 키가 앞서 지울 목록에 올라 있었으면(리뷰 고치기와 겹친 차례) 다시 만들어 쓰일 때 목록에서 뺀다")
+  void reusedThumbnailKeyLeavesDeletionQueue() {
+    rolledBack(
+        () -> {
+          String p = key("posts/", "again");
+          posts.create(member(), "제목", "본문", List.of(p), List.of(p), null);
+          storage.files.put(p, PHOTO);
+          String thumb = thumbOf("posts/", "again");
+          jdbc.sql("INSERT INTO storage_deletion (storage_key) VALUES (:k)")
+              .param("k", thumb)
+              .update();
+
+          assertThat(job.run()).isEqualTo(1);
+
+          assertThat(
+                  jdbc.sql("SELECT count(*) FROM storage_deletion WHERE storage_key = :k")
+                      .param("k", thumb)
+                      .query(Long.class)
+                      .single())
+              .isZero();
+          return null;
+        });
+  }
+
   // ───────────── 잠금 ─────────────
 
   @Test
