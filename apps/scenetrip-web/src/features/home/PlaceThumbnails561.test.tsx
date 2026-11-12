@@ -1,5 +1,5 @@
 // MZ2AZ-561 — 촬영지 목록·카드는 작은 사진(imageThumbnailUrl), 없으면 원본(imageUrl).
-// 단, 홈 「오늘의 성지」 큰 카드(350×96) 한 장만은 원본을 쓴다(사용자 결정, 계획 §8-2·§8-4 — 관광공사 썸네일이 흐리다).
+// 홈 「오늘의 성지」 큰 카드(350×96)도 작은 사진을 쓴다(사용자 결정 11/13 저녁, 계획 §8-6 — 처음엔 원본이었다).
 // 계획: docs/project/plans/photo-thumbnails.md §2-5·§8
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -25,15 +25,15 @@ const srcs = (container: HTMLElement) =>
 beforeEach(() => chooseLanguage('ko'))
 afterEach(cleanup)
 
-describe('홈 「오늘의 성지」 큰 카드 — 원본을 쓴다 (사용자 결정 §8-2)', () => {
-  it('작은 사진이 있어도 원본(imageUrl)을 그린다', () => {
+describe('홈 「오늘의 성지」 큰 카드 — 작은 사진 (사용자 결정 §8-6)', () => {
+  it('작은 사진이 있으면 그것을 그린다', () => {
     const { container } = render(
       <TodayCard place={place({ imageUrl: FULL, imageThumbnailUrl: THUMB })} saved={false} onOpen={vi.fn()} onSave={vi.fn()} />,
     )
-    expect(srcs(container)).toEqual([FULL])
+    expect(srcs(container)).toEqual([THUMB])
   })
 
-  it('작은 사진이 없을 때도 원본', () => {
+  it('작은 사진이 없으면 원본', () => {
     const { container } = render(<TodayCard place={place({ imageUrl: FULL })} saved={false} onOpen={vi.fn()} onSave={vi.fn()} />)
     expect(srcs(container)).toEqual([FULL])
   })
