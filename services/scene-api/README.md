@@ -577,7 +577,9 @@ UPDATE review_image         SET thumbnail_attempts = 0 WHERE thumbnail_key IS NU
 주소가 매번 달랐고, 브라우저는 주소를 캐시 열쇠로 쓰므로 같은 사진을 방문할 때마다 다시 받았다.
 
 - 서명 시각을 **창의 시작**(UTC epoch 기준 `scenetrip.media.view-window` 의 배수, 기본 `PT1H` → 정시)으로 내린다. 같은 창
-  안에서는 같은 키에 글자 하나 다르지 않은 주소가 나간다
+  안에서는 같은 키에 글자 하나 다르지 않은 주소가 나간다 — 단 **파드마다**다. 파드는 저마다 임시 키를 가지므로 PRD 처럼 두 대면
+  창마다 주소가 최대 둘이다
+- 설정은 `PT1H`·`1h` 꼴로 쓴다. 단위 없는 숫자(`3600`)는 밀리초로 읽혀 기동이 실패한다
 - 만료(`X-Amz-Expires`)는 창 + 한 시간 — 창 안 언제 받아도 **적어도 한 시간, 최대 두 시간** 산다(계약 1.29.1)
 - 주소에 `response-cache-control=private, max-age=<창 초>` 를 싣는다. S3 가 그 값으로 `Cache-Control` 을 답해 브라우저가 창 길이만큼
   다시 묻지 않는다. 서명에 들어가 바꿀 수 없다
