@@ -26,9 +26,8 @@ import { createStore, useStore } from '@/state/storage'
 import { type AuthClient, type AuthSessionResponse, type Me, serverAuthClient } from './authClient'
 import { type DeviceDeleteOutcome, deleteGuestData, isGuestDeleteVisible } from './guestDataDeletion'
 import { type NicknameOutcome, nicknameAsked, normalized } from './nicknameRules'
-import {
-  type AppleBody, type GoogleResult, Cancelled, NotConfigured, OAuthFailed, signInWithAppleWindow, signInWithGoogleWindow,
-} from './oauth'
+import { type AppleBody, type GoogleResult, Cancelled, NotConfigured, OAuthFailed } from './oauth'
+import { appleSignIn, googleSignIn } from './nativeAuth'
 import { isTextNotAllowedCode } from '@/features/moderation/rules'
 
 export interface AccountState {
@@ -65,8 +64,9 @@ export interface AccountDeps {
 
 export const defaultAccountDeps: AccountDeps = {
   client: serverAuthClient,
-  google: signInWithGoogleWindow,
-  apple: signInWithAppleWindow,
+  // iOS 웹뷰 껍데기 안이면 공급자 단계만 네이티브가 한다(MZ2AZ-557). 브라우저에서는 지금 팝업 그대로.
+  google: () => googleSignIn(),
+  apple: () => appleSignIn(),
   settle: () => pendingWrites.settle(),
   clearLocalAccountData: () => {
     footprintActions.forgetOwner()

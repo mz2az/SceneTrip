@@ -1,3 +1,4 @@
+import { DeferredImg } from '@/design/DeferredImg'
 import { type CSSProperties, useState } from 'react'
 import { Icon } from '@/design/Icon'
 
@@ -25,7 +26,7 @@ export function RemoteImage({ url, symbol, size, radius = 0, style, fit = 'cover
   }
   return (
     <div style={box} aria-hidden>
-      <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} style={{ width: '100%', height: '100%', objectFit: fit }} draggable={false} />
+      <DeferredImg src={url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} style={{ width: '100%', height: '100%', objectFit: fit }} draggable={false} />
     </div>
   )
 }

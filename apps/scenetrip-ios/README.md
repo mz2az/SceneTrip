@@ -733,6 +733,23 @@ xcrun simctl launch <UDID> com.mz2az.scenetrip -demoDrive 0        # 가상 GPS 
   [course-api.md §7](../../docs/project/plans/course-api.md) 에 있다. `tmap_app_key`
   빌드 정의도 함께 걷어냈다(`BUILD.bazel`·`.bazelrc`·`tools/just/bazel.just`).
 
+## 웹뷰 껍데기 실험 (MZ2AZ-557, 기본 꺼짐)
+
+빌드에 웹 주소를 넣으면 네이티브 화면 대신 `WKWebView` 하나로 웹앱을 연다(`src/WebShell/`). 넣지 않은 빌드(`just ios-run`·
+`just ios-package`)는 이 코드를 부르지 않는다 — 기존 앱 그대로다. 계획 [ios-webview-shell.md](../../docs/project/plans/ios-webview-shell.md),
+결정 [ADR 0029](../../docs/architecture/adr/0029-ios-app-as-webview-shell-experiment.md)(제안).
+
+```bash
+just ios-run-webshell https://dev.scenetrip.io     # 시험판 웹
+just web-dev 5174 & just ios-run-webshell http://localhost:5174   # 이 저장소의 웹 변경(로그인 다리 포함)
+```
+
+- 같은 출처 이동만 웹뷰 안, 다른 호스트·`mailto:`·`nmap:`·App Store 는 바깥으로, `target=_blank` 도 같은 규칙(`WebShellRules`).
+- 웹뷰는 상태 막대 아래에서 시작한다(웹 홈 머리가 위 안전 영역을 비키지 않는다). 아래는 웹이 `env(safe-area-inset-bottom)` 으로 맞춘다.
+- 로그인: 웹이 `window.webkit.messageHandlers.scenetripAuth` 를 부르면 기존 `GoogleOAuth`·`AppleOAuth` 가 공급자 창을 띄우고 자격만
+  돌려준다. 서버 교환·토큰은 웹이 한다. 껍데기에서는 네이티브 계정·분석(`AuthStore.start`·`AppAnalytics`)을 켜지 않는다.
+- 위치는 앱 권한 창 다음에 WebKit 의 사이트 권한 창이 **한 번 더** 뜬다(2026-11-12 시뮬레이터 실측).
+
 ## 인터페이스
 
 | 항목 | 값 |
