@@ -12,8 +12,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.net.URI;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -43,7 +46,8 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 /**
  * S3 사진 저장소 — 서명은 망 없이 만들어진다(가짜 고정 자격 증명), 옮기기는 목 {@link S3Client} 로 본다. 실제 AWS 를 부르지 않는다.
  *
- * <p>계약: 올릴 주소는 10 분이고 형식·크기가 서명에 들어간다. 보여 줄 주소는 한 시간이다.
+ * <p>계약: 올릴 주소는 10 분이고 형식·크기가 서명에 들어간다. 보여 줄 주소는 적어도 한 시간 산다 — 창(기본 한 시간)마다 같은 주소라 브라우저가
+ * 캐시한다(MZ2AZ-562).
  */
 @DisplayName("S3PhotoStorage — 서명된 올릴·볼 주소와 옮기기")
 class S3PhotoStorageTest {
@@ -119,15 +123,201 @@ class S3PhotoStorageTest {
   }
 
   @Test
-  @DisplayName("보여 줄 주소 — 그 버킷·그 키로 GET, 만료 한 시간")
+  @DisplayName("보여 줄 주소 — 그 버킷·그 키로 GET. 기본 창 한 시간: 만료 2 시간(창 + 한 시간), 브라우저 캐시 한 시간")
   void presignedGet() {
     URI url = storage.viewUrl("reviews/abc.webp");
 
     assertThat(url.getHost() + url.getPath()).contains(BUCKET).endsWith("/reviews/abc.webp");
     Map<String, String> q = query(url);
-    assertThat(q).containsEntry("X-Amz-Expires", "3600");
+    // MZ2AZ-562 전에는 3600 이었다. 서명 시각을 창의 시작으로 내리므로, 창 안 어느 때 받아도 한 시간은 살도록 창 길이를 더한다.
+    assertThat(q).containsEntry("X-Amz-Expires", "7200");
+    assertThat(q).containsEntry("response-cache-control", "private, max-age=3600");
     assertThat(q).containsKey("X-Amz-Signature");
+    // 계약의 「한 시간」 은 이제 「적어도 한 시간」 이다.
     assertThat(S3PhotoStorage.VIEW_TTL).isEqualTo(Duration.ofHours(1));
+  }
+
+  // ── 보여 줄 주소를 창마다 하나로 (MZ2AZ-562) ─────────────────────────────────
+  //
+  // 구현이 따를 모양(시험이 이것으로 만든다):
+  //
+  //   S3PhotoStorage(S3Client s3, Supplier<S3Presigner> presigners, String bucket,
+  //                  Clock clock, Duration viewWindow)
+  //
+  // - 서명 시각 = clock.instant() 를 UTC epoch 기준 viewWindow 의 배수로 내린 값(창의 시작). 시계의 시간대와 무관하다.
+  // - X-Amz-Date = 창의 시작, X-Amz-Expires = viewWindow + VIEW_TTL(한 시간).
+  // - 주소에 response-cache-control=「private, max-age=<viewWindow 초>」 를 싣는다(S3 응답 헤더 덮어쓰기, 서명에 들어간다).
+  // - 기존 세 인자 생성자 둘은 그대로 두고 Clock.systemUTC() · 한 시간 창을 쓴다.
+  // - 올릴 주소(presignUpload)는 바뀌지 않는다 — 지금 시각으로 서명하고 캐시 헤더도 없다.
+
+  private static final Duration HOUR = Duration.ofHours(1);
+
+  /** 시험이 앞으로 돌리는 시계. */
+  private static final class MovableClock extends Clock {
+    private Instant now;
+    private final ZoneId zone;
+
+    MovableClock(Instant now, ZoneId zone) {
+      this.now = now;
+      this.zone = zone;
+    }
+
+    void set(Instant at) {
+      now = at;
+    }
+
+    @Override
+    public ZoneId getZone() {
+      return zone;
+    }
+
+    @Override
+    public Clock withZone(ZoneId z) {
+      return new MovableClock(now, z);
+    }
+
+    @Override
+    public Instant instant() {
+      return now;
+    }
+  }
+
+  private S3PhotoStorage windowed(Clock clock, Duration window) {
+    return new S3PhotoStorage(s3, () -> presigner, BUCKET, clock, window);
+  }
+
+  @Test
+  @DisplayName("같은 창(한 시간) 안에서 같은 키를 두 번 받으면 글자 하나 다르지 않은 같은 주소다 — 브라우저가 다시 받지 않는다")
+  void sameWindowSameUrl() {
+    MovableClock clock = new MovableClock(Instant.parse("2026-11-13T05:10:00Z"), ZoneOffset.UTC);
+    S3PhotoStorage s = windowed(clock, HOUR);
+
+    URI first = s.viewUrl("reviews/abc.webp");
+    clock.set(Instant.parse("2026-11-13T05:59:59Z"));
+    URI second = s.viewUrl("reviews/abc.webp");
+    clock.set(Instant.parse("2026-11-13T05:00:00Z"));
+    URI atStart = s.viewUrl("reviews/abc.webp");
+
+    assertThat(second).isEqualTo(first);
+    assertThat(atStart).isEqualTo(first);
+  }
+
+  @Test
+  @DisplayName("다음 창이면 다른 주소, 서명 시각은 그 창의 시작")
+  void nextWindowNewUrl() {
+    MovableClock clock = new MovableClock(Instant.parse("2026-11-13T05:59:59Z"), ZoneOffset.UTC);
+    S3PhotoStorage s = windowed(clock, HOUR);
+
+    URI before = s.viewUrl("reviews/abc.webp");
+    clock.set(Instant.parse("2026-11-13T06:00:00Z"));
+    URI after = s.viewUrl("reviews/abc.webp");
+
+    assertThat(after).isNotEqualTo(before);
+    assertThat(query(before)).containsEntry("X-Amz-Date", "20261113T050000Z");
+    assertThat(query(after)).containsEntry("X-Amz-Date", "20261113T060000Z");
+    assertThat(query(after).get("X-Amz-Signature"))
+        .isNotEqualTo(query(before).get("X-Amz-Signature"));
+  }
+
+  @Test
+  @DisplayName("서명 시각은 창의 시작, 만료는 창 + 한 시간(7200 초) — 창 끝에 받아도 한 시간 넘게 산다")
+  void signedAtWindowStartValidAnHourPastWindowEnd() {
+    S3PhotoStorage s =
+        windowed(Clock.fixed(Instant.parse("2026-11-13T05:42:17Z"), ZoneOffset.UTC), HOUR);
+
+    Map<String, String> q = query(s.viewUrl("reviews/abc.webp"));
+
+    assertThat(q).containsEntry("X-Amz-Date", "20261113T050000Z");
+    assertThat(q).containsEntry("X-Amz-Expires", "7200");
+    assertThat(q.get("X-Amz-Credential"))
+        .startsWith("AKIAFAKEFAKEFAKEFAKE/20261113/ap-northeast-2/s3/aws4_request");
+    // 창의 마지막 순간(05:59:59)에 받아도 07:00 까지 — 한 시간 넘게 남는다.
+    Instant expires = Instant.parse("2026-11-13T05:00:00Z").plusSeconds(7200);
+    assertThat(Duration.between(Instant.parse("2026-11-13T05:59:59Z"), expires))
+        .isGreaterThanOrEqualTo(HOUR);
+  }
+
+  @Test
+  @DisplayName("주소에 response-cache-control=「private, max-age=3600」(창 길이) 이 실린다")
+  void carriesCacheControl() {
+    S3PhotoStorage s =
+        windowed(Clock.fixed(Instant.parse("2026-11-13T05:10:00Z"), ZoneOffset.UTC), HOUR);
+
+    URI url = s.viewUrl("reviews/abc.webp");
+    Map<String, String> q = query(url);
+
+    assertThat(q).containsEntry("response-cache-control", "private, max-age=3600");
+    assertThat(q).containsKey("X-Amz-Signature");
+  }
+
+  @Test
+  @DisplayName("창 길이를 바꾸면(15 분) 창의 시작·만료(창 + 한 시간 = 4500 초)·max-age(900) 가 따라간다")
+  void customWindow() {
+    Duration quarter = Duration.ofMinutes(15);
+    MovableClock clock = new MovableClock(Instant.parse("2026-11-13T05:20:00Z"), ZoneOffset.UTC);
+    S3PhotoStorage s = windowed(clock, quarter);
+
+    URI a = s.viewUrl("reviews/abc.webp");
+    clock.set(Instant.parse("2026-11-13T05:29:59Z"));
+    URI b = s.viewUrl("reviews/abc.webp");
+    clock.set(Instant.parse("2026-11-13T05:30:00Z"));
+    URI c = s.viewUrl("reviews/abc.webp");
+
+    Map<String, String> q = query(a);
+    assertThat(q).containsEntry("X-Amz-Date", "20261113T051500Z");
+    assertThat(q).containsEntry("X-Amz-Expires", "4500");
+    assertThat(q).containsEntry("response-cache-control", "private, max-age=900");
+    assertThat(b).isEqualTo(a);
+    assertThat(c).isNotEqualTo(a);
+    assertThat(query(c)).containsEntry("X-Amz-Date", "20261113T053000Z");
+  }
+
+  @Test
+  @DisplayName("창은 UTC epoch 의 배수에 맞춘다 — 시계의 시간대(서울)가 무엇이든 같은 순간이면 같은 주소")
+  void windowAlignedToUtcEpoch() {
+    Instant at = Instant.parse("2026-11-13T05:42:17Z");
+    URI utc = windowed(Clock.fixed(at, ZoneOffset.UTC), HOUR).viewUrl("reviews/abc.webp");
+    URI seoul =
+        windowed(Clock.fixed(at, ZoneId.of("Asia/Seoul")), HOUR).viewUrl("reviews/abc.webp");
+
+    assertThat(seoul).isEqualTo(utc);
+    assertThat(query(seoul)).containsEntry("X-Amz-Date", "20261113T050000Z");
+
+    // 90 분 창: epoch 부터 90 분씩 — 2026-11-13T04:30Z 가 경계다(epoch 초 1794544200 = 90×60×332323).
+    URI ninety =
+        windowed(Clock.fixed(at, ZoneOffset.UTC), Duration.ofMinutes(90))
+            .viewUrl("reviews/abc.webp");
+    assertThat(query(ninety)).containsEntry("X-Amz-Date", "20261113T043000Z");
+    assertThat(query(ninety)).containsEntry("X-Amz-Expires", String.valueOf(90 * 60 + 3600));
+  }
+
+  @Test
+  @DisplayName("키가 다르면 같은 창이라도 주소가 다르다")
+  void differentKeyDifferentUrl() {
+    S3PhotoStorage s =
+        windowed(Clock.fixed(Instant.parse("2026-11-13T05:10:00Z"), ZoneOffset.UTC), HOUR);
+
+    assertThat(s.viewUrl("reviews/a.webp")).isNotEqualTo(s.viewUrl("reviews/b.webp"));
+  }
+
+  @Test
+  @DisplayName("올릴 주소는 그대로 — 창·캐시 헤더와 무관하게 지금 시각으로 10 분, response-cache-control 없음")
+  void uploadUnaffectedByWindow() {
+    // 시계를 먼 과거에 둔다 — 올릴 주소가 이 시계를 따르면 만료 시각이 지금과 어긋난다.
+    S3PhotoStorage s =
+        windowed(Clock.fixed(Instant.parse("2020-01-01T00:00:00Z"), ZoneOffset.UTC), HOUR);
+    Instant before = Instant.now();
+
+    PhotoStorage.PresignedUpload p =
+        s.presignUpload("uploads/tmp/a.jpg", "image/jpeg", 10, Duration.ofMinutes(10));
+
+    Map<String, String> q = query(p.url());
+    assertThat(q).containsEntry("X-Amz-Expires", "600");
+    assertThat(q).doesNotContainKey("response-cache-control");
+    assertThat(p.expiresAt())
+        .isBetween(
+            before.plus(Duration.ofMinutes(10)).minusSeconds(5),
+            Instant.now().plus(Duration.ofMinutes(10)).plusSeconds(5));
   }
 
   @Test

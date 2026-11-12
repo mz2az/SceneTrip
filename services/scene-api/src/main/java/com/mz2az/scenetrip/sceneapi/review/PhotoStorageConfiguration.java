@@ -2,6 +2,8 @@ package com.mz2az.scenetrip.sceneapi.review;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -39,6 +41,9 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
  *       10.0.2.2:9000}. 서명에 주소가 들어가 앱이 고칠 수 없으므로 처음부터 앱이 닿는 주소로 서명해야 한다.
  *   <li>{@code access-key}·{@code secret-key} — MinIO 의 로컬 고정값. 비어 있으면 기본 사슬.
  * </ul>
+ *
+ * <p>{@code view-window}(기본 {@code PT1H}, 모든 환경) — 보여 줄 주소의 창. 창 안에서는 같은 사진에 같은 주소가 나가 브라우저가
+ * 캐시한다(MZ2AZ-562, {@link S3PhotoStorage}).
  */
 @Configuration
 class PhotoStorageConfiguration {
@@ -52,7 +57,8 @@ class PhotoStorageConfiguration {
       @Value("${scenetrip.media.endpoint:}") String endpoint,
       @Value("${scenetrip.media.public-port:}") String publicPort,
       @Value("${scenetrip.media.access-key:}") String accessKey,
-      @Value("${scenetrip.media.secret-key:}") String secretKey) {
+      @Value("${scenetrip.media.secret-key:}") String secretKey,
+      @Value("${scenetrip.media.view-window:PT1H}") Duration viewWindow) {
     if (bucket.isBlank()) {
       log.info("사진 저장소가 설정되지 않았습니다(scenetrip.media.bucket) — 사진 올리기는 503 입니다");
       return new NoPhotoStorage();
@@ -104,7 +110,7 @@ class PhotoStorageConfiguration {
         bucket,
         region,
         publicPort.isBlank() ? "" : " — 앱용 주소는 요청 호스트:" + publicPort);
-    return new S3PhotoStorage(s3.build(), presigners, bucket);
+    return new S3PhotoStorage(s3.build(), presigners, bucket, Clock.systemUTC(), viewWindow);
   }
 
   /** 이 요청이 들어온 호스트 이름(포트 없이). 요청 밖에서 불리면 localhost. */

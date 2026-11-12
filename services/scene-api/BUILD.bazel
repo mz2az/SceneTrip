@@ -261,7 +261,11 @@ java_library(
         "@maven//:org_flywaydb_flyway_core",
         # 사용자 사진 저장소(S3) — 서명된 올릴·볼 주소와 옮기기(review/S3PhotoStorage, MODULE.bazel 의 이유).
         # s3 · regions · sdk-core · url-connection-client 는 코드가 직접 부르는 타입이 든 묶음이다.
+        # aws-core · http-client-spi 는 보여 줄 주소를 창의 시작 시각으로 서명하는 요청별 서명기(MZ2AZ-562)가
+        # 쓰는 타입이다. 잠금 파일에 이미 있어 MODULE.bazel 은 그대로다.
         "@maven//:software_amazon_awssdk_auth",
+        "@maven//:software_amazon_awssdk_aws_core",
+        "@maven//:software_amazon_awssdk_http_client_spi",
         "@maven//:software_amazon_awssdk_regions",
         "@maven//:software_amazon_awssdk_s3",
         "@maven//:software_amazon_awssdk_sdk_core",
