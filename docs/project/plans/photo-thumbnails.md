@@ -83,7 +83,7 @@ app.scenetrip.io 첫 방문(모바일 화면)에서 바깥 이미지가 2.76MB, 
 
 | 파일 | 칸 |
 | --- | --- |
-| `features/home/HomeCards.tsx` | 오늘의 성지(350×96) — **원본 `imageUrl` 그대로**(§8-2) |
+| `features/home/HomeCards.tsx` | 오늘의 성지(350×96) — 처음엔 원본(§8-2), §8-6 부터 작은 사진 |
 | `features/home/HomeCitySpots.tsx` | 도시의 성지 카드(148×96) |
 | `features/search/ui/Rows.tsx` | 검색 줄(54×54) |
 | `features/profile/sheets/CartSheet.tsx`·`features/search/ui/CartSheet.tsx`·`features/route/editor/CartSheet.tsx` | 담기 줄 |
@@ -149,6 +149,7 @@ app.scenetrip.io 첫 방문(모바일 화면)에서 바깥 이미지가 2.76MB, 
 3. **촬영지 도구 실행** — 사용자의 AWS 콘솔(SSO) 권한으로 한 번. 실행 전에 올릴 목록·경로를 보여 주고 확인받는다.
 4. 관광공사 썸네일이 흐린 문제 — 2 와 같이, 큰 카드만 원본이라 해결된다. 나머지 칸은 작은 것.
 5. 서명 주소 캐시 — 별도 티켓으로, 이 일 뒤에.
+6. **(같은 날 저녁 변경)** 「오늘의 성지」 큰 카드도 작은 사진(720)으로. 운영 측정에서 첫 방문 이미지 중 가장 큰 한 장(375 KB)이었다. 칸은 `object-fit: cover` 로 꽉 채우므로 사진 크기가 줄어도 여백이 생기지 않는다.
 
 ## 9. 구현 세부 (시험 작성 뒤 정함, 2026-11-13)
 
