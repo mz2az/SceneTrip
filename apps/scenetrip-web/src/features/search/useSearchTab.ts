@@ -134,7 +134,7 @@ export function useSearchTab(active = true, embedded = false) {
     () =>
       cart.items
         .filter((i) => i.latitude != null && i.longitude != null && !i.delisted)
-        .map((i) => ({ id: i.placeId, name: i.name, address: i.address, latitude: i.latitude!, longitude: i.longitude!, imageUrl: i.imageUrl })),
+        .map((i) => ({ id: i.placeId, name: i.name, address: i.address, latitude: i.latitude!, longitude: i.longitude!, imageUrl: i.imageUrl, imageThumbnailUrl: i.imageThumbnailUrl })),
     [cart.items],
   )
   const mapPlaces = selectedContent ? contentPlaces : proto && initial ? savedPins : visiblePlaces

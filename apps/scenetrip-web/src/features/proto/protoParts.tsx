@@ -22,6 +22,7 @@ import { showsPrototypeMarks } from './protoGate'
 import { placesForNewCourse } from './savedPlan'
 import { color, contained, heading, radius, shadow, z } from './protoTokens'
 import './proto.css'
+import { smallImage } from '@/shared/smallImage'
 
 type PlaceSummary = components['schemas']['PlaceSummary']
 
@@ -280,7 +281,7 @@ export function SpotRow({ place, saved, onToggle, trailing, actions }: { place: 
     <VStack spacing={8} align="stretch" style={{ padding: 10, ...homeCard(radius.m) }}>
       <HStack spacing={12} align="start">
         <div style={{ width: 72, height: 72, flex: 'none', borderRadius: radius.s, overflow: 'hidden', background: color.brandFill }}>
-          {hasPhoto(place) && <img src={place.imageUrl!} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+          {hasPhoto(place) && <img src={smallImage(place.imageThumbnailUrl, place.imageUrl)!} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
         </div>
         <VStack spacing={3} align="start" style={{ flex: 1, minWidth: 0 }}>
           <Txt size={15} weight="bold" lines={2}>{place.name}</Txt>

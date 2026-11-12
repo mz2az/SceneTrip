@@ -11,6 +11,7 @@ import { cartActions, useCart, type CartItem } from '@/state/cart'
 import { ContentUnavailable } from '../ui/ContentUnavailable'
 import { GlassSheet, SheetBody, SheetHeader } from '../ui/GlassSheet'
 import { PLAIN_LIST_PAD, RemoteImage, UnavailableNotice } from '../ui/parts'
+import { smallImage } from '@/shared/smallImage'
 
 /** 어느 작품 때문에 담았는지(sourceContentTitle)를 먼저, 없으면 주소 — 같은 장소라도 담은 맥락이 다르면 사용자에게는 다른 의미다. */
 export function cartSubtitle(item: Pick<CartItem, 'sourceContentTitle' | 'address'>): { text: string; oneLine: boolean } | null {
@@ -27,7 +28,7 @@ function CartItemRow({ index, item, last }: { index: number; item: CartItem; las
       <span style={{ width: 24, height: 24, borderRadius: 12, background: 'var(--accent)', display: 'grid', placeItems: 'center', flex: 'none' }}>
         <Txt size={12} weight="bold" color="white">{index + 1}</Txt>
       </span>
-      <RemoteImage url={item.imageUrl} symbol="mappin.and.ellipse" style={{ width: 44, height: 44, borderRadius: 6, opacity: item.delisted === true ? 0.65 : 1 }} />
+      <RemoteImage url={smallImage(item.imageThumbnailUrl, item.imageUrl)} symbol="mappin.and.ellipse" style={{ width: 44, height: 44, borderRadius: 6, opacity: item.delisted === true ? 0.65 : 1 }} />
       <VStack spacing={2} style={{ flex: 1, minWidth: 0 }}>
         <Txt size={15} weight="semibold" style={{ opacity: notice ? 0.65 : 1, lineHeight: '17.9px' }}>{item.name}</Txt>
         {subtitle && <Txt size={12} color="secondary" lines={subtitle.oneLine ? 1 : undefined}>{subtitle.text}</Txt>}

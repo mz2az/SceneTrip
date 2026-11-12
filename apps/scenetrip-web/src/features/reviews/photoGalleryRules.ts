@@ -118,7 +118,8 @@ export function galleryPhotoOf(photo: ApiPhoto): GalleryPhoto {
 
 /** 리뷰 한 건에 붙은 사진 — 저장소 키가 이름이다. 그 리뷰 안에서 보는 것이라 「방문자 사진」 표시는 없다. */
 export function galleryPhotoOfReview(photo: ReviewPhoto): GalleryPhoto {
-  return { key: `k:${photo.key}`, url: photo.url }
+  // 작은 사진(1.29.0, MZ2AZ-561)은 칸에만 — 크게 보기는 url. 같은 사진인지는 여전히 저장소 키로 가린다.
+  return { key: `k:${photo.key}`, url: photo.url, thumbnailUrl: photo.thumbnailUrl ?? null }
 }
 
 /** 같은 이름은 앞의 것만 남긴다. */

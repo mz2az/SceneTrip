@@ -39,6 +39,7 @@ export function planFromGuide(plan: GuidePlan): PlaceSummary[][] {
         longitude: s.longitude,
         ...(s.address != null ? { address: s.address } : {}),
         ...(s.imageUrl != null ? { imageUrl: s.imageUrl } : {}),
+        ...(s.imageThumbnailUrl != null ? { imageThumbnailUrl: s.imageThumbnailUrl } : {}),
         ...(s.sceneDescription != null ? { sceneDescription: s.sceneDescription } : {}),
         ...(s.contents?.length ? { contents: s.contents } : {}),
       })

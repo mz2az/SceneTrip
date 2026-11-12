@@ -14,6 +14,7 @@ import { cartActions, useCart } from '@/state/cart'
 import { noticeForCartItem } from '../rules/unavailableItem'
 import { trCount } from '../rules/wording'
 import { FONT, ListDivider, RemoteImage, UnavailableNotice } from './common'
+import { smallImage } from '@/shared/smallImage'
 
 type CartItem = components['schemas']['CartItem']
 
@@ -23,7 +24,7 @@ export function CartItemRow({ index, item, onRemove }: { index: number; item: Ca
   return (
     <HStack spacing={12} pad="4px 0">
       <Txt size={FONT.caption} weight="bold" color="white" align="center" style={{ width: 24, height: 24, lineHeight: '24px', borderRadius: '50%', background: 'var(--accent)', flex: 'none' }}>{index + 1}</Txt>
-      <RemoteImage url={item.imageUrl} symbol="mappin.and.ellipse" style={{ width: 44, height: 44, ...rr(6), flex: 'none', opacity: item.delisted === true ? 0.65 : 1 }} />
+      <RemoteImage url={smallImage(item.imageThumbnailUrl, item.imageUrl)} symbol="mappin.and.ellipse" style={{ width: 44, height: 44, ...rr(6), flex: 'none', opacity: item.delisted === true ? 0.65 : 1 }} />
       <VStack spacing={2} align="start" style={{ flex: 1, minWidth: 0 }}>
         <Txt size={FONT.subheadline} weight="semibold" style={{ opacity: notice ? 0.65 : 1 }}>{item.name}</Txt>
         {/* 어느 작품 때문에 담았는지를 서버가 기억한다(sourceContentId) — 같은 장소라도 담은 맥락이 다르면 사용자에게는 다른 의미다. */}

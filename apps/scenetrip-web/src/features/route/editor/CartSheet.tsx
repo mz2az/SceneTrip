@@ -17,6 +17,7 @@ import { cartPlaces, routeStore } from '../store'
 import { DetentSheet, GlassButton, NavBar } from '../ui/DetentSheet'
 import { RemoteImage } from '../ui/RemoteImage'
 import type { PickSheetProps } from './SearchSheet'
+import { smallImage } from '@/shared/smallImage'
 
 /** 장바구니가 비었을 때 대신 보여 줄 인기 장소 수 (RouteStore.cartSample). */
 const SAMPLE_COUNT = 6
@@ -85,7 +86,7 @@ function CartBody({ onClose, taken, onPreview, onAdd }: PickSheetProps) {
           return (
             <Pressable key={place.id} plain onClick={() => toggle(place.id)} style={{ width: '100%', textAlign: 'left', opacity: isTaken ? 0.5 : 1 }}>
               <HStack spacing={12} style={{ padding: '10px 16px' }}>
-                <RemoteImage url={place.imageUrl} symbol="mappin.and.ellipse" size={{ w: 44, h: 44 }} radius={6} />
+                <RemoteImage url={smallImage(place.imageThumbnailUrl, place.imageUrl)} symbol="mappin.and.ellipse" size={{ w: 44, h: 44 }} radius={6} />
                 <VStack spacing={2} align="start" style={{ flex: 1, minWidth: 0 }}>
                   <Txt size={15} weight="semibold" style={{ opacity: gone ? 0.65 : 1 }}>{place.name}</Txt>
                   <Txt size={12} color="secondary" lines={1}>{place.address ?? placeTypeLabel(place.type) ?? ''}</Txt>
