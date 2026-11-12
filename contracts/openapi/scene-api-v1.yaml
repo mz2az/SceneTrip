@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.29.0
+  version: 1.29.1
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -652,7 +652,7 @@ paths:
       summary: 여행후기 목록
       description: |
         **최신순.** 누구나 읽는다. 토큰을 보낸 가입 사용자에게는 자기 글에 `isMine: true` 가 붙는다.
-        운영자가 내린 글은 나오지 않는다. 사진 주소는 한 시간 뒤 만료된다 — 저장하지 않는다.
+        운영자가 내린 글은 나오지 않는다. 사진 주소는 받은 뒤 적어도 한 시간(최대 두 시간) 유효하다 — 저장하지 않는다.
 
         로그인했으면 내가 차단한 사용자의 글은 빠진다(1.19.0, MZ2AZ-438 — `POST /me/blocks`).
 
@@ -3624,13 +3624,15 @@ components:
         url:
           type: string
           format: uri
-          description: 보여 줄 주소. **한 시간 뒤 만료된다 — 저장하지 말고 그때그때 받은 것을 쓴다**
+          description: |
+            보여 줄 주소. **받은 뒤 적어도 한 시간(최대 두 시간) 유효하다 — 저장하지 말고 그때그때 받은 것을 쓴다.**
+            한 시간 창 안에서는 같은 사진에 같은 주소가 나가 브라우저가 캐시한다(1.29.1, MZ2AZ-562)
         thumbnailUrl:
           type: string
           format: uri
           nullable: true
           description: |
-            작은 사진(1.29.0, MZ2AZ-561) — 긴 변 720px JPEG. 목록·사진 칸은 이것, 확대 보기는 `url`. 한 시간 뒤 만료된다.
+            작은 사진(1.29.0, MZ2AZ-561) — 긴 변 720px JPEG. 목록·사진 칸은 이것, 확대 보기는 `url`. `url` 처럼 적어도 한 시간 유효하다.
             서버가 저장 뒤 1 분 안쪽에 만든다 — 아직 없거나 만들지 못했으면 null 이고 `url` 을 쓴다
 
     ReviewAuthor:
@@ -3867,13 +3869,13 @@ components:
           type: string
           format: uri
           nullable: true
-          description: 첫 사진. 한 시간 뒤 만료된다
+          description: 첫 사진. 받은 뒤 적어도 한 시간(최대 두 시간) 유효하다
         coverThumbnailUrl:
           type: string
           format: uri
           nullable: true
           description: |
-            첫 사진의 작은 것(1.29.0, MZ2AZ-561) — 긴 변 720px JPEG, 한 시간 뒤 만료된다. 목록 카드는 이것, 없으면(아직 안
+            첫 사진의 작은 것(1.29.0, MZ2AZ-561) — 긴 변 720px JPEG, 적어도 한 시간 유효하다. 목록 카드는 이것, 없으면(아직 안
             만들어졌거나 만들지 못함) `coverPhotoUrl`
         photoCount:
           type: integer
@@ -4136,7 +4138,7 @@ components:
           format: date-time
         photoUrls:
           type: array
-          description: 순서대로, 첫 장이 대표. 한 시간 뒤 만료된다
+          description: 순서대로, 첫 장이 대표. 받은 뒤 적어도 한 시간(최대 두 시간) 유효하다
           items:
             type: string
             format: uri
@@ -4144,7 +4146,7 @@ components:
           type: array
           description: |
             `photoUrls` 각각의 작은 사진(1.29.0, MZ2AZ-561) — **`photoUrls` 와 같은 길이·같은 순서**. 작은 사진이 없는 자리는
-            null 이고 그 자리는 `photoUrls` 의 것을 쓴다. 한 시간 뒤 만료된다. 목록 대표 사진이 만료돼 상세로 새 주소를 받을 때
+            null 이고 그 자리는 `photoUrls` 의 것을 쓴다. 적어도 한 시간 유효하다. 목록 대표 사진이 만료돼 상세로 새 주소를 받을 때
             첫 항목을 쓴다
           items:
             type: string
@@ -4188,7 +4190,7 @@ components:
         url:
           type: string
           format: uri
-          description: 리뷰 사진은 한 시간 뒤 만료되는 주소다 — 저장하지 않는다
+          description: 리뷰 사진은 받은 뒤 적어도 한 시간(최대 두 시간) 유효한 주소다 — 저장하지 않는다
         source:
           $ref: "#/components/schemas/PhotoSource"
         reviewId:
@@ -4207,7 +4209,7 @@ components:
           description: |
             작은 사진(1.21.0, MZ2AZ-376). 관광공사 사진은 관광공사가 만든 썸네일(약 300 px)이다. 목록·지도 카드는 이것, 상세는
             `url`. 없으면 `url` 을 쓴다. 1.29.0(MZ2AZ-561)부터 우리 촬영지 사진과 리뷰 사진(`source: review`)도 채운다 — 긴 변
-            720px JPEG, 리뷰 사진은 `url` 처럼 한 시간 뒤 만료된다
+            720px JPEG, 리뷰 사진은 `url` 처럼 적어도 한 시간(최대 두 시간) 유효하다
         license:
           nullable: true
           allOf:
