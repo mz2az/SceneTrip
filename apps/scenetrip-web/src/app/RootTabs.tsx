@@ -22,6 +22,7 @@ import { ProtoTabBar } from '@/features/proto/ProtoTabBar'
 import { useStore } from '@/state/storage'
 import { TabBar } from './TabBar'
 import { coverOf, tabOf, tabPath } from './routes'
+import { SignUpNudge } from '@/features/profile/auth/SignUpNudge'
 
 export function RootTabs() {
   const { pathname } = useLocation()
@@ -58,6 +59,8 @@ export function RootTabs() {
             <CommunityTab />
           </Layer>
         )}
+        {/* 비회원 가입 권유 — 홈에서만, 탭바 바로 위(MZ2AZ-564). */}
+        <SignUpNudge onHome={tab === 'home' && cover === null} protoOn={protoOn} />
       </div>
       {protoOn ? <ProtoTabBar selected={tab} onSelect={(t) => navigate(tabPath(t))} /> : <TabBar selected={tab} onSelect={(t) => navigate(tabPath(t))} />}
 

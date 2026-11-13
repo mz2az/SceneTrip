@@ -45,6 +45,21 @@ describe('웹 전용 실험 이벤트 (MZ2AZ-531)', () => {
   })
 })
 
+describe('웹 전용 가입 권유 이벤트 (MZ2AZ-564)', () => {
+  it.each([
+    ['signupNudgeView', 'signup_nudge_view'],
+    ['signupNudgeClick', 'signup_nudge_click'],
+    ['signupNudgeDismiss', 'signup_nudge_dismiss'],
+  ] as const)('%s → %s, 매개변수는 trigger 하나', (builder, name) => {
+    for (const trigger of ['saved', 'views'] as const) {
+      const event = webEvent[builder](trigger)
+      expect(event.name).toBe(name)
+      expect(event.params).toEqual({ trigger })
+    }
+    expect(Object.keys(appEvent)).not.toContain(builder)
+  })
+})
+
 describe('이벤트 빌더 — 정본과 같은 이름·매개변수 키', () => {
   it('26개 + 웹 전용 1개를 모두 다룬다', () => {
     expect(CANON).toHaveLength(27)
