@@ -130,6 +130,32 @@ V41 이 `analytics` 에 뷰 다섯 개를 더한다. 전부 **숫자만**(개인
 
 한계: IP·기기 정보가 없어 「사람처럼 행동하는 스크립트」 는 활동한 설치로 잡힌다. 재방문(2 일 이상)이 가장 강한 거르기다.
 
+### 3-7. 팀원 계정 빼기 (MZ2AZ-563, 테스트는 이 절만 보고 쓴다)
+
+11/11 멘토 피드백 — 실사용자 수치를 보려면 팀원이 만든 설치·가입·행동을 빼야 한다. 멘토 계정은 일반 사용자로 센다(2026-11-13 결정).
+
+**저장**: `public.analytics_internal_email(email_sha256 TEXT PRIMARY KEY, note TEXT)`. `email_sha256` = 이메일을 **소문자**로 바꾼 UTF-8 바이트의 SHA-256 을 소문자 16 진수 64 글자로. 평문 이메일은 저장소·DB 어디에도 두지 않는다. V47 이 팀원 세 명의 해시를 넣는다. 더할 때는 새 마이그레이션으로 행을 더한다. `public` 이라 `metabase_ro` 는 못 읽는다.
+
+**내부 계정** (`public.analytics_internal_user` 뷰, 칸 `user_id`):
+1. `user_identity.email` 의 소문자 해시가 표에 있는 계정(`user_identity.user_id`)
+2. `merged_into` 가 1 의 계정을 가리키는 `app_user`(로그인 전 비회원 계정이 팀원 계정으로 합쳐진 것)
+
+**내부 설치**: `user_device.user_id` 가 내부 계정인 설치.
+
+**바뀌는 뷰** — 칸 이름·순서·형은 그대로(`CREATE OR REPLACE VIEW`), 행에서 내부만 뺀다:
+
+| 뷰 | 빼는 것 |
+| --- | --- |
+| `daily_new_installs` | 내부 설치 |
+| `daily_new_members` | `user_id` 가 내부 계정인 `user_identity` 행 |
+| `daily_active_viewers` | `install_id` 가 내부 설치이거나 `user_id` 가 내부 계정인 `entity_view` 행 |
+| `daily_actions` | `user_id` 가 내부 계정인 찜·장바구니·코스·후기·여행후기 |
+| `daily_install_quality`, `funnel_by_install_day`, `retention_by_install_day` | 내부 설치(그 설치의 단계·재방문도 함께) |
+
+**안 바뀌는 뷰**: `contents`, `places`, `daily_entity_views`(사람과 안 잇는 일별 집계), `daily_chat`, `daily_search`, `search_terms`(검색 기록은 사람과 안 잇는다).
+
+**한계**: 로그인한 적 없는 팀원 설치, 애플 「이메일 가리기」 대리 주소로 가입한 팀원 계정은 못 거른다 — 그 해시를 새 마이그레이션으로 더한다.
+
 ## 4. 순서
 
 1. 이 계획·ADR 확인
