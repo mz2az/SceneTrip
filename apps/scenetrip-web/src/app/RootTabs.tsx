@@ -30,7 +30,7 @@ export function RootTabs() {
   const tab = tabOf(pathname)
   const cover = coverOf(pathname)
   const closeCover = () => navigate(tabPath('home'))
-  // 「어디로 가세요?」 시안이 켜져 있으면(로컬 개발 서버 전용) 떠 있는 알약 탭바.
+  // 새 홈 화면(「어디로 가세요?」 시안 A — 2026-11-11 부터 운영·dev 웹의 기본, 로컬은 ?proto=a)이면 떠 있는 알약 탭바.
   const protoOn = useStore(protoStore, (p) => protoAvailable && p.proto !== null)
 
   // 어느 화면을 보는가 — 탭과 덮개 단위, 덮개가 떠 있으면 덮개가 이긴다 (iOS RootTabs.screenName, MZ2AZ-353).

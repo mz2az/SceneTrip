@@ -54,7 +54,7 @@ function save(state: NudgeState): void {
 
 export function nudgeVisible(state: NudgeState, ctx: NudgeContext): boolean {
   if (ctx.signedIn) return false
-  if (!ctx.onHome || ctx.protoOn) return false
+  if (!ctx.onHome) return false // 새 홈 화면(protoOn)에서도 보인다 — 자리만 다르다
   if (ctx.savedPlaces + ctx.likedWorks <= 0 && state.detailViews < DETAIL_VIEWS_NEEDED) return false
   if (state.dismissedAt !== null && ctx.now - state.dismissedAt < HIDE_AFTER_DISMISS_MS) return false
   return state.sessionsShown < MAX_SESSIONS || ctx.shownThisSession

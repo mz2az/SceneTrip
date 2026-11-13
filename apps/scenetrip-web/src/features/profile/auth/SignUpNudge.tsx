@@ -51,14 +51,18 @@ export function SignUpNudge({ onHome, protoOn = false }: { onHome: boolean; prot
   return (
     <div
       style={{
-        position: 'absolute', left: 16, right: 16, bottom: 12, zIndex: 10,
+        position: 'absolute', left: 16, right: 16, zIndex: 10,
+        // 새 홈 화면은 탭 내용이 화면 바닥까지 내려가고 「Plan a trip」 단추가 탭바 위에 뜬다 — 그 단추 바로 위에 둔다.
+        bottom: protoOn ? 'calc(var(--tabbar-height) + var(--safe-bottom) + 80px)' : 12,
         display: 'flex', justifyContent: 'center', pointerEvents: 'none',
       }}
     >
       <div
         style={{
           pointerEvents: 'auto', display: 'flex', alignItems: 'center', width: '100%', maxWidth: 420,
-          background: 'var(--accent)', color: '#fff', borderRadius: 999, boxShadow: '0 6px 20px rgba(0,0,0,0.18)',
+          // 흰 카드 — 보라 「Plan a trip」 단추와 겨루지 않게 바탕은 차분히, 글만 강조색으로.
+          background: 'var(--system-background)', color: protoOn ? 'var(--home-purple)' : 'var(--accent)',
+          border: '1px solid var(--separator, rgba(0,0,0,0.08))', borderRadius: 999, boxShadow: '0 6px 20px rgba(0,0,0,0.14)',
         }}
       >
         <button
@@ -78,7 +82,7 @@ export function SignUpNudge({ onHome, protoOn = false }: { onHome: boolean; prot
           onClick={onDismiss}
           style={{
             flex: 'none', width: 44, height: 44, marginRight: 4, border: 0, borderRadius: 999, background: 'transparent',
-            color: 'inherit', fontSize: 18, lineHeight: 1, cursor: 'pointer',
+            color: 'var(--label-secondary)', fontSize: 18, lineHeight: 1, cursor: 'pointer',
           }}
         >
           <span aria-hidden>✕</span>
