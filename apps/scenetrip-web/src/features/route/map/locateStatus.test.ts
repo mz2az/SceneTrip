@@ -3,8 +3,8 @@ import { locateStatus } from './locateStatus'
 
 describe('locateStatus — 첫 위치가 오지 않을 때의 안내', () => {
   it.each([
-    [true, false, false, 0, 'idle'],
-    [true, false, false, 7_999, 'idle'],
+    [true, false, false, 0, 'seeking'],
+    [true, false, false, 7_999, 'seeking'],
     [true, false, false, 8_000, 'waiting'],
     [true, false, false, 20_000, 'waiting'],
     [true, false, true, 0, 'denied'],

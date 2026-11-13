@@ -220,7 +220,8 @@ describe('RouteMap — 위치 안내와 정리', () => {
     const onLocateStatus = vi.fn()
     render(<RouteMap {...props({ onLocateStatus })} />)
     advance(7_999)
-    expect(onLocateStatus).toHaveBeenLastCalledWith('idle')
+    // 8 초 전은 「찾는 중」 — 단추 둘레가 돈다(MZ2AZ-566, web-directions-steps.md §3).
+    expect(onLocateStatus).toHaveBeenLastCalledWith('seeking')
     advance(1)
     expect(onLocateStatus).toHaveBeenLastCalledWith('waiting')
     act(() => onFix(position()))

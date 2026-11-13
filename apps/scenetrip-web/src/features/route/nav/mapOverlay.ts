@@ -7,7 +7,7 @@
  *    고른 점은 줌과 무관하게 단다 — 눌렀으면 그게 어딘지는 봐야 한다.
  *  - 가이드가 찾아 준 곳(「AI 장소」): 작은 해태, 고른 하나만 빨간 해태(2026-09-17). 이름은 줌 17 부터.
  *    시안이면 해태를 그리지 않는다 — 가이드 장소는 그 곳의 갈래 아이콘, 고른 곳은 같은 아이콘을 크게(26→40, motion-works-drawer-parity.md §9·§10-1).
- *  - 여행 안내: 실제 경로선(도보는 점선·대중교통은 실선), 목적지까지 마지막 몇십 m 의 회색 점선, 「내 자리 → 다음 곳」 점선 미리보기, 내 자리 파문.
+ *  - 여행 안내: 실제 경로선(도보는 보라 점선·대중교통은 노선 색 실선, MZ2AZ-566), 목적지까지 마지막 몇십 m 의 회색 점선, 「내 자리 → 다음 곳」 점선 미리보기, 내 자리 파문.
  *    걸으면 지나온 구간은 지우고 남은 길만 그린다(`trailRemaining`).
  */
 import type { LatLng, MapBounds, MapHandle, MapLayer, MarkerSpec } from '@/map'
@@ -34,10 +34,10 @@ const Z_MINOR = 2
 const MINOR = 16
 const Z_AI = 15
 const Z_PICKED = 30
-/** 안내 경로선 — 도보 7(점선)·대중교통 9(실선). iOS NMFPath.width. */
-const LEG_WALK_WEIGHT = 7
+/** 안내 경로선 — 도보 8(보라 둥근 점)·대중교통 9(노선 색 실선). MZ2AZ-566. */
+const LEG_WALK_WEIGHT = 8
 const LEG_VEHICLE_WEIGHT = 9
-const WALK_DASH = '0.1 14'
+const WALK_DASH = '0.1 13'
 
 const escapeHtml = (s: string): string => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string)
 
@@ -210,10 +210,14 @@ function drawTrip(g: MapLayer, s: OverlayState): void {
   s.legs.forEach((leg, i) => {
     const pts = (remaining[i] ?? []).filter((p) => p.length >= 2).map((p) => ({ lat: p[1], lng: p[0] })) // [경도, 위도] → {lat, lng}
     if (pts.length < 2) return
-    const walk = leg.mode === 'walk'
-    g.addPolyline({ path: pts, color: PIN_DEEP, weight: walk ? LEG_WALK_WEIGHT : LEG_VEHICLE_WEIGHT, opacity: 1, lineCap: 'round', lineJoin: 'round' })
-    // 도보는 흰 점이 줄지어 박힌 선(patternIcon)이다.
-    if (walk) g.addPolyline({ path: pts, color: '#fff', weight: 3, dash: WALK_DASH, lineCap: 'round' })
+    // 색은 안내 띠의 단계 목록과 같다(MZ2AZ-566) — 도보는 보라 점, 탈것은 노선 색 실선에 흰 테두리(지도 도로 위에서도 보이게).
+    if (leg.mode === 'walk') {
+      // 흰 바탕을 깔지 않는다 — 네이버 점선은 굵기에 따라 점 간격이 달라 바탕 점과 어긋난다.
+      g.addPolyline({ path: pts, color: leg.color, weight: LEG_WALK_WEIGHT, dash: WALK_DASH, lineCap: 'round' })
+    } else {
+      g.addPolyline({ path: pts, color: '#fff', weight: LEG_VEHICLE_WEIGHT + 4, opacity: 1, lineCap: 'round', lineJoin: 'round' })
+      g.addPolyline({ path: pts, color: leg.color, weight: LEG_VEHICLE_WEIGHT, opacity: 1, lineCap: 'round', lineJoin: 'round' })
+    }
   })
 }
 
