@@ -77,9 +77,9 @@ describe('nudgeVisible — §2 보이는 조건(모두 참이어야 한다)', ()
     expect(nudge.nudgeVisible(baseState, { ...baseCtx, onHome: false })).toBe(false)
   })
 
-  it('2. 시안(protoOn)이 켜져 있으면 안 보인다', async () => {
+  it('2. 새 홈 화면(protoOn)이어도 보인다 — 자리만 바뀐다(계획 §1, 2026-11-13 수정)', async () => {
     const { nudge } = await newSession()
-    expect(nudge.nudgeVisible(baseState, { ...baseCtx, protoOn: true })).toBe(false)
+    expect(nudge.nudgeVisible(baseState, { ...baseCtx, protoOn: true })).toBe(true)
   })
 
   describe('3. 담은 게 있거나 상세를 3 번 이상 열었다', () => {

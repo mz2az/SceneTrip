@@ -58,6 +58,11 @@ describe('SignUpNudge — 홈의 가입 권유 알약', () => {
     expect(screen.getByText(SAVED_ONE_KO)).toBeTruthy()
   })
 
+  it('새 홈 화면(protoOn)에서도 보인다', () => {
+    render(<SignUpNudge onHome protoOn />)
+    expect(screen.getByText(SAVED_ONE_KO)).toBeTruthy()
+  })
+
   it('홈이 아니면 보이지 않는다', () => {
     render(<SignUpNudge onHome={false} />)
     expect(screen.queryByText(SAVED_ONE_KO)).toBeNull()
