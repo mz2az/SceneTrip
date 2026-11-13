@@ -11,6 +11,7 @@
 import type { components } from '@/api/generated/schema'
 import { tr } from '@/i18n'
 import { distanceMeters } from './geo'
+import { SUBWAY_FALLBACK, WALK_COLOR, boardAlight, legStyle } from './navStyle'
 
 export type NextLeg = components['schemas']['NextLeg']
 export type ContractLeg = components['schemas']['RouteLeg']
@@ -35,7 +36,7 @@ export function legSymbol(mode: LegMode): string {
 export const legIsVehicle = (mode: LegMode): boolean => mode !== 'walk'
 
 const SUBWAY_TYPES = ['지하철', '전철', '경전철', 'SUBWAY']
-const BUS_TYPES = ['버스', '마을', '간선', '지선', '광역', '직행', '순환', 'BUS']
+const BUS_TYPES = ['버스', '마을', '간선', '지선', '광역', '직행', '급행', '순환', '공항', 'BUS']
 
 /**
  * 계약의 `RouteLeg.mode`(walk/transit)와 `vehicleType`·`vehicleName`(제공자 원문, 한국어)에서 갈래를 고른다.
@@ -66,6 +67,16 @@ export interface Leg {
   /** 칩에 적은 거리·시간의 원재료. 이어진 도보를 합칠 때 다시 센다. */
   readonly meters: number | null
   readonly seconds: number | null
+  /** 지도 선과 단계 목록의 색 — 지하철은 호선 색, 버스는 종류 색, 도보는 회색(MZ2AZ-566). */
+  readonly color: string
+  /** 노선 배지 — 「1」·「150」. 도보는 null. */
+  readonly badge: string | null
+  /** 탈것 종류 — 「지하철」·「간선버스」(앱 언어). */
+  readonly kind: string | null
+  /** 탈 곳·내릴 곳 — 안내문 괄호의 「A > B」. */
+  readonly from: string | null
+  readonly to: string | null
+  readonly stops: number | null
 }
 
 /** 「3분 · 239 m · 5 정거장」. 모르는 것은 빼고 적는다. */
@@ -78,8 +89,14 @@ export function legPieces(p: { seconds: number | null; meters: number | null; st
 }
 
 let legCounter = 0
-export function makeLeg(p: { mode: LegMode; title: string; detail: string; path?: number[][]; hasStairs?: boolean; meters?: number | null; seconds?: number | null }): Leg {
-  return { id: `leg${(legCounter += 1)}`, mode: p.mode, title: p.title, detail: p.detail, path: p.path ?? [], hasStairs: p.hasStairs ?? false, meters: p.meters ?? null, seconds: p.seconds ?? null }
+export function makeLeg(p: {
+  mode: LegMode; title: string; detail: string; path?: number[][]; hasStairs?: boolean; meters?: number | null; seconds?: number | null
+  color?: string; badge?: string | null; kind?: string | null; from?: string | null; to?: string | null; stops?: number | null
+}): Leg {
+  return {
+    id: `leg${(legCounter += 1)}`, mode: p.mode, title: p.title, detail: p.detail, path: p.path ?? [], hasStairs: p.hasStairs ?? false, meters: p.meters ?? null, seconds: p.seconds ?? null,
+    color: p.color ?? (p.mode === 'walk' ? WALK_COLOR : SUBWAY_FALLBACK), badge: p.badge ?? null, kind: p.kind ?? null, from: p.from ?? null, to: p.to ?? null, stops: p.stops ?? null,
+  }
 }
 
 /** 안내문 앞에 붙은 노선을 뗀다 — 「1호선 (서울역 > 동대문)」→「서울역 > 동대문」, 「마을 종로02외 1대 (…)」→「외 1대 (…)」. 노선이 앞에 없으면(영어 안내 등) 그대로다. */
@@ -100,7 +117,14 @@ export function legFromContract(leg: ContractLeg): Leg {
       ? (leg.vehicleName ?? '')
       : [leg.vehicleType, leg.vehicleName].filter((x): x is string => !!x).join(' ')
   const vehicle = legIsVehicle(mode) && route !== ''
+  const first = leg.path.coordinates[0]
+  const style = legStyle({ mode, vehicleType: leg.vehicleType, vehicleName: leg.vehicleName, at: first && first.length >= 2 ? { latitude: first[1], longitude: first[0] } : null })
+  const ends = legIsVehicle(mode) ? boardAlight(leg.guidance) : null
   return makeLeg({
+    ...style,
+    from: ends?.from ?? null,
+    to: ends?.to ?? null,
+    stops: leg.stopCount ?? null,
     mode,
     title: vehicle ? route : leg.guidance,
     detail: vehicle ? [withoutRoute(leg.guidance, route), ...pieces].filter((s) => s !== '').join(' · ') : pieces.join(' · '),

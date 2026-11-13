@@ -20,6 +20,7 @@ import { notesSummary } from '../draft'
 import { optimized, startingNearest, usableAnchor } from '../geometry'
 import { type LatLng, RouteMap } from '../map/RouteMap'
 import type { LocateStatus } from '../map/locateStatus'
+import './locate.css'
 import { type PlaceSummary, type RouteCourse, type RouteStop, canNavigate, courseCanSave, placeIdOf } from '../models'
 import type { PinKind } from '../placeType'
 import { courseSaveMessage, routeActions, routeStore, useRouteState, workTitlesOfPlace } from '../store'
@@ -424,7 +425,7 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
             ext.onMapReady?.(host, m)
           }}
         />
-        {(pinning || (showingMe && locateStatus !== 'idle')) && (
+        {(pinning || (showingMe && (locateStatus === 'waiting' || locateStatus === 'denied'))) && (
           <div style={{ position: 'absolute', top: 10, left: 0, right: 0, display: 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 5 }}>
             <span style={{ padding: '7px 12px', borderRadius: 999, background: 'rgba(250,250,250,0.78)', backdropFilter: 'blur(20px)', fontSize: 13, fontWeight: 500 }}>
               {pinning ? tr('지도를 눌러 장소를 찍으세요') : locateStatus === 'denied' ? tr('위치 권한이 없어 현재 위치를 표시할 수 없습니다') : tr('현재 위치를 찾는 중입니다')}
@@ -433,7 +434,7 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
         )}
         {/* 「내 위치」 토글 — 핀 찍는 동안에는 숨긴다(지도를 눌러야 하는데 버튼이 손에 걸린다). 검색 탭은 날아가는 버튼이지만 여기서는 토글이다 —
             그냥 날아가면 촬영지가 화면 밖으로 나가 무엇을 보던 화면인지 알 수 없다(2026-08-24 사용자 지적). */}
-        {!pinning && <LocateButton on={showingMe} onPress={() => setShowingMe((v) => !v)} top={proto && editing ? 62 : 10} />}
+        {!pinning && <LocateButton on={showingMe} seeking={showingMe && (locateStatus === 'seeking' || locateStatus === 'waiting')} onPress={() => setShowingMe((v) => !v)} top={proto && editing ? 62 : 10} />}
         {/* 편의시설 칩·검색은 고칠 때만 — 볼 때는 내 코스만 보인다 */}
         {proto && editing && mapOpen && !pinning && ext.MapTop && <ext.MapTop host={host} />}
         {!proto && (
@@ -651,19 +652,27 @@ function MapPill({ open, onToggle }: { open: boolean; onToggle: () => void }) {
 
 /** 지도 오른쪽 위 「내 위치」 토글. 켜짐은 모양이 아니라 배경색으로 구별한다. 흰 판 + 테두리 + 그림자로 볼록하게 세워 어느 상태든 단추로 보이게 한다(2026-08-28 사용자 지적). */
 /** `top` — 시안에서는 지도 맨 위에 편의시설 칩 줄이 있어 그 아래(62)로 내린다. */
-function LocateButton({ on, onPress, top = 10 }: { on: boolean; onPress: () => void; top?: number }) {
+/** `seeking` — 켰는데 아직 위치를 못 잡았다. 단추 둘레에 시계 방향으로 도는 호를 그린다 — 몇 초 동안 반응이 없어 꺼진 것처럼 보였다(2026-11-13 사용자 지적, MZ2AZ-566). 화면은 가리지 않는다. */
+function LocateButton({ on, seeking = false, onPress, top = 10 }: { on: boolean; seeking?: boolean; onPress: () => void; top?: number }) {
   return (
     <Pressable
       plain
       onClick={onPress}
       aria-label={tr('내 위치')}
       aria-pressed={on}
+      aria-busy={seeking}
       style={{
         position: 'absolute', top, right: 10, zIndex: 5, width: 44, height: 44, borderRadius: '50%', display: 'grid', placeItems: 'center',
         background: on ? 'var(--accent)' : 'var(--system-background)', border: on ? 'none' : '1px solid var(--system-gray4)', boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
       }}
     >
       <Icon name="dot.scope" size={17} weight="medium" color={on ? '#fff' : 'accent'} />
+      {seeking && (
+        <svg className="rt-locate-seeking" width="60" height="60" viewBox="0 0 60 60" aria-hidden>
+          <circle cx="30" cy="30" r="27" fill="none" stroke="color-mix(in srgb, var(--accent) 22%, transparent)" strokeWidth="4" />
+          <circle className="rt-locate-arc" cx="30" cy="30" r="27" fill="none" stroke="var(--accent)" strokeWidth="4" strokeLinecap="round" strokeDasharray="50 120" />
+        </svg>
+      )}
     </Pressable>
   )
 }
