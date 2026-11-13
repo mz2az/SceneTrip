@@ -22,6 +22,8 @@ import { ProtoTabBar } from '@/features/proto/ProtoTabBar'
 import { useStore } from '@/state/storage'
 import { TabBar } from './TabBar'
 import { coverOf, tabOf, tabPath } from './routes'
+import { GoogleOneTap } from '@/features/profile/auth/GoogleOneTap'
+import { SignUpNudge } from '@/features/profile/auth/SignUpNudge'
 
 export function RootTabs() {
   const { pathname } = useLocation()
@@ -29,7 +31,7 @@ export function RootTabs() {
   const tab = tabOf(pathname)
   const cover = coverOf(pathname)
   const closeCover = () => navigate(tabPath('home'))
-  // 「어디로 가세요?」 시안이 켜져 있으면(로컬 개발 서버 전용) 떠 있는 알약 탭바.
+  // 새 홈 화면(「어디로 가세요?」 시안 A — 2026-11-11 부터 운영·dev 웹의 기본, 로컬은 ?proto=a)이면 떠 있는 알약 탭바.
   const protoOn = useStore(protoStore, (p) => protoAvailable && p.proto !== null)
 
   // 어느 화면을 보는가 — 탭과 덮개 단위, 덮개가 떠 있으면 덮개가 이긴다 (iOS RootTabs.screenName, MZ2AZ-353).
@@ -58,6 +60,10 @@ export function RootTabs() {
             <CommunityTab />
           </Layer>
         )}
+        {/* 비회원 가입 권유 — 홈에서만, 탭바 바로 위(MZ2AZ-564). */}
+        <SignUpNudge onHome={tab === 'home' && cover === null} protoOn={protoOn} />
+        {/* 구글 원탭 — 비회원·홈에서 세션당 한 번(MZ2AZ-565). 그리는 것은 없다. */}
+        <GoogleOneTap onHome={tab === 'home' && cover === null} />
       </div>
       {protoOn ? <ProtoTabBar selected={tab} onSelect={(t) => navigate(tabPath(t))} /> : <TabBar selected={tab} onSelect={(t) => navigate(tabPath(t))} />}
 

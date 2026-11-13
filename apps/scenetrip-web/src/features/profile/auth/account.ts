@@ -10,7 +10,7 @@
  *   accountActions.signOut()
  * 다른 화면에서 로그인이 필요하면 `promptSignIn()` (state/auth.ts) — RootSheets 가 시트를 올린다.
  */
-import { appEvent, track } from '@/analytics'
+import { appEvent, track, webEvent } from '@/analytics'
 import { ApiFailure, asFailure } from '@/api/failure'
 import { tr } from '@/i18n'
 import {
@@ -232,6 +232,28 @@ export function createAccount(deps: AccountDeps = defaultAccountDeps) {
     },
 
     signInWithGoogle: () => signInWith('google'),
+
+    /**
+     * 구글 원탭(MZ2AZ-565) — 팝업 없이 GIS 가 준 ID 토큰과 우리가 만든 nonce 원문으로 로그인한다.
+     * 서버 교환·합치기·닉네임은 팝업 로그인과 같다. 원탭으로 온 가입·로그인은 `one_tap_sign_in` 으로 따로 센다.
+     */
+    async signInWithGoogleCredential(idToken: string, nonce: string): Promise<void> {
+      // 이미 로그인했으면(다른 길로 먼저 끝났다) 남은 원탭 응답으로 계정을 바꾸지 않는다.
+      if (store.get().busy || store.get().signedIn) return
+      patch({ busy: true, message: null })
+      try {
+        if (!(await deps.settle())) throw new StillRunning()
+        const session = await deps.client.signInWithGoogle(idToken, nonce)
+        completeSignIn(session, 'google')
+        track(webEvent.oneTapSignIn(session.isNewUser))
+      } catch (error) {
+        signInFailure(error, 'google')
+        // 원탭에는 안내를 보일 자리가 없다 — 안내 문구가 있으면 로그인 시트를 열어 보인다.
+        if (store.get().message) patch({ showingSignIn: true, signInReason: null })
+      } finally {
+        patch({ busy: false })
+      }
+    },
     signInWithApple: () => signInWith('apple'),
 
     /** 로그아웃. 서버 응답과 상관없이 토큰을 지운다 — 이 설치본은 서버에서 **새 비회원**이 된다. */
