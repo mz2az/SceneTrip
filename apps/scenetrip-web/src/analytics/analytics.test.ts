@@ -60,6 +60,14 @@ describe('웹 전용 가입 권유 이벤트 (MZ2AZ-564)', () => {
   })
 })
 
+describe('웹 전용 원탭 로그인 이벤트 (MZ2AZ-565)', () => {
+  it('one_tap_sign_in — new_user 는 1·0, 공통 26개에 섞이지 않는다', () => {
+    expect(webEvent.oneTapSignIn(true)).toEqual({ name: 'one_tap_sign_in', params: { new_user: 1 } })
+    expect(webEvent.oneTapSignIn(false)).toEqual({ name: 'one_tap_sign_in', params: { new_user: 0 } })
+    expect(Object.keys(appEvent)).not.toContain('oneTapSignIn')
+  })
+})
+
 describe('이벤트 빌더 — 정본과 같은 이름·매개변수 키', () => {
   it('26개 + 웹 전용 1개를 모두 다룬다', () => {
     expect(CANON).toHaveLength(27)

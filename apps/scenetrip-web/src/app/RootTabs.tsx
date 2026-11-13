@@ -22,6 +22,7 @@ import { ProtoTabBar } from '@/features/proto/ProtoTabBar'
 import { useStore } from '@/state/storage'
 import { TabBar } from './TabBar'
 import { coverOf, tabOf, tabPath } from './routes'
+import { GoogleOneTap } from '@/features/profile/auth/GoogleOneTap'
 import { SignUpNudge } from '@/features/profile/auth/SignUpNudge'
 
 export function RootTabs() {
@@ -61,6 +62,8 @@ export function RootTabs() {
         )}
         {/* 비회원 가입 권유 — 홈에서만, 탭바 바로 위(MZ2AZ-564). */}
         <SignUpNudge onHome={tab === 'home' && cover === null} protoOn={protoOn} />
+        {/* 구글 원탭 — 비회원·홈에서 세션당 한 번(MZ2AZ-565). 그리는 것은 없다. */}
+        <GoogleOneTap onHome={tab === 'home' && cover === null} />
       </div>
       {protoOn ? <ProtoTabBar selected={tab} onSelect={(t) => navigate(tabPath(t))} /> : <TabBar selected={tab} onSelect={(t) => navigate(tabPath(t))} />}
 
