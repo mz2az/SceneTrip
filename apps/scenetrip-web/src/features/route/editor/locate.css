@@ -1,0 +1,27 @@
+/* 「내 위치」 찾는 중 — 단추 둘레의 옅은 테 위를 시계 방향으로 도는 호(MZ2AZ-566). 단추(44)보다 크게(60), 단추 가운데에 겹친다. 누르는 것은 막지 않는다. */
+.rt-locate-seeking {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: -30px 0 0 -30px;
+  pointer-events: none;
+}
+.rt-locate-arc {
+  transform-origin: 30px 30px;
+  animation: rt-locate-spin 0.9s linear infinite;
+}
+@keyframes rt-locate-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes rt-locate-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rt-locate-arc {
+    animation: rt-locate-blink 1.6s ease-in-out infinite;
+  }
+}

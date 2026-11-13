@@ -10,10 +10,12 @@ import { HStack, Pressable, Spinner, Txt, VStack, rr, shadow } from '@/design/pr
 import { Icon } from '@/design/Icon'
 import { tr } from '@/i18n'
 import '../poi/icons'
+import '../ui/icons'
 import { type NavFailure, navCanRetry, navFailureMessage } from './navFailure'
 import { type DirectionsOffer, type MapApp, directionsOffers, offerOpensApp } from './externalDirections'
-import { type Leg, formatDuration, guidanceNote, legIsVehicle, legSymbol, navChips, navSummaryLine, type NavResult } from './navModels'
+import { type Leg, formatDuration, guidanceNote, legIsVehicle, legPieces, legSymbol, navChips, navSummaryLine, type NavResult } from './navModels'
 import { navLimitMessage, useNavLimitState } from './navLimit'
+import { badgeInk } from './navStyle'
 import type { TripSession, TripState } from './tripSession'
 import { currentLang } from '@/i18n'
 import './tripUi.css'
@@ -123,29 +125,72 @@ function GuidingDetail({ session, result }: { session: TripSession; result: NavR
           <Txt size={11} color="secondary">{note}</Txt>
         </HStack>
       )}
-      <LegChips legs={navChips(result)} />
+      <LegSteps legs={navChips(result)} destination={result.destination} />
       <Txt size={11} color="tertiary">{session.dwellHint()}</Txt>
     </>
   )
 }
 
-/** 구간 — 도보·대중교통 조각을 한 줄로. 화면을 밀면 다 보인다. */
-function LegChips({ legs }: { legs: readonly Leg[] }) {
+/**
+ * 구간 — 세로 단계 목록(MZ2AZ-566). 가로로 미는 칩 줄은 어디서 어디까지 걷고 어디서 무엇을 타는지 읽히지 않았다(11/11 멘토 지적).
+ * 왼쪽 원과 세로줄은 지도 선과 같은 색 — 도보는 회색 점선, 탈것은 노선 색 실선. 맨 끝에 도착 줄.
+ */
+function LegSteps({ legs, destination }: { legs: readonly Leg[]; destination: string }) {
   return (
-    <div className="scroll-x" style={{ overflowX: 'auto' }}>
-      <HStack spacing={6} style={{ width: 'max-content' }}>
-        {legs.map((leg) => (
-          <HStack key={leg.id} spacing={4} pad="4px 8px" style={{ borderRadius: 999, background: leg.mode === 'walk' ? 'var(--system-gray5)' : leg.mode === 'subway' ? 'color-mix(in srgb, var(--system-blue) 16%, transparent)' : 'color-mix(in srgb, var(--system-green) 18%, transparent)' }}>
-            <Icon name={legSymbol(leg.mode)} size={10} weight="bold" />
-            {/* 탈것은 노선까지 — 「간선 150 · 서울신문사 → 혜화역2번출구 · 10정거장 · 19분」. */}
-            <Txt size={11} lines={1} style={{ whiteSpace: 'nowrap' }}>
-              {legIsVehicle(leg.mode) ? [leg.title, leg.detail].filter(Boolean).join(' · ') : leg.detail === '' ? leg.title : leg.detail}
-            </Txt>
-            {leg.hasStairs && <Icon name="stairs" size={9} color="var(--system-red)" />}
-          </HStack>
-        ))}
-      </HStack>
-    </div>
+    <ol className="tp-steps" aria-label={tr('경로')}>
+      {legs.map((leg, i) => {
+        const nextBoard = legs.slice(i + 1).find((l) => legIsVehicle(l.mode))?.from ?? null
+        return legIsVehicle(leg.mode) ? <VehicleStep key={leg.id} leg={leg} /> : <WalkStep key={leg.id} leg={leg} toward={i + 1 < legs.length ? nextBoard : null} />
+      })}
+      <li className="tp-step tp-step-end">
+        <span className="tp-step-dot" style={{ background: 'var(--label)' }}><Icon name="flag.fill" size={10} color="#fff" /></span>
+        <Txt size={13} weight="semibold" lines={2}>{tr('도착 · %@', destination)}</Txt>
+      </li>
+    </ol>
+  )
+}
+
+function WalkStep({ leg, toward }: { leg: Leg; toward: string | null }) {
+  const minutes = leg.seconds !== null ? Math.max(1, Math.trunc(leg.seconds / 60)) : null
+  const head = [minutes !== null ? tr('%d분 걷기', minutes) : tr('도보'), leg.meters !== null ? `${leg.meters} m` : null].filter(Boolean).join(' · ')
+  return (
+    <li className="tp-step" style={{ ['--step-color' as string]: leg.color }}>
+      <span className="tp-step-rail tp-step-rail-walk" aria-hidden />
+      <span className="tp-step-dot tp-step-dot-walk"><Icon name={legSymbol(leg.mode)} size={11} weight="bold" color="#fff" /></span>
+      <div className="tp-step-body">
+        <HStack spacing={4}>
+          <Txt size={13} weight="semibold">{head}</Txt>
+          {leg.hasStairs && <Icon name="stairs" size={11} color="var(--system-red)" />}
+        </HStack>
+        {toward && <Txt size={12} color="secondary" lines={2}>{tr('%@까지', toward)}</Txt>}
+      </div>
+    </li>
+  )
+}
+
+function VehicleStep({ leg }: { leg: Leg }) {
+  const tail = legPieces({ seconds: leg.seconds, meters: null, stops: leg.stops }).join(' · ')
+  return (
+    <li className="tp-step" style={{ ['--step-color' as string]: leg.color }}>
+      <span className="tp-step-rail" aria-hidden />
+      <span className="tp-step-dot"><Icon name={legSymbol(leg.mode)} size={11} weight="bold" color="#fff" /></span>
+      <div className="tp-step-body">
+        <HStack spacing={6} style={{ minWidth: 0 }}>
+          {leg.badge ? <span className="tp-step-badge" style={{ color: badgeInk(leg.color) }}>{leg.badge}</span> : <Txt size={13} weight="semibold" lines={1} style={{ minWidth: 0 }}>{leg.kind ?? leg.title}</Txt>}
+          {leg.badge && leg.kind && <Txt size={12} color="secondary" lines={1}>{leg.kind}</Txt>}
+          {leg.hasStairs && <Icon name="stairs" size={11} color="var(--system-red)" />}
+        </HStack>
+        {leg.from && leg.to ? (
+          <>
+            <Txt size={13} lines={2}><span className="tp-step-label">{tr('탈 곳')}</span> <b>{leg.from}</b></Txt>
+            <Txt size={13} lines={2}><span className="tp-step-label">{tr('내릴 곳')}</span> <b>{leg.to}</b></Txt>
+            {tail && <Txt size={12} color="secondary">{tail}</Txt>}
+          </>
+        ) : (
+          leg.detail && <Txt size={12} color="secondary" lines={2}>{leg.detail}</Txt>
+        )}
+      </div>
+    </li>
   )
 }
 

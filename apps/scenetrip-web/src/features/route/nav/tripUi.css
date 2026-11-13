@@ -83,3 +83,75 @@
     animation: none;
   }
 }
+
+/* 안내 띠의 세로 단계 목록 (MZ2AZ-566) — 왼쪽 원과 세로줄은 지도 선과 같은 색(--step-color). 도보는 점선, 탈것은 실선. */
+.tp-steps {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.tp-step {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding-bottom: 10px;
+  min-height: 30px;
+}
+.tp-step-end {
+  align-items: center;
+  padding-bottom: 0;
+}
+.tp-step-dot {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--step-color);
+  box-shadow: 0 0 0 2px var(--system-background);
+}
+.tp-step-rail {
+  position: absolute;
+  left: 9px;
+  top: 22px;
+  bottom: 0;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--step-color);
+}
+.tp-step-rail-walk {
+  left: 10px;
+  width: 0;
+  background: none;
+  border-left: 3px dotted var(--step-color);
+}
+.tp-step-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 2px;
+}
+.tp-step-badge {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 6px;
+  background: var(--step-color);
+  color: #fff;
+  font: 700 12px/18px var(--font);
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tp-step-label {
+  color: var(--label-secondary);
+  font-size: 12px;
+}
