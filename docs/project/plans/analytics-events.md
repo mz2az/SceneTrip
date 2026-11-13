@@ -175,3 +175,4 @@ iOS·Android 에는 아직 없다. 실험이 끝나 두 앱에 옮기면 §3 표
 | 이벤트 | 언제 | 매개변수 | 구현(웹) |
 | --- | --- | --- | --- |
 | `start_directions` | 촬영지 상세의 「길찾기」를 눌렀다(MZ2AZ-532 DEV 실험 — [계획](web-place-directions.md)). 로그인 전이어도 누른 그때 한 번 센다. 진행 중 겹친 누름·로그인 뒤 이어 가기는 세지 않는다. 실제 안내 시작은 `start_trip` 이, 코스 생성은 `create_course`(`course_origin=self`, `place_count=1`)가 따로 센다 | `source` = `place_detail`, `signed_in`(1·0 — 참/거짓은 1·0 규칙) | `features/route/placeDirections.ts` |
+| `signup_nudge_view` · `signup_nudge_click` · `signup_nudge_dismiss` | 홈 탭의 비회원 가입 권유 알약이 이번 세션에 처음 보였다 / 알약을 눌러 로그인 시트를 열었다 / ✕ 로 닫았다(MZ2AZ-564 — [계획](web-signup-nudge.md)). 효과는 `signup_nudge_click` → `sign_up` 퍼널로 본다 | `trigger` = `saved`(찜·장바구니에 담은 게 있음) · `views`(상세를 3 번 열었음). 개수·이름은 보내지 않는다 | `features/profile/auth/signUpNudgeRules.ts`·`SignUpNudge.tsx` |

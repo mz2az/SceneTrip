@@ -5,6 +5,8 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appEvent, track } from '@/analytics'
+import { countDetailView } from '@/features/profile/auth/signUpNudgeRules'
+import { hasSession } from '@/state/auth'
 import { Icon } from '@/design/Icon'
 import { HStack, Spinner, Txt, VStack } from '@/design/primitives'
 import { tr } from '@/i18n'
@@ -66,6 +68,7 @@ export function PlaceDetail({ summary, sourceContentId, load, onBack, onOpenTrip
     setDetail(null)
     recordView('place', summary.id)
     track(appEvent.viewPlace(summary.id))
+    countDetailView(hasSession()) // 가입 권유 알약(MZ2AZ-564)
     // 상세가 오기 전에는 목록이 준 대표 사진 한 장으로 그린다.
     gallery.show(bookOf(null, null, summary.imageUrl ? [summary.imageUrl] : []), { kind: 'place', id: summary.id }, gallery.generation)
     void refresh()

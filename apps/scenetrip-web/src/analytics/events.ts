@@ -14,6 +14,8 @@ export type EventName =
   | 'select_home_city'
   // 웹 전용(MZ2AZ-532 DEV 실험) — iOS·Android 에는 아직 없다.
   | 'start_directions'
+  // 웹 전용 — 비회원 가입 권유 알약(MZ2AZ-564).
+  | 'signup_nudge_view' | 'signup_nudge_click' | 'signup_nudge_dismiss'
 
 export type EventParams = Readonly<Record<string, string | number>>
 
@@ -82,6 +84,9 @@ export const appEvent = {
   postReview: (photoCount: number, hasCourse: boolean) => make('post_review', { photo_count: photoCount, has_course: flag(hasCourse) }),
 } as const
 
+/** 가입 권유 알약이 뜬 이유(MZ2AZ-564) — signUpNudgeRules.ts 의 NudgeTrigger 와 같다. */
+export type NudgeTriggerParam = 'saved' | 'views'
+
 /** 홈 「도시의 성지」에서 도시가 정해진 계기 — 처음 고른 것·칩을 누름·「내 위치」. */
 export type HomeCitySource = 'default' | 'chip' | 'near_me'
 
@@ -92,4 +97,8 @@ export type HomeCitySource = 'default' | 'chip' | 'near_me'
 export const webEvent = {
   /** `city` 는 한국어 도시 열쇠(언어와 무관), 좌표는 보내지 않는다. */
   selectHomeCity: (city: string, source: HomeCitySource) => make('select_home_city', { city, source }),
+  /** 가입 권유 알약(MZ2AZ-564). `trigger` = `saved`(담은 게 있음) · `views`(상세 3 번). 개수·이름은 보내지 않는다. */
+  signupNudgeView: (trigger: NudgeTriggerParam) => make('signup_nudge_view', { trigger }),
+  signupNudgeClick: (trigger: NudgeTriggerParam) => make('signup_nudge_click', { trigger }),
+  signupNudgeDismiss: (trigger: NudgeTriggerParam) => make('signup_nudge_dismiss', { trigger }),
 } as const

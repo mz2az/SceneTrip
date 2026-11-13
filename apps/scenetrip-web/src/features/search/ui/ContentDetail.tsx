@@ -6,6 +6,8 @@
  */
 import { useEffect, useState } from 'react'
 import { appEvent, track } from '@/analytics'
+import { countDetailView } from '@/features/profile/auth/signUpNudgeRules'
+import { hasSession } from '@/state/auth'
 import { api, ok } from '@/api/client'
 import { Icon } from '@/design/Icon'
 import { HStack, Spinner, Txt, VStack, rr } from '@/design/primitives'
@@ -41,6 +43,7 @@ export function ContentDetail({
     setDetail(null)
     recordView('content', summary.id)
     track(appEvent.viewTitle(summary.id))
+    countDetailView(hasSession()) // 가입 권유 알약(MZ2AZ-564)
     ok(api.GET('/contents/{contentId}', { params: { path: { contentId: summary.id } } }))
       .then((fresh) => !cancelled && fresh.id === summary.id && setDetail(fresh))
       .catch(() => {})

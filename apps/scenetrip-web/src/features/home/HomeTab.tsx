@@ -68,7 +68,7 @@ export function HomeTab() {
 
   return (
     <div className="scroll-y" style={{ height: '100%', background: 'var(--grouped-background)', paddingBottom: 'var(--proto-tab-inset, 0px)' }}>
-      <VStack spacing={18} align="stretch" style={{ padding: proto !== null ? '8.7px 0 84px' : '8.7px 0 28px' }}>
+      <VStack spacing={18} align="stretch" style={{ padding: proto !== null ? '8.7px 0 84px' : '8.7px 0 calc(28px + var(--nudge-inset, 0px))' }}>
         <HomeHeader onProfile={() => router.openProfile()} />
         {/* 「어디로 가세요?」 시안(로컬 전용, docs/project/plans/web-trip-first-prototypes.md). */}
         {/* 시안: 맨 위는 사진 질문 카드, 코스는 아래에 떠 있는 「여행 계획」 줄이 맡는다(사용자 결정 2026-11-07). */}
