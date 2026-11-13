@@ -16,6 +16,8 @@ export type EventName =
   | 'start_directions'
   // 웹 전용 — 비회원 가입 권유 알약(MZ2AZ-564).
   | 'signup_nudge_view' | 'signup_nudge_click' | 'signup_nudge_dismiss'
+  // 웹 전용 — 구글 원탭으로 가입·로그인했다(MZ2AZ-565).
+  | 'one_tap_sign_in'
 
 export type EventParams = Readonly<Record<string, string | number>>
 
@@ -101,4 +103,6 @@ export const webEvent = {
   signupNudgeView: (trigger: NudgeTriggerParam) => make('signup_nudge_view', { trigger }),
   signupNudgeClick: (trigger: NudgeTriggerParam) => make('signup_nudge_click', { trigger }),
   signupNudgeDismiss: (trigger: NudgeTriggerParam) => make('signup_nudge_dismiss', { trigger }),
+  /** 구글 원탭으로 로그인이 끝났다(MZ2AZ-565). `new_user` 1 이면 이번에 가입. 팝업 로그인과 같은 `sign_up`·`login` 도 따로 나간다. */
+  oneTapSignIn: (newUser: boolean) => make('one_tap_sign_in', { new_user: flag(newUser) }),
 } as const
