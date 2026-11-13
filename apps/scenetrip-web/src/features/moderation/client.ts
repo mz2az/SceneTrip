@@ -9,6 +9,8 @@ export interface ModerationClient {
   block(target: ModerationTarget): Promise<BlockedUser>
   blocks(): Promise<BlockedUser[]>
   unblock(blockId: number): Promise<void>
+  /** 운영자가 남의 글·댓글·리뷰를 내린다(MZ2AZ-569). */
+  remove(target: ModerationTarget): Promise<void>
 }
 
 export const serverModerationClient: ModerationClient = {
@@ -29,5 +31,8 @@ export const serverModerationClient: ModerationClient = {
   },
   async unblock(blockId) {
     await ok(api.DELETE('/me/blocks/{blockId}', { params: { path: { blockId } } }))
+  },
+  async remove(target) {
+    await ok(api.POST('/moderation/removals', { body: { targetType: targetType(target), targetId: target.id } }))
   },
 }

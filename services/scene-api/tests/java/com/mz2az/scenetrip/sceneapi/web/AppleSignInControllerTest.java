@@ -22,6 +22,7 @@ import com.mz2az.scenetrip.sceneapi.auth.SignInService;
 import com.mz2az.scenetrip.sceneapi.auth.SignInService.SignedIn;
 import com.mz2az.scenetrip.sceneapi.auth.SocialIdentity;
 import com.mz2az.scenetrip.sceneapi.auth.SocialTokenFailures;
+import com.mz2az.scenetrip.sceneapi.moderation.OperatorDirectory;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import com.mz2az.scenetrip.sceneapi.user.UserStore.Identity;
 import com.mz2az.scenetrip.sceneapi.user.UserStore.Profile;
@@ -98,6 +99,9 @@ class AppleSignInControllerTest {
   @MockitoBean private SignInService signIn;
 
   @MockitoBean private AppleLogin apple;
+
+  // 운영자 판정(MZ2AZ-569) — /me 의 isOperator. 목의 기본값 false.
+  @MockitoBean private OperatorDirectory operators;
 
   // ───────────── 501 ─────────────
 

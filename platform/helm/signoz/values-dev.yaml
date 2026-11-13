@@ -24,3 +24,9 @@ otelCollector:
     requests: { cpu: 500m }
   livenessProbe:
     failureThreshold: 12
+
+# 알림(Slack 등)에 붙는 링크의 앞부분 — 차트 기본값 http://localhost:8080 이라 신고 알림 링크가 열리지 않았다(MZ2AZ-569).
+# 배포기가 stdin 으로 넘기는 signoz.env(첫 관리자)와는 Helm 이 맵을 깊게 합쳐 함께 들어간다.
+signoz:
+  env:
+    signoz_alertmanager_signoz_external__url: https://signoz-dev.scenetrip.io

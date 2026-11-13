@@ -23,6 +23,7 @@ import com.mz2az.scenetrip.sceneapi.auth.RefreshTokenStore.Reason;
 import com.mz2az.scenetrip.sceneapi.auth.RefreshTokenStore.Rejected;
 import com.mz2az.scenetrip.sceneapi.auth.RefreshTokenStore.Rotated;
 import com.mz2az.scenetrip.sceneapi.auth.SignInService;
+import com.mz2az.scenetrip.sceneapi.moderation.OperatorDirectory;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import com.mz2az.scenetrip.sceneapi.user.UserStore.Identity;
 import com.mz2az.scenetrip.sceneapi.user.UserStore.NicknameResult;
@@ -105,6 +106,9 @@ class AuthControllerTest {
 
   // 애플 로그인 — 이 시험의 대상이 아니다. 목의 enabled() 는 false 라 /auth/apple 은 501, 탈퇴의 애플 끊기는 하지 않는다.
   @MockitoBean private AppleLogin apple;
+
+  // 운영자 판정(MZ2AZ-569) — /me 의 isOperator. 목의 기본값 false.
+  @MockitoBean private OperatorDirectory operators;
 
   @BeforeEach
   void setUp() {
@@ -321,6 +325,27 @@ class AuthControllerTest {
         .andExpect(jsonPath("$.identities[1].provider").value("apple"))
         .andExpect(jsonPath("$.displayName").value("애플이름"))
         .andExpect(jsonPath("$.email").value("first@example.com"));
+  }
+
+  @Test
+  @DisplayName("운영자가 아니면 isOperator=false (MZ2AZ-569)")
+  void getMeIsOperatorFalse() throws Exception {
+    when(users.touchSignedIn(USER)).thenReturn(true);
+    when(users.profile(USER)).thenReturn(Optional.of(googleProfile()));
+    when(operators.isOperator(USER)).thenReturn(false);
+
+    getMe(bearer()).andExpect(status().isOk()).andExpect(jsonPath("$.isOperator").value(false));
+  }
+
+  @Test
+  @DisplayName("운영자 판정이 참이면 isOperator=true — 토큰의 계정으로 묻는다 (MZ2AZ-569)")
+  void getMeIsOperatorTrue() throws Exception {
+    when(users.touchSignedIn(USER)).thenReturn(true);
+    when(users.profile(USER)).thenReturn(Optional.of(googleProfile()));
+    when(operators.isOperator(USER)).thenReturn(true);
+
+    getMe(bearer()).andExpect(status().isOk()).andExpect(jsonPath("$.isOperator").value(true));
+    verify(operators).isOperator(USER);
   }
 
   @Test

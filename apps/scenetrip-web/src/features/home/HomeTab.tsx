@@ -106,7 +106,12 @@ export function HomeTab() {
         <CommunityNow posts={community.posts.slice(0, NOW_POSTS)} moderation={moderation} onOpen={() => router.selectTab('community')} />
         <MyRecord stamps={home.stamps} likeCount={likes.contentIds.size} onOpen={() => router.openProfile()} />
       </VStack>
-      <ModerationSheets controller={moderation} onBlocked={(t) => { if (t.kind === 'post') void community.blocked(t.id) }} />
+      <ModerationSheets
+        controller={moderation}
+        onBlocked={(t) => { if (t.kind === 'post') void community.blocked(t.id) }}
+        // 운영자가 홈 카드에서 내린 글도 걷어 낸다(MZ2AZ-569, 검증 지적).
+        onRemoved={(t) => { if (t.kind === 'post') void community.blocked(t.id) }}
+      />
     </div>
   )
 }

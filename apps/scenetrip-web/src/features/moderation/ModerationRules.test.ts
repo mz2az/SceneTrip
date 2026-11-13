@@ -10,6 +10,8 @@ import {
   isTextNotAllowed,
   postTarget,
   reasonLabel,
+  removeMessage,
+  removeOutcome,
   reportDetail,
   reportFinishes,
   reportMessage,
@@ -99,6 +101,37 @@ describe('ModerationRules', () => {
       for (const k of ['신고', '이 사용자 차단', '신고 이유', '스팸·광고', '차단한 사용자', '쓸 수 없는 말이 들어 있어요. 고친 뒤 다시 저장해 주세요.']) {
         expect(tr(k)).not.toBe(k)
         expect(tr(k)).not.toMatch(/[가-힣]/)
+      }
+    } finally {
+      chooseLanguage('ko')
+    }
+  })
+})
+
+// MZ2AZ-569 — 운영자의 「내리기」(docs/project/plans/moderation-operator.md §2·§4)
+describe('ModerationRules — 내리기', () => {
+  it('내리기 결과는 서버 문장이 아니라 code 로 가른다', () => {
+    expect(removeOutcome(fail(403, 'OPERATOR_ONLY'))).toBe('notOperator')
+    expect(removeOutcome(fail(404, 'REMOVAL_TARGET_NOT_FOUND'))).toBe('gone')
+    expect(removeOutcome(fail(500, 'INTERNAL_ERROR'))).toBe('failed')
+    expect(removeOutcome(fail(401, 'SIGN_IN_REQUIRED'))).toBe('failed')
+    expect(removeOutcome(new ApiFailure({ statusCode: null, isOffline: true }))).toBe('failed')
+    expect(removeOutcome(new Error('x'))).toBe('failed')
+  })
+
+  it('내리기 결과 문구', () => {
+    expect(removeMessage('removed')).toBe('내렸어요')
+    expect(removeMessage('notOperator')).toBe('운영자만 할 수 있어요')
+    expect(removeMessage('gone')).toBe('이미 없는 글이에요')
+    expect(removeMessage('failed')).toBe('내리지 못했어요. 잠시 뒤 다시 해 주세요')
+  })
+
+  it('내리기 문구는 영어로도 있다', () => {
+    chooseLanguage('en')
+    try {
+      for (const o of ['removed', 'notOperator', 'gone', 'failed'] as const) {
+        expect(removeMessage(o)).not.toBe('')
+        expect(removeMessage(o)).not.toMatch(/[가-힣]/)
       }
     } finally {
       chooseLanguage('ko')

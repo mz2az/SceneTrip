@@ -48,7 +48,11 @@ OPTIONAL_SECRET_KEYS = {
     # 애플 로그인 개인 키(.p8 PEM 의 base64). 사람이 애플에서 받아 와 넣는다(MZ2AZ-337).
     #
     # DEV 에서는 선택이다 — 키 없이도 DEV 를 올릴 수 있게. **PRD 에서는 필수**다(아래 PRD_REQUIRED_SECRET_KEYS).
-    "scene_api": {"SCENETRIP_AUTH_APPLE_PRIVATE_KEY"},
+    # 신고 알림 Slack 들어오는 웹훅(MZ2AZ-569). 없으면 신고 알림은 SigNoz 알람(건수)만 간다. 사람이 Slack 에서 받아 넣는다.
+    "scene_api": {
+        "SCENETRIP_AUTH_APPLE_PRIVATE_KEY",
+        "SCENETRIP_REPORT_SLACK_WEBHOOK_URL",
+    },
 }
 
 # PRD 에서만 필수인 키. iOS 에서 구글 로그인을 내면 애플 로그인도 반드시 제공해야 한다(App Store 4.8) — 선택이면

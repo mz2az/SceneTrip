@@ -100,7 +100,8 @@ class ReviewFlowIntegrationTest {
           accounts,
           null,
           new SignInService(users, links, refreshTokens, transactions),
-          disabledApple());
+          disabledApple(),
+          new com.mz2az.scenetrip.sceneapi.moderation.OperatorDirectory(jdbc, java.util.List.of()));
 
   private final List<UUID> createdUsers = new ArrayList<>();
   private final List<Long> createdPlaces = new ArrayList<>();

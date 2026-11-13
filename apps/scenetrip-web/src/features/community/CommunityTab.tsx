@@ -158,7 +158,12 @@ export function CommunityTab() {
         <ComposeSheet open={composing} onClose={closeSheets} topGap={SHEET_TOP_GAP} radius={SHEET_RADIUS} />
       )}
 
-      <ModerationSheets controller={moderation} onBlocked={(t) => t.kind === 'post' && void communityStore.api.blocked(t.id)} />
+      <ModerationSheets
+        controller={moderation}
+        onBlocked={(t) => t.kind === 'post' && void communityStore.api.blocked(t.id)}
+        // 운영자가 내린 글도 목록에서 걷어 내고 다시 받는다(MZ2AZ-569).
+        onRemoved={(t) => t.kind === 'post' && void communityStore.api.blocked(t.id)}
+      />
       <Alert
         open={deleting !== null}
         title={tr('후기를 지울까요?')}

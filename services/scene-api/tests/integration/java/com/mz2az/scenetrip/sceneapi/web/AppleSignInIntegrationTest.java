@@ -260,7 +260,15 @@ class AppleSignInIntegrationTest {
                 clock),
             cipher,
             links);
-    return new AuthController(accessTokens, refreshTokens, users, accounts, google, signIn, apple);
+    return new AuthController(
+        accessTokens,
+        refreshTokens,
+        users,
+        accounts,
+        google,
+        signIn,
+        apple,
+        new com.mz2az.scenetrip.sceneapi.moderation.OperatorDirectory(jdbc, java.util.List.of()));
   }
 
   private String identityToken(String subject, String nonceClaim) {

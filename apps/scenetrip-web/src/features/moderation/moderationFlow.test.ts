@@ -14,6 +14,8 @@ const sample = (id: number, nickname: string): BlockedUser => ({ id, nickname, b
 class FakeClient implements ModerationClient {
   reports: Array<{ target: ModerationTarget; reason: ReportReason; detail: string | null }> = []
   blocked: ModerationTarget[] = []
+  removed: ModerationTarget[] = []
+  removeError: unknown = null
   unblocked: number[] = []
   list: BlockedUser[] = []
   reportError: unknown = null
@@ -29,6 +31,10 @@ class FakeClient implements ModerationClient {
     if (this.blockError) throw this.blockError
     this.blocked.push(target)
     return sample(1, 'x')
+  }
+  async remove(target: ModerationTarget) {
+    if (this.removeError) throw this.removeError
+    this.removed.push(target)
   }
   async blocks() {
     const snapshot = [...this.list]
@@ -111,6 +117,59 @@ describe('ModerationController', () => {
     expect(await c.report(reviewTarget(1), 'spam', '')).toBe('failed')
     release()
     expect(await first).toBe('received')
+  })
+})
+
+// MZ2AZ-569 — 운영자의 「내리기」(docs/project/plans/moderation-operator.md §4 `controller.ts`)
+describe('ModerationController — 내리기', () => {
+  const make = (client: FakeClient, events = createModerationEvents()) =>
+    createModerationController({ client, signedIn: () => true, promptSignIn: () => {}, events })
+
+  it('처음에는 확인 창이 없고, askRemove 가 띄우고 dismissRemoveConfirm 이 닫는다', () => {
+    const c = make(new FakeClient())
+    expect(c.store.get().confirmingRemove).toBeNull()
+    c.askRemove(postTarget(5))
+    expect(c.store.get().confirmingRemove).toEqual(postTarget(5))
+    c.dismissRemoveConfirm()
+    expect(c.store.get().confirmingRemove).toBeNull()
+  })
+
+  it('내리면 대상을 보내고, 확인 창을 닫고, 「내렸어요」 를 알리고 신호를 울린다', async () => {
+    const client = new FakeClient()
+    const events = createModerationEvents()
+    const c = make(client, events)
+    c.askRemove(postTarget(5))
+    expect(await c.remove(postTarget(5))).toBe(true)
+    expect(client.removed).toEqual([postTarget(5)])
+    expect(c.store.get().confirmingRemove).toBeNull()
+    expect(c.store.get().notice).toBe('내렸어요')
+    expect(events.version()).toBe(1)
+  })
+
+  it('운영자가 아니면(403 OPERATOR_ONLY) 까닭을 안내하고 신호를 울리지 않는다', async () => {
+    const client = new FakeClient()
+    client.removeError = fail(403, 'OPERATOR_ONLY')
+    const events = createModerationEvents()
+    const c = make(client, events)
+    c.askRemove(reviewTarget(8))
+    expect(await c.remove(reviewTarget(8))).toBe(false)
+    expect(c.store.get().confirmingRemove).toBeNull()
+    expect(c.store.get().notice).toBe('운영자만 할 수 있어요')
+    expect(events.version()).toBe(0)
+  })
+
+  it('이미 없는 글(404)·그 밖의 실패도 안내만 하고 신호는 없다', async () => {
+    const client = new FakeClient()
+    const events = createModerationEvents()
+    const c = make(client, events)
+    client.removeError = fail(404, 'REMOVAL_TARGET_NOT_FOUND')
+    expect(await c.remove(postTarget(1))).toBe(false)
+    expect(c.store.get().notice).toBe('이미 없는 글이에요')
+    c.dismissNotice()
+    client.removeError = new ApiFailure({ statusCode: null, isOffline: true })
+    expect(await c.remove(postTarget(1))).toBe(false)
+    expect(c.store.get().notice).toBe('내리지 못했어요. 잠시 뒤 다시 해 주세요')
+    expect(events.version()).toBe(0)
   })
 })
 
