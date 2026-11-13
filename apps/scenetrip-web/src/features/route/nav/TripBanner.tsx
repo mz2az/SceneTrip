@@ -133,7 +133,7 @@ function GuidingDetail({ session, result }: { session: TripSession; result: NavR
 
 /**
  * 구간 — 세로 단계 목록(MZ2AZ-566). 가로로 미는 칩 줄은 어디서 어디까지 걷고 어디서 무엇을 타는지 읽히지 않았다(11/11 멘토 지적).
- * 왼쪽 원과 세로줄은 지도 선과 같은 색 — 도보는 회색 점선, 탈것은 노선 색 실선. 맨 끝에 도착 줄.
+ * 왼쪽 원과 세로줄은 지도 선과 같은 색 — 도보는 보라 점선, 탈것은 노선 색 실선. 맨 끝에 도착 줄.
  */
 function LegSteps({ legs, destination }: { legs: readonly Leg[]; destination: string }) {
   return (

@@ -7,7 +7,8 @@
 import { tr } from '@/i18n'
 import type { LegMode } from './navModels'
 
-export const WALK_COLOR = '#8A94A6'
+/** 도보 — 앱 대표 보라. 회색은 지도 위에서 눈에 안 띄었다(2026-11-13 사용자 지적). 탈것은 노선 색 실선이라 보라 점선과 섞이지 않는다. */
+export const WALK_COLOR = '#7A69ED'
 export const SUBWAY_FALLBACK = '#3A6FD8'
 const TRANSIT_COLOR = '#6B7280'
 

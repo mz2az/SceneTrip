@@ -13,7 +13,7 @@ const SEOUL = { latitude: 37.55, longitude: 126.97 }
 
 describe('상수', () => {
   it('도보 색과 지하철 기본 색', () => {
-    expect(WALK_COLOR).toBe('#8A94A6')
+    expect(WALK_COLOR).toBe('#7A69ED')
     expect(SUBWAY_FALLBACK).toBe('#3A6FD8')
   })
 })
