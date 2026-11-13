@@ -282,8 +282,8 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
   const guideState = useGuideState(sharedGuide)
   const state = useStore(ui, (s) => s)
   const cart = useCart()
-  // 지도를 펼치면 이 띠는 다른 자리(목록만 ↔ 지도 화면)에 새로 그려진다 — 펼치기 전 것의 ref 는 멈춘다. 그래서 모듈 하나에 최신 호스트를 둔다.
-  latestPanelHost.current = host
+  const hostRef = useRef(host)
+  hostRef.current = host
   const anchor = useGuideAnchor(host)
   // 정보 카드의 별점 줄·사진 줄 — 리뷰 시트와 사진첩이 이 위에 올라온다.
   const [reviewing, setReviewing] = useState<{ target: PlaceTarget; title: string } | null>(null)
