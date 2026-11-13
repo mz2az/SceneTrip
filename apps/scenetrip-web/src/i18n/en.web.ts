@@ -33,4 +33,6 @@ export const webEnglish: Readonly<Record<string, string>> = {
   '도착 · %@': 'Arrive · %@',
   '도보': 'Walk',
   '경로': 'Route',
+  // MZ2AZ-567 단계를 누르면 그 구간으로
+  '지도에서 보기': 'Show on map',
 }

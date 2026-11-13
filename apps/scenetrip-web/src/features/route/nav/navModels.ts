@@ -10,6 +10,7 @@
  */
 import type { components } from '@/api/generated/schema'
 import { tr } from '@/i18n'
+import type { MapBounds } from '@/map'
 import { distanceMeters } from './geo'
 import { SUBWAY_FALLBACK, WALK_COLOR, boardAlight, legStyle } from './navStyle'
 
@@ -250,4 +251,36 @@ export function trailRemaining(paths: number[][][], here: { latitude: number; lo
     // 지금 걷고 있는 구간 — 선이 발밑에서 시작하게 지금 자리를 앞에 붙인다.
     return [[here.longitude, here.latitude], ...path.slice(bestPoint)]
   })
+}
+
+// ---------------------------------------------------------------- 단계 → 지도 (MZ2AZ-567, web-directions-steps.md §7·§8)
+
+/** 한 구간의 좌표를 다 담는 상자. 좌표가 없으면 null, 하나면 그 점의 상자. */
+export function legBounds(leg: Leg): MapBounds | null {
+  const pts = leg.path.filter((p) => p.length >= 2)
+  if (pts.length === 0) return null
+  const lats = pts.map((p) => p[1])
+  const lngs = pts.map((p) => p[0])
+  return { southWest: { lat: Math.min(...lats), lng: Math.min(...lngs) }, northEast: { lat: Math.max(...lats), lng: Math.max(...lngs) } }
+}
+
+/**
+ * 지금 할 단계 — 지금 자리에서 가장 가까운 꼭짓점이 속한 단계(`navChips` 순서). 지도의 `trailRemaining` 과 같은 규칙이라
+ * 지도에서 지워지는 구간과 목록에서 흐려지는 단계가 어긋나지 않는다. 자리를 모르거나 `limit` m 넘게 벗어났으면 null.
+ */
+export function currentStep(steps: readonly Leg[], here: { latitude: number; longitude: number } | null, limit = 120): number | null {
+  if (!here) return null
+  let bestStep: number | null = null
+  let best = Infinity
+  steps.forEach((step, index) => {
+    for (const pair of step.path) {
+      if (pair.length < 2) continue
+      const meters = distanceMeters(here, { latitude: pair[1], longitude: pair[0] })
+      if (meters < best) {
+        best = meters
+        bestStep = index
+      }
+    }
+  })
+  return bestStep !== null && best <= limit ? bestStep : null
 }
