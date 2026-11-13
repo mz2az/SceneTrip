@@ -38,6 +38,10 @@ export interface EditorHost {
   pinning: boolean
   /** 화면 바닥에 정보 카드(번호 핀 카드)가 떠 있는가. */
   cardOpen: boolean
+  /** 지도가 보이는가 — 시안의 「목록만」이면 지도는 높이 0 으로 접혀 있다(MZ2AZ-567). */
+  mapShown: boolean
+  /** 접힌 지도를 펼친다. 이미 펼쳐 있으면 아무 일도 없다. */
+  showMap: () => void
   /** 목록에서 고른 줄. */
   focusedUid: string | null
   setFocusedUid(uid: string | null): void
