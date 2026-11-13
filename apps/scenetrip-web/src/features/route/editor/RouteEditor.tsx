@@ -240,6 +240,10 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
   const fabOverBar = proto && editing && isNew
   const host: EditorHost = {
     course, setCourse, dayIndex, setDayIndex, stops, isNew, map, refit, saveNow, panelHeight,
+    mapShown: !(proto && !mapOpen),
+    showMap: () => {
+      if (proto && !mapOpen) openMap()
+    },
     chipBottom: chipBottom({ bottomBarShown: fabOverBar }),
     requestClose: cancel,
     requestPlanner: () => pendingStore.set((s) => ({ ...s, planner: true })),

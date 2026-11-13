@@ -36,6 +36,7 @@ import { type GuideSession, sharedGuide, useGuideState } from '../guide/guideSes
 import { guideDirectionsSteps, guideEntryPlacement, parseDirective, resolveAnchor } from '../guide/guideRules'
 import type { GuideAnswer } from '../guide/guideSender'
 import { distanceMeters } from '../nav/geo'
+import { type Leg, legBounds } from '../nav/navModels'
 import { KakaoNotice } from '../nav/KakaoNotice'
 import { useMapOverlay } from '../nav/useMapOverlay'
 import { StampOverlay } from '../nav/StampOverlay'
@@ -281,8 +282,8 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
   const guideState = useGuideState(sharedGuide)
   const state = useStore(ui, (s) => s)
   const cart = useCart()
-  const hostRef = useRef(host)
-  hostRef.current = host
+  // 지도를 펼치면 이 띠는 다른 자리(목록만 ↔ 지도 화면)에 새로 그려진다 — 펼치기 전 것의 ref 는 멈춘다. 그래서 모듈 하나에 최신 호스트를 둔다.
+  latestPanelHost.current = host
   const anchor = useGuideAnchor(host)
   // 정보 카드의 별점 줄·사진 줄 — 리뷰 시트와 사진첩이 이 위에 올라온다.
   const [reviewing, setReviewing] = useState<{ target: PlaceTarget; title: string } | null>(null)
@@ -646,14 +647,43 @@ function visitNoticeFor(stop: RouteStop | null, state: Pick<UiState, 'visitSavin
   return undefined
 }
 
+/**
+ * 단계를 누르면 그 구간으로 — 점 하나면 줌 17 로 옮기고, 아니면 시트에 가리지 않게 맞춘다(MZ2AZ-567, web-directions-steps.md §7-2).
+ * 「목록만」으로 지도가 접혀 있으면 먼저 펼치고, 펼쳐져 시트 높이가 정해진 뒤에 맞춘다 — 높이 0 인 지도에 맞추면 엉뚱한 화면이 남는다(검증 지적).
+ */
+function focusLeg(hostRef: { current: EditorHost }, leg: Leg): void {
+  const box = legBounds(leg)
+  if (!box) return
+  const fit = () => {
+    const host = hostRef.current
+    const map = host.map
+    if (!map || !host.mapShown) return
+    const point = box.southWest.lat === box.northEast.lat && box.southWest.lng === box.northEast.lng
+    if (point) return void map.setView(box.southWest, 17, { animate: true })
+    map.fitBounds(box, { paddingTopLeft: [40, 40], paddingBottomRight: [40, host.panelHeight + 40], maxZoom: 17, animate: true })
+  }
+  if (hostRef.current.mapShown) return fit()
+  hostRef.current.showMap()
+  window.setTimeout(fit, MAP_OPEN_SETTLE_MS)
+}
+
+/** 안내 띠가 마지막으로 본 편집기 호스트 — `focusLeg` 가 지도를 펼친 뒤 다시 읽는다. */
+const latestPanelHost: { current: EditorHost | null } = { current: null }
+
+/** 접힌 지도를 펼친 뒤 시트가 중간 단에 내려앉기까지(RouteEditor 의 openMap: 60 ms 뒤 중간 단 + 미끄러짐). */
+const MAP_OPEN_SETTLE_MS = 520
+
 function EditorTripPanelTop({ host }: { host: EditorHost }) {
   const trip = useTripState(tripSession)
+  // 지도를 펼치면 이 띠는 다른 자리(목록만 ↔ 지도 화면)에 새로 그려진다 — 펼치기 전 것의 ref 는 멈춘다. 그래서 모듈 하나에 최신 호스트를 둔다.
+  latestPanelHost.current = host
   const nextNumber = nextUnvisited(host.stops)
   return (
     <TripBanner
       session={tripSession}
       state={trip}
       next={nextNumber ? { number: nextNumber.number, name: nextNumber.stop.place.name } : null}
+      onFocusLeg={host.map ? (leg) => focusLeg(latestPanelHost as { current: EditorHost }, leg) : undefined}
     />
   )
 }
