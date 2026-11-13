@@ -15,6 +15,7 @@ import com.mz2az.scenetrip.sceneapi.auth.IssuedToken;
 import com.mz2az.scenetrip.sceneapi.auth.RefreshTokenStore;
 import com.mz2az.scenetrip.sceneapi.auth.RefreshTokenStore.Rotated;
 import com.mz2az.scenetrip.sceneapi.auth.SignInService;
+import com.mz2az.scenetrip.sceneapi.moderation.OperatorDirectory;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import com.mz2az.scenetrip.sceneapi.user.UserStore.Identity;
 import com.mz2az.scenetrip.sceneapi.user.UserStore.Profile;
@@ -73,6 +74,9 @@ class AuthControllerWithoutKeyTest {
 
   // 애플 로그인 — 이 시험의 대상이 아니다. 목의 enabled() 는 false 라 /auth/apple 은 501, 탈퇴의 애플 끊기는 하지 않는다.
   @MockitoBean private AppleLogin apple;
+
+  // 운영자 판정(MZ2AZ-569) — /me 의 isOperator. 목의 기본값 false.
+  @MockitoBean private OperatorDirectory operators;
 
   @Test
   @DisplayName("키가 없으면 갱신은 401 REFRESH_TOKEN_INVALID 이고 리프레시 토큰을 교체(소비)하지 않는다")

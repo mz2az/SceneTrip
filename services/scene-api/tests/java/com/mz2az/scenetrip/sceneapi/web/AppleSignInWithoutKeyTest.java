@@ -14,6 +14,7 @@ import com.mz2az.scenetrip.sceneapi.auth.AppleLogin;
 import com.mz2az.scenetrip.sceneapi.auth.GoogleIdTokenVerifier;
 import com.mz2az.scenetrip.sceneapi.auth.RefreshTokenStore;
 import com.mz2az.scenetrip.sceneapi.auth.SignInService;
+import com.mz2az.scenetrip.sceneapi.moderation.OperatorDirectory;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import java.time.Clock;
 import java.time.Duration;
@@ -58,6 +59,9 @@ class AppleSignInWithoutKeyTest {
   @MockitoBean private SignInService signIn;
 
   @MockitoBean private AppleLogin apple;
+
+  // 운영자 판정(MZ2AZ-569) — /me 의 isOperator. 목의 기본값 false.
+  @MockitoBean private OperatorDirectory operators;
 
   @Test
   @DisplayName("애플이 켜져 있어도 서명 키가 없으면 500 INTERNAL_ERROR — 아무도 가입시키지 않는다")

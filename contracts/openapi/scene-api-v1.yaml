@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.29.1
+  version: 1.30.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -3032,6 +3032,56 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /moderation/removals:
+    post:
+      tags: [moderation]
+      operationId: removeContent
+      summary: 운영자가 글·댓글·리뷰를 내린다
+      description: |
+        운영자만 부른다(1.30.0, MZ2AZ-569). 여행후기·자유게시판 글(`post`), 댓글(`comment`), 장소·편의시설 리뷰(`review`)를
+        **내린다** — 지우지 않고 「운영자가 내린 때」(`removed_at`)를 채운다. 내린 것은 목록·상세·평균·사진첩 어디에도 나오지 않는다.
+        누가 언제 무엇을 내렸는지 서버가 기록한다.
+
+        **운영자**는 서버 설정이 정한다(로그인 신분의 메일). 앱은 `GET /me` 의 `isOperator` 가 `true` 일 때만 이 동작을 보인다.
+        이미 내린 것을 다시 내려도 204 다.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RemovalCreate"
+      responses:
+        "204":
+          description: 내렸다(이미 내려 있어도 같다)
+        "400":
+          description: 요청이 계약을 어겼다(`INVALID_PARAMETER`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: 로그인하지 않았거나(`SIGN_IN_REQUIRED`) 토큰이 만료됐다(`ACCESS_TOKEN_EXPIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: "`OPERATOR_ONLY` — 운영자가 아니다"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: "`REMOVAL_TARGET_NOT_FOUND` — 그런 글이 없다(지워졌다)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /uploads:
     post:
       tags: [uploads]
@@ -3568,6 +3618,11 @@ components:
           type: string
           format: date-time
           description: 가입 시각
+        isOperator:
+          type: boolean
+          description: |
+            운영자인가(1.30.0, MZ2AZ-569). `true` 면 앱이 남의 글·댓글·리뷰 메뉴에 「내리기」를 보이고
+            `POST /moderation/removals` 를 부른다. 없으면 `false` 로 본다
 
     NicknameInput:
       type: object
@@ -4350,6 +4405,18 @@ components:
       type: string
       enum: [review, post, comment]
       description: 신고·차단할 글의 종류(1.19.0). `comment` 는 여행후기 댓글(1.24.0, `TripPostComment.id`)
+
+    RemovalCreate:
+      type: object
+      required: [targetType, targetId]
+      properties:
+        targetType:
+          $ref: "#/components/schemas/ReportTargetType"
+        targetId:
+          type: integer
+          format: int64
+          minimum: 1
+          description: 리뷰면 `Review.id`, 글이면 `TripPostSummary.id`, 댓글이면 `TripPostComment.id` — 신고(`ReportCreate`)와 같은 뜻
 
     ReportReason:
       type: string

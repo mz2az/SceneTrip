@@ -4,9 +4,13 @@ import com.mz2az.scenetrip.sceneapi.api.ModerationApi;
 import com.mz2az.scenetrip.sceneapi.api.model.BlockCreate;
 import com.mz2az.scenetrip.sceneapi.api.model.BlockedUser;
 import com.mz2az.scenetrip.sceneapi.api.model.BlockedUserList;
+import com.mz2az.scenetrip.sceneapi.api.model.RemovalCreate;
 import com.mz2az.scenetrip.sceneapi.api.model.ReportCreate;
 import com.mz2az.scenetrip.sceneapi.api.model.ReportTargetType;
 import com.mz2az.scenetrip.sceneapi.moderation.BlockStore;
+import com.mz2az.scenetrip.sceneapi.moderation.OperatorDirectory;
+import com.mz2az.scenetrip.sceneapi.moderation.RemovalStore;
+import com.mz2az.scenetrip.sceneapi.moderation.ReportNotifier;
 import com.mz2az.scenetrip.sceneapi.moderation.ReportStore;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -29,11 +33,23 @@ class ModerationController implements ModerationApi {
   private final ReportStore reports;
   private final BlockStore blocks;
   private final CurrentAccount accounts;
+  private final RemovalStore removals;
+  private final OperatorDirectory operators;
+  private final ReportNotifier notifier;
 
-  ModerationController(ReportStore reports, BlockStore blocks, CurrentAccount accounts) {
+  ModerationController(
+      ReportStore reports,
+      BlockStore blocks,
+      CurrentAccount accounts,
+      RemovalStore removals,
+      OperatorDirectory operators,
+      ReportNotifier notifier) {
     this.reports = reports;
     this.blocks = blocks;
     this.accounts = accounts;
+    this.removals = removals;
+    this.operators = operators;
+    this.notifier = notifier;
   }
 
   @Override
@@ -50,11 +66,36 @@ class ModerationController implements ModerationApi {
               "REPORT_TARGET_NOT_FOUND",
               target.value + " " + in.getTargetId() + " 이(가) 없거나 이미 내려갔습니다");
       case OWN -> throw ApiException.badRequest("CANNOT_REPORT_OWN", "자기 글은 신고할 수 없습니다");
-      case RECORDED ->
-          // 운영자 알림의 근거 — SigNoz 알람 규칙이 이 로그(「[신고] 접수」)를 센다(계획 §3). 모양을 바꾸면 알람도 고친다.
-          log.warn("[신고] 접수 target={} id={} reason={}", target.value, in.getTargetId(), reason);
+      case RECORDED -> {
+        // 운영자 알림의 근거 — SigNoz 알람 규칙이 이 로그(「[신고] 접수」)를 센다(계획 §3). 모양을 바꾸면 알람도 고친다.
+        log.warn("[신고] 접수 target={} id={} reason={}", target.value, in.getTargetId(), reason);
+        // 무엇이 신고됐는지 담은 Slack 알림(MZ2AZ-569) — 기다리지 않는다.
+        notifier.reportRecorded(target, in.getTargetId(), reason, detail);
+      }
       case ALREADY -> {
         // 이미 신고한 글 — 한 번으로 센다. 알림도 다시 보내지 않는다.
+      }
+    }
+    return ResponseEntity.noContent().build();
+  }
+
+  /** 운영자가 글·댓글·리뷰를 내린다(1.30.0, MZ2AZ-569, 계획 {@code moderation-operator.md} §2). */
+  @Override
+  public ResponseEntity<Void> removeContent(RemovalCreate in) {
+    UUID operator = accounts.requireMember();
+    if (!operators.isOperator(operator)) {
+      throw ApiException.forbidden("OPERATOR_ONLY", "운영자만 내릴 수 있습니다");
+    }
+    ReportStore.Target target = target(in.getTargetType());
+    switch (removals.remove(operator, target, in.getTargetId())) {
+      case NOT_FOUND ->
+          throw ApiException.notFound(
+              "REMOVAL_TARGET_NOT_FOUND", target.value + " " + in.getTargetId() + " 이(가) 없습니다");
+      case REMOVED ->
+          log.warn(
+              "[운영자] 내림 target={} id={} operator={}", target.value, in.getTargetId(), operator);
+      case ALREADY -> {
+        // 이미 내려 있다 — 같은 결과다.
       }
     }
     return ResponseEntity.noContent().build();

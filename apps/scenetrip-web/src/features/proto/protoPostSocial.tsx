@@ -221,7 +221,7 @@ export function PostComments({ postId }: { postId: number }) {
         </Pressable>
       </form>
       {/* 신고·차단 — 글과 같은 시트·확인 창. 차단하면 서버가 그 사람의 댓글을 빼므로 다시 받는다. */}
-      <ModerationSheets controller={moderation} onBlocked={() => void load()} />
+      <ModerationSheets controller={moderation} onBlocked={() => void load()} onRemoved={() => void load()} />
     </section>
   )
 }

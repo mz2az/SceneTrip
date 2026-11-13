@@ -100,7 +100,13 @@ class ModerationFlowIntegrationTest {
       new PostsController(postStore, courses(), storage, uploadStore, users, accounts);
   private final ModerationController moderation =
       new ModerationController(
-          new ReportStore(jdbc, transactions, 365), new BlockStore(jdbc, transactions), accounts);
+          new ReportStore(jdbc, transactions, 365),
+          new BlockStore(jdbc, transactions),
+          accounts,
+          new com.mz2az.scenetrip.sceneapi.moderation.RemovalStore(jdbc, transactions),
+          new com.mz2az.scenetrip.sceneapi.moderation.OperatorDirectory(jdbc, java.util.List.of()),
+          new com.mz2az.scenetrip.sceneapi.moderation.ReportNotifier(
+              jdbc, "", "https://app.scenetrip.io"));
   private final RefreshTokenStore refreshTokens =
       new RefreshTokenStore(jdbc, transactions, Duration.ofDays(60), Clock.systemUTC());
   private final AuthController auth =
@@ -111,7 +117,8 @@ class ModerationFlowIntegrationTest {
           accounts,
           null,
           new SignInService(users, links, refreshTokens, transactions),
-          disabledApple());
+          disabledApple(),
+          new com.mz2az.scenetrip.sceneapi.moderation.OperatorDirectory(jdbc, java.util.List.of()));
 
   private final List<UUID> createdUsers = new ArrayList<>();
   private final List<Long> createdPlaces = new ArrayList<>();

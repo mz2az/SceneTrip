@@ -15,8 +15,10 @@ import { signInPromptStore } from '@/state/auth'
 import { useStore } from '@/state/storage'
 import { type ModerationController, reportSheetPresence, useModerationState } from './controller'
 import { PopupMenu } from './PopupMenu'
+import { useIsOperator } from './operator'
 import {
   DETAIL_LIMIT,
+  menuActions,
   type ModerationTarget,
   type PostMenuAction,
   type ReportOutcome,
@@ -56,12 +58,14 @@ export function ModerationMenu({ target, canBlock, controller, actions, onDelete
   onDelete?: () => void
 }) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null)
-  const shown: readonly PostMenuAction[] = actions ?? (canBlock ? ['report', 'block'] : ['report'])
+  const isOperator = useIsOperator()
+  const shown: readonly PostMenuAction[] = actions ?? menuActions({ canBlock, isOperator })
   const items = shown.flatMap((action) => {
     switch (action) {
       case 'report': return [{ label: tr('신고'), icon: 'exclamationmark.bubble', onPress: () => controller.askReport(target) }]
       case 'block': return [{ label: tr('이 사용자 차단'), icon: 'nosign', destructive: true, onPress: () => controller.askBlock(target) }]
       case 'delete': return onDelete ? [{ label: say('삭제', 'Delete'), icon: 'trash', destructive: true, onPress: onDelete }] : []
+      case 'remove': return [{ label: say('내리기(운영자)', 'Remove (operator)'), icon: 'trash', destructive: true, onPress: () => controller.askRemove(target) }]
     }
   })
   if (items.length === 0) return null
@@ -95,10 +99,11 @@ export function ModerationMenu({ target, canBlock, controller, actions, onDelete
  * 신고 시트·차단 확인 창·안내를 올릴 자리. 목록 화면에 한 번 단다.
  * `onBlocked` — 차단했다. 그 글을 지우고 목록을 다시 받는다(서버가 이후 목록에서 그 사람의 글을 뺀다).
  */
-export function ModerationSheets({ controller, onBlocked }: { controller: ModerationController; onBlocked: (target: ModerationTarget) => void }) {
-  const { reporting, confirmingBlock, notice } = useModerationState(controller)
+export function ModerationSheets({ controller, onBlocked, onRemoved }: { controller: ModerationController; onBlocked: (target: ModerationTarget) => void; onRemoved?: (target: ModerationTarget) => void }) {
+  const { reporting, confirmingBlock, confirmingRemove, notice } = useModerationState(controller)
   const shownReport = useLast(reporting)
   const shownBlock = useLast(confirmingBlock)
+  const shownRemove = useLast(confirmingRemove)
   const shownNotice = useLast(notice)
   return (
     <>
@@ -120,6 +125,25 @@ export function ModerationSheets({ controller, onBlocked }: { controller: Modera
               if (!target) return
               void controller.block(target).then((blocked) => {
                 if (blocked) onBlocked(target)
+              })
+            },
+          },
+        ]}
+      />
+      {/* 운영자 내리기(MZ2AZ-569) — 지우지 않고 「운영자가 내린 때」를 채운다. 되돌리기는 SQL. */}
+      <Alert
+        open={confirmingRemove !== null}
+        title={say('이 글을 내릴까요? 다른 사람에게 보이지 않게 돼요.', "Remove this post? It won't be visible to others.")}
+        onClose={controller.dismissRemoveConfirm}
+        buttons={[
+          { label: tr('취소'), role: 'cancel' },
+          {
+            label: say('내리기', 'Remove'),
+            role: 'destructive',
+            onPress: () => {
+              const target = shownRemove
+              if (target) void controller.remove(target).then((removed) => {
+                if (removed) onRemoved?.(target)
               })
             },
           },

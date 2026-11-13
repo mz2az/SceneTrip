@@ -78,7 +78,14 @@ class AuthFlowIntegrationTest {
       new SignInService(users, new AccountLinkStore(jdbc), refreshTokens, transactions);
   private final AuthController controller =
       new AuthController(
-          accessTokens, refreshTokens, users, accounts, null, signIn, disabledApple());
+          accessTokens,
+          refreshTokens,
+          users,
+          accounts,
+          null,
+          signIn,
+          disabledApple(),
+          new com.mz2az.scenetrip.sceneapi.moderation.OperatorDirectory(jdbc, java.util.List.of()));
 
   private final List<UUID> createdUsers = new ArrayList<>();
 
@@ -195,7 +202,9 @@ class AuthFlowIntegrationTest {
             new CurrentAccount(request, keyless, users),
             null,
             signIn,
-            disabledApple());
+            disabledApple(),
+            new com.mz2az.scenetrip.sceneapi.moderation.OperatorDirectory(
+                jdbc, java.util.List.of()));
 
     assertThatThrownBy(
             () -> keylessController.refreshSession(new RefreshTokenBody(login.refresh().value())))

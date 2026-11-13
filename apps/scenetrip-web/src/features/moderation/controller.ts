@@ -17,6 +17,9 @@ import {
   type ReportReason,
   blockMessage,
   blockOutcome,
+  type RemoveOutcome,
+  removeMessage,
+  removeOutcome,
   reportDetail,
   reportOutcome,
 } from './rules'
@@ -26,7 +29,9 @@ export interface ModerationState {
   reporting: ModerationTarget | null
   /** 차단 확인 창에 띄운 글. */
   confirmingBlock: ModerationTarget | null
-  /** 차단하지 못한 까닭. */
+  /** 내리기 확인 창에 띄운 글(운영자, MZ2AZ-569). */
+  confirmingRemove: ModerationTarget | null
+  /** 차단하지 못한 까닭·내리기 결과. */
   notice: string | null
   sending: boolean
 }
@@ -49,6 +54,11 @@ export interface ModerationController {
   dismissReport(): void
   dismissBlockConfirm(): void
   dismissNotice(): void
+  /** 운영자 — 내리기 확인 창을 띄운다. */
+  askRemove(target: ModerationTarget): void
+  dismissRemoveConfirm(): void
+  /** 내렸으면 `true` — 목록이 다시 받는다(`events.changed`). */
+  remove(target: ModerationTarget): Promise<boolean>
 }
 
 /** 차단의 로그인 이유 한 줄(MZ2AZ-551). */
@@ -59,7 +69,7 @@ export function createModerationController(deps: ModerationDeps = {}): Moderatio
   const signedIn = deps.signedIn ?? (() => authStore.get().session !== null)
   const promptSignIn = deps.promptSignIn ?? authPromptSignIn
   const events = deps.events ?? moderationEvents
-  const store = createStore<ModerationState>({ reporting: null, confirmingBlock: null, notice: null, sending: false })
+  const store = createStore<ModerationState>({ reporting: null, confirmingBlock: null, confirmingRemove: null, notice: null, sending: false })
   const patch = (p: Partial<ModerationState>) => store.set((s) => ({ ...s, ...p }))
 
   return {
@@ -109,6 +119,25 @@ export function createModerationController(deps: ModerationDeps = {}): Moderatio
     dismissReport: () => patch({ reporting: null }),
     dismissBlockConfirm: () => patch({ confirmingBlock: null }),
     dismissNotice: () => patch({ notice: null }),
+    askRemove: (target) => patch({ confirmingRemove: target }),
+    dismissRemoveConfirm: () => patch({ confirmingRemove: null }),
+    async remove(target) {
+      patch({ confirmingRemove: null })
+      if (store.get().sending) return false
+      patch({ sending: true })
+      let outcome: RemoveOutcome
+      try {
+        await client.remove(target)
+        outcome = 'removed'
+      } catch (error) {
+        outcome = removeOutcome(error)
+      } finally {
+        patch({ sending: false })
+      }
+      patch({ notice: removeMessage(outcome) })
+      if (outcome === 'removed') events.changed()
+      return outcome === 'removed'
+    },
   }
 }
 

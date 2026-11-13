@@ -5,7 +5,7 @@
  */
 import type { components } from '@/api/generated/schema'
 import { ApiFailure } from '@/api/failure'
-import { tr } from '@/i18n'
+import { say, tr } from '@/i18n'
 
 export type ReportReason = components['schemas']['ReportReason']
 export type ReportTargetType = components['schemas']['ReportTargetType']
@@ -57,11 +57,17 @@ export function showsMenu(isMine: boolean, onServer = true): boolean {
 }
 
 /** 글 상세 「⋯」 메뉴의 항목(MZ2AZ-551). 내 글은 지우기만, 남의 글은 신고(+작성자가 있으면 차단). 서버에 없는 기기 옛 글은 없음. */
-export type PostMenuAction = 'delete' | 'report' | 'block'
-export function postMenuActions({ isMine, onServer, hasAuthor }: { isMine: boolean; onServer: boolean; hasAuthor: boolean }): PostMenuAction[] {
+export type PostMenuAction = 'delete' | 'report' | 'block' | 'remove'
+/** 글 상세의 메뉴. 운영자는 남의 글에 「내리기」 가 끝에 더 있다(MZ2AZ-569, moderation-operator.md §4). */
+export function postMenuActions({ isMine, onServer, hasAuthor, isOperator = false }: { isMine: boolean; onServer: boolean; hasAuthor: boolean; isOperator?: boolean }): PostMenuAction[] {
   if (!onServer) return []
   if (isMine) return ['delete']
-  return hasAuthor ? ['report', 'block'] : ['report']
+  return [...(hasAuthor ? (['report', 'block'] as const) : (['report'] as const)), ...(isOperator ? (['remove'] as const) : [])]
+}
+
+/** 리뷰·댓글의 기본 「⋯」 메뉴 — 신고, (작성자가 있으면) 차단, (운영자면) 내리기. 자기 글에는 메뉴를 그리지 않으니 부르는 쪽이 거른다. */
+export function menuActions({ canBlock, isOperator }: { canBlock: boolean; isOperator: boolean }): PostMenuAction[] {
+  return [...(canBlock ? (['report', 'block'] as const) : (['report'] as const)), ...(isOperator ? (['remove'] as const) : [])]
 }
 
 /** 차단을 둘 글인가 — 자기 글이 아니고 작성자가 있어야 한다(탈퇴한 작성자는 `BLOCK_TARGET_HAS_NO_AUTHOR`). */
@@ -152,4 +158,26 @@ export function isTextNotAllowedCode(code: string | null | undefined): boolean {
 /** 어떤 말이 걸렸는지는 서버가 알려 주지 않는다 — 고쳐 달라고만 한다. */
 export function textNotAllowedMessage(): string {
   return tr('쓸 수 없는 말이 들어 있어요. 고친 뒤 다시 저장해 주세요.')
+}
+
+// ---------------------------------------------------------------- 운영자 내리기 결과 (MZ2AZ-569)
+
+export type RemoveOutcome = 'removed' | 'notOperator' | 'gone' | 'failed'
+
+export function removeOutcome(error: unknown | null): RemoveOutcome {
+  if (error === null || error === undefined) return 'removed'
+  const f = failureOf(error)
+  if (!f) return 'failed'
+  if (f.apiCode === 'OPERATOR_ONLY') return 'notOperator'
+  if (f.apiCode === 'REMOVAL_TARGET_NOT_FOUND' || f.statusCode === 404) return 'gone'
+  return 'failed'
+}
+
+export function removeMessage(outcome: RemoveOutcome): string {
+  switch (outcome) {
+    case 'removed': return say('내렸어요', 'Removed')
+    case 'notOperator': return say('운영자만 할 수 있어요', 'Only operators can do this')
+    case 'gone': return say('이미 없는 글이에요', 'This post no longer exists')
+    case 'failed': return say('내리지 못했어요. 잠시 뒤 다시 해 주세요', "Couldn't remove it. Please try again later")
+  }
 }
