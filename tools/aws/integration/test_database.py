@@ -368,7 +368,15 @@ FROM pg_roles WHERE rolname IN ('metabase_ro', 'metabase_app') ORDER BY rolname;
         )
 
         # public 은 못 읽는다 — 개인정보는 DB 권한으로 막는다.
-        for table in ("app_user", "user_identity", "user_device", "place"):
+        for table in (
+            "app_user",
+            "user_identity",
+            "user_device",
+            "place",
+            # 팀원 이메일 해시와 내부 계정 목록(MZ2AZ-563)도 public 이라 못 읽는다.
+            "analytics_internal_email",
+            "analytics_internal_user",
+        ):
             with self.subTest(denied=table):
                 self.assert_denied(
                     f"SELECT count(*) FROM public.{table};",
