@@ -69,7 +69,10 @@ public class PoiStore {
     SPREAD
   }
 
-  /** 조회 조건. 컨트롤러가 명세의 규칙(영역 조건 필수, bbox 와 반경 배타 등)을 검사한 뒤 만들어 넘긴다. */
+  /**
+   * 조회 조건. 컨트롤러가 명세의 규칙(영역 조건 필수, bbox 와 반경 배타 등)을 검사한 뒤 만들어 넘긴다. {@code categories} 는 세부
+   * 종류(1.31.0) — null 이나 빈 목록이면 거르지 않는다. {@code hasImage} 는 TRUE 일 때만 사진이 있는 것으로 거른다(1.31.0).
+   */
   public record Criteria(
       Bbox bbox,
       Double lat,
@@ -81,7 +84,67 @@ public class PoiStore {
       int offset,
       Lang lang,
       String q,
-      Integer spreadZoom) {
+      Integer spreadZoom,
+      List<String> categories,
+      Boolean hasImage) {
+
+    /** 사진 거르기 없이(1.31.0 의 categories 까지). */
+    public Criteria(
+        Bbox bbox,
+        Double lat,
+        Double lng,
+        Integer radiusMeters,
+        PoiCategoryGroup categoryGroup,
+        Sort sort,
+        int limit,
+        int offset,
+        Lang lang,
+        String q,
+        Integer spreadZoom,
+        List<String> categories) {
+      this(
+          bbox,
+          lat,
+          lng,
+          radiusMeters,
+          categoryGroup,
+          sort,
+          limit,
+          offset,
+          lang,
+          q,
+          spreadZoom,
+          categories,
+          null);
+    }
+
+    /** 세부 종류 없이(1.31.0 이전의 조건). */
+    public Criteria(
+        Bbox bbox,
+        Double lat,
+        Double lng,
+        Integer radiusMeters,
+        PoiCategoryGroup categoryGroup,
+        Sort sort,
+        int limit,
+        int offset,
+        Lang lang,
+        String q,
+        Integer spreadZoom) {
+      this(
+          bbox,
+          lat,
+          lng,
+          radiusMeters,
+          categoryGroup,
+          sort,
+          limit,
+          offset,
+          lang,
+          q,
+          spreadZoom,
+          null);
+    }
 
     /** 이름 검색·골고루 없이(1.23.0 이전의 조건). */
     public Criteria(
@@ -142,6 +205,18 @@ public class PoiStore {
       """;
 
   /**
+   * 세부 종류({@code categories}, 1.31.0 — keep-poi.md §1-5). 한국어 원본 분류({@code p.category}) 중 하나와 같으면
+   * 남긴다. 목록 SQL 의 모든 갈래(일반·평면 KNN·골고루)와 개수 SQL 이 같은 조건을 써야 {@code total} 이 목록과 맞는다 — 그래서 두 WHERE 에
+   * 똑같이 끼운다. 바인딩은 쉼표로 이은 문자열 하나다: 목록 바인딩은 조각 수만큼 자리표가 펼쳐져 빈 목록·NULL 을 「안 줌」 으로 못 쓰고, 조각은 컨트롤러가 쉼표로
+   * 나눈 것이라 쉼표를 품지 않는다.
+   */
+  private static final String CATEGORIES_SQL =
+      """
+        AND (CAST(:categories AS TEXT) IS NULL
+             OR p.category = ANY (string_to_array(CAST(:categories AS TEXT), ',')))
+      """;
+
+  /**
    * 조건 부분. 목록과 개수 질의가 <b>같은 WHERE</b> 를 써야 {@code total} 이 목록과 같은 것을 센다. 그래서 문자열 하나로 두고 둘이 나눠 쓴다.
    *
    * <p>{@code CAST(:x AS ...) IS NULL OR ...} 꼴은 "그 조건을 안 준 요청" 을 표현한다 — 바인딩 값이 NULL 이면 그 줄이 통째로 참이
@@ -168,6 +243,8 @@ public class PoiStore {
         -- 폐업 표시된 POI 는 어디에도 내보내지 않는다(V18). 위의 위치·갈래 인덱스가 먼저 좁히고 여기서 거른다.
         AND p.closed_at IS NULL
       """
+          + CATEGORIES_SQL
+          + PoiColumns.HAS_IMAGE_SQL
           + "  AND (CAST(:q AS TEXT) IS NULL OR p.id IN ("
           + MATCHED_SQL
           + "))\n";
@@ -186,39 +263,11 @@ public class PoiStore {
       )
       """;
 
-  /**
-   * 요청 언어의 값 — 요청 언어 → en, 없으면 NULL(분류 이름은 한국어 원본). 한국어를 요청하면 번역을 보지 않는다(번역 표에 {@code ko} 행이 없고,
-   * 있어도 원본이 정본이다). {@code label_lang} 은 분류 이름이 실제로 나온 언어다. {@code name}·{@code address} 는 언제나 원본.
-   */
-  private static final String LOCALIZED_SELECT =
-      """
-              p.name, p.address,
-              CASE WHEN :lang = 'ko' THEN NULL
-                   ELSE COALESCE(tr.name, te.name) END AS display_name,
-              CASE WHEN :lang = 'ko' THEN NULL
-                   ELSE COALESCE(tr.address, te.address) END AS display_address,
-              CASE WHEN :lang = 'ko' THEN p.category
-                   ELSE COALESCE(cr.name, ce.name, p.category) END AS category_label,
-              CASE WHEN :lang = 'ko' THEN 'ko'
-                   WHEN cr.name IS NOT NULL THEN :lang
-                   WHEN ce.name IS NOT NULL THEN 'en'
-                   ELSE 'ko' END AS label_lang,
-              p.name_roman,
-              lk.place_id AS linked_place_id,
-      """;
+  /** 요청 언어의 값과 촬영지 연결 — 장바구니의 편의시설과 같은 코드라 {@link PoiColumns} 에 있다(언어 규칙은 그 주석). */
+  private static final String LOCALIZED_SELECT = PoiColumns.LOCALIZED_SELECT;
 
-  /** 번역 두 갈래(요청 언어·en)를 붙인다. 둘 다 (poi_id, lang)·(ko, lang) 기본 키로 한 행씩이다. */
-  private static final String LOCALIZED_JOIN =
-      """
-          LEFT JOIN poi_i18n tr ON tr.poi_id = p.id AND tr.lang = :lang
-          LEFT JOIN poi_i18n te ON te.poi_id = p.id AND te.lang = 'en'
-          LEFT JOIN poi_category_i18n cr ON cr.ko = p.category AND cr.lang = :lang
-          LEFT JOIN poi_category_i18n ce ON ce.ko = p.category AND ce.lang = 'en'
-          -- 같은 곳인 촬영지(V25, MZ2AZ-371). 숨긴 촬영지의 연결은 쓰지 않는다 — 지도에 없으니 편의시설이 스스로 보여야 한다.
-          LEFT JOIN (SELECT l.poi_id, l.place_id
-                     FROM place_poi_link l
-                     JOIN place lp ON lp.id = l.place_id AND lp.hidden_at IS NULL) lk ON lk.poi_id = p.id
-      """;
+  /** 번역 두 갈래(요청 언어·en)와 같은 곳인 촬영지(숨긴 촬영지 제외)를 붙인다 — {@link PoiColumns#LOCALIZED_JOIN}. */
+  private static final String LOCALIZED_JOIN = PoiColumns.LOCALIZED_JOIN;
 
   /** 목록 한 행의 열과 번역·연결 조인 — 일반 목록과 화면 네모 목록이 같이 쓴다. WHERE 는 붙이는 쪽이 고른다. */
   private static final String LIST_SELECT_SQL =
@@ -267,6 +316,8 @@ public class PoiStore {
         AND (CAST(:categoryGroup AS TEXT) IS NULL OR p.category_group = CAST(:categoryGroup AS TEXT))
         AND p.closed_at IS NULL
       """
+          + CATEGORIES_SQL
+          + PoiColumns.HAS_IMAGE_SQL
           + "  AND (CAST(:q AS TEXT) IS NULL OR p.id IN ("
           + MATCHED_SQL
           + "))\n";
@@ -592,6 +643,12 @@ public class PoiStore {
         .param("maxLng", c.bbox() == null ? null : c.bbox().maxLng())
         .param("maxLat", c.bbox() == null ? null : c.bbox().maxLat())
         .param("q", c.q())
+        .param(
+            "categories",
+            c.categories() == null || c.categories().isEmpty()
+                ? null
+                : String.join(",", c.categories()))
+        .param("hasImage", Boolean.TRUE.equals(c.hasImage()))
         .param("cells", Math.pow(2, (c.spreadZoom() == null ? 0 : c.spreadZoom()) + 2));
   }
 
@@ -599,22 +656,10 @@ public class PoiStore {
 
   private static Row mapRow(ResultSet rs, int rowNum) throws SQLException {
     PoiSummary summary =
-        new PoiSummary(
-                rs.getLong("id"),
-                rs.getString("name"),
-                rs.getString("category"),
-                PoiCategoryGroup.fromValue(rs.getString("category_group")),
-                rs.getDouble("latitude"),
-                rs.getDouble("longitude"))
-            .displayName(rs.getString("display_name"))
-            .categoryLabel(rs.getString("category_label"))
-            .nameRoman(rs.getString("name_roman"))
-            .address(rs.getString("address"))
-            .displayAddress(rs.getString("display_address"))
+        PoiColumns.summary(rs)
             .distanceMeters(integerOrNull(rs, "distance_meters"))
-            .placeId(longOrNull(rs, "linked_place_id"))
             .spreadRank(hasColumn(rs, "spread_rank") ? integerOrNull(rs, "spread_rank") : null);
-    return new Row(summary, Lang.fromValue(rs.getString("label_lang")));
+    return new Row(summary, PoiColumns.labelLang(rs));
   }
 
   private static Detail mapDetail(ResultSet rs, int rowNum) throws SQLException {
@@ -637,7 +682,8 @@ public class PoiStore {
             .tel(rs.getString("tel"))
             .region(rs.getString("region"))
             .city(rs.getString("city"))
-            .placeId(longOrNull(rs, "linked_place_id"));
+            .placeId(longOrNull(rs, "linked_place_id"))
+            .imageUrl(PoiColumns.imageUrl(rs));
     return new Detail(detail, Lang.fromValue(rs.getString("label_lang")));
   }
 
@@ -654,8 +700,7 @@ public class PoiStore {
 
   /** {@code getLong} 도 NULL 을 0 으로 돌려준다. */
   private static Long longOrNull(ResultSet rs, String column) throws SQLException {
-    long value = rs.getLong(column);
-    return rs.wasNull() ? null : value;
+    return PoiColumns.longOrNull(rs, column);
   }
 
   /** {@code getInt} 는 NULL 을 0 으로 돌려준다. 0 m 와 "기준점 없음" 은 다르다. */

@@ -356,6 +356,8 @@ class PoiSpreadSearchIntegrationTest {
                           null,
                           null,
                           null,
+                          null,
+                          null,
                           "씬트립상어시험",
                           "spread",
                           SPREAD_ZOOM,
@@ -385,7 +387,9 @@ class PoiSpreadSearchIntegrationTest {
               poiNamed("가시험", B, null);
               poiNamed("나시험", A1, null);
               return new Ids(
-                  pois.listPois(Lang.KO, SEA_BBOX, null, null, null, null, null, null, null, 30, 0)
+                  pois.listPois(
+                          Lang.KO, SEA_BBOX, null, null, null, null, null, null, null, null, null,
+                          30, 0)
                       .getBody()
                       .getItems());
             });
@@ -416,6 +420,8 @@ class PoiSpreadSearchIntegrationTest {
                           null,
                           null,
                           null,
+                          null,
+                          null,
                           "distance",
                           null,
                           30,
@@ -433,13 +439,25 @@ class PoiSpreadSearchIntegrationTest {
 
   private List<PoiSummary> spread(String bbox, int limit) {
     return pois.listPois(
-            Lang.KO, bbox, null, null, null, null, null, "spread", SPREAD_ZOOM, limit, 0)
+            Lang.KO,
+            bbox,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            "spread",
+            SPREAD_ZOOM,
+            limit,
+            0)
         .getBody()
         .getItems();
   }
 
   private List<PoiSummary> search(Lang lang, String bbox, String q) {
-    return pois.listPois(lang, bbox, null, null, null, null, q, null, null, 200, 0)
+    return pois.listPois(lang, bbox, null, null, null, null, null, null, q, null, null, 200, 0)
         .getBody()
         .getItems();
   }
