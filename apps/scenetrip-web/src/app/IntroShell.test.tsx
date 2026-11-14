@@ -20,13 +20,13 @@ vi.mock('@/features/landing/LandingCover', () => ({
     contentId: number
     onRest?: () => void
     onClose: (how: IntroClose) => void
-    onBeat?: (beat: 'scene' | 'spread' | 'rest') => void
+    onBeat?: (beat: 'drop' | 'poster' | 'spill' | 'rest') => void
     onKeep?: () => void
   }) => (
     <div data-testid="cover">
       <span>{`작품 ${contentId}`}</span>
       <button type="button" onClick={() => onRest?.()}>rest</button>
-      {(['scene', 'spread'] as const).map((b) => (
+      {(['drop', 'poster'] as const).map((b) => (
         <button key={b} type="button" onClick={() => onBeat?.(b)}>{`beat-${b}`}</button>
       ))}
       <button type="button" onClick={() => onKeep?.()}>keep</button>
@@ -200,24 +200,24 @@ describe('떠남·박자 (§6·§10-3-2)', () => {
   it('박자가 바뀌면 landing(beat) — 같은 박자는 한 번', async () => {
     renderShell('/', { contentId: 32, fromGo: false })
     await flush()
-    await click('beat-scene')
-    await click('beat-scene')
-    await click('beat-spread')
+    await click('beat-drop')
+    await click('beat-drop')
+    await click('beat-poster')
     expect(landingCalls().map((c) => c.params)).toEqual([
-      { content_id: 32, action: 'beat', beat: 'scene' },
-      { content_id: 32, action: 'beat', beat: 'spread' },
+      { content_id: 32, action: 'beat', beat: 'drop' },
+      { content_id: 32, action: 'beat', beat: 'poster' },
     ])
   })
 
   it('담기 전에 pagehide → landing(leave, 마지막 박자, ms) 를 leaving 으로, 한 번만', async () => {
     renderShell('/', { contentId: 32, fromGo: false })
     await flush()
-    await click('beat-scene')
+    await click('beat-drop')
     window.dispatchEvent(new Event('pagehide'))
     hide()
     const leaves = landingCalls().filter((c) => c.params.action === 'leave')
     expect(leaves).toHaveLength(1)
-    expect(leaves[0]!.params).toMatchObject({ content_id: 32, action: 'leave', beat: 'scene' })
+    expect(leaves[0]!.params).toMatchObject({ content_id: 32, action: 'leave', beat: 'drop' })
     expect(Number.isInteger(leaves[0]!.params.ms)).toBe(true)
     expect(leaves[0]!.params.ms as number).toBeGreaterThanOrEqual(0)
     expect(leaves[0]!.options).toEqual({ leaving: true })

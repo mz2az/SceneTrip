@@ -220,7 +220,7 @@ iOS·Android 에는 아직 없다. 실험이 끝나 두 앱에 옮기면 §3 표
 | 이벤트 | 언제 | 매개변수 | 구현(웹) |
 | --- | --- | --- | --- |
 | `screen_view` | 덮개가 떴다 | `screen_name` = `intro` | `app/IntroShell.tsx` |
-| `landing` | 덮개에서 일어난 일 | `content_id`, `action` = `view`(박자 시작)·`beat`(박자가 바뀜, `beat` = `scene`·`spread`·`rest`, 박자마다 한 번)·`rest`·`skip`·`save`·`browse`·`leave`(담기 전에 페이지를 떠남 — `pagehide`·가려짐, 한 번. `beat` = 마지막 박자 또는 `loading`(박자 전 보라 화면), `ms` = 첫 화면을 시작하고 지난 시간) | `app/IntroShell.tsx`(`beat`·`leave`)·`features/landing/LandingCover.tsx` |
+| `landing` | 덮개에서 일어난 일 | `content_id`, `action` = `view`(박자 시작)·`beat`(박자가 바뀜, `beat` = `drop`·`poster`·`spill`·`rest`, 박자마다 한 번 — 2026-11-15 전에는 `scene`·`spread`·`rest`)·`rest`·`skip`·`save`·`browse`·`leave`(담기 전에 페이지를 떠남 — `pagehide`·가려짐, 한 번. `beat` = 마지막 박자 또는 `loading`(박자 전 보라 화면), `ms` = 첫 화면을 시작하고 지난 시간) | `app/IntroShell.tsx`(`beat`·`leave`)·`features/landing/LandingCover.tsx` |
 | `add_more` | 「더 담기」(`/add`)가 떴다·주변 칸으로 담았다·일정 짜기 | `action` = `view`·`poi`·`plan` | `features/keep/AddMoreCover.tsx` |
 
 **덮개 동안의 전송**: 덮개가 떠 있는 동안은 분석 라이브러리를 받지 않는다(느린 폰). 그 사이 PostHog 로는 라이브러리 없이 공개 수집 API(`POST {host}/i/v0/e/`, `navigator.sendBeacon` — 없으면 `fetch` keepalive)로 곧바로 보내고, 라이브러리가 뜬 뒤에는 라이브러리로만 보낸다(같은 이벤트가 두 번 나가지 않는다). 익명 id 는 라이브러리를 켤 때 `bootstrap.distinctID` 로 넘겨 한 사람으로 잇는다(`src/analytics/anonId.ts`). **GA4 는 줄을 섰다가 라이브러리가 뜬 뒤 보낸다 — ③ 전에 떠난 사람은 GA4 에 남지 않는다**(Measurement Protocol 은 비밀 키가 필요해 브라우저에서 쓰지 않는다). 첫 화면 이탈은 PostHog 에서 `landing` `action=leave` 로 본다.

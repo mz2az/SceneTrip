@@ -124,7 +124,7 @@ export type SaveAllSource = 'detail' | 'more' | 'arrive' | 'landing'
 /** 광고 랜딩에서 한 일(web-ad-landing.md §1-3). `beat`·`leave` 는 아래 함수가 따로 만든다(§6). */
 export type LandingAction = 'view' | 'skip' | 'rest' | 'save' | 'browse'
 /** 첫 화면의 박자(landingScript 의 Beat 와 같다). */
-export type LandingBeat = 'scene' | 'spread' | 'rest'
+export type LandingBeat = 'drop' | 'poster' | 'spill' | 'rest'
 /** 떠날 때의 마지막 박자 — `loading` = 아직 보라 대기 화면(박자가 시작되기 전). */
 export type LandingLeaveBeat = LandingBeat | 'loading'
 /** 「더 담기」 에서 한 일(web-ad-landing.md §2). */

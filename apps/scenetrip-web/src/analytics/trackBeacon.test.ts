@@ -73,8 +73,8 @@ describe('첫 화면 덮개 동안', () => {
     const a = await fresh()
     a.holdDeferred()
     a.introOpenStore.set(true)
-    a.track(a.webEvent.landingLeave(32, 'scene', 2500), { leaving: true })
-    expect(beacons().map((b) => b.body.properties)).toEqual([expect.objectContaining({ action: 'leave', beat: 'scene', ms: 2500 })])
+    a.track(a.webEvent.landingLeave(32, 'drop', 2500), { leaving: true })
+    expect(beacons().map((b) => b.body.properties)).toEqual([expect.objectContaining({ action: 'leave', beat: 'drop', ms: 2500 })])
   })
 
   it('이용 통계가 꺼져 있으면 아무것도 보내지 않는다', async () => {
@@ -106,7 +106,7 @@ describe('라이브러리가 뜬 뒤', () => {
     a.holdDeferred()
     a.introOpenStore.set(true)
     a.track(a.appEvent.screenView('intro'))
-    a.track(a.webEvent.landingBeat(32, 'scene'))
+    a.track(a.webEvent.landingBeat(32, 'drop'))
     const id = beacons()[0]!.body.distinct_id
 
     // ③ — 풀린다. 라이브러리를 불러오는 계기는 되지만 줄 선 두 이벤트는 다시 나가지 않는다.

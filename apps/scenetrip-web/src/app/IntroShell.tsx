@@ -122,7 +122,7 @@ export function IntroShell({ initialIntro }: { initialIntro: { contentId: number
       {intro !== null && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 45 }}>
           <Suspense fallback={<IntroSplash />}>
-            <LandingCover key={intro.contentId} contentId={intro.contentId} startedAt={startedAt} onRest={onRest} onClose={onClose} onBeat={onBeat} onKeep={onKeep} />
+            <LandingCover key={intro.contentId} contentId={intro.contentId} onRest={onRest} onClose={onClose} onBeat={onBeat} onKeep={onKeep} />
           </Suspense>
         </div>
       )}
