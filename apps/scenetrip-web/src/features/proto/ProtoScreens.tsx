@@ -13,14 +13,12 @@ import { focusCity } from '@/features/home/cityFocus'
 import { Pressable } from '@/features/route/ui/Press'
 import { PinoMascot } from '@/design/PinoMascot'
 import { useRouteState } from '@/features/route/store'
-import { useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { api, ok } from '@/api/client'
 import { appEvent, track, webEvent } from '@/analytics'
 import { cityPlanRequest, planFromGuide, removeStop, swapNearbyQuery, swapStop } from './cityPlan'
 import { peekCardIndex } from './sceneFlip'
 import { SceneFlipPhoto, hasFlippedBefore, prefersReducedMotion } from './SceneFlipPhoto'
-import { CoachTour } from './CoachTour'
 import {
   ASK_CITIES, ChoiceRow, CityGrid, CityHero, SlideImages, useCitySlides, CityPicker, DAY_OPTIONS, MockBadge, PrimaryButton, ProtoScreen, SecondaryButton, cityByKey, daysLabel,
   StepTransition, saveCourse, useCities,
@@ -506,7 +504,6 @@ const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'
 export function TripFloatBar() {
   const router = useTabRouter()
   const route = useRouteState()
-  const hasSaved = useCart().items.length > 0
   const [open, setOpen] = useState(false)
   const courses = [...route.routeCourses.filter((c) => c.isRunning), ...route.routeCourses.filter((c) => !c.isRunning)]
     .filter((c) => c.serverId !== null)
@@ -579,19 +576,8 @@ export function TripFloatBar() {
     ) })),
   ]
 
+  // 홈의 「첫 여행 계획을 짜 보세요」 코치 안내(home-plan-trip)는 없앴다 — 처음 온 사람의 홈을 가린다(2026-11-14 사용자 결정, web-keep-flow.md §9-6).
   return (
-    <>
-    {/* 담은 곳이 있으면 띄우지 않는다 — 홈 맨 위 내 지도 카드를 가리지 않게(web-keep-flow.md §9-6). 본 것으로 적지는 않는다. */}
-    <CoachTour
-      id="home-plan-trip"
-      active={!running && !open && !hasSaved}
-      delay={900}
-      steps={[{
-        target: '[data-coach="plan-trip"]',
-        title: say('첫 여행 계획을 짜 보세요', 'Plan your first trip'),
-        text: say('여기를 누르면 도시·작품·담은 곳 중 하나로 여행 코스를 만들 수 있어요.', 'Tap here to build a trip from a city, your favorite shows, or places you saved.'),
-      }]}
-    />
     <div
       onKeyDown={(e) => { if (e.key === 'Escape' && open) setOpen(false) }}
       style={{ position: 'absolute', left: 0, right: 0, bottom, height: 56, zIndex: z.float, pointerEvents: 'none' }}
@@ -618,7 +604,7 @@ export function TripFloatBar() {
             </Pressable>
           </>
         ) : (
-          <Pressable data-coach="plan-trip" plain className="proto-press" onClick={() => { track(webEvent.homeTap('plan_bar')); if (courses.length === 0) newPlan(); else setOpen(true) }} aria-expanded={courses.length === 0 ? undefined : open} style={mainPill}>
+          <Pressable plain className="proto-press" onClick={() => { track(webEvent.homeTap('plan_bar')); if (courses.length === 0) newPlan(); else setOpen(true) }} aria-expanded={courses.length === 0 ? undefined : open} style={mainPill}>
             <HStack spacing={7}>
               <Icon name="paperplane.fill" size={14} color="white" />
               {label(say('여행 코스 짜기', 'Plan a trip'))}
@@ -641,7 +627,6 @@ export function TripFloatBar() {
         </div>
       </div>
     </div>
-    </>
   )
 }
 
