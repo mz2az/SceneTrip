@@ -121,8 +121,12 @@ export type KeepPromptAction = 'view' | 'open_browser' | 'install' | 'install_ac
 export type MyMapAction = 'open_home' | 'open_keep' | 'open_detail' | 'open_place' | 'plan' | 'add_more'
 /** 「모두 담기」 가 일어난 자리(§9-3) — 작품 상세 · 담은 뒤 시트 ① 의 포스터 · `?keep=` 으로 넘어옴. */
 export type SaveAllSource = 'detail' | 'more' | 'arrive' | 'landing'
-/** 광고 랜딩에서 한 일(web-ad-landing.md §1-3). */
+/** 광고 랜딩에서 한 일(web-ad-landing.md §1-3). `beat`·`leave` 는 아래 함수가 따로 만든다(§6). */
 export type LandingAction = 'view' | 'skip' | 'rest' | 'save' | 'browse'
+/** 첫 화면의 박자(landingScript 의 Beat 와 같다). */
+export type LandingBeat = 'scene' | 'spread' | 'rest'
+/** 떠날 때의 마지막 박자 — `loading` = 아직 보라 대기 화면(박자가 시작되기 전). */
+export type LandingLeaveBeat = LandingBeat | 'loading'
 /** 「더 담기」 에서 한 일(web-ad-landing.md §2). */
 export type AddMoreAction = 'view' | 'poi' | 'plan'
 /** 편의시설 담기(keep-poi.md §4) — 편의시설 갈래와 주변 칩. keepPoiRules 의 NearbyKind 와 같다. */
@@ -183,6 +187,11 @@ export const webEvent = {
   // ── 광고 랜딩·더 담기 — web-ad-landing.md §6
   /** 광고 랜딩(`/go/{id}`)이 떴다·건너뛰었다·끝 장면에 닿았다·담았다·둘러보러 갔다. */
   landing: (contentId: number, action: LandingAction) => make('landing', { content_id: contentId, action }),
+  /** 첫 화면의 박자가 바뀌었다(박자마다 한 번) — 어느 박자까지 보고 떠나는지 본다. */
+  landingBeat: (contentId: number, beat: LandingBeat) => make('landing', { content_id: contentId, action: 'beat', beat }),
+  /** 담기 전에 페이지를 떠났다(pagehide·가려짐, 한 번) — 마지막 박자와 첫 화면을 시작하고 지난 시간(ms, 정수). */
+  landingLeave: (contentId: number, beat: LandingLeaveBeat, ms: number) =>
+    make('landing', { content_id: contentId, action: 'leave', beat, ms: Math.max(0, Math.round(ms)) }),
   /** 「더 담기」(`/add`)가 떴다·주변 칸으로 담았다·일정 짜기를 눌렀다. */
   addMore: (action: AddMoreAction) => make('add_more', { action }),
 } as const

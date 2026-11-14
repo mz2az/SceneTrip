@@ -104,6 +104,8 @@ export function pinLayout(places: readonly { latitude: number; longitude: number
 | 이벤트 | 함수 | 매개변수 |
 | --- | --- | --- |
 | `landing` | `webEvent.landing(contentId, action)` | `content_id`, `action` = `view`·`skip`·`rest`·`save`·`browse` |
+| `landing` (박자) | `webEvent.landingBeat(contentId, beat)` | `content_id`, `action` = `beat`, `beat` = `scene`·`spread`·`rest` (박자마다 한 번) |
+| `landing` (떠남) | `webEvent.landingLeave(contentId, beat, ms)` | `content_id`, `action` = `leave`, `beat` = 마지막 박자 또는 `loading`, `ms` = 첫 화면을 시작하고 지난 시간. 담기 전에 `pagehide`·가려짐이면 한 번(§10-3-2) |
 | `add_more` | `webEvent.addMore(action)` | `action` = `view`·`poi`·`plan` |
 | `save_all` (있음) | — | `source` 에 `landing` |
 | `home_tap` (있음) | — | `section` 에 `pick_title`·`add_title`·`add_nearby`·`city_chip` |
@@ -162,6 +164,7 @@ export function pinLayout(places: readonly { latitude: number; longitude: number
 
 1. **첫 화면을 HTML 에**: `index.html` 의 `#root` 안에 보라 바탕 + 해태(인라인 SVG 나 작은 WebP — 10KB 이하) + `SceneTrip` 을 CSS 만으로 그려 둔다. 주소가 `/go/` 로 시작할 때만 보이고(인라인 스크립트로 `document.documentElement` 에 표시), 그 밖의 주소는 지금처럼. React 가 그리면 사라진다.
 2. **랜딩 청크 나누기**: `/go/` 로 시작하면 랜딩 코드만 먼저 받고(동적 `import()`), 홈·탭·지도 SDK·분석 라이브러리는 랜딩 ③ 이 그려진 뒤(또는 2초 뒤 한가할 때) 받는다. 랜딩이 떠 있는 동안 **홈·다른 탭을 붙이지 않는다**(API·사진·지도 타일 요청 0).
+   - **그 동안의 분석**(2026-11-15 더함): 라이브러리를 앞당기지 않고, 덮개 동안(그리고 풀린 뒤 PostHog 라이브러리가 뜨기 전까지)의 이벤트는 PostHog 공개 수집 API(`POST {host}/i/v0/e/`, JSON `{ api_key, event, distinct_id, properties }`)로 `sendBeacon`(없으면 `fetch` keepalive) 한 번에 보낸다 — `screen_view(intro)`·`landing(view)`·`landing(beat)`·담기 전에 떠나면 `landing(leave)`. 익명 id 는 라이브러리를 켤 때 `bootstrap.distinctID` 로 넘겨 같은 사람으로 잇는다. 직접 보낸 것은 라이브러리 줄에서 뺀다. 이용 통계가 꺼져 있거나 「추적 안 함」 이면 보내지 않는다. GA4 는 지금처럼 줄을 섰다가 라이브러리가 뜬 뒤 보낸다 — ③ 전에 떠난 사람은 GA4 에 남지 않는다.
 3. **사진 크기**: 랜딩·내 지도·홈의 장면 사진은 `sceneImageThumbnailUrl(s)` 를 쓴다(없으면 원본 — 옛 서버). ① 의 꽉 찬 장면만 작은 판을 먼저 그리고 원본으로 바꾸지 않는다(720px 이면 충분하다). ② 카드·핀은 촬영지 썸네일. ③ 의 72px 모서리·내 지도의 28px 모서리도 작은 판. 랜딩의 사진은 ① 장면 → ② 첫 카드 3장 → 나머지 순으로 받기(`fetchpriority`, 늦은 것은 `loading=lazy` 아님 — 미리 `new Image()` 로 순서대로).
 4. **기다림 없는 시계**: ① 은 장면 사진이 오면 시작한다. 1.2초 안에 안 오면 포스터(작품 상세의 `posterUrl`, 이미 작다)로 ① 을 시작하고, 장면 사진이 오면 바꿔 끼운다. ② 의 카드는 사진이 온 것부터 날린다(빈 카드를 날리지 않는다 — 안 온 카드는 순서를 뒤로).
 5. **캡션**: 장면 설명의 상투구를 떼고(`This is the backdrop for the scene where`, `This is where`, `It appears in`, `A scene was filmed here in which`, 한국어 `…장면의 배경이다` 등 — 규칙은 `landingScript.ts` 의 순수 함수 `sceneCaption(text, lang)`) 앞 60자. 비면 `say('{작품}의 장면', 'A scene from {작품}')`. 그 아래 장소명, 영어 화면이면 `nameKo` 병기.

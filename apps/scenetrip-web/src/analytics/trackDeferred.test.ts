@@ -8,7 +8,7 @@ const sent = vi.hoisted(() => [] as string[])
 vi.mock('./ga4', () => ({ createGa4: () => ({ track: (e: { name: string }) => sent.push(`ga4:${e.name}`) }) }))
 vi.mock('./posthog', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./posthog')>()),
-  createPostHog: () => ({ track: (e: { name: string }) => sent.push(`ph:${e.name}`) }),
+  createPostHog: () => ({ track: (e: { name: string }) => sent.push(`ph:${e.name}`), ready: () => false }),
 }))
 
 import { holdDeferred, releaseDeferred, resetDeferredForTest } from '@/app/deferred'

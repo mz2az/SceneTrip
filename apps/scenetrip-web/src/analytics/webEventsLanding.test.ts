@@ -18,6 +18,18 @@ describe('landing', () => {
   })
 })
 
+describe('landing — beat·leave (§6·§10-3-2)', () => {
+  it.each(['scene', 'spread', 'rest'] as const)('landingBeat(32, %s) → action=beat, beat', (beat) => {
+    expect(webEvent.landingBeat(32, beat)).toEqual({ name: 'landing', params: { content_id: 32, action: 'beat', beat } })
+  })
+  it.each(['loading', 'scene', 'spread', 'rest'] as const)('landingLeave(32, %s, ms) → action=leave, beat, ms(정수)', (beat) => {
+    expect(webEvent.landingLeave(32, beat, 4321.6)).toEqual({ name: 'landing', params: { content_id: 32, action: 'leave', beat, ms: 4322 } })
+  })
+  it('ms 는 음수가 되지 않는다', () => {
+    expect(webEvent.landingLeave(32, 'loading', -5).params.ms).toBe(0)
+  })
+})
+
 describe('add_more', () => {
   it.each(['view', 'poi', 'plan'] as const)('addMore(%s) → action', (action) => {
     expect(webEvent.addMore(action)).toEqual({ name: 'add_more', params: { action } })

@@ -5,6 +5,7 @@
  *   덮개가 걷히면(onClose) 그 자리의 앱 — 주소 그대로. kept → /add, myMap → /my-map, notNew + /go → 작품 상세.
  *   failed 밖의 걷힘·③ 은 scenetrip.intro.done 을 적는다. 덮개가 뜨면 screen_view(intro).
  *   앱이 떠 있는 동안의 /go/{id} → 작품 상세.
+ *   박자가 바뀌면(onBeat) landing(beat). 담기 전에 pagehide·가려짐이면 landing(leave, 마지막 박자, ms) 한 번 — 덮개 덩어리를 받기 전이면 beat=loading.
  *
  * 덮개(LandingCover)와 앱(AppRoot)은 가짜로 바꾼다 — 덮개 안은 LandingCover.test.tsx 가 본다.
  */
@@ -15,10 +16,20 @@ import type { IntroClose } from '@/features/landing/introClose'
 
 vi.mock('./AppRoot', () => ({ AppRoot: () => <div data-testid="app" /> }))
 vi.mock('@/features/landing/LandingCover', () => ({
-  LandingCover: ({ contentId, onRest, onClose }: { contentId: number; onRest?: () => void; onClose: (how: IntroClose) => void }) => (
+  LandingCover: ({ contentId, onRest, onClose, onBeat, onKeep }: {
+    contentId: number
+    onRest?: () => void
+    onClose: (how: IntroClose) => void
+    onBeat?: (beat: 'scene' | 'spread' | 'rest') => void
+    onKeep?: () => void
+  }) => (
     <div data-testid="cover">
       <span>{`작품 ${contentId}`}</span>
       <button type="button" onClick={() => onRest?.()}>rest</button>
+      {(['scene', 'spread'] as const).map((b) => (
+        <button key={b} type="button" onClick={() => onBeat?.(b)}>{`beat-${b}`}</button>
+      ))}
+      <button type="button" onClick={() => onKeep?.()}>keep</button>
       {(['skip', 'browse', 'kept', 'myMap', 'notNew', 'failed'] as const).map((how) => (
         <button key={how} type="button" onClick={() => onClose(how)}>{how}</button>
       ))}
@@ -172,5 +183,73 @@ describe('덮개 없이 뜬 앱', () => {
     await flush()
     expect(path).toBe('/search/content/12')
     expect(screen.queryByTestId('cover')).toBeNull()
+  })
+})
+
+describe('떠남·박자 (§6·§10-3-2)', () => {
+  const landingCalls = () =>
+    vi.mocked(track).mock.calls.filter(([e]) => e.name === 'landing').map(([e, o]) => ({ params: e.params, options: o }))
+  const hide = () => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
+    document.dispatchEvent(new Event('visibilitychange'))
+  }
+  afterEach(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
+  })
+
+  it('박자가 바뀌면 landing(beat) — 같은 박자는 한 번', async () => {
+    renderShell('/', { contentId: 32, fromGo: false })
+    await flush()
+    await click('beat-scene')
+    await click('beat-scene')
+    await click('beat-spread')
+    expect(landingCalls().map((c) => c.params)).toEqual([
+      { content_id: 32, action: 'beat', beat: 'scene' },
+      { content_id: 32, action: 'beat', beat: 'spread' },
+    ])
+  })
+
+  it('담기 전에 pagehide → landing(leave, 마지막 박자, ms) 를 leaving 으로, 한 번만', async () => {
+    renderShell('/', { contentId: 32, fromGo: false })
+    await flush()
+    await click('beat-scene')
+    window.dispatchEvent(new Event('pagehide'))
+    hide()
+    const leaves = landingCalls().filter((c) => c.params.action === 'leave')
+    expect(leaves).toHaveLength(1)
+    expect(leaves[0]!.params).toMatchObject({ content_id: 32, action: 'leave', beat: 'scene' })
+    expect(Number.isInteger(leaves[0]!.params.ms)).toBe(true)
+    expect(leaves[0]!.params.ms as number).toBeGreaterThanOrEqual(0)
+    expect(leaves[0]!.options).toEqual({ leaving: true })
+  })
+
+  it('박자가 시작되기 전에 가려지면 beat=loading', async () => {
+    renderShell('/', { contentId: 32, fromGo: false })
+    await flush()
+    hide()
+    expect(landingCalls().map((c) => c.params)).toEqual([expect.objectContaining({ action: 'leave', beat: 'loading' })])
+  })
+
+  it('담기를 누른 뒤에는 떠나도 보내지 않는다', async () => {
+    renderShell('/', { contentId: 32, fromGo: false })
+    await flush()
+    await click('keep')
+    window.dispatchEvent(new Event('pagehide'))
+    expect(landingCalls().filter((c) => c.params.action === 'leave')).toHaveLength(0)
+  })
+
+  it('덮개가 걷힌 뒤에는 듣지 않는다', async () => {
+    renderShell('/', { contentId: 32, fromGo: false })
+    await flush()
+    await click('browse')
+    window.dispatchEvent(new Event('pagehide'))
+    expect(landingCalls().filter((c) => c.params.action === 'leave')).toHaveLength(0)
+  })
+
+  it('덮개 없이 뜬 앱은 듣지 않는다', async () => {
+    renderShell('/', null)
+    await flush()
+    window.dispatchEvent(new Event('pagehide'))
+    expect(landingCalls()).toHaveLength(0)
   })
 })

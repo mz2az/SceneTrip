@@ -84,6 +84,9 @@ let serverCart: number[]
 /** 덮개가 걷힌 까닭(차례대로). */
 let closes: IntroClose[] = []
 let rests = 0
+/** onBeat 로 알린 박자(차례대로)·onKeep 을 부른 수 — IntroShell 이 landing(beat)·떠남에 쓴다. */
+let beats: string[] = []
+let keeps = 0
 /** 코스 수 — GET /courses 가 돌려준다. */
 let serverCourses = 0
 /** 촬영지 목록에 새 서버의 칸(sceneImageThumbnailUrl·nameKo)을 싣는가. */
@@ -97,6 +100,8 @@ function Host({ contentId }: { contentId: number }) {
     <LandingCover
       contentId={contentId}
       onRest={() => (rests += 1)}
+      onBeat={(b) => beats.push(b)}
+      onKeep={() => (keeps += 1)}
       onClose={(how) => {
         closes.push(how)
         setOpen(false)
@@ -164,6 +169,8 @@ beforeEach(() => {
   document.body.appendChild(overlayRoot)
   closes = []
   rests = 0
+  beats = []
+  keeps = 0
   serverCourses = 0
   newServer = false
   reducedMotion = false
@@ -292,6 +299,15 @@ describe('받기', () => {
     renderLanding()
     await toScene()
     expect(hasLanding('view')).toBe(true)
+  })
+
+  it('박자가 바뀔 때마다 onBeat — scene → spread → rest(§6 landing(beat))', async () => {
+    renderLanding()
+    await toScene()
+    expect(beats).toEqual(['scene'])
+    await toRest()
+    expect(beats.filter((b, i) => beats.indexOf(b) === i)).toEqual(['scene', 'spread', 'rest'])
+    expect(keeps).toBe(0)
   })
 })
 
@@ -478,6 +494,7 @@ describe('담기', () => {
     expect(typeof onProgress).toBe('function')
     expect(source).toBe('landing')
     expect(hasLanding('save')).toBe(true)
+    expect(keeps).toBe(1)
   })
 
   it.each<[Lang, string, string]>([

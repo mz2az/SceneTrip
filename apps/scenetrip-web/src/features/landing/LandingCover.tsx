@@ -37,7 +37,7 @@ import { spots } from '@/shared/spots'
 import { cartActions, cartStore, useCart } from '@/state/cart'
 import { INTRO_HAETAE_SRC as INTRO_MARK_SRC, IntroSplash } from './IntroSplash'
 import type { IntroClose } from './introClose'
-import { FAN_MS, type LandingTimeline, beatAt, landedCount, landingTimeline, pinLayout, placeLine, sceneCaption } from './landingScript'
+import { type Beat, FAN_MS, type LandingTimeline, beatAt, landedCount, landingTimeline, pinLayout, placeLine, sceneCaption } from './landingScript'
 import './landing.css'
 
 const MapView = lazy(() => import('@/features/search/map/MapView').then((m) => ({ default: m.MapView })))
@@ -97,12 +97,16 @@ const cardPhoto = (p: PlaceSummary) => smallImage(p.imageThumbnailUrl, p.imageUr
 /** 사진을 미리 받을 수 있는 환경인가(jsdom 은 사진을 받지 않는다 — 그때는 주소를 그대로 그린다). */
 const canPreload = (): boolean => typeof Image !== 'undefined' && typeof navigator !== 'undefined' && !/jsdom/i.test(navigator.userAgent)
 
-export function LandingCover({ contentId, startedAt, onRest, onClose }: {
+export function LandingCover({ contentId, startedAt, onRest, onClose, onBeat, onKeep }: {
   contentId: number
   /** 첫 화면을 시작한 때(`performance.now()`) — 앱이 뜬 때. 장면 사진을 기다리는 1.2초는 여기서 잰다. 없으면 덮개가 뜬 때. */
   startedAt?: number
   onRest?: () => void
   onClose: (how: IntroClose) => void
+  /** 박자가 바뀌었다(IntroShell 이 `landing(beat)` 을 보내고 떠날 때의 박자로 적는다). */
+  onBeat?: (beat: Beat) => void
+  /** 담기를 눌렀다 — 이 뒤로는 떠나도 `landing(leave)` 를 보내지 않는다. */
+  onKeep?: () => void
 }): JSX.Element {
   const lang = useLang()
   const cart = useCart()
@@ -288,6 +292,9 @@ export function LandingCover({ contentId, startedAt, onRest, onClose }: {
   const landed = elapsed === null ? 0 : landedCount(elapsed, timeline, n)
   const rest = beat === 'rest'
   useEffect(() => {
+    if (beat !== null) onBeat?.(beat)
+  }, [beat, onBeat])
+  useEffect(() => {
     if (!rest) return
     once('rest')
     onRest?.()
@@ -378,6 +385,7 @@ export function LandingCover({ contentId, startedAt, onRest, onClose }: {
     const remaining = all.filter((id) => !cartStore.get().placeIds.has(id))
     const ids = onlyRemaining && remaining.length > 0 ? remaining : all
     track(webEvent.landing(contentId, 'save'))
+    onKeep?.()
     setSave({ kind: 'saving', done: 0, total: ids.length })
     // 담긴 것부터 하나씩 「내 지도」 로 날린다(§10-3-9) — 실패한 것은 날리지 않는다.
     const before = new Set(cartStore.get().placeIds)

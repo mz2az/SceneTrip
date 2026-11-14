@@ -6,10 +6,13 @@
  * 덮개가 걷히면 그 자리의 앱이 보인다 — 주소는 그대로, 담기를 누른 경우만 「더 담기」(/add).
  *
  * 앱이 떠 있는 동안 `/go/{id}` 로 오면(홈의 작품 칸) 덮개를 다시 띄우지 않고 그 작품 상세로 간다(§11).
+ *
+ * 분석(§6·§10-3-2): 덮개가 뜨면 `screen_view(intro)`, 박자가 바뀔 때마다 `landing(beat)`, 담기 전에 페이지를 떠나면 `landing(leave)`.
+ * 떠남은 덮개 덩어리(LandingCover)를 받기 전부터 여기서 듣는다 — 보라 대기 화면에서 떠난 사람(`beat=loading`)도 남게.
  */
 import { type JSX, Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
-import { appEvent, track } from '@/analytics'
+import { type LandingBeat, type LandingLeaveBeat, appEvent, track, webEvent } from '@/analytics'
 import type { IntroClose } from '@/features/landing/introClose'
 import { IntroSplash } from '@/features/landing/IntroSplash'
 import { releaseDeferred } from './deferred'
@@ -30,6 +33,43 @@ export function IntroShell({ initialIntro }: { initialIntro: { contentId: number
   const [appMounted, setAppMounted] = useState(initialIntro === null)
   const sentView = useRef(false)
   const [startedAt] = useState(() => (typeof performance === 'undefined' ? 0 : performance.now()))
+  /** 마지막으로 본 박자 · 담기를 눌렀나 · 떠남을 보냈나 — 떠날 때 한 번만 보낸다. */
+  const lastBeat = useRef<LandingLeaveBeat>('loading')
+  const keptRef = useRef(false)
+  const leftRef = useRef(false)
+  const contentId = intro?.contentId ?? null
+
+  const onBeat = useCallback(
+    (beat: LandingBeat) => {
+      if (contentId === null || lastBeat.current === beat) return
+      lastBeat.current = beat
+      track(webEvent.landingBeat(contentId, beat))
+    },
+    [contentId],
+  )
+  const onKeep = useCallback(() => {
+    keptRef.current = true
+  }, [])
+
+  // 담기 전에 페이지를 떠났다 — pagehide 또는 가려짐(앱 전환·탭 닫기), 처음 한 번만.
+  useEffect(() => {
+    if (contentId === null) return
+    const leave = () => {
+      if (leftRef.current || keptRef.current) return
+      leftRef.current = true
+      const now = typeof performance === 'undefined' ? startedAt : performance.now()
+      track(webEvent.landingLeave(contentId, lastBeat.current, now - startedAt), { leaving: true })
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') leave()
+    }
+    window.addEventListener('pagehide', leave)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('pagehide', leave)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [contentId, startedAt])
 
   // 덮개가 떠 있는 동안은 밑의 앱이 화면 이름을 보내지 않는다 — 덮개의 화면 이름은 `intro`.
   useEffect(() => {
@@ -82,7 +122,7 @@ export function IntroShell({ initialIntro }: { initialIntro: { contentId: number
       {intro !== null && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 45 }}>
           <Suspense fallback={<IntroSplash />}>
-            <LandingCover key={intro.contentId} contentId={intro.contentId} startedAt={startedAt} onRest={onRest} onClose={onClose} />
+            <LandingCover key={intro.contentId} contentId={intro.contentId} startedAt={startedAt} onRest={onRest} onClose={onClose} onBeat={onBeat} onKeep={onKeep} />
           </Suspense>
         </div>
       )}
