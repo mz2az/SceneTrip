@@ -6,7 +6,7 @@
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type {
-  CreateMapOptions, FitOptions, LatLng, MapBounds, MapEventName, MapHandle, MapLayer, MarkerHandle, MarkerSpec, PolylineHandle, PolylineSpec, SetViewOptions,
+  CreateMapOptions, FitOptions, LatLng, MapBounds, MapEventName, MapHandle, MapLayer, MarkerHandle, MarkerSpec, PolygonSpec, PolylineHandle, PolylineSpec, SetViewOptions,
 } from './types'
 
 /** 개발용 타일. 상용 출시 전에 교체. */
@@ -57,6 +57,18 @@ export function createLeafletMap(el: HTMLElement, options: CreateMapOptions = {}
         })
         line.addTo(group)
         return { remove: () => void line.remove() }
+      },
+      addPolygon(spec: PolygonSpec): PolylineHandle {
+        const shape = L.polygon(spec.path.map(toLL), {
+          fillColor: spec.fillColor,
+          fillOpacity: spec.fillOpacity,
+          color: spec.strokeColor,
+          weight: spec.strokeWeight,
+          opacity: spec.strokeOpacity ?? 1,
+          interactive: false,
+        })
+        shape.addTo(group)
+        return { remove: () => void shape.remove() }
       },
       clear: () => void group.clearLayers(),
       remove: () => void group.remove(),

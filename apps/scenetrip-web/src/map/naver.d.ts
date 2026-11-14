@@ -21,6 +21,16 @@ export interface NaverPolylineOptions {
   strokeLineJoin?: string
   clickable?: boolean
 }
+export interface NaverPolygonOptions {
+  map?: NaverMap | null
+  paths: NaverLatLng[][]
+  fillColor?: string
+  fillOpacity?: number
+  strokeColor?: string
+  strokeWeight?: number
+  strokeOpacity?: number
+  clickable?: boolean
+}
 export interface NaverMarkerOptions {
   map?: NaverMap | null
   position: NaverLatLng
@@ -82,6 +92,7 @@ export interface NaverMaps {
   Size: new (w: number, h: number) => unknown
   Marker: new (options: NaverMarkerOptions) => NaverMarker
   Polyline: new (options: NaverPolylineOptions) => NaverPolyline
+  Polygon: new (options: NaverPolygonOptions) => NaverOverlay
   Position: { BOTTOM_LEFT: number; BOTTOM_RIGHT: number }
   Event: {
     addListener(target: unknown, name: string, handler: (e: { coord?: NaverLatLng }) => void): unknown

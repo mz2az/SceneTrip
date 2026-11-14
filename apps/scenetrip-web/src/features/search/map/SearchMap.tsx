@@ -39,6 +39,7 @@ export function SearchMap(props: MapViewProps) {
   const mapRef = useRef<MapHandle | null>(null)
   const pinLayer = useRef<MapLayer | null>(null)
   const pulseLayer = useRef<MapLayer | null>(null)
+  const shadeLayer = useRef<MapLayer | null>(null)
   const [ready, setReady] = useState(false)
   const lastPinKey = useRef('')
   const last = useRef({ korea: props.koreaToken, locate: props.locateToken, fit: props.fitToken, focus: props.focusToken, pan: props.panToken })
@@ -82,6 +83,8 @@ export function SearchMap(props: MapViewProps) {
     const first = cameraInsets(latest.current.sheetHeight, el.clientHeight)
     const setup = (map: MapHandle, deferred: boolean) => {
       mapRef.current = map
+      // 음영은 핀 밑에 깔리도록 먼저 만든다.
+      shadeLayer.current = map.createLayer()
       pinLayer.current = map.createLayer()
       pulseLayer.current = map.createLayer()
       // 첫 진입은 남한 전체다 — 촬영지가 서울에만 있지 않아 지방 촬영지를 가진 작품이 통째로 사라지지 않게.
@@ -129,6 +132,7 @@ export function SearchMap(props: MapViewProps) {
         mapRef.current = null
         pinLayer.current = null
         pulseLayer.current = null
+        shadeLayer.current = null
         pulse.current = null
         lastPinKey.current = ''
       }
@@ -243,6 +247,16 @@ export function SearchMap(props: MapViewProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 토큰이 바뀐 순간에만 움직인다. 나머지 값은 latest 로 읽는다.
   }, [ready, props.koreaToken, props.locateToken, props.fitToken, props.focusToken, props.panToken])
+
+  // 도시 영역 음영 — 채움 앱 보라 0.12, 테두리 0.6(web-city-map-first.md §3).
+  useEffect(() => {
+    const layer = shadeLayer.current
+    // ready 를 기다리지 않는다 — 지도를 바로 만드는 경로(Leaflet 폴백)에서는 ready 가 true 가 되지 않는다(검증 지적). 층이 생긴 뒤 ready 로 다시 돈다.
+    if (!layer) return
+    layer.clear()
+    const path = props.shade
+    if (path && path.length >= 3) layer.addPolygon({ path, fillColor: '#7A69ED', fillOpacity: 0.12, strokeColor: '#7A69ED', strokeWeight: 2, strokeOpacity: 0.6 })
+  }, [ready, props.shade])
 
   function fitPins() {
     const pins = latest.current.pins

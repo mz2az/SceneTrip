@@ -8,7 +8,8 @@ import { paths } from '@/app/routes'
 import { useTabRouter } from '@/app/tabRouter'
 import { Icon } from '@/design/Icon'
 import { HStack, Spinner, Txt, VStack, homeCard } from '@/design/primitives'
-import { cityCount } from '@/features/home/homeCities'
+import { areaBbox, cityCount, regionBbox } from '@/features/home/homeCities'
+import { focusCity } from '@/features/home/cityFocus'
 import { Pressable } from '@/features/route/ui/Press'
 import { PinoMascot } from '@/design/PinoMascot'
 import { useRouteState } from '@/features/route/store'
@@ -35,6 +36,16 @@ type PlaceSummary = components['schemas']['PlaceSummary']
 
 export function AskCard() {
   const { cities } = useCities()
+  const router = useTabRouter()
+  // 도시 칩은 코스 만들기로 바로 가지 않고 그 도시 촬영지를 지도로 먼저 보여 준다(web-city-map-first.md, 2026-11-14 사용자 제안).
+  // 코스 만들기는 지도 위 카드의 「이 도시로 코스 만들기」 와 떠 있는 「여행 계획」 버튼이 맡는다.
+  const openCityMap = (c: (typeof cities)[number]) => {
+    track(webEvent.selectHomeCity(c.key, 'proto_chip'))
+    const bbox = c.places.length > 0 ? regionBbox(c.places) : c.area ? areaBbox(c.area) : null
+    focusCity(c.key)
+    if (bbox) router.openRegion(bbox)
+    else router.selectTab('search')
+  }
   const { slides, at, now } = useCitySlides()
   return (
     // 사진 카드 — 도시 대표 촬영지 사진이 천천히 바뀌고, 그 위에 흰 글씨와 반투명 도시 단추. 사진을 못 받으면 앱의 보라·하늘 그라데이션.
@@ -46,7 +57,7 @@ export function AskCard() {
         <HStack spacing={8} align="start">
           <VStack spacing={4} align="start" style={{ flex: 1, minWidth: 0 }}>
             <Txt as="h2" id="proto-ask-title" size={24} weight="heavy" style={{ ...heading, color: color.onPhoto, textShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>{say('어디로 여행 가세요?', 'Where are you traveling?')}</Txt>
-            <Txt size={14} style={{ color: color.onPhoto, opacity: 0.92, textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{say('도시를 고르면 그곳 드라마·영화 촬영지로 코스를 만들어 드려요', "Pick a city. We'll build a route through its K\u2011drama spots.")}</Txt>
+            <Txt size={14} style={{ color: color.onPhoto, opacity: 0.92, textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{say('도시를 고르면 그곳 드라마·영화 촬영지를 지도로 보여 드려요', 'Pick a city to see its K\u2011drama spots on the map.')}</Txt>
           </VStack>
           <MockBadge onPhoto />
         </HStack>
@@ -61,7 +72,7 @@ export function AskCard() {
             {/* 도시 단추 — 사진 위의 작은 반투명 알약(높이 32). 흰 통 알약(44)은 사진을 가리고 투박했다(2026-11-08 사용자 지적).
                 누르는 칸은 위아래로 늘려 44 를 지킨다. */}
             {cities.slice(0, ASK_CITIES).map((c) => (
-              <Pressable key={c.key} plain className="proto-press" onClick={() => { track(webEvent.selectHomeCity(c.key, 'proto_chip')); track(webEvent.planStart('city_chip')); protoActions.plan(c.key) }} style={{ flex: 'none', minHeight: 44, display: 'grid', alignItems: 'center' }}>
+              <Pressable key={c.key} plain className="proto-press" onClick={() => openCityMap(c)} style={{ flex: 'none', minHeight: 44, display: 'grid', alignItems: 'center' }}>
                 <span
                   style={{
                     display: 'inline-flex', alignItems: 'baseline', gap: 4, height: 32, padding: '0 12px', borderRadius: radius.pill, lineHeight: '32px',

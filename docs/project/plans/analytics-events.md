@@ -186,7 +186,7 @@ iOS·Android 에는 아직 없다. 실험이 끝나 두 앱에 옮기면 §3 표
 | --- | --- | --- | --- |
 | `home_scroll` | 홈을 그 깊이까지 내려 봤다(세션에 깊이마다 한 번, 홈이 보일 때만) | `depth` 25·50·75·100 | `features/home/HomeTab.tsx`, `features/proto/homeScroll.ts` |
 | `home_tap` | 홈의 칸을 눌렀다 | `section` = `trending_title`·`trending_all`·`today_place`·`today_save`·`community`·`my_record`·`plan_bar` | `HomeTab.tsx`·`ProtoScreens.tsx` |
-| `plan_start` | 코스 만들기를 시작했다 | `entry` = `city_chip`·`fork_city`·`fork_works`·`fork_saved`·`plan_bar` | `ProtoScreens.tsx`·`ProtoFork.tsx` |
+| `plan_start` | 코스 만들기를 시작했다 | `entry` = `city_map`(지도 위 도시 카드, 11/14 부터)·`fork_city`·`fork_works`·`fork_saved` — `city_chip`·`plan_bar` 는 이제 보내지 않는다 | `ProtoScreens.tsx`·`ProtoFork.tsx` |
 | `plan_step` | 코스 만들기 단계에 들어왔다 | `flow` = `city`·`works`, `step` = `city`·`days`·`how`·`plan`·`picker`·`trip`·`works`·`planning` | `ProtoScreens.tsx`·`ProtoPlanFlows.tsx` |
 | `plan_failed` | 코스를 못 짰거나 못 저장했다 | `flow`, `reason` = `empty`·`error`·`save` | 같음 |
 | `view_post` | 커뮤니티 글을 열었다(목록·주소 모두) | `post_id` | `features/community/PostView.tsx` |

@@ -16,7 +16,7 @@
 | `select_home_city` (있음, 출처 값만 더함) | `webEvent.selectHomeCity(city, source)` | `source` 에 `proto_chip`(첫 화면 히어로의 도시 칩) · `proto_grid`(코스 만들기의 도시 고르기)를 더한다 |
 | `home_scroll` | `webEvent.homeScroll(depth)` | `depth` = 25 · 50 · 75 · 100 (정수) |
 | `home_tap` | `webEvent.homeTap(section)` | `section` = `trending_title` · `trending_all` · `today_place` · `today_save` · `community` · `my_record` · `plan_bar` |
-| `plan_start` | `webEvent.planStart(entry)` | `entry` = `city_chip` · `fork_city` · `fork_works` · `fork_saved` · `plan_bar` |
+| `plan_start` | `webEvent.planStart(entry)` | `entry` = `city_map`(지도 위 도시 카드, 11/14 추가) · `fork_city` · `fork_works` · `fork_saved` — `city_chip` · `plan_bar` 는 타입에만 남고 보내지 않는다 |
 | `plan_step` | `webEvent.planStep(flow, step)` | `flow` = `city` · `works`, `step` = `city` · `days` · `how` · `plan` · `picker` · `trip` · `planning` |
 | `plan_failed` | `webEvent.planFailed(flow, reason)` | `flow` 같음, `reason` = `empty`(결과 0곳) · `error`(요청 실패) · `save`(저장 실패) |
 | `view_post` | `webEvent.viewPost(postId)` | `post_id` |
@@ -53,7 +53,7 @@
 
 | 이벤트 | 위치 |
 | --- | --- |
-| 히어로 도시 칩 | `features/proto/ProtoScreens.tsx` 칩 `onClick` → `selectHomeCity(key,'proto_chip')` + `planStart('city_chip')` |
+| 히어로 도시 칩 | `features/proto/ProtoScreens.tsx` 칩 `onClick` → `selectHomeCity(key,'proto_chip')`. 11/14 부터 칩은 지도로 가므로 `planStart` 는 지도 카드의 `city_map` 이 센다([web-city-map-first.md](web-city-map-first.md)) |
 | 도시 고르기 | `ProtoScreens.tsx` CityGrid `onPick` → `selectHomeCity(key,'proto_grid')` |
 | 코스 만들기 단계 | QuestionFlow 의 단계가 바뀔 때 `planStep('city', step)`, CityPicker 진입 시 `planStep('city','picker')` |
 | 도시 AI 결과 | PlanPreview — 성공 `generatePlan(days, 0)` · 0곳 `planFailed('city','empty')` · 실패 `planFailed('city','error')` · 저장 실패 `planFailed('city','save')` |
@@ -68,7 +68,7 @@
 
 ## 3-1. 읽는 법
 
-- `plan_step` 은 `plan_start` 의 `entry` 로 나눠 본다 — 도시 칩으로 들어오면 첫 단계가 `days` 라 `city` 단계가 없다.
+- `plan_step` 은 `plan_start` 의 `entry` 로 나눠 본다 — 지도 카드(`city_map`)로 들어오면 첫 단계가 `days` 라 `city` 단계가 없다.
 - 뒤로 갔다 다시 들어온 단계는 다시 센다(사람 수로 보면 된다).
 - PostHog People 은 「브라우저 수」다 — identify 를 하지 않아 같은 사람도 기기·브라우저마다 따로다.
 

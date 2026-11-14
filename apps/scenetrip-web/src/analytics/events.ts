@@ -98,7 +98,7 @@ export type HomeCitySource = 'default' | 'chip' | 'near_me' | 'proto_chip' | 'pr
 /** 새 홈(시안 A)의 이벤트 값 — web-proto-events.md §1. */
 export type HomeScrollDepth = 25 | 50 | 75 | 100
 export type HomeTapSection = 'trending_title' | 'trending_all' | 'today_place' | 'today_save' | 'community' | 'my_record' | 'plan_bar'
-export type PlanEntry = 'city_chip' | 'fork_city' | 'fork_works' | 'fork_saved' | 'plan_bar'
+export type PlanEntry = 'city_chip' | 'city_map' | 'fork_city' | 'fork_works' | 'fork_saved' | 'plan_bar'
 export type PlanFlow = 'city' | 'works'
 export type PlanStep = 'city' | 'days' | 'how' | 'plan' | 'picker' | 'trip' | 'works' | 'planning'
 export type PlanFailReason = 'empty' | 'error' | 'save'

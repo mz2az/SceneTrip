@@ -26,7 +26,7 @@ describe('home_scroll · home_tap', () => {
 })
 
 describe('plan_start · plan_step · plan_failed', () => {
-  it.each(['city_chip', 'fork_city', 'fork_works', 'fork_saved', 'plan_bar'])('planStart(%s)', (entry) => {
+  it.each(['city_chip', 'city_map', 'fork_city', 'fork_works', 'fork_saved', 'plan_bar'])('planStart(%s)', (entry) => {
     expect(w.planStart(entry)).toEqual({ name: 'plan_start', params: { entry } })
   })
   it.each([
