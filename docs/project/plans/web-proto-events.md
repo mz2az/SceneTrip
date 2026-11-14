@@ -24,12 +24,12 @@
 | `comment_post` | `webEvent.commentPost(postId)` | `post_id` — 본문은 보내지 않는다 |
 | `save_post_course` | `webEvent.savePostCourse(postId)` | `post_id` |
 | `sign_in_prompt` | `webEvent.signInPrompt(reason)` | `reason` = `like` · `comment` · `save_course` · `compose` · `my_posts` · `review` · `block` · `directions` · `nudge` · `profile` · `session` · `server` · `other` |
-| `coach_tour` | `webEvent.coachTour(tour, action)` | `tour` = 안내 id(예 `home-plan-trip`·`fork-options`·`editor-first`), `action` = `begin` · `complete` |
+| `coach_tour` | `webEvent.coachTour(tour, action)` | `tour` = 안내 id(예 `fork-options`·`editor-first`; `home-plan-trip` 은 2026-11-14 없앰), `action` = `begin` · `complete` |
 
 - `EventName` 에 새 이름을 더한다. 공통 26개(`appEvent`)의 개수는 그대로다.
 - 이미 있는 공통 이벤트를 새로 부르는 곳:
   - `generate_plan` — 도시 AI 코스가 성공했을 때(`day_count` = 고른 날 수, `title_count` = 0).
-  - (검증 뒤 바꿈) 코치 투어는 공통 `tutorial_*` 를 쓰지 않고 웹 전용 `coach_tour` 로 센다 — 안내가 4종이고 공통 정의(건너뛰기 포함)와 다르다.
+  - (검증 뒤 바꿈) 코치 투어는 공통 `tutorial_*` 를 쓰지 않고 웹 전용 `coach_tour` 로 센다 — 안내가 4종이고 공통 정의(건너뛰기 포함)와 다르다. (홈의 `home-plan-trip` 은 2026-11-14 없앰)
 
 ## 2. 규칙 (순수 함수, 시험 대상)
 
