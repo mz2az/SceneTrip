@@ -17,6 +17,7 @@ import com.mz2az.scenetrip.sceneapi.auth.RefreshTokenStore;
 import com.mz2az.scenetrip.sceneapi.auth.SignInService;
 import com.mz2az.scenetrip.sceneapi.auth.SocialIdentity;
 import com.mz2az.scenetrip.sceneapi.auth.SocialTokenException;
+import com.mz2az.scenetrip.sceneapi.moderation.OperatorDirectory;
 import com.mz2az.scenetrip.sceneapi.user.UserStore;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -44,6 +45,7 @@ class AuthController implements AuthApi {
   private final GoogleIdTokenVerifier google;
   private final SignInService signIn;
   private final AppleLogin apple;
+  private final OperatorDirectory operators;
 
   AuthController(
       AccessTokens tokens,
@@ -52,7 +54,8 @@ class AuthController implements AuthApi {
       CurrentAccount accounts,
       GoogleIdTokenVerifier google,
       SignInService signIn,
-      AppleLogin apple) {
+      AppleLogin apple,
+      OperatorDirectory operators) {
     this.tokens = tokens;
     this.refreshTokens = refreshTokens;
     this.users = users;
@@ -60,6 +63,7 @@ class AuthController implements AuthApi {
     this.google = google;
     this.signIn = signIn;
     this.apple = apple;
+    this.operators = operators;
   }
 
   /**
@@ -264,7 +268,7 @@ class AuthController implements AuthApi {
         merged);
   }
 
-  private static Me me(UserStore.Profile profile) {
+  private Me me(UserStore.Profile profile) {
     Me me =
         new Me(
             profile.id(),
@@ -275,7 +279,9 @@ class AuthController implements AuthApi {
     return me.displayName(profile.displayName())
         .email(profile.email())
         .nickname(profile.nickname())
-        .nicknameConfirmed(profile.nicknameConfirmed());
+        .nicknameConfirmed(profile.nicknameConfirmed())
+        // 운영자면 앱이 남의 글 메뉴에 「내리기」 를 보인다(MZ2AZ-569).
+        .isOperator(operators.isOperator(profile.id()));
   }
 
   /** 구글·애플 토큰 실패를 응답으로. 이유는 로그에만 — {@link CurrentAccount#invalid} 와 같은 판단이다. */

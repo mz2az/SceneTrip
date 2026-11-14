@@ -1,5 +1,7 @@
+import L from 'leaflet'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MapCancelled, createMap, resolveProvider } from './index'
+import { createLeafletMap } from './LeafletMapProvider'
 import { createNaverMap, splitColor, strokeStyleFor } from './NaverMapProvider'
 import { shiftedCenter } from './mercator'
 import type { NaverMaps } from './naver'
@@ -86,6 +88,7 @@ function fakeMaps() {
     },
     Marker: overlay('Marker'),
     Polyline: overlay('Polyline'),
+    Polygon: overlay('Polygon'),
     Position: { BOTTOM_LEFT: 10, BOTTOM_RIGHT: 12 },
     Event: {
       addListener(target: unknown, name: string, handler: (e: { coord?: unknown }) => void) {
@@ -100,6 +103,15 @@ function fakeMaps() {
   } as unknown as NaverMaps
   return { maps, calls, listeners }
 }
+
+/** 계획 §3 의 도시 칠 — 채움 #7A69ED 0.12, 테두리 같은 색 0.6, 굵기 2. */
+const SHADE_PATH = [
+  { lat: 37.4, lng: 126.9 },
+  { lat: 37.4, lng: 127.1 },
+  { lat: 37.6, lng: 127.1 },
+  { lat: 37.6, lng: 126.9 },
+]
+const SHADE_STYLE = { fillColor: '#7A69ED', fillOpacity: 0.12, strokeColor: '#7A69ED', strokeWeight: 2, strokeOpacity: 0.6 }
 
 const named = (calls: Array<[string, ...unknown[]]>, name: string) => calls.filter((c) => c[0] === name)
 
@@ -288,6 +300,37 @@ describe('네이버 어댑터 (window.naver.maps 가짜)', () => {
     expect(line.strokeStyle).toBe('shortdot')
   })
 
+  it('addPolygon — maps.Polygon 을 채움·테두리 옵션으로 만들고 클릭은 받지 않으며, remove 로 뗀다', () => {
+    const { maps, calls } = fakeMaps()
+    const layer = createNaverMap(maps, el).createLayer()
+    const handle = layer.addPolygon({ path: SHADE_PATH, ...SHADE_STYLE })
+    const created = named(calls, 'new Polygon')
+    expect(created).toHaveLength(1)
+    const opts = created[0][1] as Record<string, unknown> & { paths?: unknown; path?: unknown }
+    expect(opts.fillColor).toBe('#7A69ED')
+    expect(opts.fillOpacity).toBeCloseTo(0.12)
+    expect(opts.strokeColor).toBe('#7A69ED')
+    expect(opts.strokeOpacity).toBeCloseTo(0.6)
+    expect(opts.strokeWeight).toBe(2)
+    expect(opts.clickable).toBe(false)
+    expect(opts.map).toBeDefined()
+    handle.remove()
+    expect(named(calls, 'Polygon.setMap').at(-1)?.[1]).toBeNull()
+  })
+
+  it('layer.clear·remove 는 다각형도 뗀다', () => {
+    const { maps, calls } = fakeMaps()
+    const map = createNaverMap(maps, el)
+    const a = map.createLayer()
+    a.addPolygon({ path: SHADE_PATH, ...SHADE_STYLE })
+    a.clear()
+    expect(named(calls, 'Polygon.setMap').filter((c) => c[1] === null)).toHaveLength(1)
+    const b = map.createLayer()
+    b.addPolygon({ path: SHADE_PATH, ...SHADE_STYLE })
+    b.remove()
+    expect(named(calls, 'Polygon.setMap').filter((c) => c[1] === null)).toHaveLength(2)
+  })
+
   it('fitBounds 는 여백을 top/right/bottom/left 로 옮기고 maxZoom 을 넘긴다', () => {
     const { maps, calls } = fakeMaps()
     const map = createNaverMap(maps, el)
@@ -334,6 +377,64 @@ describe('네이버 어댑터 (window.naver.maps 가짜)', () => {
     const { maps, calls } = fakeMaps()
     createNaverMap(maps, el).destroy()
     expect(named(calls, 'destroy')).toHaveLength(1)
+  })
+})
+
+describe('Leaflet 어댑터 — 다각형', () => {
+  let el: HTMLElement
+  beforeEach(() => {
+    el = document.createElement('div')
+    document.body.appendChild(el)
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+    el.remove()
+  })
+
+  it('addPolygon — L.polygon 을 interactive:false 와 채움·테두리 옵션으로 지도에 올리고, remove 로 내린다', () => {
+    const spy = vi.spyOn(L, 'polygon')
+    const map = createLeafletMap(el)
+    map.setView({ lat: 37.5, lng: 127.0 }, 12, { animate: false })
+    const layer = map.createLayer()
+    const handle = layer.addPolygon({ path: SHADE_PATH, ...SHADE_STYLE })
+    expect(spy).toHaveBeenCalledTimes(1)
+    const [latlngs, opts] = spy.mock.calls[0] as [Array<{ lat: number; lng: number }>, L.PolylineOptions]
+    expect(latlngs.map((p) => ({ lat: p.lat, lng: p.lng }))).toEqual(SHADE_PATH)
+    expect(opts.interactive).toBe(false)
+    expect(opts.fillColor).toBe('#7A69ED')
+    expect(opts.fillOpacity).toBeCloseTo(0.12)
+    expect(opts.color).toBe('#7A69ED')
+    expect(opts.opacity).toBeCloseTo(0.6)
+    expect(opts.weight).toBe(2)
+    const polygon = spy.mock.results[0].value as L.Polygon
+    expect(polygon.options.interactive).toBe(false)
+    expect(polygon.options.fill).not.toBe(false)
+    const lmap = (polygon as unknown as { _map: L.Map | null })._map
+    expect(lmap).toBeTruthy()
+    expect(lmap!.hasLayer(polygon)).toBe(true)
+    handle.remove()
+    expect(lmap!.hasLayer(polygon)).toBe(false)
+    map.destroy()
+  })
+
+  it('layer.clear·remove 는 다각형도 내린다', () => {
+    const spy = vi.spyOn(L, 'polygon')
+    const map = createLeafletMap(el)
+    map.setView({ lat: 37.5, lng: 127.0 }, 12, { animate: false })
+    const a = map.createLayer()
+    a.addPolygon({ path: SHADE_PATH, ...SHADE_STYLE })
+    const pa = spy.mock.results[0].value as L.Polygon
+    const lmap = (pa as unknown as { _map: L.Map | null })._map!
+    expect(lmap.hasLayer(pa)).toBe(true)
+    a.clear()
+    expect(lmap.hasLayer(pa)).toBe(false)
+    const b = map.createLayer()
+    b.addPolygon({ path: SHADE_PATH, ...SHADE_STYLE })
+    const pb = spy.mock.results[1].value as L.Polygon
+    expect(lmap.hasLayer(pb)).toBe(true)
+    b.remove()
+    expect(lmap.hasLayer(pb)).toBe(false)
+    map.destroy()
   })
 })
 

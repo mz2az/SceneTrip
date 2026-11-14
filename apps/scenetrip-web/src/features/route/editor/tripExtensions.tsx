@@ -488,7 +488,7 @@ function EditorTripLayer({ host }: { host: EditorHost }) {
       const h = hostRef.current
       const steps = guideDirectionsSteps({ signedIn: authStore.get().session !== null, inCourse: isAdded(place), tripRunning: h.course.isRunning })
       if (steps.includes('signIn')) {
-        promptSignIn(directionsSignInReason())
+        promptSignIn(directionsSignInReason(), 'directions')
         return
       }
       // 창을 접어 지도와 안내 띠가 보이게 한다.

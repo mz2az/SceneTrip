@@ -65,7 +65,7 @@ export function CommunityTab() {
   const proto = useStore(protoStore, (p) => protoAvailable && p.proto !== null)
   const [board, setBoard] = useState<Board>('review')
   const [query, setQuery] = useState<string | null>(null)
-  const onCompose = () => (signedIn || proto ? navigate(paths.communityCompose) : promptSignIn(say('글을 쓰려면 로그인이 필요해요', 'Sign in to write a post')))
+  const onCompose = () => (signedIn || proto ? navigate(paths.communityCompose) : promptSignIn(say('글을 쓰려면 로그인이 필요해요', 'Sign in to write a post'), 'compose'))
   const allRows = useMemo(() => store.posts.map(postFromSummary), [store.posts])
   const rows = allRows
   // 게시판·검색어는 서버가 거른다(1.24.0, MZ2AZ-538). 검색어는 2자부터, 입력이 0.35초 멈추면. 탭을 떠나면 조건을 지운다 — 홈 「커뮤니티 지금」 도
@@ -158,7 +158,12 @@ export function CommunityTab() {
         <ComposeSheet open={composing} onClose={closeSheets} topGap={SHEET_TOP_GAP} radius={SHEET_RADIUS} />
       )}
 
-      <ModerationSheets controller={moderation} onBlocked={(t) => t.kind === 'post' && void communityStore.api.blocked(t.id)} />
+      <ModerationSheets
+        controller={moderation}
+        onBlocked={(t) => t.kind === 'post' && void communityStore.api.blocked(t.id)}
+        // 운영자가 내린 글도 목록에서 걷어 내고 다시 받는다(MZ2AZ-569).
+        onRemoved={(t) => t.kind === 'post' && void communityStore.api.blocked(t.id)}
+      />
       <Alert
         open={deleting !== null}
         title={tr('후기를 지울까요?')}

@@ -7,7 +7,9 @@
  */
 import { useCallback, useEffect, useRef } from 'react'
 import { useLocation } from 'react-router'
-import { coverOf } from '@/app/routes'
+import { coverOf, tabOf } from '@/app/routes'
+import { track, webEvent } from '@/analytics'
+import { homeScrollDepths } from '../proto/homeScroll'
 import { useTabRouter, pendingStore } from '@/app/tabRouter'
 import { useLang } from '@/i18n'
 import { VStack } from '@/design/primitives'
@@ -29,6 +31,9 @@ import '../route/ui/route.css'
 
 /** 「커뮤니티 지금」에 올리는 글 수. */
 const NOW_POSTS = 2
+
+/** 이번 세션에 보낸 홈 스크롤 깊이(web-proto-events.md §2-1) — 깊이마다 한 번. */
+const sentDepths = new Set<number>()
 
 export function HomeTab() {
   useLang()
@@ -66,8 +71,19 @@ export function HomeTab() {
   const card = tripCard({ hasTrip: home.trips.length > 0, courseList: route.courseList, hasCourses, tripsLoading: home.tripsLoading })
   const today = home.today
 
+  // 홈 스크롤 깊이 — 홈은 숨겨져도 마운트돼 있으니 홈이 보일 때만 센다.
+  const homeVisible = tabOf(pathname) === 'home' && coverOf(pathname) === null
+  const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (!homeVisible) return
+    const el = e.currentTarget
+    for (const depth of homeScrollDepths(el.scrollTop, el.clientHeight, el.scrollHeight, sentDepths)) {
+      sentDepths.add(depth)
+      track(webEvent.homeScroll(depth))
+    }
+  }
+
   return (
-    <div className="scroll-y" style={{ height: '100%', background: 'var(--grouped-background)', paddingBottom: 'var(--proto-tab-inset, 0px)' }}>
+    <div className="scroll-y" onScroll={onScroll} style={{ height: '100%', background: 'var(--grouped-background)', paddingBottom: 'var(--proto-tab-inset, 0px)' }}>
       <VStack spacing={18} align="stretch" style={{ padding: proto !== null ? '8.7px 0 calc(84px + var(--nudge-inset, 0px))' : '8.7px 0 calc(28px + var(--nudge-inset, 0px))' }}>
         <HomeHeader onProfile={() => router.openProfile()} />
         {/* 「어디로 가세요?」 시안(로컬 전용, docs/project/plans/web-trip-first-prototypes.md). */}
@@ -91,7 +107,7 @@ export function HomeTab() {
           onCreate={() => router.openRoute()}
         />}
         <div style={{ margin: "0.6px 0 0.7px" }}>
-          <WorkShelf works={home.works} failed={home.failed} onOpen={(w) => router.openContent(w)} onAll={() => router.openTrending()} />
+          <WorkShelf works={home.works} failed={home.failed} onOpen={(w) => { track(webEvent.homeTap('trending_title')); router.openContent(w) }} onAll={() => { track(webEvent.homeTap('trending_all')); router.openTrending() }} />
         </div>
         {today && (
           // 목적지는 코스 항목으로만 받아 코스 없는 길찾기가 없다(MZ2AZ-313) — 대신 장바구니에 담아 코스로 이어지게 한다.
@@ -99,14 +115,19 @@ export function HomeTab() {
             place={today}
             saved={cart.placeIds.has(today.id)}
             // 카드 본체를 누르면 그 촬영지의 상세로(2026-09-16 사용자 요청).
-            onOpen={() => router.openPlace(today)}
-            onSave={() => void (cart.placeIds.has(today.id) ? cartActions.remove(today.id) : cartActions.add(today.id))}
+            onOpen={() => { track(webEvent.homeTap('today_place')); router.openPlace(today) }}
+            onSave={() => void (track(webEvent.homeTap('today_save')), cart.placeIds.has(today.id) ? cartActions.remove(today.id) : cartActions.add(today.id))}
           />
         )}
-        <CommunityNow posts={community.posts.slice(0, NOW_POSTS)} moderation={moderation} onOpen={() => router.selectTab('community')} />
-        <MyRecord stamps={home.stamps} likeCount={likes.contentIds.size} onOpen={() => router.openProfile()} />
+        <CommunityNow posts={community.posts.slice(0, NOW_POSTS)} moderation={moderation} onOpen={() => { track(webEvent.homeTap('community')); router.selectTab('community') }} />
+        <MyRecord stamps={home.stamps} likeCount={likes.contentIds.size} onOpen={() => { track(webEvent.homeTap('my_record')); router.openProfile() }} />
       </VStack>
-      <ModerationSheets controller={moderation} onBlocked={(t) => { if (t.kind === 'post') void community.blocked(t.id) }} />
+      <ModerationSheets
+        controller={moderation}
+        onBlocked={(t) => { if (t.kind === 'post') void community.blocked(t.id) }}
+        // 운영자가 홈 카드에서 내린 글도 걷어 낸다(MZ2AZ-569, 검증 지적).
+        onRemoved={(t) => { if (t.kind === 'post') void community.blocked(t.id) }}
+      />
     </div>
   )
 }

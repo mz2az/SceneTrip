@@ -8,12 +8,14 @@ import { paths } from '@/app/routes'
 import { useTabRouter } from '@/app/tabRouter'
 import { Icon } from '@/design/Icon'
 import { HStack, Spinner, Txt, VStack, homeCard } from '@/design/primitives'
-import { cityCount } from '@/features/home/homeCities'
+import { areaBbox, cityCount, regionBbox } from '@/features/home/homeCities'
+import { focusCity } from '@/features/home/cityFocus'
 import { Pressable } from '@/features/route/ui/Press'
 import { PinoMascot } from '@/design/PinoMascot'
 import { useRouteState } from '@/features/route/store'
 import { useStore } from '@/state/storage'
 import { api, ok } from '@/api/client'
+import { appEvent, track, webEvent } from '@/analytics'
 import { cityPlanRequest, planFromGuide, removeStop, swapNearbyQuery, swapStop } from './cityPlan'
 import { peekCardIndex } from './sceneFlip'
 import { SceneFlipPhoto, hasFlippedBefore, prefersReducedMotion } from './SceneFlipPhoto'
@@ -34,6 +36,16 @@ type PlaceSummary = components['schemas']['PlaceSummary']
 
 export function AskCard() {
   const { cities } = useCities()
+  const router = useTabRouter()
+  // 도시 칩은 코스 만들기로 바로 가지 않고 그 도시 촬영지를 지도로 먼저 보여 준다(web-city-map-first.md, 2026-11-14 사용자 제안).
+  // 코스 만들기는 지도 위 카드의 「이 도시로 코스 만들기」 와 떠 있는 「여행 계획」 버튼이 맡는다.
+  const openCityMap = (c: (typeof cities)[number]) => {
+    track(webEvent.selectHomeCity(c.key, 'proto_chip'))
+    const bbox = c.places.length > 0 ? regionBbox(c.places) : c.area ? areaBbox(c.area) : null
+    focusCity(c.key)
+    if (bbox) router.openRegion(bbox)
+    else router.selectTab('search')
+  }
   const { slides, at, now } = useCitySlides()
   return (
     // 사진 카드 — 도시 대표 촬영지 사진이 천천히 바뀌고, 그 위에 흰 글씨와 반투명 도시 단추. 사진을 못 받으면 앱의 보라·하늘 그라데이션.
@@ -45,7 +57,7 @@ export function AskCard() {
         <HStack spacing={8} align="start">
           <VStack spacing={4} align="start" style={{ flex: 1, minWidth: 0 }}>
             <Txt as="h2" id="proto-ask-title" size={24} weight="heavy" style={{ ...heading, color: color.onPhoto, textShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>{say('어디로 여행 가세요?', 'Where are you traveling?')}</Txt>
-            <Txt size={14} style={{ color: color.onPhoto, opacity: 0.92, textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{say('도시를 고르면 그곳 드라마·영화 촬영지로 코스를 만들어 드려요', "Pick a city. We'll build a route through its K\u2011drama spots.")}</Txt>
+            <Txt size={14} style={{ color: color.onPhoto, opacity: 0.92, textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{say('도시를 고르면 그곳 드라마·영화 촬영지를 지도로 보여 드려요', 'Pick a city to see its K\u2011drama spots on the map.')}</Txt>
           </VStack>
           <MockBadge onPhoto />
         </HStack>
@@ -60,7 +72,7 @@ export function AskCard() {
             {/* 도시 단추 — 사진 위의 작은 반투명 알약(높이 32). 흰 통 알약(44)은 사진을 가리고 투박했다(2026-11-08 사용자 지적).
                 누르는 칸은 위아래로 늘려 44 를 지킨다. */}
             {cities.slice(0, ASK_CITIES).map((c) => (
-              <Pressable key={c.key} plain className="proto-press" onClick={() => protoActions.plan(c.key)} style={{ flex: 'none', minHeight: 44, display: 'grid', alignItems: 'center' }}>
+              <Pressable key={c.key} plain className="proto-press" onClick={() => openCityMap(c)} style={{ flex: 'none', minHeight: 44, display: 'grid', alignItems: 'center' }}>
                 <span
                   style={{
                     display: 'inline-flex', alignItems: 'baseline', gap: 4, height: 32, padding: '0 12px', borderRadius: radius.pill, lineHeight: '32px',
@@ -91,6 +103,10 @@ function QuestionFlow() {
   const [city, setCity] = useState<string | null>(startCity)
   const [days, setDays] = useState<number | null>(null)
   const close = () => protoActions.ask(false)
+  // 코스 만들기의 단계 — 어디서 그만두는지 퍼널로 본다(web-proto-events.md).
+  useEffect(() => {
+    track(webEvent.planStep('city', step))
+  }, [step])
 
   const content = ((): ReactNode => {
     if (step === 'city') {
@@ -118,7 +134,7 @@ function QuestionFlow() {
               <SecondaryButton onClick={retry}>{say('다시 시도', 'Try again')}</SecondaryButton>
             </VStack>
           ) : (
-            <CityGrid cities={cities} loading={loading} selected={city} onPick={(k) => { setCity(k); setStep('days') }} />
+            <CityGrid cities={cities} loading={loading} selected={city} onPick={(k) => { track(webEvent.selectHomeCity(k, 'proto_grid')); setCity(k); setStep('days') }} />
           )}
           <Pressable plain className="proto-press" onClick={() => protoActions.ask(false)} style={{ alignSelf: 'center', padding: '12px 16px', minHeight: 44 }}>
             <Txt size={15} color="secondary">{say('아직 몰라요. 그냥 둘러볼게요', 'Not sure yet, just browsing')}</Txt>
@@ -157,6 +173,7 @@ function QuestionFlow() {
             title={say('직접 고를게요', "I'll pick the spots")}
             detail={say(`${cityName} 촬영지 ${found ? cityCount(found) : ''}곳을 보고 가고 싶은 곳만 담아요.`, `Browse ${found ? cityCount(found) : ''} spots in ${cityName} and add the ones you like.`)}
             onClick={() => {
+              track(webEvent.planStep('city', 'picker'))
               protoActions.setTrip({ city: city!, days: days!, pace: 'normal', courseId: null })
               protoActions.ask(false)
               protoActions.pick(city)
@@ -219,10 +236,19 @@ function PlanPreview({ cityKey, cityName, days, pace, onBack }: { cityKey: strin
       .then((reply) => {
         if (!live) return
         const made = planFromGuide(reply.plan)
-        if (made.length === 0) setPlanFailed(true)
-        else setPlan(made)
+        if (made.length === 0) {
+          track(webEvent.planFailed('city', 'empty'))
+          setPlanFailed(true)
+        } else {
+          track(appEvent.generatePlan(days, 0))
+          setPlan(made)
+        }
       })
-      .catch(() => live && setPlanFailed(true))
+      .catch(() => {
+        if (!live) return
+        track(webEvent.planFailed('city', 'error'))
+        setPlanFailed(true)
+      })
     return () => { live = false }
   }, [cityKey, days, pace, attempt])
   // 빠르게 두 번 눌러 코스가 둘 생기지 않게(MZ2AZ-551) — busy 상태는 다음 그리기 전까지 두 번째 누름을 못 막는다.
@@ -259,7 +285,10 @@ function PlanPreview({ cityKey, cityName, days, pace, onBack }: { cityKey: strin
     setFailed(false)
     const id = await saveCourse(say(`${cityName} ${daysLabel(days)}`, `${cityName} · ${tripLength(days)} trip`), plan, pace, true)
     setBusy(false)
-    if (id === null) return setFailed(true)
+    if (id === null) {
+      track(webEvent.planFailed('city', 'save'))
+      return setFailed(true)
+    }
     protoActions.setTrip({ city: cityKey, days, pace, courseId: id })
     protoActions.ask(false)
     protoActions.created({ city: cityName, days })
@@ -504,6 +533,7 @@ export function TripFloatBar() {
   }
   // 「Plan a trip」·「+ 새 코스」 는 원래 앱의 코스 만들기로 — 코스 화면을 열고 「AI 로 짜기 / 직접 짜기」 를 고르게 한다(사용자 요청 2026-11-07).
   const newPlan = () => {
+    // 시작은 갈래 시트에서 센다(plan_start fork_*) — 여기서도 세면 한 번 시작이 둘로 잡힌다(검증 지적). 줄을 누른 것은 home_tap 이 센다.
     setOpen(false)
     router.navigate(paths.courseNew)
   }
@@ -585,7 +615,7 @@ export function TripFloatBar() {
             </Pressable>
           </>
         ) : (
-          <Pressable data-coach="plan-trip" plain className="proto-press" onClick={() => (courses.length === 0 ? newPlan() : setOpen(true))} aria-expanded={courses.length === 0 ? undefined : open} style={mainPill}>
+          <Pressable data-coach="plan-trip" plain className="proto-press" onClick={() => { track(webEvent.homeTap('plan_bar')); if (courses.length === 0) newPlan(); else setOpen(true) }} aria-expanded={courses.length === 0 ? undefined : open} style={mainPill}>
             <HStack spacing={7}>
               <Icon name="paperplane.fill" size={14} color="white" />
               {label(say('여행 코스 짜기', 'Plan a trip'))}

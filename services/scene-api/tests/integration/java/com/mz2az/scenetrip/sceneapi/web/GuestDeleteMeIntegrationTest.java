@@ -67,7 +67,14 @@ class GuestDeleteMeIntegrationTest {
       new SignInService(users, new AccountLinkStore(jdbc), refreshTokens, transactions);
   private final AuthController controller =
       new AuthController(
-          accessTokens, refreshTokens, users, accounts, null, signIn, disabledApple());
+          accessTokens,
+          refreshTokens,
+          users,
+          accounts,
+          null,
+          signIn,
+          disabledApple(),
+          new com.mz2az.scenetrip.sceneapi.moderation.OperatorDirectory(jdbc, java.util.List.of()));
 
   @BeforeAll
   static void connect() {

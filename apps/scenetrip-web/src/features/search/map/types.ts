@@ -10,6 +10,7 @@
  */
 import type { PlaceSummary } from '../sceneData'
 import type { CoordinateSource } from '../sceneData'
+import type { LatLng } from '@/map'
 
 export type LocateOutcome = 'denied' | 'failed'
 
@@ -34,6 +35,8 @@ export interface MapViewProps {
   focus: PlaceSummary | null
   panToken: number
   pan: PlaceSummary | null
+  /** 칠할 도시 영역(첫 화면 도시 칩 → 지도, web-city-map-first.md). 없으면 칠하지 않는다. */
+  shade?: readonly LatLng[] | null
   /** 시트가 지금 덮고 있는 실제 높이(px). 지도가 카메라 여백과 로고·축척 자리를 이것으로 정한다. */
   sheetHeight: number
   onTapPin: (place: PlaceSummary) => void

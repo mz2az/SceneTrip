@@ -54,7 +54,7 @@ fi
 # 애플 로그인 두 값도 같은 규칙 — 있을 때만 싣는다. 없으면 애플 로그인만 꺼진다.
 # 서비스 비밀값(ADR 0023)도 같다 — 없으면 에이전트의 읽기가 에이전트 한 칸으로 세어질 뿐이다. 에이전트
 # (just guide-up)는 just 가 .env 를 읽어 같은 값을 받는다.
-for name in SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY SCENETRIP_AUTH_APPLE_PRIVATE_KEY SCENETRIP_SERVICE_TOKEN; do
+for name in SCENETRIP_AUTH_TOKEN_ENCRYPTION_KEY SCENETRIP_AUTH_APPLE_PRIVATE_KEY SCENETRIP_SERVICE_TOKEN SCENETRIP_REPORT_SLACK_WEBHOOK_URL; do
   if [ -n "${!name:-}" ]; then
     JWT_ARGS+=(--from-literal="$name=${!name}")
   fi

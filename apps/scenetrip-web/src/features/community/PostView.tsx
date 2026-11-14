@@ -3,12 +3,13 @@
  * 블로그 글처럼 **사진이 먼저, 그 아래 글, 끝에 다녀온 코스.** 붙은 코스는 일차별 장소까지 보이고, 「내 코스로 담기」를 누르면
  * 같은 코스가 내 것으로 하나 생긴다 — 후기를 읽고 「나도 이대로 가야지」가 한 번에 되어야 한다.
  */
+import { track, webEvent } from '@/analytics'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTabRouter } from '@/app/tabRouter'
 import { Alert } from '@/design/overlay'
 import { Icon } from '@/design/Icon'
 import { HStack, Pressable, Spinner, Txt, VStack, rr } from '@/design/primitives'
-import { ModerationMenu, ModerationSheets, canBlock, postMenuActions, postTarget, useModerationController } from '@/features/moderation'
+import { ModerationMenu, ModerationSheets, canBlock, postMenuActions, postTarget, useIsOperator, useModerationController } from '@/features/moderation'
 import { currentLang, say, tr } from '@/i18n'
 import { promptSignIn, useIsSignedIn } from '@/state/auth'
 import { accountGeneration, useOnAccountChange } from '@/state/shared'
@@ -34,6 +35,11 @@ export function PostView({ initialPost, onClose, page = false }: { initialPost: 
   const signedIn = useIsSignedIn()
   const router = useTabRouter()
   const moderation = useModerationController()
+  // 글을 열었다 — 목록에서든 주소(딥링크)로든(web-proto-events.md). 서버 글만 센다.
+  useEffect(() => {
+    if (initialPost.serverId !== undefined) track(webEvent.viewPost(initialPost.serverId))
+  }, [initialPost.serverId])
+  const isOperator = useIsOperator()
   const [loaded, setLoaded] = useState<CommunityPost | null>(null)
   const [loading, setLoading] = useState(false)
   const [loadMessage, setLoadMessage] = useState<string | null>(null)
@@ -123,7 +129,7 @@ export function PostView({ initialPost, onClose, page = false }: { initialPost: 
 
   const save = async () => {
     if (!signedIn) {
-      promptSignIn(say('코스를 담으려면 로그인이 필요해요', 'Sign in to save this course'))
+      promptSignIn(say('코스를 담으려면 로그인이 필요해요', 'Sign in to save this course'), 'save_course')
       return
     }
     if (saving || post.serverId === undefined) return
@@ -131,6 +137,7 @@ export function PostView({ initialPost, onClose, page = false }: { initialPost: 
     setSaving(true)
     try {
       const id = await communityStore.api.saveCourse(post.serverId)
+      track(webEvent.savePostCourse(post.serverId))
       if (epoch === accountGeneration()) setSavedCourseId(id)
     } catch {
       if (epoch === accountGeneration()) setSaveFailed(true)
@@ -168,7 +175,7 @@ export function PostView({ initialPost, onClose, page = false }: { initialPost: 
                       target={postTarget(post.serverId)}
                       canBlock={canBlock(isMine(post), post.author != null)}
                       controller={moderation}
-                      actions={postMenuActions({ isMine: isMine(post), onServer: true, hasAuthor: post.author != null })}
+                      actions={postMenuActions({ isMine: isMine(post), onServer: true, hasAuthor: post.author != null, isOperator })}
                       onDelete={() => setAskingDelete(true)}
                     />
                   ))}
@@ -214,6 +221,13 @@ export function PostView({ initialPost, onClose, page = false }: { initialPost: 
           // 차단한 사람의 후기 상세는 이제 404 다 — 목록에서 빼고 닫는다.
           if (target.kind === 'post') void communityStore.api.blocked(target.id)
           onClose()
+        }}
+        onRemoved={(target) => {
+          // 운영자가 이 글을 내렸다 — 목록에서 빼고 닫는다. 댓글을 내렸으면 목록이 다시 받는다(events.changed).
+          if (target.kind === 'post') {
+            void communityStore.api.blocked(target.id)
+            onClose()
+          }
         }}
       />
       <Alert open={saveFailed} title={tr('코스를 담지 못했어요. 잠시 뒤 다시 해 주세요')} onClose={() => setSaveFailed(false)} buttons={[{ label: tr('확인'), role: 'cancel' }]} />

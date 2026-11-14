@@ -18,6 +18,9 @@ export type EventName =
   | 'signup_nudge_view' | 'signup_nudge_click' | 'signup_nudge_dismiss'
   // 웹 전용 — 구글 원탭으로 가입·로그인했다(MZ2AZ-565).
   | 'one_tap_sign_in'
+  // 웹 전용 — 새 홈(시안 A)의 빈 곳(docs/project/plans/web-proto-events.md).
+  | 'home_scroll' | 'home_tap' | 'plan_start' | 'plan_step' | 'plan_failed'
+  | 'view_post' | 'like_post' | 'comment_post' | 'save_post_course' | 'sign_in_prompt' | 'coach_tour'
 
 export type EventParams = Readonly<Record<string, string | number>>
 
@@ -90,7 +93,17 @@ export const appEvent = {
 export type NudgeTriggerParam = 'saved' | 'views'
 
 /** 홈 「도시의 성지」에서 도시가 정해진 계기 — 처음 고른 것·칩을 누름·「내 위치」. */
-export type HomeCitySource = 'default' | 'chip' | 'near_me'
+export type HomeCitySource = 'default' | 'chip' | 'near_me' | 'proto_chip' | 'proto_grid'
+
+/** 새 홈(시안 A)의 이벤트 값 — web-proto-events.md §1. */
+export type HomeScrollDepth = 25 | 50 | 75 | 100
+export type HomeTapSection = 'trending_title' | 'trending_all' | 'today_place' | 'today_save' | 'community' | 'my_record' | 'plan_bar'
+export type PlanEntry = 'city_chip' | 'city_map' | 'fork_city' | 'fork_works' | 'fork_saved' | 'plan_bar'
+export type PlanFlow = 'city' | 'works'
+export type PlanStep = 'city' | 'days' | 'how' | 'plan' | 'picker' | 'trip' | 'works' | 'planning'
+export type PlanFailReason = 'empty' | 'error' | 'save'
+export type SignInPromptKey =
+  | 'like' | 'comment' | 'save_course' | 'compose' | 'my_posts' | 'review' | 'block' | 'directions' | 'nudge' | 'profile' | 'session' | 'server' | 'other'
 
 /**
  * 웹에만 있는 실험 이벤트. 위 `appEvent`(세 플랫폼 공통 26개)와 섞지 않는다 — 공통 표의 개수·이름 시험이 그대로 지켜진다.
@@ -105,4 +118,23 @@ export const webEvent = {
   signupNudgeDismiss: (trigger: NudgeTriggerParam) => make('signup_nudge_dismiss', { trigger }),
   /** 구글 원탭으로 로그인이 끝났다(MZ2AZ-565). `new_user` 1 이면 이번에 가입. 팝업 로그인과 같은 `sign_up`·`login` 도 따로 나간다. */
   oneTapSignIn: (newUser: boolean) => make('one_tap_sign_in', { new_user: flag(newUser) }),
+  // ── 새 홈(시안 A) — web-proto-events.md §1
+  /** 홈을 이만큼 내려 봤다(세션에 깊이마다 한 번). */
+  homeScroll: (depth: HomeScrollDepth) => make('home_scroll', { depth }),
+  /** 홈의 어느 칸을 눌렀나. */
+  homeTap: (section: HomeTapSection) => make('home_tap', { section }),
+  /** 코스 만들기를 어디서 시작했나. */
+  planStart: (entry: PlanEntry) => make('plan_start', { entry }),
+  /** 코스 만들기의 단계에 들어왔다 — 어디서 그만두는지 퍼널로 본다. */
+  planStep: (flow: PlanFlow, step: PlanStep) => make('plan_step', { flow, step }),
+  planFailed: (flow: PlanFlow, reason: PlanFailReason) => make('plan_failed', { flow, reason }),
+  viewPost: (postId: number) => make('view_post', { post_id: postId }),
+  likePost: (postId: number, liked: boolean) => make('like_post', { post_id: postId, liked: flag(liked) }),
+  /** 본문은 보내지 않는다. */
+  commentPost: (postId: number) => make('comment_post', { post_id: postId }),
+  savePostCourse: (postId: number) => make('save_post_course', { post_id: postId }),
+  /** 로그인 창이 떴다 — 어디서 로그인 벽에 막히는지. 이유는 언어와 무관한 열쇠. */
+  signInPrompt: (reason: SignInPromptKey) => make('sign_in_prompt', { reason }),
+  /** 화면 위 사용법 안내(코치 투어) — 공통 tutorial_* 와 뜻이 달라 따로 센다. `tour` 는 안내 id, 건너뛰기는 세지 않는다. */
+  coachTour: (tour: string, action: 'begin' | 'complete') => make('coach_tour', { tour, action }),
 } as const

@@ -1,9 +1,11 @@
 /*
- * 사용 분석(PostHog) — GA4 와 같은 이벤트 26개를 같은 이름·매개변수로 보낸다.
+ * 사용 분석(PostHog) — GA4 와 같은 이벤트(공통 26개 + 웹 전용 `webEvent`)를 같은 이름·매개변수로 보낸다.
  *
  * - 프로젝트 키(`VITE_POSTHOG_KEY`)가 비어 있으면 **완전한 no-op**: SDK 를 불러오지도 않는다. 켜기 전에는 번들에도 들어가지 않는다.
  * - 이용 통계 설정이 꺼져 있으면 보내지 않는다. **보낼 때마다** 확인하고, 이미 불러온 뒤 꺼지면 수집을 끈다(opt-out).
- * - 자동 수집(클릭·화면 이동)·화면 녹화·사용자 식별은 켜지 않는다. `track()` 으로 직접 보낸 이벤트만 간다. IP 는 저장하지 않게 한다.
+ * - 자동 수집(클릭·화면 이동)·화면 녹화는 켜지 않는다. `track()` 으로 직접 보낸 이벤트만 간다. IP 는 저장하지 않게 한다.
+ * - 익명 방문자도 사람 프로필을 만든다(`person_profiles: 'always'`, 2026-11-14 사용자 결정) — 브라우저 저장소의 익명 ID 로 묶을 뿐이고 계정·메일은 붙이지 않는다(identify 를 부르지 않는다).
+ *   PostHog 「People」 에서 방문자 한 명의 이벤트 순서를 본다.
  * - **쿠키를 쓰지 않는다**(`persistence: 'localStorage'`) — 브라우저 저장소에만 익명 식별자를 둔다.
  * - SDK 가 자동으로 붙이는 주소 속성(`$current_url`·`$referrer` 등)에서 `?` 와 `#` 뒤를 떼어 낸다 — 로그인 되돌림 주소의 해시에 토큰이 실릴 수 있다.
  * - SDK 가 뜨기 전에 온 이벤트는 잠깐 줄을 세웠다가 뜬 뒤에 보낸다(최대 50개).
@@ -80,7 +82,7 @@ export function createPostHog(deps: PostHogDeps): { track(event: AppEvent): void
           capture_pageview: false,
           capture_pageleave: false,
           disable_session_recording: true,
-          person_profiles: 'identified_only',
+          person_profiles: 'always',
           ip: false,
           respect_dnt: true,
           persistence: 'localStorage',

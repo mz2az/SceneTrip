@@ -261,7 +261,14 @@ class GoogleSignInIntegrationTest {
     GoogleIdTokenVerifier verifier =
         new GoogleIdTokenVerifier(keySource, List.of(WEB_CLIENT), clock);
     return new AuthController(
-        accessTokens, refreshTokens, users, accounts, verifier, signIn, disabledApple());
+        accessTokens,
+        refreshTokens,
+        users,
+        accounts,
+        verifier,
+        signIn,
+        disabledApple(),
+        new com.mz2az.scenetrip.sceneapi.moderation.OperatorDirectory(jdbc, java.util.List.of()));
   }
 
   private AuthSession signInOk(UUID install, String idToken, String nonce) {

@@ -11,6 +11,7 @@
  * 다른 화면에서 로그인이 필요하면 `promptSignIn()` (state/auth.ts) — RootSheets 가 시트를 올린다.
  */
 import { appEvent, track, webEvent } from '@/analytics'
+import type { SignInPromptKey } from '@/analytics/events'
 import { ApiFailure, asFailure } from '@/api/failure'
 import { tr } from '@/i18n'
 import {
@@ -223,8 +224,10 @@ export function createAccount(deps: AccountDeps = defaultAccountDeps) {
       actions.openSignInFor(null)
     },
     /** 로그인 시트를 이유 한 줄과 함께 연다 — 그 줄이 기본 설명 자리에 보인다(MZ2AZ-532). */
-    openSignInFor(reason: string | null): void {
+    openSignInFor(reason: string | null, key: SignInPromptKey = 'other'): void {
       if (store.get().signedIn) return
+      // 어디서 로그인 벽에 막히는지(web-proto-events.md §2-2). 이미 떠 있으면 다시 세지 않는다.
+      if (!store.get().showingSignIn) track(webEvent.signInPrompt(key))
       patch({ message: null, showingSignIn: true, signInReason: reason })
     },
     closeSignIn(): void {
@@ -322,12 +325,17 @@ export function createAccount(deps: AccountDeps = defaultAccountDeps) {
       const wasAskingNickname = store.get().askingNickname
       forget()
       patch({ message: tr('로그인이 풀렸어요. 다시 로그인해 주세요') })
-      if (!wasAskingNickname) {
+      // 세션이 풀려 로그인 창을 다시 띄운다 — 이유 열쇠 `session`(web-proto-events.md §2-2).
+      const reopen = () => {
+        if (!store.get().showingSignIn) track(webEvent.signInPrompt('session'))
         patch({ showingSignIn: true, signInReason: null })
+      }
+      if (!wasAskingNickname) {
+        reopen()
         return
       }
       setTimeout(() => {
-        if (!store.get().signedIn) patch({ showingSignIn: true, signInReason: null })
+        if (!store.get().signedIn) reopen()
       }, deps.nicknamePromptDelayMs)
     },
 

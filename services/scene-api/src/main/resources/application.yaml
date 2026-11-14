@@ -265,6 +265,13 @@ scenetrip:
   # 커뮤니티 신고(content_report, MZ2AZ-438). 접수 후 이만큼 지나면 지운다 — 처리방침에 적는 보관 기간(1 년)과 같아야 한다.
   moderation:
     report-retention-days: 365
+    # 운영자(MZ2AZ-569) — 로그인 신분 메일의 sha256(lower(trim(email))) 16진수. 원문 메일은 저장소에 적지 않는다(V47 과 같은 방식).
+    # 늘리려면 해시를 쉼표로 이어 쓴다. 지금: 정승길(학교 구글 계정).
+    operator-email-sha256: ${SCENETRIP_MODERATION_OPERATOR_EMAIL_SHA256:339d67a441b28789a90abd8fae0be470ae6e535db480df9da4046ad448be9a9a}
+    # 신고가 들어오면 내용을 담아 보내는 Slack 들어오는 웹훅 — 비밀값이다. 비어 있으면 보내지 않는다(SigNoz 건수 알람은 그대로).
+    report-slack-webhook-url: ${SCENETRIP_REPORT_SLACK_WEBHOOK_URL:}
+    # 알림의 바로가기 링크 앞부분.
+    app-base-url: ${SCENETRIP_APP_BASE_URL:https://app.scenetrip.io}
 
   # 방치된 비회원 계정(MZ2AZ-467). 마지막 이용 후 이만큼 지나면 지운다 — 처리방침의 「비회원 기록은 마지막 이용 후 1 년」 과 같아야 한다.
   # 하루에 purge-batch 개까지(큰 DELETE 로 표를 오래 잡지 않는다).

@@ -49,3 +49,4 @@ export {
 export { type ModerationEvents, createModerationEvents, moderationEvents, useModerationChange, useModerationVersion } from './events'
 export { ModerationMenu, ModerationSheets, ReportSheet } from './ModerationViews'
 export * from './rules'
+export { useIsOperator } from './operator'

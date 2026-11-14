@@ -13,6 +13,7 @@
  *   (「빈 도화지에 틀도 없이 적어 놓은 느낌」 2026-11-07 사용자 지적).
  * 계획: docs/project/plans/web-trip-first-prototypes.md.
  */
+import { track, webEvent } from '@/analytics'
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '@/design/Icon'
 import { HStack, Spacer, Spinner, Txt, VStack } from '@/design/primitives'
@@ -242,6 +243,10 @@ function useHereOnce() {
 
 export function ProtoAIPlan({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState<'trip' | 'works'>('trip')
+  // 작품 AI 의 단계 — 퍼널(web-proto-events.md). 「AI 로 짜는 중」 은 planning.
+  useEffect(() => {
+    track(webEvent.planStep('works', step))
+  }, [step])
   const [nights, setNights] = useState(1)
   const [date, setDate] = useState<string | null>(null)
   const [pace, setPace] = useState<RoutePace>('loose')
@@ -276,6 +281,7 @@ export function ProtoAIPlan({ onClose }: { onClose: () => void }) {
   const plan = () => {
     const mine = ++run.current
     setPlanning(true)
+    track(webEvent.planStep('works', 'planning'))
     void guideDraft({
       nights, startDate: date, workIds: new Set(picked.map((w) => w.id)), pace, near: here, locationAllowed: location.allowed,
       sortedWorks: picked.length > 0 ? picked : popular, titles: requestTitles(picked, popular), places: routeStore.get().places,
@@ -283,7 +289,10 @@ export function ProtoAIPlan({ onClose }: { onClose: () => void }) {
       if (mine !== run.current) return
       setPlanning(false)
       if (res.ok) setDraft(res.course)
-      else setFailure(res.failure)
+      else {
+        track(webEvent.planFailed('works', 'error'))
+        setFailure(res.failure)
+      }
     })
   }
   const start = () => ai.request(() => (here !== null ? location.request(plan) : plan()))

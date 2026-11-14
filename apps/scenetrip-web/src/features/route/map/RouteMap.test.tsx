@@ -15,7 +15,7 @@ const advance = (ms = 0) => act(() => { vi.advanceTimersByTime(ms) })
 
 function makeMap() {
   const marker = { setPosition: vi.fn(), remove: vi.fn() }
-  const layer = { addMarker: vi.fn((_spec: MarkerSpec) => marker), addPolyline: vi.fn(() => ({ remove: vi.fn() })), clear: vi.fn(), remove: vi.fn() }
+  const layer = { addMarker: vi.fn((_spec: MarkerSpec) => marker), addPolyline: vi.fn(() => ({ remove: vi.fn() })), addPolygon: vi.fn(() => ({ remove: vi.fn() })), clear: vi.fn(), remove: vi.fn() }
   return {
     provider: 'naver', container: document.createElement('div'),
     getZoom: () => 12, getSize: () => ({ x: 400, y: 800 }), getCenter: () => ({ lat: 37.56, lng: 126.97 }),

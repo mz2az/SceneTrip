@@ -4,7 +4,7 @@
  * 항상 마운트돼 있고 보일 때만 `active` 가 true 다. 상태와 동작은 `useSearchTab`, 지도는 `map/MapView`(공급자 교체 지점),
  * 시트 안은 목록(SearchList)·작품 상세·촬영지 상세 가운데 하나다.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { pendingStore, useTabRouter } from '@/app/tabRouter'
 import { Alert } from '@/design/overlay'
 import { HStack, Pressable, Spinner, Txt, VStack } from '@/design/primitives'
@@ -26,6 +26,9 @@ import { MapControl, NearbyButton, SearchBar } from './ui/SearchTopBar'
 import { SearchList } from './ui/SearchList'
 import { SuggestionPanel } from './ui/SuggestionPanel'
 import { useSearchTab } from './useSearchTab'
+import { CityFocusCard } from './ui/CityFocusCard'
+import { clearCityFocus, cityFocusStore, focusShade } from '@/features/home/cityFocus'
+import { homeCityStore } from '@/features/home/homeCityModel'
 import { shownTotal } from '@/state/shared'
 
 /** 탭바 높이 — 시트는 탭바 밑으로 깔린다(tokens.css 의 --tabbar-height). */
@@ -50,6 +53,18 @@ export function SearchTab({ active, embedded = false }: { active: boolean; embed
     router.openCourse(courseId)
   }
   const root = useRef<HTMLDivElement>(null)
+  // 첫 화면 도시 칩 → 지도: 그 도시 영역 음영과 카드. 탭을 떠나면 지운다.
+  const focusKey = useStore(cityFocusStore, (f) => f.key)
+  const cities = useStore(homeCityStore, (h) => h.cities)
+  const cityFocus = useMemo(() => (focusKey === null ? null : (cities.find((c) => c.key === focusKey) ?? null)), [focusKey, cities])
+  const shade = useMemo(() => focusShade(cityFocus), [cityFocus])
+  useEffect(() => {
+    if (!active && !embedded) clearCityFocus()
+  }, [active, embedded])
+  // 검색어를 넣으면 그 도시 보기는 끝난다 — 다른 결과 위에 도시 카드·음영이 남지 않게(검증 지적).
+  useEffect(() => {
+    if (t.committed !== '') clearCityFocus()
+  }, [t.committed])
   const [height, setHeight] = useState(0)
   const [visibleSheet, setVisibleSheet] = useState(0)
 
@@ -150,6 +165,7 @@ export function SearchTab({ active, embedded = false }: { active: boolean; embed
         focus={t.selectedPlace}
         panToken={t.panToken}
         pan={t.panTarget}
+        shade={embedded ? null : shade}
         sheetHeight={visibleSheet}
         onTapPin={t.onTapPin}
         onLocateFailure={t.setLocateFailure}
@@ -187,7 +203,8 @@ export function SearchTab({ active, embedded = false }: { active: boolean; embed
           onCart={() => t.setShowCart(true)}
         />
         {!t.searchFocused ? (
-          // 「현 지도 내 성지 검색」은 가운데, 조작 버튼은 오른쪽 — 위 검색창의 장바구니와 같은 세로선에 놓아 지도를 덜 가린다.
+          <>
+          {/* 「현 지도 내 성지 검색」은 가운데, 조작 버튼은 오른쪽 — 위 검색창의 장바구니와 같은 세로선에 놓아 지도를 덜 가린다. */}
           <div className="st-controls">
             <span />
             <NearbyButton active={t.nearby} label={nearbyLabel} onClick={t.toggleNearby} />
@@ -196,6 +213,9 @@ export function SearchTab({ active, embedded = false }: { active: boolean; embed
               <MapControl label={tr('내 위치')} symbol="dot.scope" onClick={() => t.setLocateToken((n) => n + 1)} />
             </HStack>
           </div>
+          {/* 첫 화면 도시 칩으로 왔으면 그 도시 카드(web-city-map-first.md). */}
+          {cityFocus && !embedded && <CityFocusCard city={cityFocus} />}
+          </>
         ) : (
           <SuggestionPanel
             draft={t.draft}
