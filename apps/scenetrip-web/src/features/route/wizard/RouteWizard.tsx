@@ -65,10 +65,11 @@ function useLocatorOnce(enabled: boolean) {
   return here
 }
 
-export function RouteWizard({ kind, onClose }: { kind: WizardKind; onClose: () => void }) {
+/** `pickAllSaved` — 직접 짜기(시안)를 담은 곳이 전부 골라진 채로 연다(「담은 곳으로 계획 짜기」, web-keep-flow.md §9-5). */
+export function RouteWizard({ kind, onClose, pickAllSaved = false }: { kind: WizardKind; onClose: () => void; pickAllSaved?: boolean }) {
   // 「어디로 가세요?」 시안이 켜져 있으면(로컬 개발 서버 전용) 시안의 두 흐름 — 여행 앱 레퍼런스를 따라 질문을 줄인 모양(docs/project/plans/web-trip-first-prototypes.md).
   const proto = useStore(protoStore, (p) => protoAvailable && p.proto !== null)
-  if (proto) return kind === 'aiPlan' ? <ProtoAIPlan onClose={onClose} /> : <ProtoSavedPlan onClose={onClose} />
+  if (proto) return kind === 'aiPlan' ? <ProtoAIPlan onClose={onClose} /> : <ProtoSavedPlan onClose={onClose} pickAll={pickAllSaved} />
   return <ClassicWizard kind={kind} onClose={onClose} />
 }
 

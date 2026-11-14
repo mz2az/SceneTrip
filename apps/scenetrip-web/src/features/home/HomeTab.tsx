@@ -23,6 +23,7 @@ import { useRouteState } from '../route/store'
 import { CommunityNow, HomeHeader, MyRecord, TodayCard, WorkShelf } from './HomeCards'
 import { HomeCitySpots } from './HomeCitySpots'
 import { AskCard } from '../proto/ProtoScreens'
+import { MyMapCard } from '../keep/MyMapCard'
 import { protoStore } from '../proto/protoState'
 import { homeStore, reloadHome } from './homeModel'
 import { tripCard } from './homeRules'
@@ -86,6 +87,12 @@ export function HomeTab() {
     <div className="scroll-y" onScroll={onScroll} style={{ height: '100%', background: 'var(--grouped-background)', paddingBottom: 'var(--proto-tab-inset, 0px)' }}>
       <VStack spacing={18} align="stretch" style={{ padding: proto !== null ? '8.7px 0 calc(84px + var(--nudge-inset, 0px))' : '8.7px 0 calc(28px + var(--nudge-inset, 0px))' }}>
         <HomeHeader onProfile={() => router.openProfile()} />
+        {/* 내 지도 — 담은 곳이 있으면 인사 바로 아래, 질문 카드 위(web-keep-flow.md §5-6). 없으면 카드가 스스로 그리지 않는다. */}
+        <MyMapCard
+          items={cart.items}
+          onOpenMap={() => { track(webEvent.myMap('open_home')); router.openMyMap() }}
+          onPlan={() => { track(webEvent.planStart('my_map')); router.openPlanFromSaved() }}
+        />
         {/* 「어디로 가세요?」 시안(로컬 전용, docs/project/plans/web-trip-first-prototypes.md). */}
         {/* 시안: 맨 위는 사진 질문 카드, 코스는 아래에 떠 있는 「여행 계획」 줄이 맡는다(사용자 결정 2026-11-07). */}
         {proto !== null && <AskCard />}

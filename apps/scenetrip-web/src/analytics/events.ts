@@ -21,6 +21,8 @@ export type EventName =
   // 웹 전용 — 새 홈(시안 A)의 빈 곳(docs/project/plans/web-proto-events.md).
   | 'home_scroll' | 'home_tap' | 'plan_start' | 'plan_step' | 'plan_failed'
   | 'view_post' | 'like_post' | 'comment_post' | 'save_post_course' | 'sign_in_prompt' | 'coach_tour'
+  // 웹 전용 — 담기 중심 흐름(docs/project/plans/web-keep-flow.md §4).
+  | 'save_all' | 'keep_more' | 'keep_prompt' | 'keep_arrive' | 'my_map'
 
 export type EventParams = Readonly<Record<string, string | number>>
 
@@ -40,7 +42,7 @@ export type CourseOrigin = 'ai' | 'self' | 'review'
 /** 「길찾기」를 누른 자리(MZ2AZ-532). */
 export type DirectionsSource = 'place_detail'
 /** 화면 이름 — 탭과 덮개 단위. */
-export type ScreenName = 'search' | 'home' | 'community' | 'courses' | 'profile'
+export type ScreenName = 'search' | 'home' | 'community' | 'courses' | 'profile' | 'my_map'
 
 const make = (name: EventName, params: EventParams = {}): AppEvent => ({ name, params })
 const flag = (on: boolean): number => (on ? 1 : 0)
@@ -98,12 +100,19 @@ export type HomeCitySource = 'default' | 'chip' | 'near_me' | 'proto_chip' | 'pr
 /** 새 홈(시안 A)의 이벤트 값 — web-proto-events.md §1. */
 export type HomeScrollDepth = 25 | 50 | 75 | 100
 export type HomeTapSection = 'trending_title' | 'trending_all' | 'today_place' | 'today_save' | 'community' | 'my_record' | 'plan_bar'
-export type PlanEntry = 'city_chip' | 'city_map' | 'fork_city' | 'fork_works' | 'fork_saved' | 'plan_bar'
+export type PlanEntry = 'city_chip' | 'city_map' | 'fork_city' | 'fork_works' | 'fork_saved' | 'plan_bar' | 'my_map' | 'keep_sheet'
 export type PlanFlow = 'city' | 'works'
 export type PlanStep = 'city' | 'days' | 'how' | 'plan' | 'picker' | 'trip' | 'works' | 'planning'
 export type PlanFailReason = 'empty' | 'error' | 'save'
 export type SignInPromptKey =
-  | 'like' | 'comment' | 'save_course' | 'compose' | 'my_posts' | 'review' | 'block' | 'directions' | 'nudge' | 'profile' | 'session' | 'server' | 'other'
+  | 'like' | 'comment' | 'save_course' | 'compose' | 'my_posts' | 'review' | 'block' | 'directions' | 'nudge' | 'profile' | 'session' | 'server' | 'other' | 'keep'
+
+/** 담기 중심 흐름(web-keep-flow.md §4) — 간직하기 권유의 환경은 keepRules 의 KeepEnv 와 같다. */
+export type KeepEnvParam = 'in_app_android' | 'in_app_ios' | 'installable' | 'android_menu' | 'ios_safari' | 'installed' | 'other'
+export type KeepPromptAction = 'view' | 'open_browser' | 'install' | 'install_accepted' | 'install_dismissed' | 'sign_in' | 'got_it' | 'skip'
+export type MyMapAction = 'open_home' | 'open_keep' | 'open_detail' | 'open_place' | 'plan' | 'add_more'
+/** 「모두 담기」 가 일어난 자리(§9-3) — 작품 상세 · 담은 뒤 시트 ① 의 포스터 · `?keep=` 으로 넘어옴. */
+export type SaveAllSource = 'detail' | 'more' | 'arrive'
 
 /**
  * 웹에만 있는 실험 이벤트. 위 `appEvent`(세 플랫폼 공통 26개)와 섞지 않는다 — 공통 표의 개수·이름 시험이 그대로 지켜진다.
@@ -137,4 +146,16 @@ export const webEvent = {
   signInPrompt: (reason: SignInPromptKey) => make('sign_in_prompt', { reason }),
   /** 화면 위 사용법 안내(코치 투어) — 공통 tutorial_* 와 뜻이 달라 따로 센다. `tour` 는 안내 id, 건너뛰기는 세지 않는다. */
   coachTour: (tour: string, action: 'begin' | 'complete') => make('coach_tour', { tour, action }),
+  // ── 담기 중심 흐름 — web-keep-flow.md §4
+  /** 한꺼번에 담기가 끝났다. `place_count` 는 중복을 지운 입력 수(이미 담긴 것 포함), `saved_count` 는 이번에 새로 담은 수, `source` 는 일어난 자리(§9-3). */
+  saveAll: (contentId: number, placeCount: number, savedCount: number, source: SaveAllSource) =>
+    make('save_all', { content_id: contentId, place_count: placeCount, saved_count: savedCount, source }),
+  /** 담은 뒤 시트 ① 「다른 작품도 담기」 에서 고른 작품. */
+  keepMore: (contentId: number) => make('keep_more', { content_id: contentId }),
+  /** 담은 뒤 시트 ② 간직하기 권유 — 환경과 한 일. */
+  keepPrompt: (env: KeepEnvParam, action: KeepPromptAction) => make('keep_prompt', { env, action }),
+  /** `?keep=` 로 넘어와 다시 담은 작품 수. */
+  keepArrive: (count: number) => make('keep_arrive', { count }),
+  /** 내 지도를 열었다·거기서 한 일. */
+  myMap: (action: MyMapAction) => make('my_map', { action }),
 } as const
