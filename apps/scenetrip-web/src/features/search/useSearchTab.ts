@@ -248,9 +248,10 @@ export function useSearchTab(active = true, embedded = false) {
     else if (step.kind === 'replace') navigate(step.to, { replace: true, state: step.state })
   }
   const closePlace = () => {
+    const closing = selectedPlace?.id ?? null
     setSelectedPlace(null)
     setFitToken((n) => n + 1)
-    applyBack(placeBack({ pathname, state: navState, contentId: selectedContentId.current }))
+    applyBack(placeBack({ pathname, state: navState, contentId: selectedContentId.current, placeId: closing, canGoBack: canGoBack() }))
   }
   const closeContent = () => {
     const closing = selectedContentId.current

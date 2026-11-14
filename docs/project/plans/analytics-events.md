@@ -198,3 +198,17 @@ iOS·Android 에는 아직 없다. 실험이 끝나 두 앱에 옮기면 §3 표
 
 공통 이벤트를 새로 부르는 곳: 도시 AI 코스가 성공하면 `generate_plan`(`title_count` 0). 「여행 계획」 줄은 `home_tap` 만 세고 시작은 갈래 시트의 `plan_start` 가 센다. `plan_step` 은 `entry` 로 나눠 본다(도시 칩 경로엔 `city` 단계가 없다).
 
+
+### 담기 중심 흐름 이벤트 (2026-11-14 — [계획](web-keep-flow.md))
+
+작품 상세의 「모두 담기」 → 담은 뒤 시트 → 내 지도. 웹 전용이다.
+
+| 이벤트 | 언제 | 매개변수 | 구현(웹) |
+| --- | --- | --- | --- |
+| `save_all` | 한 작품의 촬영지를 한꺼번에 담는 일이 끝났다(장소마다 `save_place` 는 보내지 않는다) | `content_id`, `place_count`(담으려던 곳 수), `saved_count`(새로 담긴 수), `source` = `detail`(작품 상세의 단추)·`more`(담은 뒤 시트의 다른 작품)·`arrive`(`?keep=` 로 넘어옴) | `state/cart.ts` `addMany` |
+| `keep_more` | 담은 뒤 시트에서 다른 작품을 골라 담았다 | `content_id` | `features/keep/KeepSheet.tsx` |
+| `keep_prompt` | 「간직하기」 단계가 보였다 / 그 단계에서 누른 것 | `env` = `in_app_android`·`in_app_ios`·`installable`·`android_menu`·`ios_safari`·`installed`·`other`, `action` = `view`·`open_browser`·`install`·`install_accepted`·`install_dismissed`·`sign_in`·`got_it`·`skip` | 같음 |
+| `keep_arrive` | 앱 안 브라우저에서 넘긴 주소(`?keep=`)로 들어와 다시 담았다 | `count`(한 곳이라도 담긴 작품 수) | `features/keep/KeepArrival.tsx` |
+| `my_map` | 내 지도를 열었다 / 내 지도에서 누른 것 | `action` = `open_home`(홈 카드)·`open_keep`(시트)·`open_detail`(작품 상세)·`open_place`·`plan`·`add_more` | `features/home/HomeTab.tsx`·`features/keep/*`·`features/search/ui/ContentDetail.tsx` |
+
+`plan_start` 의 `entry` 에 `my_map`·`keep_sheet`, `sign_in_prompt` 의 `reason` 에 `keep`, `screen_view` 의 화면 이름에 `my_map` 이 더해졌다. 광고 깔때기는 `screen_view` → `save_all`(`source=detail`) → `keep_prompt`(`view` → `open_browser`) → `keep_arrive` → `plan_start` 로 본다.

@@ -106,6 +106,35 @@ export function RouteCover({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (pathname === paths.courseNew) setFork(true)
   }, [pathname])
+  // 「담은 곳으로 계획 짜기」(내 지도·홈 카드·담은 뒤 시트, web-keep-flow.md §5-5·§9-5) — 덮개가 다 올라온 뒤에 직접 짜기 마법사를
+  // 담은 곳이 전부 골라진 채로 띄운다(올라오는 중에 띄우면 버려진다 — 아래 `planner` 쪽지와 같은 320ms).
+  // 쪽지는 덮개가 서자마자 비우고 이 화면의 상태로 옮긴다 — 320ms 안에 덮개를 닫으면 상태와 함께 사라져, 다음에 경로여정을 열 때 마법사가 갑자기 뜨지 않는다.
+  // (StrictMode 가 효과를 두 번 돌려도 상태는 남으므로 한 번만 뜬다.)
+  const plannerManual = useStore(pendingStore, (s) => s.plannerManual)
+  const [manualQueued, setManualQueued] = useState(false)
+  /** 지금 띄운 직접 짜기 마법사가 「담은 곳으로」 에서 왔나 — 그때만 전부 골라 둔다. */
+  const [pickAllSaved, setPickAllSaved] = useState(false)
+  useEffect(() => {
+    if (plannerManual && consumePending('plannerManual')) setManualQueued(true)
+  }, [plannerManual])
+  useEffect(() => {
+    if (!manualQueued) return
+    const timer = setTimeout(() => {
+      setManualQueued(false)
+      setPickAllSaved(true)
+      setWizard('manual')
+    }, 320)
+    return () => clearTimeout(timer)
+  }, [manualQueued])
+  /** 경로여정 안에서 평소처럼 여는 마법사 — 빈 채로 시작한다. */
+  const openWizard = (kind: WizardKind) => {
+    setPickAllSaved(false)
+    setWizard(kind)
+  }
+  const closeWizard = () => {
+    setWizard(null)
+    setPickAllSaved(false)
+  }
 
   const closeEditor = () => {
     opening.close()
@@ -115,7 +144,7 @@ export function RouteCover({ onClose }: { onClose: () => void }) {
     else if (urlCourseId !== null) navigate(paths.courses, { replace: true })
     pushedCourse.current = null
     // 가이드 챗봇의 한도 안내에서 「AI 로 짜기 열기」를 눌렀다 — 편집 화면이 다 닫힌 뒤에 마법사를 띄운다(닫히는 중에 띄우면 버려진다).
-    if (consumePending('planner')) setTimeout(() => setWizard('aiPlan'), 320)
+    if (consumePending('planner')) setTimeout(() => openWizard('aiPlan'), 320)
   }
 
   const closeFork = () => {
@@ -150,7 +179,7 @@ export function RouteCover({ onClose }: { onClose: () => void }) {
         state.courseList === 'loading' ? (
           <VStack align="center" justify="center" style={{ flex: 1 }}><Spinner /></VStack>
         ) : (
-          <EmptyState onAI={() => setWizard('aiPlan')} onManual={() => setWizard('manual')} />
+          <EmptyState onAI={() => openWizard('aiPlan')} onManual={() => openWizard('manual')} />
         )
       ) : (
         <CourseList courses={courses} busy={opening.isLoading} onOpen={(c) => void opening.open(c)} onDelete={setDoomed} />
@@ -165,13 +194,13 @@ export function RouteCover({ onClose }: { onClose: () => void }) {
         buttons={[{ label: tr('삭제'), role: 'destructive', onPress: () => doomed && void routeActions.remove(doomed) }]}
         onClose={() => setDoomed(null)}
       />
-      <ForkSheet open={fork} onClose={closeFork} onAI={() => setWizard('aiPlan')} onManual={() => setWizard('manual')} />
+      <ForkSheet open={fork} onClose={closeFork} onAI={() => openWizard('aiPlan')} onManual={() => openWizard('manual')} />
       {/* 시안이 켜져 있으면 서랍 대신 전체 화면으로(사용자 요청 2026-11-07). */}
       {proto !== null ? (
-        <Cover open={wizard !== null}>{wizard && <RouteWizard kind={wizard} onClose={() => setWizard(null)} />}</Cover>
+        <Cover open={wizard !== null}>{wizard && <RouteWizard kind={wizard} pickAllSaved={pickAllSaved} onClose={closeWizard} />}</Cover>
       ) : (
         <Sheet open={wizard !== null} onClose={() => undefined} dismissOnScrim={false} topGap={72} radius={38} bottomRadius={0}>
-          {wizard && <RouteWizard kind={wizard} onClose={() => setWizard(null)} />}
+          {wizard && <RouteWizard kind={wizard} pickAllSaved={pickAllSaved} onClose={closeWizard} />}
         </Sheet>
       )}
       <Cover open={opening.editing !== null}>

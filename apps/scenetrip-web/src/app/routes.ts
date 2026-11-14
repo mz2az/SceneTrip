@@ -6,10 +6,10 @@
  *
  * 구조는 iOS 와 같다 (RootTabs.swift / TabRouter.swift):
  *   탭 셋  — 작품검색(/search) · 홈(/) · 커뮤니티(/community)
- *   덮개 셋 — 경로여정(/courses) · 마이페이지(/profile) · 지금 뜨는 작품 전체(/trending): 홈 위에 전체 화면으로 덮인다.
+ *   덮개 넷 — 경로여정(/courses) · 마이페이지(/profile) · 지금 뜨는 작품 전체(/trending) · 내 지도(/my-map): 홈 위에 전체 화면으로 덮인다.
  */
 export type TabId = 'search' | 'home' | 'community'
-export type CoverId = 'route' | 'profile' | 'trending'
+export type CoverId = 'route' | 'profile' | 'trending' | 'myMap'
 
 export const paths = {
   home: '/',
@@ -28,6 +28,8 @@ export const paths = {
   profileSection: (name: string) => `/profile/${name}` as const,
   /** 홈 「지금 뜨는 작품」의 「전체 보기」 — 포스터 격자(MZ2AZ-534). */
   trending: '/trending',
+  /** 내 지도 — 담은 촬영지를 지도와 작품별 목록으로(docs/project/plans/web-keep-flow.md §5-3). `?keep=` 으로 넘어오기도 한다. */
+  myMap: '/my-map',
 } as const
 
 /** react-router `matchPath` 용 패턴 */
@@ -51,6 +53,7 @@ export function coverOf(pathname: string): CoverId | null {
   if (pathname === '/courses' || pathname.startsWith('/courses/')) return 'route'
   if (pathname === '/profile' || pathname.startsWith('/profile/')) return 'profile'
   if (pathname === '/trending') return 'trending'
+  if (pathname === '/my-map') return 'myMap'
   return null
 }
 

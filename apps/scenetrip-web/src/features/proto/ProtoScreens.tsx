@@ -13,6 +13,7 @@ import { focusCity } from '@/features/home/cityFocus'
 import { Pressable } from '@/features/route/ui/Press'
 import { PinoMascot } from '@/design/PinoMascot'
 import { useRouteState } from '@/features/route/store'
+import { useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { api, ok } from '@/api/client'
 import { appEvent, track, webEvent } from '@/analytics'
@@ -505,6 +506,7 @@ const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'
 export function TripFloatBar() {
   const router = useTabRouter()
   const route = useRouteState()
+  const hasSaved = useCart().items.length > 0
   const [open, setOpen] = useState(false)
   const courses = [...route.routeCourses.filter((c) => c.isRunning), ...route.routeCourses.filter((c) => !c.isRunning)]
     .filter((c) => c.serverId !== null)
@@ -579,9 +581,10 @@ export function TripFloatBar() {
 
   return (
     <>
+    {/* 담은 곳이 있으면 띄우지 않는다 — 홈 맨 위 내 지도 카드를 가리지 않게(web-keep-flow.md §9-6). 본 것으로 적지는 않는다. */}
     <CoachTour
       id="home-plan-trip"
-      active={!running && !open}
+      active={!running && !open && !hasSaved}
       delay={900}
       steps={[{
         target: '[data-coach="plan-trip"]',

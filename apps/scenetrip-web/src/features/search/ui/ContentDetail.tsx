@@ -5,14 +5,18 @@
  * 초기 구현은 폐기했다). 목록에서 넘어온 `ContentSummary` 로 먼저 그리고, 상세(`GET /contents/{id}`)가 오면 채운다 — 줄거리·별칭·출연진.
  */
 import { useEffect, useState } from 'react'
-import { appEvent, track } from '@/analytics'
+import { appEvent, track, webEvent } from '@/analytics'
+import { useTabRouter } from '@/app/tabRouter'
+import { SaveAllBar, SaveAllBarPlaceholder } from '@/features/keep/SaveAllBar'
+import { keepActions, saveAllProgress, useSaveAllProgress } from '@/features/keep/keepStore'
 import { countDetailView } from '@/features/profile/auth/signUpNudgeRules'
 import { hasSession } from '@/state/auth'
 import { api, ok } from '@/api/client'
 import { Icon } from '@/design/Icon'
 import { HStack, Spinner, Txt, VStack, rr } from '@/design/primitives'
 import { tr } from '@/i18n'
-import { useCart } from '@/state/cart'
+import { cartActions, useCart } from '@/state/cart'
+import { accountGeneration } from '@/state/shared'
 import { likeActions, useLikes } from '@/state/likes'
 import { canToggle, contentDelisted } from '../rules/unavailableItem'
 import { producerDestination } from '../rules/webAddress'
@@ -37,6 +41,10 @@ export function ContentDetail({
   const cart = useCart()
   const likes = useLikes()
   const [detail, setDetail] = useState<ContentDetailT | null>(null)
+  const router = useTabRouter()
+  // 「모두 담기」 진행(web-keep-flow.md §5-1) — 상세 밖 스토어가 든다: 담는 중에 촬영지 상세로 들어갔다 와도 이어 보이고 다시 시작하지 않는다.
+  const saving = useSaveAllProgress()
+  const progress = saving !== null && saving.contentId === summary.id ? { done: saving.done, total: saving.total } : null
 
   useEffect(() => {
     let cancelled = false
@@ -59,6 +67,30 @@ export function ContentDetail({
   const castLine = names.length === 0 ? '' : tr('출연: ') + names.slice(0, 4).join(', ')
   const producer = producerDestination(summary, detail)
 
+  const savedCount = places.filter((p) => cart.placeIds.has(p.id)).length
+  const saveAll = async () => {
+    // 어느 작품이든 담는 중이면 또 시작하지 않는다 — 한 줄로 차례로 보내는 담기가 둘 겹치면 셈과 알림이 섞인다.
+    if (saveAllProgress.get().current !== null) return
+    const rest = places.filter((p) => !cartActions.contains(p.id)).map((p) => p.id)
+    if (rest.length === 0) return
+    const contentId = summary.id
+    const title = summary.title
+    const generation = accountGeneration()
+    saveAllProgress.set({ current: { contentId, done: 0, total: rest.length } })
+    try {
+      const result = await cartActions.addMany(rest, contentId, (done, total) => saveAllProgress.set({ current: { contentId, done, total } }))
+      // 도중에 계정이 바뀌었으면(addMany 가 멈췄다) 시트를 열지 않는다. 실패가 하나라도 있으면 알림과 「남은 N곳도 담기」 가 남는다(§9-2).
+      if (generation !== accountGeneration()) return
+      if (result.failed === 0 && result.saved + result.already > 0) keepActions.openAfterSave(contentId, title)
+    } finally {
+      saveAllProgress.set({ current: null })
+    }
+  }
+  const openMyMap = () => {
+    track(webEvent.myMap('open_detail'))
+    router.openMyMap()
+  }
+
   const poster = (
     <RemoteImage url={summary.posterUrl} symbol="film" style={{ width: '100%', height: 176, ...rr(8) }} />
   )
@@ -69,6 +101,15 @@ export function ContentDetail({
       {/* 떠 있는 탭바(시안)에 마지막 줄이 가리지 않게 바닥을 비운다 — 인기 목록(SearchList)과 같은 값(2026-11-11 사용자 지적: 촬영지 목록 끝이 안 보임). */}
       <div className="scroll-y" data-sheet-scroll style={{ flex: 1, minHeight: 0, touchAction: 'pan-y', paddingBottom: 'var(--proto-tab-inset, 0px)' }}>
         <VStack spacing={16} align="start" pad="4px 0">
+          {/* 「N곳 모두 내 지도에 담기」 — 제목 머리줄 바로 아래, 포스터 위(§9-1): 광고로 들어온 첫 화면(시트 중간 단)에서 탭바에 가리지 않게.
+              받는 중이면 같은 높이의 자리를 잡아 둔다 — 단추가 늦게 나타나며 포스터가 아래로 튀지 않게. 0곳이면 막대가 스스로 그리지 않는다. */}
+          {!delisted && (loading ? (
+            <div style={{ width: '100%' }}><SaveAllBarPlaceholder padX={14} /></div>
+          ) : places.length > 0 && (
+            <div style={{ width: '100%' }}>
+              <SaveAllBar padX={14} total={places.length} savedCount={savedCount} progress={progress} onSaveAll={() => void saveAll()} onOpenMap={openMyMap} />
+            </div>
+          ))}
           <VStack spacing={10} align="start" pad="0 14px" style={{ width: '100%', boxSizing: 'border-box' }}>
             {producer ? (
               // 포스터를 누르면 제작사(원저작권자) 페이지로 — 앱 안 웹뷰가 아니라 외부 브라우저.

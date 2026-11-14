@@ -24,11 +24,13 @@ export interface Pending {
   tripStart: boolean
   /** 경로여정이 띄워 줘야 할 일정짜기 마법사. */
   planner: boolean
+  /** 경로여정이 열리자마자 띄워 줘야 할 직접 짜기 마법사(`manual`) — 「담은 곳으로」 계획 짜기(web-keep-flow.md §5-5). */
+  plannerManual: boolean
   /** 작품검색 탭이 「현 지도 내 성지 검색」으로 보여 줘야 할 범위(`minLng,minLat,maxLng,maxLat`) — 홈 「도시의 성지」의 「지도에서 보기」(MZ2AZ-531). */
   region: string | null
 }
 
-const EMPTY: Pending = { content: null, place: null, courseId: null, tripStart: false, planner: false, region: null }
+const EMPTY: Pending = { content: null, place: null, courseId: null, tripStart: false, planner: false, plannerManual: false, region: null }
 
 export const pendingStore = createStore<Pending>({ ...EMPTY })
 
@@ -43,6 +45,21 @@ interface ReturnState {
   returnTo: string
   /** 표시를 실어 연 작품 — 이 작품의 상세를 닫을 때만 유효하다. */
   contentId: number
+}
+
+/** 촬영지 상세를 연 쪽이 「뒤로」로 돌아오길 바라는 곳 — `openPlace(…, { returnTo })` 가 싣는다(내 지도 → 촬영지 상세, web-keep-flow.md §9-9). */
+interface PlaceReturnState {
+  returnTo: string
+  /** 표시를 실어 연 촬영지 — 이 촬영지의 상세를 닫을 때만 유효하다. */
+  placeId: number
+}
+
+/** 이동의 state 에서 촬영지 상세가 돌아갈 곳을 꺼낸다. 표시를 실어 연 그 촬영지일 때만, 앱 안의 경로만 준다. */
+export function placeReturnToOf(state: unknown, placeId: number): string | null {
+  if (typeof state !== 'object' || state === null) return null
+  const { returnTo, placeId: openedId } = state as Partial<PlaceReturnState>
+  if (openedId !== placeId) return null
+  return typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : null
 }
 
 /**
@@ -68,6 +85,13 @@ export function useTabRouter() {
     openProfile: () => navigate(paths.profile),
     /** 홈 「지금 뜨는 작품」 전체 — 포스터 격자 덮개(MZ2AZ-534). */
     openTrending: () => navigate(paths.trending),
+    /** 내 지도(/my-map) 덮개 — 담은 촬영지(web-keep-flow.md §5-3). */
+    openMyMap: () => navigate(paths.myMap),
+    /** 담은 곳으로 계획 짜기 — 쪽지를 남기고 경로여정을 연다. 경로여정이 열리면 직접 짜기 마법사를 띄운다(§5-5). */
+    openPlanFromSaved: () => {
+      pendingStore.set((s) => ({ ...s, plannerManual: true }))
+      navigate(paths.courses)
+    },
     /** 경로여정을 열고 그 코스의 편집으로 들어간다. */
     openCourse: (serverId: number) => {
       pendingStore.set((s) => ({ ...s, courseId: serverId }))
@@ -81,10 +105,10 @@ export function useTabRouter() {
       pendingStore.set((s) => ({ ...s, content }))
       navigate(paths.searchContent(content.id), options?.returnTo ? { state: { returnTo: options.returnTo, contentId: content.id } satisfies ReturnState } : undefined)
     },
-    /** 작품검색 탭으로 가서 그 촬영지의 상세를 연다. */
-    openPlace: (place: PlaceSummary) => {
+    /** 작품검색 탭으로 가서 그 촬영지의 상세를 연다. `returnTo` 를 주면 상세의 「뒤로」가 그 화면으로 돌아간다(내 지도 → 촬영지 → 뒤로 = 내 지도). */
+    openPlace: (place: PlaceSummary, options?: { returnTo?: string }) => {
       pendingStore.set((s) => ({ ...s, place }))
-      navigate(paths.searchPlace(place.id))
+      navigate(paths.searchPlace(place.id), options?.returnTo ? { state: { returnTo: options.returnTo, placeId: place.id } satisfies PlaceReturnState } : undefined)
     },
     /** 작품검색 탭으로 가서 그 범위의 촬영지를 지도에 띄운다(bbox 문자열). */
     openRegion: (bbox: string) => {

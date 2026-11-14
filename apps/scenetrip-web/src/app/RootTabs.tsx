@@ -1,5 +1,5 @@
 /*
- * 앱의 최상위 — 하단 탭 셋과, 탭에서 내려온 화면의 덮개(경로여정·마이페이지·지금 뜨는 작품 전체)를 든다. (iOS: RootTabs.swift)
+ * 앱의 최상위 — 하단 탭 셋과, 탭에서 내려온 화면의 덮개(경로여정·마이페이지·지금 뜨는 작품 전체·내 지도)를 든다. (iOS: RootTabs.swift)
  *
  * 검색 탭은 지도와 서버 호출을 들고 있어 비용이 크므로 상태를 유지한다 — 항상 마운트하고 숨기기만 한다.
  * 홈도 같은 이유로 살려 둔다. 커뮤니티는 값이 싸서 선택됐을 때만 만든다.
@@ -11,6 +11,7 @@ import { LayerVisibleContext } from '@/design/DeferredImg'
 import { Cover } from '@/design/overlay'
 import { CommunityTab } from '@/features/community/CommunityTab'
 import { HomeTab } from '@/features/home/HomeTab'
+import { KeepArrival, KeepSheet, MyMapCover } from '@/features/keep'
 import { TrendingCover } from '@/features/home/TrendingWorks'
 import { ProfileCover } from '@/features/profile/ProfileCover'
 import { RootSheets } from '@/features/profile/RootSheets'
@@ -36,7 +37,8 @@ export function RootTabs() {
 
   // 어느 화면을 보는가 — 탭과 덮개 단위, 덮개가 떠 있으면 덮개가 이긴다 (iOS RootTabs.screenName, MZ2AZ-353).
   // 지금 뜨는 작품 전체(/trending)는 홈의 일부로 센다 — 새 화면 이름을 늘리지 않는다(MZ2AZ-534).
-  const screenName = cover === 'route' ? 'courses' : cover === 'profile' ? 'profile' : tab
+  // 내 지도(/my-map)는 따로 센다 — `my_map`(docs/project/plans/web-keep-flow.md §8).
+  const screenName = cover === 'route' ? 'courses' : cover === 'profile' ? 'profile' : cover === 'myMap' ? 'my_map' : tab
   useEffect(() => track(appEvent.screenView(screenName)), [screenName])
 
   // 시안(떠 있는 알약 탭바)이면 탭 내용이 화면 바닥까지 내려가고 알약은 그 위에 뜬다 — 알약 뒤로 지도·목록이 비친다.
@@ -77,6 +79,13 @@ export function RootTabs() {
       <Cover open={cover === 'trending'} background="var(--grouped-background)">
         <TrendingCover onClose={closeCover} />
       </Cover>
+      {/* 내 지도 — 담은 촬영지(web-keep-flow.md §5-3). */}
+      <Cover open={cover === 'myMap'} background="var(--grouped-background)">
+        <MyMapCover onClose={closeCover} />
+      </Cover>
+      {/* 담은 뒤 시트(§5-2)와 `?keep=` 으로 넘어온 사람 처리(§5-4). */}
+      <KeepSheet />
+      <KeepArrival />
       {/* 「어디로 가세요?」 시안 — 로컬 개발 서버에서만(docs/project/plans/web-trip-first-prototypes.md). */}
       {protoAvailable && <ProtoHomeBar onHome={tab === 'home' && cover === null} />}
       {protoAvailable && <ProtoLayer />}

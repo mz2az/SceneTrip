@@ -40,7 +40,8 @@ export function HomeHeader({ onProfile }: { onProfile: () => void }) {
     <HStack spacing={10} style={{ padding: '10px 20px 0' }}>
       <img src="/generated/haetae-face.png" alt="" width={44} height={38} style={{ objectFit: 'contain', flex: 'none' }} draggable={false} />
       <VStack spacing={1} align="start">
-        <Txt size={13} color="secondary">{tr('해태가 기다렸어요')}</Txt>
+        {/* 앱 이름 — 광고로 처음 온 사람이 어느 앱인지 알게(web-keep-flow.md §5-6). 한·영 같은 글자, 앱 시그니처 보라. */}
+        <Txt size={13} weight="bold" style={{ color: 'var(--home-purple)' }}>SceneTrip</Txt>
         <Txt size={19} weight="bold">{tr('오늘은 어느 장면으로 갈까요?')}</Txt>
       </VStack>
       <Spacer />

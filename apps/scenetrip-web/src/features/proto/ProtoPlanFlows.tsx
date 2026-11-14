@@ -444,13 +444,19 @@ export function splitEven<T>(items: readonly T[], days: number): T[][] {
  * 담은 곳으로 — 기간·날짜와 넣을 곳을 묻고, 고른 곳을 날마다 나눠 넣은 편집 화면을 연다.
  * 넣을 곳은 담아 둔 곳 중에서 고른다 — 처음에는 아무것도 골라져 있지 않다(MZ2AZ-551: 전에는 담아 둔 곳이 전부 들어갔다).
  */
-export function ProtoSavedPlan({ onClose }: { onClose: () => void }) {
+/**
+ * `pickAll` — 담은 곳이 전부 골라진 채로 시작한다(「담은 곳으로 계획 짜기」, web-keep-flow.md §9-5). 사용자가 하나라도 누르기 전까지는
+ * 「전부」 로 두므로, 장바구니가 늦게 도착해도 도착한 곳이 모두 골라진다. 경로여정에서 평소처럼 연 마법사는 빈 채로 시작한다.
+ */
+export function ProtoSavedPlan({ onClose, pickAll = false }: { onClose: () => void; pickAll?: boolean }) {
   const cart = useCart()
   const items = cart.items.filter((i) => !i.delisted)
   const [nights, setNights] = useState(1)
   const [date, setDate] = useState<string | null>(null)
   const [course, setCourse] = useState<RouteCourse | null>(null)
-  const [picked, setPicked] = useState<ReadonlySet<number>>(() => new Set())
+  // null = 「전부」(아직 아무것도 누르지 않았다).
+  const [pickedOrAll, setPicked] = useState<ReadonlySet<number> | null>(() => (pickAll ? null : new Set()))
+  const picked: ReadonlySet<number> = pickedOrAll ?? new Set(items.map((i) => i.placeId))
 
   if (course) return <RouteEditor course={course} isNew onClose={onClose} />
 
