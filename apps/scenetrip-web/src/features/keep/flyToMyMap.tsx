@@ -151,7 +151,7 @@ export function MyMapButton({ onPress, tone = 'plain', style }: { onPress: () =>
       plain
       onClick={onPress}
       data-my-map-target=""
-      aria-label={count > 0 ? say(`내 지도 · ${count}곳`, `My map · ${count === 1 ? '1 spot' : `${count} spots`}`) : say('내 지도', 'My map')}
+      aria-label={count > 0 ? say(`마이맵 · ${count}곳`, `My map · ${count === 1 ? '1 spot' : `${count} spots`}`) : say('마이맵', 'My map')}
       className="proto-press"
       style={{
         position: 'relative', width: 44, height: 44, flex: 'none', borderRadius: 999, display: 'grid', placeItems: 'center',

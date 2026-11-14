@@ -205,16 +205,16 @@ describe('addPoi — 201', () => {
     expect(cartStore.get().pois.map((p) => p.id)).toEqual([7])
   })
 
-  it('알림 「내 지도에 담았어요」', async () => {
+  it('알림 「마이맵에 담았어요」', async () => {
     await cartActions.addPoi({ id: 7 })
-    expect(toasts).toEqual(['내 지도에 담았어요'])
+    expect(toasts).toEqual(['마이맵에 담았어요'])
   })
 
-  it('영어 — Saved to your map', async () => {
+  it('영어 — Saved to My map', async () => {
     switchLanguage('en')
     startWith([])
     await cartActions.addPoi({ id: 7 })
-    expect(toasts).toEqual(['Saved to your map'])
+    expect(toasts).toEqual(['Saved to My map'])
   })
 
   it('save_poi(poiId, categoryGroup) 를 보낸다', async () => {
@@ -244,17 +244,17 @@ describe('addPoi — 409 DUPLICATE_CART_ITEM', () => {
     poiOutcome.set(7, () => respond(409, undefined, { code: 'DUPLICATE_CART_ITEM', message: 'dup' }))
   })
 
-  it("'already' 와 알림 「이미 담은 곳이에요」", async () => {
+  it("'already' 와 알림 「이미 마이맵에 있어요」", async () => {
     const result = await cartActions.addPoi({ id: 7 })
     expect(result).toBe('already')
-    expect(toasts).toEqual(['이미 담은 곳이에요'])
+    expect(toasts).toEqual(['이미 마이맵에 있어요'])
   })
 
-  it('영어 — Already on your map', async () => {
+  it('영어 — Already on My map', async () => {
     switchLanguage('en')
     startWith([])
     await cartActions.addPoi({ id: 7 })
-    expect(toasts).toEqual(['Already on your map'])
+    expect(toasts).toEqual(['Already on My map'])
   })
 
   it('save_poi 는 보내지 않는다', async () => {
@@ -278,22 +278,22 @@ describe('addPoi — 그 밖의 실패', () => {
     poiOutcome.set(7, reply)
     const result = await cartActions.addPoi({ id: 7 })
     expect(result).toBe('failed')
-    expect(toasts).toEqual(['담지 못했어요. 잠시 후 다시 시도해 주세요'])
+    expect(toasts).toEqual(['마이맵에 담지 못했어요. 잠시 후 다시 시도해 주세요'])
     expect(events().filter((e) => e.name === 'save_poi')).toEqual([])
     expect(cartStore.get().poiIds.has(7)).toBe(false)
   })
 
-  it("영어 — Couldn't save. Try again in a moment.", async () => {
+  it("영어 — Couldn't save to My map. Try again in a moment.", async () => {
     switchLanguage('en')
     startWith([])
     poiOutcome.set(7, () => respond(500, undefined, { code: 'INTERNAL', message: 'x' }))
     await cartActions.addPoi({ id: 7 })
-    expect(toasts).toEqual(["Couldn't save. Try again in a moment."])
+    expect(toasts).toEqual(["Couldn't save to My map. Try again in a moment."])
   })
 })
 
 describe('removePoi', () => {
-  it('DELETE /cart/pois/{poiId} → 204 이면 목록·poiIds 에서 빼고 알림 「내 지도에서 뺐어요」', async () => {
+  it('DELETE /cart/pois/{poiId} → 204 이면 목록·poiIds 에서 빼고 알림 「마이맵에서 뺐어요」', async () => {
     startWith([poi(7), poi(9)])
     await cartActions.removePoi(7)
     const deletes = calls(h.DELETE, '/cart/pois/{poiId}')
@@ -302,30 +302,30 @@ describe('removePoi', () => {
     expect(cartStore.get().pois.map((p) => p.id)).toEqual([9])
     expect(cartStore.get().poiIds.has(7)).toBe(false)
     expect(cartStore.get().poiIds.has(9)).toBe(true)
-    expect(toasts).toEqual(['내 지도에서 뺐어요'])
+    expect(toasts).toEqual(['마이맵에서 뺐어요'])
   })
 
-  it('영어 — Removed from your map', async () => {
+  it('영어 — Removed from My map', async () => {
     switchLanguage('en')
     startWith([poi(7)])
     await cartActions.removePoi(7)
-    expect(toasts).toEqual(['Removed from your map'])
+    expect(toasts).toEqual(['Removed from My map'])
   })
 
   it('실패(500)면 알림 「빼지 못했어요…」, 목록은 그대로', async () => {
     startWith([poi(7), poi(9)])
     h.DELETE.mockImplementation(async () => respond(500, undefined, { code: 'INTERNAL', message: 'x' }))
     await cartActions.removePoi(7)
-    expect(toasts).toEqual(['빼지 못했어요. 잠시 후 다시 시도해 주세요'])
+    expect(toasts).toEqual(['마이맵에서 빼지 못했어요. 잠시 후 다시 시도해 주세요'])
     expect(cartStore.get().pois.map((p) => p.id)).toEqual([7, 9])
     expect(cartStore.get().poiIds.has(7)).toBe(true)
   })
 
-  it("영어 — Couldn't remove. Try again in a moment.", async () => {
+  it("영어 — Couldn't remove from My map. Try again in a moment.", async () => {
     switchLanguage('en')
     startWith([poi(7)])
     h.DELETE.mockImplementation(async () => respond(500, undefined, { code: 'INTERNAL', message: 'x' }))
     await cartActions.removePoi(7)
-    expect(toasts).toEqual(["Couldn't remove. Try again in a moment."])
+    expect(toasts).toEqual(["Couldn't remove from My map. Try again in a moment."])
   })
 })

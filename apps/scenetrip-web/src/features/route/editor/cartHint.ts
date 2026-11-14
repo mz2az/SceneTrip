@@ -1,9 +1,9 @@
 /*
- * 직접 짜는 첫 코스에서 「장바구니」 단추를 짚어 주는 한 번의 안내 — iOS RouteTab/RouteCartHint.swift (MZ2AZ-444).
+ * 직접 짜는 첫 코스에서 「마이맵」 단추(옛 「장바구니」)를 짚어 주는 한 번의 안내 — iOS RouteTab/RouteCartHint.swift (MZ2AZ-444).
  * 표시할 때 기록한다. 닫기·시간 만료·화면 재진입도 같은 한 번이다. 강조는 즉시 시작하되 문구·seen·노출 시간은 장바구니 조회가 끝난 뒤 함께 시작한다.
  */
 import { useEffect, useRef, useState } from 'react'
-import { tr } from '@/i18n'
+import { say } from '@/i18n'
 import { useCart } from '@/state/cart'
 import { readStorage, writeStorage } from '@/state/storage'
 import { type RouteCourse, courseStops } from '../models'
@@ -17,9 +17,11 @@ export function canPresentCartHint(course: RouteCourse, seen: boolean): boolean 
   return course.serverId === null && !course.madeByAI && courseStops(course).length === 0 && !seen
 }
 
-/** 실패 시 빈 배열은 비어 있다는 증거가 아니므로 일반 안내를 쓴다. */
-export function cartHintMessageKey(cartIsEmpty: boolean): string {
-  return cartIsEmpty ? '장소를 담으면 여기서 코스에 넣을 수 있어요' : '담아둔 장소로 코스를 시작해 보세요'
+/** 실패 시 빈 배열은 비어 있다는 증거가 아니므로 일반 안내를 쓴다. 이름은 「마이맵」(web-keep-flow.md §11-3). */
+export function cartHintMessage(cartIsEmpty: boolean): string {
+  return cartIsEmpty
+    ? say('마이맵에 장소를 담으면 여기서 코스에 넣을 수 있어요', 'Save places to My map to add them to your course here')
+    : say('마이맵에 담은 장소로 코스를 시작해 보세요', 'Start your course with places on My map')
 }
 
 const seenBefore = (): boolean => (Number(readStorage(CART_HINT_KEY) ?? 0) || 0) !== 0
@@ -46,7 +48,7 @@ export function useCartHint(course: RouteCourse) {
       return
     }
     writeStorage(CART_HINT_KEY, '1')
-    setMessage(tr(cartHintMessageKey(cart.loadState === 'loaded' && cart.items.length === 0)))
+    setMessage(cartHintMessage(cart.loadState === 'loaded' && cart.items.length === 0))
   }, [highlighted, message, cart.loadState, cart.items.length])
   // 문구가 뜬 뒤 노출 시간이 지나면 거둔다.
   useEffect(() => {

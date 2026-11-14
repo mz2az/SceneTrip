@@ -6,7 +6,7 @@
  */
 import { Icon } from '@/design/Icon'
 import { HStack, Txt, VStack } from '@/design/primitives'
-import { tr, trAt } from '@/i18n'
+import { say, tr, trAt } from '@/i18n'
 import { type VisitStamp, STAMP_PREVIEW_COUNT } from './stamps'
 import { ListSection, Row } from './ui/ListUI'
 import { StampBadge } from './ui/parts'
@@ -15,25 +15,28 @@ import { trCount } from './wording'
 /** `Color.indigo` (라이트) */
 const INDIGO = '#5856d6'
 
-export type SectionName = 'courses' | 'likes' | 'cart' | 'stamps' | 'posts' | 'reviews' | 'blocked' | 'reels'
+export type SectionName = 'courses' | 'likes' | 'stamps' | 'posts' | 'reviews' | 'blocked' | 'reels'
 
 export interface SectionsProps {
   signedIn: boolean
   courseCount: number | null
   likeCount: number
-  cartCount: number
+  /** 마이맵에 담은 수(목록에서 빠진 촬영지·폐업한 편의시설 제외 — 마이맵 단추의 배지와 같은 수). */
+  myMapCount: number
   stamps: readonly VisitStamp[]
   postCount: number
   open: (name: SectionName) => void
+  /** 마이맵(/my-map)을 연다 — 옛 장바구니 시트 대신(web-keep-flow.md §11-1). */
+  onMyMap: () => void
 }
 
-function TripSection({ courseCount, likeCount, cartCount, open }: SectionsProps) {
+function TripSection({ courseCount, likeCount, myMapCount, open, onMyMap }: SectionsProps) {
   return (
     <ListSection header={tr('내 여행')}>
       {/* 누르면 목록이 바로 뜬다 — 숫자만 보여 주고 끝나면 「그래서 뭐가 있는데」를 경로여정 탭까지 가서 확인해야 한다. */}
       <Row icon="point.topleft.down.to.point.bottomright.curvepath" tint="deep" title={tr('내 코스')} value={courseCount === null ? '…' : tr('%d개', courseCount)} style={{ minHeight: 53.3, paddingBottom: 15.15 }} chevron onClick={() => open('courses')} />
       <Row icon="heart.fill" tint="red" title={tr('찜한 작품')} value={tr('%d개', likeCount)} chevron onClick={() => open('likes')} />
-      <Row icon="bag.fill" tint="var(--system-orange)" title={tr('장바구니')} value={trCount('%d곳', cartCount)} chevron onClick={() => open('cart')} />
+      <Row icon="map" tint="var(--system-orange)" title={say('마이맵', 'My map')} value={trCount('%d곳', myMapCount)} chevron onClick={onMyMap} />
     </ListSection>
   )
 }

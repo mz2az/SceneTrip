@@ -2,7 +2,7 @@
  * 코스를 담기 전에도 사용할 수 있는 가이드 입구 — iOS RouteTab/RouteGuideStart.swift. 열기만 해서는 모델을 호출하지 않는다.
  */
 import { Divider, Pressable, Txt, VStack } from '@/design/primitives'
-import { tr } from '@/i18n'
+import { say, tr } from '@/i18n'
 import { BorderedButton, AccentCapsule } from './guideUi'
 
 /** 한국어 원문이 번역 표의 열쇠다 — 누르면 번역한 문장이 질문으로 나간다. */
@@ -53,8 +53,8 @@ export function GuideStart({ hasLocation, anchorActionTitle, onChangeAnchor, car
       {onOpenCart && (
         <>
           <Divider style={{ alignSelf: 'stretch' }} />
-          <Txt size={12} color="secondary" lines={3}>{cartPlaces.length === 0 ? tr('장바구니에 담긴 장소가 없어요.') : cartPlaces.slice(0, 3).join(' · ')}</Txt>
-          <BorderedButton size={12} onClick={onOpenCart}>{tr('장바구니 장소 보기')}</BorderedButton>
+          <Txt size={12} color="secondary" lines={3}>{cartPlaces.length === 0 ? say('마이맵에 담긴 장소가 없어요.', 'Nothing on My map yet.') : cartPlaces.slice(0, 3).join(' · ')}</Txt>
+          <BorderedButton size={12} onClick={onOpenCart}>{say('마이맵 장소 보기', 'See places on My map')}</BorderedButton>
         </>
       )}
     </VStack>

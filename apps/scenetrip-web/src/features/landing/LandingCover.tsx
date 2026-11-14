@@ -456,7 +456,7 @@ export function LandingCover({ contentId, onRest, onClose, onBeat, onKeep }: {
 function keepLabel(save: SaveState, n: number): string {
   if (save.kind === 'saving') return say(`담는 중… ${save.done}/${save.total}`, `Saving… ${save.done}/${save.total}`)
   if (save.kind === 'failed') return say(`남은 ${save.failed}곳도 담기`, `Save the other ${spots(save.failed)}`)
-  return n === 1 ? say('이 1곳 내 지도에 담기', 'Keep this 1 on my map') : say(`이 ${n}곳 내 지도에 담기`, `Keep these ${n} on my map`)
+  return n === 1 ? say('이 1곳 마이맵에 담기', 'Keep this 1 on My map') : say(`이 ${n}곳 마이맵에 담기`, `Keep these ${n} on My map`)
 }
 
 /** 튀어나온 썸네일 수 — ③ 에서 launchAt(i) 가 지난 것. */
@@ -556,7 +556,7 @@ function Pouch({ count, top, restTop, rest }: { count: number; top: number; rest
         <Icon name="map" size={22} weight="bold" color="#5c4ad6" />
         <span className="st-film__bag-count">{count}</span>
       </div>
-      <span className="st-film__bag-label">{say('내 지도', 'My map')}</span>
+      <span className="st-film__bag-label">{say('마이맵', 'My map')}</span>
     </div>
   )
 }

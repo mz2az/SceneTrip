@@ -176,9 +176,9 @@ const flows = (ids) => [
     },
   },
   {
-    name: '마이페이지 시트들(비회원): 내 코스·찜·장바구니·스탬프·내 글·릴스',
+    name: '마이페이지 시트들(비회원): 내 코스·찜·스탬프·내 글·릴스 (마이맵은 시트가 아니라 /my-map)',
     run: async (page) => {
-      for (const section of ['courses', 'likes', 'cart', 'stamps', 'posts', 'reels']) {
+      for (const section of ['courses', 'likes', 'stamps', 'posts', 'reels']) {
         await page.goto(url(`/profile/${section}${section === 'stamps' ? '?dev-stamps=1' : ''}`), { waitUntil: 'networkidle2' })
         await sleep(700)
       }

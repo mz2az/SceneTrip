@@ -1,5 +1,5 @@
 /*
- * 내 지도의 주변 칩 줄 — 정본: docs/project/plans/keep-poi.md §7 · §3-3.
+ * 마이맵의 주변 칩 줄 — 정본: docs/project/plans/keep-poi.md §7 · §3-3.
  *
  *   NearbyChips({ value, loading?, onChange }) — 표시 전용
  *   칩 넷을 NEARBY_KINDS 순서(식당·카페 / 쇼핑 / 명소 / 숙소)로, 켜진 칩은 aria-pressed="true".

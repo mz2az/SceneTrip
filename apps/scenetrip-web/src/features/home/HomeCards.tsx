@@ -8,7 +8,7 @@ import { Icon } from '@/design/Icon'
 import { HStack, Spacer, Txt, VStack, homeCard, rr, shadow } from '@/design/primitives'
 import { Pressable } from '../route/ui/Press'
 import { MyMapButton } from '../keep/flyToMyMap'
-import { tr } from '@/i18n'
+import { say, tr } from '@/i18n'
 import { CoverPhoto } from '../community/CoverPhoto'
 import { type PostSummary, postFromSummary } from '../community/store'
 import { ModerationMenu, type ModerationController, canBlock, postTarget, showsMenu } from '../moderation'
@@ -142,7 +142,7 @@ export function TodayCard({ place, saved, onOpen, onSave }: { place: PlaceSummar
             <Pressable plain onClick={(e) => onSave(e.currentTarget)} style={{ flex: 'none' }}>
               <HStack spacing={5}>
                 <Icon name={saved ? 'checkmark.circle.fill' : 'plus.circle'} size={14} weight="bold" color={saved ? 'deep' : 'accent'} />
-                <Txt size={13} weight="bold" color={saved ? 'deep' : 'accent'}>{saved ? tr('담김') : tr('담기')}</Txt>
+                <Txt size={13} weight="bold" color={saved ? 'deep' : 'accent'}>{saved ? say('마이맵에 있음', 'On My map') : tr('담기')}</Txt>
               </HStack>
             </Pressable>
           </HStack>

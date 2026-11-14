@@ -5,6 +5,7 @@
  * 시트 안은 목록(SearchList)·작품 상세·촬영지 상세 가운데 하나다.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation } from 'react-router'
 import { pendingStore, useTabRouter } from '@/app/tabRouter'
 import { Alert } from '@/design/overlay'
 import { HStack, Pressable, Spinner, Txt, VStack } from '@/design/primitives'
@@ -15,7 +16,6 @@ import './icons'
 import { MapView } from './map/MapView'
 import { CAMERA_TOP_INSET } from './map/mapRules'
 import './search.css'
-import { CartSheet } from './ui/CartSheet'
 import { useStore } from '@/state/storage'
 import { protoAvailable, protoStore } from '@/features/proto/protoState'
 import { ContentDetail } from './ui/ContentDetail'
@@ -47,6 +47,7 @@ export function SearchTab({ active, embedded = false }: { active: boolean; embed
   const TAB_BAR = embedded || proto ? 0 : TAB_BAR_HEIGHT
   const likes = useLikes()
   const router = useTabRouter()
+  const here = useLocation()
   // 촬영지 상세 「길찾기」(MZ2AZ-532) — 홈 「이어서 길찾기」와 같은 길: 코스를 열며 안내를 켠다.
   const openTrip = (courseId: number) => {
     pendingStore.set((s) => ({ ...s, tripStart: true }))
@@ -199,12 +200,11 @@ export function SearchTab({ active, embedded = false }: { active: boolean; embed
           onClear={t.clearSearch}
           onFocus={() => t.setSearchFocused(true)}
           inputRef={t.inputRef}
-          cartCount={t.cart.items.length}
-          onCart={() => t.setShowCart(true)}
+          onMyMap={() => router.openMyMap(`${here.pathname}${here.search}`)}
         />
         {!t.searchFocused ? (
           <>
-          {/* 「현 지도 내 성지 검색」은 가운데, 조작 버튼은 오른쪽 — 위 검색창의 장바구니와 같은 세로선에 놓아 지도를 덜 가린다. */}
+          {/* 「현 지도 내 성지 검색」은 가운데, 조작 버튼은 오른쪽 — 위 검색창의 마이맵 단추와 같은 세로선에 놓아 지도를 덜 가린다. */}
           <div className="st-controls">
             <span />
             <NearbyButton active={t.nearby} label={nearbyLabel} onClick={t.toggleNearby} />
@@ -228,7 +228,7 @@ export function SearchTab({ active, embedded = false }: { active: boolean; embed
         )}
       </VStack>
 
-      {/* 담기 알림(「이미 저장된 장소입니다」 등)은 앱 맨 위 한 곳(features/keep/CartToast, RootTabs)이 그린다(keep-poi.md §9-1). */}
+      {/* 담기 알림(「이미 마이맵에 있어요」 등)은 앱 맨 위 한 곳(features/keep/CartToast, RootTabs)이 그린다(keep-poi.md §9-1). */}
       {likes.failure && (
         <HStack spacing={12} align="start" className="st-notice" role="alert">
           <VStack spacing={4} align="start" style={{ flex: 1, minWidth: 0 }}>
@@ -241,7 +241,6 @@ export function SearchTab({ active, embedded = false }: { active: boolean; embed
         </HStack>
       )}
 
-      <CartSheet open={t.showCart} onClose={() => t.setShowCart(false)} />
       <LocationConsentSheet gate={t.location.gate} />
       <LocateAlert outcome={t.locateFailure} onClose={() => t.setLocateFailure(null)} />
     </div>

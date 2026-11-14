@@ -4,7 +4,7 @@
  *   CartToast(): cartStore.toast 를 앱 맨 위 한 곳에서 그린다. role="status".
  *   보이는 시간 2.4초. 새 알림이 오면 바꿔 끼우고 시간을 다시 잰다.
  *
- * 2.4초 · 3초: keep-poi §9-1 은 모든 장바구니 알림을 2.4초로, landing §9-3(c) 는 「내 지도에 담았어요 + 되돌리기」 알림만 3초로 정한다.
+ * 2.4초 · 3초: keep-poi §9-1 은 모든 장바구니 알림을 2.4초로, landing §9-3(c) 는 「마이맵에 담았어요 + 되돌리기」 알림만 3초로 정한다.
  * 되돌리기가 없는 알림은 2.4초로 본다. 되돌리기 단추가 붙은 알림은 계약된 이음매(알림에 되돌리기를 싣는 방법)가 명세에 없어 시험하지 않는다.
  *
  * 이 파일의 시험은 keep-poi §9-1 로 이미 구현된 CartToast 를 지키는 회귀 시험이라 지금도 통과한다.
@@ -49,16 +49,16 @@ describe('CartToast', () => {
 
   it('cartStore.toast 를 role="status" 로 보인다', () => {
     render(<CartToast />)
-    act(() => cartActions.notify('내 지도에 담았어요'))
+    act(() => cartActions.notify('마이맵에 담았어요'))
     expect(status()).not.toBeNull()
-    expect(status()!.textContent).toContain('내 지도에 담았어요')
+    expect(status()!.textContent).toContain('마이맵에 담았어요')
   })
 
   it('2.4초 동안 보이고 그 뒤 사라진다', async () => {
     render(<CartToast />)
-    act(() => cartActions.notify('내 지도에 담았어요'))
+    act(() => cartActions.notify('마이맵에 담았어요'))
     await advance(2399)
-    expect(status()?.textContent ?? '').toContain('내 지도에 담았어요')
+    expect(status()?.textContent ?? '').toContain('마이맵에 담았어요')
     await advance(1)
     expect(status()).toBeNull()
     expect(cartStore.get().toast).toBeNull()

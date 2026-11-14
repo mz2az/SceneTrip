@@ -187,8 +187,8 @@ describe('readNudgeState — 저장 값 읽기(깨졌거나 없으면 기본값,
 describe('nudgeMessage — §3 문구', () => {
   it('ko: 담은 장소가 있으면 장소 수', async () => {
     const { nudge } = await newSession()
-    expect(nudge.nudgeMessage(1, 0, 'ko')).toBe('담아 둔 1곳, 로그인하면 어느 기기서든 이어져요')
-    expect(nudge.nudgeMessage(5, 3, 'ko')).toBe('담아 둔 5곳, 로그인하면 어느 기기서든 이어져요')
+    expect(nudge.nudgeMessage(1, 0, 'ko')).toBe('마이맵의 1곳, 로그인하면 어느 기기서든 이어져요')
+    expect(nudge.nudgeMessage(5, 3, 'ko')).toBe('마이맵의 5곳, 로그인하면 어느 기기서든 이어져요')
   })
 
   it('ko: 담은 장소 0, 찜한 작품이 있으면 작품 수', async () => {
@@ -203,9 +203,9 @@ describe('nudgeMessage — §3 문구', () => {
 
   it('en: 장소 — 1 이면 spot, 아니면 spots', async () => {
     const { nudge } = await newSession()
-    expect(nudge.nudgeMessage(1, 0, 'en')).toBe('Sign in to keep your 1 saved spot on any device')
-    expect(nudge.nudgeMessage(2, 0, 'en')).toBe('Sign in to keep your 2 saved spots on any device')
-    expect(nudge.nudgeMessage(3, 7, 'en')).toBe('Sign in to keep your 3 saved spots on any device')
+    expect(nudge.nudgeMessage(1, 0, 'en')).toBe('Sign in to keep the 1 spot on your My map on any device')
+    expect(nudge.nudgeMessage(2, 0, 'en')).toBe('Sign in to keep the 2 spots on your My map on any device')
+    expect(nudge.nudgeMessage(3, 7, 'en')).toBe('Sign in to keep the 3 spots on your My map on any device')
   })
 
   it('en: 작품 — 1 이면 title, 아니면 titles', async () => {

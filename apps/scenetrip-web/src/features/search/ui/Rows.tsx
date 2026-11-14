@@ -4,7 +4,7 @@
 import type { components } from '@/api/generated/schema'
 import { Icon } from '@/design/Icon'
 import { HStack, Pressable, Txt, VStack, rr } from '@/design/primitives'
-import { tr } from '@/i18n'
+import { say, tr } from '@/i18n'
 import { placeTypeLabel } from '../rules/placeType'
 import { canToggle, noticeForContent } from '../rules/unavailableItem'
 import { trCount } from '../rules/wording'
@@ -95,7 +95,7 @@ export function PlaceRow({ place, number, onAdd, saved = false }: { place: Place
             e.stopPropagation()
             onAdd()
           }}
-          aria-label={saved ? tr('장바구니에서 빼기') : tr('장바구니에 담기')}
+          aria-label={saved ? say('마이맵에서 빼기', 'Remove from My map') : say('마이맵에 담기', 'Save to My map')}
           style={{ flex: 'none', display: 'grid', placeItems: 'center' }}
         >
           <Icon name={saved ? 'checkmark.circle.fill' : 'plus.circle'} size={FONT.title3} color={saved ? 'accent' : 'secondary'} />

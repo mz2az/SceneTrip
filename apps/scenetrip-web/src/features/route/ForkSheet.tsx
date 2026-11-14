@@ -7,7 +7,7 @@ import { Icon } from '@/design/Icon'
 import { Sheet } from '@/design/overlay'
 import { HStack, Spacer, Txt, VStack, rr, shadow } from '@/design/primitives'
 import { Pressable } from './ui/Press'
-import { tr } from '@/i18n'
+import { say, tr } from '@/i18n'
 import { ProtoForkSheet } from '@/features/proto/ProtoFork'
 import { protoAvailable, protoStore } from '@/features/proto/protoState'
 import { useStore } from '@/state/storage'
@@ -46,7 +46,7 @@ export function ForkCards({ onAI, onManual }: { onAI: () => void; onManual: () =
   return (
     <VStack spacing={12}>
       <ForkCard title={tr('AI 로 짜기')} caption={tr('기간·작품만 고르면 동선까지 짜 드립니다')} symbol="sparkles" onPress={onAI} />
-      <ForkCard title={tr('직접 짜기')} caption={tr('장바구니에서 하나씩 담습니다')} symbol="hand.draw" onPress={onManual} />
+      <ForkCard title={tr('직접 짜기')} caption={say('마이맵에서 하나씩 담습니다', 'Add places one by one from My map')} symbol="hand.draw" onPress={onManual} />
     </VStack>
   )
 }

@@ -55,11 +55,11 @@ function barButton({ total, savedCount, progress, onSaveAll, onOpenMap }: SaveAl
     )
   }
   if (savedCount <= 0) {
-    return <PrimaryButton onClick={onSaveAll}>{say(`${total}곳 모두 내 지도에 담기`, `Save all ${spots(total)} to my map`)}</PrimaryButton>
+    return <PrimaryButton onClick={onSaveAll}>{say(`${total}곳 모두 마이맵에 담기`, `Save all ${spots(total)} to My map`)}</PrimaryButton>
   }
   if (savedCount < total) {
     const rest = total - savedCount
     return <PrimaryButton onClick={onSaveAll}>{say(`남은 ${rest}곳도 담기`, `Save the other ${spots(rest)}`)}</PrimaryButton>
   }
-  return <SecondaryButton onClick={onOpenMap}>{say(`${total}곳 모두 담음 · 내 지도 보기`, `All ${total} saved · See my map`)}</SecondaryButton>
+  return <SecondaryButton onClick={onOpenMap}>{say(`${total}곳 모두 담음 · 마이맵 보기`, `All ${total} saved · See My map`)}</SecondaryButton>
 }

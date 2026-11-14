@@ -89,7 +89,7 @@ iOS 출처는 `apps/scenetrip-ios/src/` 아래 경로다. 비교한 기준은 `/
 | S4 | 작품 상세 | SearchTab/ContentDetailView | ✅ | 87 | S2: 위쪽에 보이는 지도 |
 | S5 | 촬영지 상세 + 장면 카드 | SearchTab/PlaceDetailView, SceneCard | ✅ | 87 | S2: 지도 |
 | S6 | 사진 전체 화면(확대) | SearchTab/ScenePhotoViewer, SceneZoomView | ✅ | 97 | |
-| S7 | 장바구니 시트 | SearchTab/CartSheet | ✅ | 97 | |
+| S7 | 검색창 옆 마이맵 단추 | SearchTab/CartSheet | ✅ | 비교 안 함 | 웹은 iOS 와 다르다: 옛 장바구니 시트를 없애고 지도 기호 + 담은 수 배지 단추가 `/my-map`(마이맵)을 연다(web-keep-flow.md §11) |
 | S8 | 주변 편의시설 점·칩·정보 카드 | RouteTab/RoutePoi*, PoiInfoSection | 🟨 | 비교 안 함 | 칩·점은 iOS 편집 화면 스크린샷과 같게 나온다. 정보 카드(`PlaceCard`)는 iOS 기준 스크린샷이 없어 비교 못 함 |
 | S9 | 리뷰 시트·작성·내 리뷰·사진첩 | Reviews/* | 🟨 | 97 (시트) | 리뷰 시트만 비교. 작성·고치기·지우기는 계정·쓰기가 필요해 실행 못 함 |
 
@@ -110,7 +110,7 @@ iOS 출처는 `apps/scenetrip-ios/src/` 아래 경로다. 비교한 기준은 `/
 | P1 | 마이페이지 본문(프로필·설정·언어·약관) | ProfileTab/ProfileTabView | ✅ | 97 | 「광고 추적 허용」 줄은 웹에 없다(ATT 해당 없음, §5) — 차이에서 제외 |
 | P2 | 내 코스 시트 | ProfileTab/ProfileSheets | ✅ | 97 | |
 | P3 | 찜한 작품 | ProfileTab/ProfileSheets | ✅ | 97 | |
-| P4 | 장바구니 | ProfileTab/ProfileSheets | ✅ | 97 | |
+| P4 | 마이맵 줄 | ProfileTab/ProfileSheets | ✅ | 비교 안 함 | 웹은 iOS 와 다르다: 시트 없이 `/my-map` 을 연다, 옛 `/profile/cart` 도 그리로(web-keep-flow.md §11) |
 | P5 | 스탬프 | ProfileTab/ProfileStamps | 🟨 | 비교 안 함 | 빈 상태(본문의 스탬프 줄)만 P1 에서 비교 |
 | P6 | 내 글 | ProfileTab/ProfileSheets | ✅ | 97 | |
 | P7 | 내 후기 | Reviews/MyReviewsView | 🟨 | 비교 안 함 | 계정이 있어야 한다 |
@@ -239,7 +239,7 @@ cd apps/scenetrip-web && npm ci && npm run check
 ### 이번 마무리에서 고친 것
 
 - 중단 시점에 비어 있던 이음새: `editorExtensions` 에 아무도 등록하지 않아 **가이드 챗봇·여행 안내·주변 편의시설이 편집 화면에 안 붙어 있었다** → `route/editor/tripExtensions.tsx` 로 이었다(해태 동그라미, 가이드 서랍, 안내 띠·도착 알림·스탬프·아래 단추 줄, 갈래 칩, 지도 위 점·AI 장소·경로선, 정보 카드의 리뷰 시트·사진첩, 홈 「이어서 길찾기」). 챗봇이 코스를 읽고 고치는 데 필요한 코스 ↔ 초안 변환(`guide/guidePlan.ts`)도 새로 썼다.
-- 중복: 후기·커뮤니티의 사진 올리기를 `shared/photoUpload.ts` 하나로, 글쓰기의 「내가 쓴 글」 시트를 마이페이지와 같은 시트로(iOS 도 같은 `MyPostsSheet`), 공용 경고창을 iOS 26 유리 모양 하나로. 남은 중복: 밀어서 삭제 줄이 둘(`community/SwipeRow`·`route/ui/SwipeRow` — 모양이 다르다), 장바구니 시트가 셋(iOS 도 `CartSheet`·`ProfileCartSheet`·`RouteCartSheet` 세 벌이라 그대로 둠), 지도 래퍼 셋(`LeafletMap`·`RouteMap`·`NavMap`).
+- 중복: 후기·커뮤니티의 사진 올리기를 `shared/photoUpload.ts` 하나로, 글쓰기의 「내가 쓴 글」 시트를 마이페이지와 같은 시트로(iOS 도 같은 `MyPostsSheet`), 공용 경고창을 iOS 26 유리 모양 하나로. 남은 중복: 밀어서 삭제 줄이 둘(`community/SwipeRow`·`route/ui/SwipeRow` — 모양이 다르다), 담은 곳 목록은 마이맵(`/my-map`) 하나와 코스 편집의 「마이맵에서 추가」 시트(`route/editor/CartSheet`)뿐이다(검색·마이페이지의 옛 장바구니 시트는 web-keep-flow.md §11 로 없앴다 — iOS 는 세 벌 그대로), 지도 래퍼 셋(`LeafletMap`·`RouteMap`·`NavMap`).
 - 문구: `tr('… %d')` 로 적은 열쇠가 iOS 의 `%lld` 영어 문구를 못 찾던 것(코스 장소 검색의 「추가 0」), 영어 달력 요일 줄임말(SUN…SAT).
 - 린트 오류 1건·경고 1건.
 - 알려진 남은 차이: 지도 타일(OSM), SF Symbols 대신 lucide 아이콘, 상태바 높이, 웹에서 숨긴 「광고 추적 허용」, 코드 분할 없이 번들 하나(약 1.2 MB, gzip 386 KB — 출시 전에 라우트별로 나눌 수 있다).

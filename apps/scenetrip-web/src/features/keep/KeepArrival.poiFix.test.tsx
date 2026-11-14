@@ -108,10 +108,10 @@ describe('KeepArrival — ?pois= 한꺼번에 받기(§9-8)', () => {
     expect(cartGets()).toBe(2)
   })
 
-  it('알림은 끝에 한 번 — 「N곳을 내 지도에 담았어요」(이미 있던 것도 친다)', async () => {
+  it('알림은 끝에 한 번 — 「N곳을 마이맵에 담았어요」(이미 있던 것도 친다)', async () => {
     arrive('/?pois=7,8,9')
     await vi.waitFor(() => expect(arriveEvents()).toHaveLength(1))
-    expect(toasts).toEqual(['3곳을 내 지도에 담았어요'])
+    expect(toasts).toEqual(['3곳을 마이맵에 담았어요'])
     expect(arriveEvents()[0]).toEqual(webEvent.keepArrive(0, 2))
   })
 

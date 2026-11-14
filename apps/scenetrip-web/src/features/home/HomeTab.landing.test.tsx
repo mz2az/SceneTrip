@@ -4,13 +4,13 @@
  *   담은 것이 없을 때: 첫 칸 = 지금 뜨는 작품 1편의 장면 카드 + 단추 「이 작품의 장소 {N}곳 보기」(→ /go/{id}),
  *                      그 아래 「좋아하는 작품에서 시작하세요」 포스터 격자 6편(→ /go/{id}, home_tap(pick_title)) · 전체 보기(/trending),
  *                      도시 칩 줄은 아래에(home_tap(city_chip)).
- *   담은 것이 있을 때: 첫 칸 = 내 지도 카드, 그 아래 「더 담아 볼까요?」 줄 — 아직 안 담은 작품 포스터(→ 작품 상세, home_tap(add_title))
+ *   담은 것이 있을 때: 첫 칸 = 마이맵 카드, 그 아래 「더 담아 볼까요?」 줄 — 아직 안 담은 작품 포스터(→ 작품 상세, home_tap(add_title))
  *                      + 끝에 「주변 식당·쇼핑」 칸(→ /add, home_tap(add_nearby)).
  *   「어디로 여행 가세요?」 사진 카드는 맨 위에서 내린다. 「지금 뜨는 작품」 줄은 위 두 칸이 대신한다.
  *
  * 시험이 의지하는 이음매:
  *   - 작품 고르기 격자는 이름이 「좋아하는 작품에서 시작하세요」 인 region(<section aria-label> 또는 aria-labelledby 제목),
- *     더 담기 줄은 이름이 「더 담아 볼까요?」 인 region(시험이 정한 것). 내 지도 카드는 지금처럼 이름이 「내 지도」 인 region.
+ *     더 담기 줄은 이름이 「더 담아 볼까요?」 인 region(시험이 정한 것). 마이맵 카드는 지금처럼 이름이 「마이맵」 인 region.
  *   - 칸 안의 포스터는 단추다. 격자의 「전체 보기」 도 단추.
  *   - 지금 뜨는 작품은 homeStore.works, 담은 것은 cartStore(GET /cart 도 같은 값), 도시는 homeCityStore.
  *   - 이벤트는 track(webEvent.homeTap(section)).
@@ -273,11 +273,11 @@ describe('담은 것이 없을 때 — 작품 고르기', () => {
     await vi.waitFor(() => expect(homeTaps()).toContain('city_chip'))
   })
 
-  it('내 지도 카드와 더 담기 줄은 없다', async () => {
+  it('마이맵 카드와 더 담기 줄은 없다', async () => {
     withCart([])
     renderHome()
     await vi.waitFor(() => screen.getByRole('region', { name: '좋아하는 작품에서 시작하세요' }))
-    expect(screen.queryByRole('region', { name: '내 지도' })).toBeNull()
+    expect(screen.queryByRole('region', { name: '마이맵' })).toBeNull()
     expect(screen.queryByRole('region', { name: '더 담아 볼까요?' })).toBeNull()
   })
 })
@@ -290,14 +290,14 @@ const SAVED: CartItem[] = [
 ]
 
 describe('담은 것이 있을 때', () => {
-  it('내 지도 카드가 첫 칸이고 그 아래 「더 담아 볼까요?」 줄', async () => {
+  it('마이맵 카드가 첫 칸이고 그 아래 「더 담아 볼까요?」 줄', async () => {
     withCart(SAVED)
     renderHome()
-    const myMap = await vi.waitFor(() => screen.getByRole('region', { name: '내 지도' }))
+    const myMap = await vi.waitFor(() => screen.getByRole('region', { name: '마이맵' }))
     const more = await vi.waitFor(() => screen.getByRole('region', { name: '더 담아 볼까요?' }))
     expect(before(myMap, more)).toBe(true)
     const ask = screen.queryByText('어디로 여행 가세요?')
-    if (ask) expect(before(myMap, ask), '「어디로 여행 가세요?」 가 내 지도 카드보다 앞에 있다').toBe(true)
+    if (ask) expect(before(myMap, ask), '「어디로 여행 가세요?」 가 마이맵 카드보다 앞에 있다').toBe(true)
     // 처음 온 사람의 칸은 없다.
     expect(screen.queryByRole('region', { name: '좋아하는 작품에서 시작하세요' })).toBeNull()
     expect(screen.getAllByRole('button').some((b) => /^이 작품의 장소 \d+곳 보기$/.test((b.textContent ?? '').trim()))).toBe(false)

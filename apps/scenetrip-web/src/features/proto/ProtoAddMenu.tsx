@@ -44,7 +44,7 @@ export function AddFab({ onMap, onSaved, bottom = 16 }: { onMap: () => void; onS
           <div role="menu" style={{ minWidth: 200, borderRadius: radius.m, background: 'var(--system-background)', boxShadow: shadow.float, overflow: 'hidden' }}>
             <MenuRow icon="map" title={say('지도에서 추가', 'Add from map')} caption={say('검색 탭처럼 찾아서 넣기', 'Find it like in Search')} onPress={pick(onMap)} />
             <div style={{ height: 0.5, marginLeft: 48, background: 'var(--separator)' }} />
-            <MenuRow icon="bag" title={say('보관함에서 추가', 'Add from saved')} caption={say('담아 둔 곳 골라 넣기', 'Pick from saved places')} onPress={pick(onSaved)} />
+            <MenuRow icon="bag" title={say('마이맵에서 추가', 'Add from My map')} caption={say('마이맵에 담아 둔 곳 골라 넣기', 'Pick from places on My map')} onPress={pick(onSaved)} />
           </div>
         )}
         <Pressable
@@ -89,7 +89,7 @@ export function SavedAddSheet({ open, dayCounts, current, taken, onAdd, onClose 
   onClose: () => void
 }) {
   return (
-    <DetentSheet open={open} onClose={onClose} label={say('보관함에서 추가', 'Add from saved')} initialDetent="large">
+    <DetentSheet open={open} onClose={onClose} label={say('마이맵에서 추가', 'Add from My map')} initialDetent="large">
       {open && <SavedBody dayCounts={dayCounts} current={current} taken={taken} onAdd={onAdd} onClose={onClose} />}
     </DetentSheet>
   )
@@ -128,12 +128,12 @@ function SavedBody({ dayCounts, current, taken, onAdd, onClose }: { dayCounts: r
 
   return (
     <VStack style={{ flex: 1, minHeight: 0 }}>
-      <NavBar title={say('보관함에서 추가', 'Add from saved')} leading={<GlassButton onClick={onClose}>{say('닫기', 'Close')}</GlassButton>} />
+      <NavBar title={say('마이맵에서 추가', 'Add from My map')} leading={<GlassButton onClick={onClose}>{say('닫기', 'Close')}</GlassButton>} />
       <div className="scroll-y" style={{ flex: 1, minHeight: 0, padding: '4px 16px 24px' }}>
         {places.length === 0 ? (
           <VStack spacing={8} align="center" style={{ padding: '48px 12px' }}>
             <Icon name="bag" size={30} color="tertiary" />
-            <Txt size={15} weight="semibold" align="center">{say('아직 담아 둔 곳이 없어요', 'Nothing saved yet')}</Txt>
+            <Txt size={15} weight="semibold" align="center">{say('아직 마이맵에 담은 곳이 없어요', 'Nothing on My map yet')}</Txt>
             <Txt size={13} color="secondary" align="center">{say('「지도에서 추가」 로 찾아 넣어 보세요', 'Try “Add from map”.')}</Txt>
           </VStack>
         ) : (
@@ -142,7 +142,7 @@ function SavedBody({ dayCounts, current, taken, onAdd, onClose }: { dayCounts: r
               <section>
                 {/* 묶음 머리 — 개수와 「모두 고르기」 */}
                 <HStack style={{ padding: '0 4px 8px', minHeight: 32 }}>
-                  <Txt size={13} weight="semibold" color="secondary">{say(`담아 둔 곳 ${free.length}`, `Saved ${free.length}`)}</Txt>
+                  <Txt size={13} weight="semibold" color="secondary">{say(`마이맵 ${free.length}`, `My map ${free.length}`)}</Txt>
                   <span style={{ flex: 1 }} />
                   <Pressable plain onClick={() => setPicked(allPicked ? [] : free.map((p) => p.id))} style={{ minHeight: 32 }}>
                     <Txt size={13} weight="semibold" style={{ color: color.primaryText }}>{allPicked ? say('모두 풀기', 'Clear') : say('모두 고르기', 'Select all')}</Txt>

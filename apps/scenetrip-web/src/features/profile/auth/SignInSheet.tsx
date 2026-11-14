@@ -6,7 +6,7 @@
  * 웹용 OAuth 클라이언트 ID 가 없으면 버튼을 눌렀을 때 「준비 중」 안내가 뜬다(oauth.ts).
  */
 import { HStack, Pressable, Spinner, Txt, VStack } from '@/design/primitives'
-import { currentLang, tr } from '@/i18n'
+import { currentLang, say, tr } from '@/i18n'
 import { LEGAL_LINKS } from '../legalLinks'
 import { GlassSheet } from '../ui/GlassSheet'
 import { accountActions, useAccount } from './account'
@@ -65,7 +65,7 @@ export function SignInSheet() {
           <img src="/generated/haetae-joy.png" alt="" draggable={false} style={{ height: 69, width: 63, marginTop: 17 }} />
           <Txt as="h2" size={20} weight="bold" kerning={-0.45} style={{ marginTop: 14, lineHeight: '23px' }}>{tr('SceneTrip 로그인')}</Txt>
           <Txt as="p" size={15} color="secondary" align="center" kerning={-0.3} style={{ marginTop: 6, lineHeight: '17.9px' }}>
-            {signInReason ?? tr('담아 둔 장바구니·코스·찜이 계정에 저장돼요.\n다른 기기에서도 그대로 이어집니다.')}
+            {signInReason ?? say('마이맵·코스·찜이 계정에 저장돼요.\n다른 기기에서도 그대로 이어집니다.', 'Your My map, courses and likes are kept in your account.\nPick up where you left off on any device.')}
           </Txt>
 
           <div style={{ height: 16, flex: 'none' }} /> {/* ScrollView 안의 Spacer(minLength: 16) 는 16 으로 접힌다 */}

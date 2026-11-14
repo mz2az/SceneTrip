@@ -335,7 +335,7 @@ export function MyMapCover({ onClose }: { onClose: () => void }): JSX.Element {
           <Icon name="chevron.left" size={20} weight="semibold" />
         </Pressable>
         <Txt as="h1" size={19} weight="bold" lines={1} style={{ margin: 0, flex: 1, minWidth: 0 }}>
-          {count > 0 ? say(`내 지도 · ${count}곳`, `My map · ${spots(count)}`) : say('내 지도', 'My map')}
+          {count > 0 ? say(`마이맵 · ${count}곳`, `My map · ${spots(count)}`) : say('마이맵', 'My map')}
         </Txt>
         {/* 「내 지도」 단추 — 다른 화면과 같은 자리(§9-3). 여기서는 담은 곳 전체가 보이게 지도를 다시 맞춘다. */}
         <MyMapButton onPress={() => { setFocus(null); setRefit((n) => n + 1) }} style={{ marginRight: 4 }} />
@@ -349,7 +349,7 @@ export function MyMapCover({ onClose }: { onClose: () => void }): JSX.Element {
       )}
 
       {phase === 'failed' && (
-        <Notice text={say('못 불러왔어요', "Couldn't load your map")}>
+        <Notice text={say('마이맵을 못 불러왔어요', "Couldn't load My map")}>
           <PrimaryButton onClick={() => void cartActions.refresh()}>{say('다시 시도', 'Try again')}</PrimaryButton>
         </Notice>
       )}
@@ -411,8 +411,8 @@ export function MyMapCover({ onClose }: { onClose: () => void }): JSX.Element {
                   added={cardAdded}
                   onAdd={cardPoiId !== null ? addCard : undefined}
                   onRemove={removeCard}
-                  addLabel={say('내 지도에 담기', 'Save to my map')}
-                  addedLabel={say('담음 · 빼기', 'Saved · Remove')}
+                  addLabel={say('마이맵에 담기', 'Save to My map')}
+                  addedLabel={say('마이맵에 있음 · 빼기', 'On My map · Remove')}
                   addBusy={cardBusy}
                   onClose={() => setCard(null)}
                   reloadToken={reloadToken}
@@ -695,7 +695,7 @@ function GroupedList({ items, pois, onOpen, onOpenPoi, onFocus }: {
                   return (
                     <div key={item.placeId}>
                       {gap && <DistanceChip label={gap} />}
-                      <PlaceRow item={item} first={index === 0 && !gap} onOpen={() => onOpen(item)} />
+                      <PlaceRow item={item} first={index === 0 && !gap} onOpen={() => onOpen(item)} onRemove={() => void cartActions.remove(item.placeId)} />
                     </div>
                   )
                 })}
@@ -769,13 +769,14 @@ function useRowScene(el: HTMLElement | null, placeId: number, contentId: number 
   return url
 }
 
-function PlaceRow({ item, first, onOpen }: { item: CartItem; first: boolean; onOpen: () => void }) {
+/** 담은 촬영지 한 줄. 오른쪽 빼기 단추는 목록에서 빠진 촬영지에도 있다 — 옛 장바구니 시트의 빼기를 옮겨 왔다(web-keep-flow.md §11-1). */
+function PlaceRow({ item, first, onOpen, onRemove }: { item: CartItem; first: boolean; onOpen: () => void; onRemove: () => void }) {
   const gone = item.delisted === true
   const photo = smallImage(item.imageThumbnailUrl, item.imageUrl)
   const [el, setEl] = useState<HTMLDivElement | null>(null)
   const scene = useRowScene(gone ? null : el, item.placeId, item.sourceContentId ?? null)
   const body = (
-    <HStack spacing={12} style={{ padding: '10px 12px', borderTop: first ? undefined : '0.5px solid var(--separator)', opacity: gone ? 0.5 : 1 }}>
+    <HStack spacing={12} style={{ padding: '10px 4px 10px 12px', opacity: gone ? 0.5 : 1 }}>
       <div style={{ position: 'relative', width: 56, height: 56, flex: 'none' }}>
         <div style={{ width: 56, height: 56, borderRadius: radius.s, overflow: 'hidden', background: color.brandFill }}>
           {photo && <img src={photo} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
@@ -802,13 +803,32 @@ function PlaceRow({ item, first, onOpen }: { item: CartItem; first: boolean; onO
       {!gone && <Icon name="chevron.right" size={13} color="secondary" />}
     </HStack>
   )
-  // 목록에서 빠진 촬영지는 상세가 없으므로 누를 수 없게 흐리게만 둔다.
-  if (gone) return body
+  const remove = (
+    <Pressable
+      plain
+      onClick={onRemove}
+      aria-label={say('마이맵에서 빼기', 'Remove from My map')}
+      style={{ width: 44, height: 44, display: 'grid', placeItems: 'center', flex: 'none', marginRight: 4 }}
+    >
+      <Icon name="xmark.circle.fill" size={20} color="secondary" />
+    </Pressable>
+  )
+  const line = { display: 'flex', alignItems: 'center', borderTop: first ? undefined : '0.5px solid var(--separator)' } as const
+  // 목록에서 빠진 촬영지는 상세가 없으므로 누를 수 없게 흐리게만 둔다 — 빼기만 된다.
+  if (gone) {
+    return (
+      <div style={line}>
+        <div style={{ flex: 1, minWidth: 0 }}>{body}</div>
+        {remove}
+      </div>
+    )
+  }
   return (
-    <div ref={setEl} data-place-row={item.placeId}>
-      <Pressable plain onClick={onOpen} style={{ width: '100%', textAlign: 'left' }}>
+    <div ref={setEl} data-place-row={item.placeId} style={line}>
+      <Pressable plain onClick={onOpen} style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
         {body}
       </Pressable>
+      {remove}
     </div>
   )
 }

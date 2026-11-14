@@ -59,7 +59,7 @@ function renderDetail() {
   )
 }
 
-const SAVE_ALL = '3곳 모두 내 지도에 담기'
+const SAVE_ALL = '3곳 모두 마이맵에 담기'
 
 function saveAllButton(): HTMLElement {
   const button = screen.getByText(SAVE_ALL).closest('button')
@@ -159,14 +159,14 @@ describe('ContentDetail — 누르면(§9-2·§9-3)', () => {
   })
 })
 
-// ---------------------------------------------------------------- web-ad-landing.md §10-3-9 — 날아가기는 저장 결과 뒤, 머리줄의 「내 지도」
+// ---------------------------------------------------------------- web-ad-landing.md §10-3-9 — 날아가기는 저장 결과 뒤, 머리줄의 「마이맵」
 
 import { myMapLandStore } from '@/features/keep/flyToMyMap'
 
 describe('날아가기 — 저장 결과를 받은 뒤(§10-3-9)', () => {
-  it('머리줄 오른쪽에 「내 지도」 단추가 있다(날아갈 곳)', () => {
+  it('머리줄 오른쪽에 「마이맵」 단추가 있다(날아갈 곳)', () => {
     renderDetail()
-    expect(screen.getByRole('button', { name: '내 지도' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '마이맵' })).toBeTruthy()
   })
 
   it('담기는 동안에는 날지 않고, 끝나면 담긴 것만 날아간다(jsdom 은 배지만 튄다)', async () => {

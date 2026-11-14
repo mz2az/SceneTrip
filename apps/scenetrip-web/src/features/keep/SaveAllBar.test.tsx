@@ -2,7 +2,7 @@
  * 작품 상세의 「모두 담기」 막대 — 정본: docs/project/plans/web-keep-flow.md §5-1.
  *
  *   SaveAllBar({ total, savedCount, progress, onSaveAll, onOpenMap }): JSX.Element | null
- *   total 0 → null · 담는 중 → 눌리지 않는 단추 · 하나도 안 담음 → 모두 담기 · 일부 → 남은 N곳 · 다 담음 → 내 지도 보기
+ *   total 0 → null · 담는 중 → 눌리지 않는 단추 · 하나도 안 담음 → 모두 담기 · 일부 → 남은 N곳 · 다 담음 → 마이맵 보기
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -43,8 +43,8 @@ describe('SaveAllBar — total 0', () => {
 })
 
 describe.each<[Lang, Record<'saving' | 'all' | 'rest' | 'done', string>]>([
-  ['ko', { saving: '담는 중… 3/10', all: '10곳 모두 내 지도에 담기', rest: '남은 4곳도 담기', done: '10곳 모두 담음 · 내 지도 보기' }],
-  ['en', { saving: 'Saving… 3/10', all: 'Save all 10 spots to my map', rest: 'Save the other 4 spots', done: 'All 10 saved · See my map' }],
+  ['ko', { saving: '담는 중… 3/10', all: '10곳 모두 마이맵에 담기', rest: '남은 4곳도 담기', done: '10곳 모두 담음 · 마이맵 보기' }],
+  ['en', { saving: 'Saving… 3/10', all: 'Save all 10 spots to My map', rest: 'Save the other 4 spots', done: 'All 10 saved · See My map' }],
 ])('SaveAllBar — %s', (lang, text) => {
   beforeEach(() => chooseLanguage(lang))
 
@@ -75,7 +75,7 @@ describe.each<[Lang, Record<'saving' | 'all' | 'rest' | 'done', string>]>([
     expect(screen.queryByText(text.all)).toBeNull()
   })
 
-  it('다 담았으면 「모두 담음 · 내 지도 보기」 → onOpenMap', () => {
+  it('다 담았으면 「모두 담음 · 마이맵 보기」 → onOpenMap', () => {
     const { onSaveAll, onOpenMap } = setup({ total: 10, savedCount: 10 })
     fireEvent.click(buttonWith(text.done))
     expect(onOpenMap).toHaveBeenCalledTimes(1)
@@ -87,9 +87,9 @@ describe.each<[Lang, Record<'saving' | 'all' | 'rest' | 'done', string>]>([
 describe('SaveAllBar — 영어 단수', () => {
   beforeEach(() => chooseLanguage('en'))
 
-  it('1곳뿐이면 「Save all 1 spot to my map」', () => {
+  it('1곳뿐이면 「Save all 1 spot to My map」', () => {
     const { onSaveAll } = setup({ total: 1, savedCount: 0 })
-    fireEvent.click(buttonWith('Save all 1 spot to my map'))
+    fireEvent.click(buttonWith('Save all 1 spot to My map'))
     expect(onSaveAll).toHaveBeenCalledTimes(1)
   })
 
@@ -104,10 +104,10 @@ describe('SaveAllBar — 영어 단수', () => {
     expect(container.textContent).not.toContain('1 spots')
   })
 
-  it('한국어는 그대로 — 1곳 모두 내 지도에 담기 · 남은 1곳도 담기', () => {
+  it('한국어는 그대로 — 1곳 모두 마이맵에 담기 · 남은 1곳도 담기', () => {
     chooseLanguage('ko')
     setup({ total: 1, savedCount: 0 })
-    expect(buttonWith('1곳 모두 내 지도에 담기')).toBeTruthy()
+    expect(buttonWith('1곳 모두 마이맵에 담기')).toBeTruthy()
     cleanup()
     setup({ total: 5, savedCount: 4 })
     expect(buttonWith('남은 1곳도 담기')).toBeTruthy()

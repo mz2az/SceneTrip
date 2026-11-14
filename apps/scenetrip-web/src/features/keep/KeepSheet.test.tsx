@@ -8,7 +8,7 @@
  *   - 밖으로 넘기기 `handoff.open(href)` — @/features/keep/handoff
  *   - 더 담을 작품 `homeStore.works`, 촬영지 `api.GET('/contents/{contentId}/places')`, 담기 `cartActions.addMany`
  *   - 로그인 여부 `account.store.signedIn`, 로그인 창 `accountActions.openSignInFor(null, 'keep')`
- *   - 이동 `useTabRouter()` — 내 지도 `paths.myMap`, 계획 `openPlanFromSaved()`(쪽지 pendingStore.plannerManual)
+ *   - 이동 `useTabRouter()` — 마이맵 `paths.myMap`, 계획 `openPlanFromSaved()`(쪽지 pendingStore.plannerManual)
  */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router'
@@ -171,8 +171,8 @@ describe('① more — 「더 담기」 로 간다', () => {
 
 // ── ② keep
 const KEEP_TEXT: Record<Exclude<KeepEnv, 'installed'>, { ko: [string, string]; en: [string, string] }> = {
-  in_app_android: { ko: ['브라우저에서 열어 내 지도를 간직하세요', '브라우저에서 열기'], en: ['Open in your browser to keep your map', 'Open in browser'] },
-  in_app_ios: { ko: ['사파리에서 열어 내 지도를 간직하세요', '사파리에서 열기'], en: ['Open in Safari to keep your map', 'Open in Safari'] },
+  in_app_android: { ko: ['브라우저에서 열어 마이맵을 간직하세요', '브라우저에서 열기'], en: ['Open in your browser to keep My map', 'Open in browser'] },
+  in_app_ios: { ko: ['사파리에서 열어 마이맵을 간직하세요', '사파리에서 열기'], en: ['Open in Safari to keep My map', 'Open in Safari'] },
   installable: { ko: ['홈 화면에 SceneTrip 을 추가하세요', '홈 화면에 추가'], en: ['Add SceneTrip to your Home Screen', 'Add to Home Screen'] },
   android_menu: { ko: ['홈 화면에 SceneTrip 을 추가하세요', '알겠어요'], en: ['Add SceneTrip to your Home Screen', 'Got it'] },
   ios_safari: { ko: ['홈 화면에 SceneTrip 을 추가하세요', '알겠어요'], en: ['Add SceneTrip to your Home Screen', 'Got it'] },
@@ -323,8 +323,8 @@ describe('③ plan', () => {
   }
 
   it.each<[Lang, RegExp, string, string]>([
-    ['ko', PLAN_KO, '계획 짜기', '내 지도 보기'],
-    ['en', PLAN_EN, 'Plan my trip', 'See my map'],
+    ['ko', PLAN_KO, '계획 짜기', '마이맵 보기'],
+    ['en', PLAN_EN, 'Plan my trip', 'See My map'],
   ])('%s — 문구와 두 단추', (lang, title, plan, myMap) => {
     chooseLanguage(lang)
     openPlan()
@@ -354,9 +354,9 @@ describe('③ plan', () => {
     expect(location?.pathname).toBe(paths.courses)
   })
 
-  it('「내 지도 보기」 → /my-map 과 my_map(open_keep)', () => {
+  it('「마이맵 보기」 → /my-map 과 my_map(open_keep)', () => {
     openPlan()
-    fireEvent.click(buttonWith('내 지도 보기'))
+    fireEvent.click(buttonWith('마이맵 보기'))
     expect(hasEvent(webEvent.myMap('open_keep'))).toBe(true)
     expect(location?.pathname).toBe(paths.myMap)
   })

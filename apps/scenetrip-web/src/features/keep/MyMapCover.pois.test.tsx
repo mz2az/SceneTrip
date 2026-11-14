@@ -1,5 +1,5 @@
 /*
- * 내 지도 `/my-map` — 담은 편의시설과 주변 칩. 정본: docs/project/plans/keep-poi.md §3-3 · §3-7 · §7.
+ * 마이맵 `/my-map` — 담은 편의시설과 주변 칩. 정본: docs/project/plans/keep-poi.md §3-3 · §3-7 · §7.
  *
  *   머리줄·아래 단추의 N = 촬영지 + 편의시설(myMapCount). 편의시설뿐이어도 빈 화면이 아니다.
  *   목록 맨 아래 묶음 「주변에서 담은 곳」/Saved nearby — 줄은 SavedPoiRow(이름·분류·주소, 폐업 「문을 닫았어요」).
@@ -154,9 +154,9 @@ afterEach(() => {
 })
 
 describe('MyMapCover — N 은 촬영지 + 편의시설', () => {
-  it('머리줄 「내 지도 · 5곳」(촬영지 3 + 편의시설 2)', async () => {
+  it('머리줄 「마이맵 · 5곳」(촬영지 3 + 편의시설 2)', async () => {
     renderCover()
-    await vi.waitFor(() => expect(bodyText()).toContain('내 지도 · 5곳'))
+    await vi.waitFor(() => expect(bodyText()).toContain('마이맵 · 5곳'))
   })
 
   it('아래 주 단추 「이 5곳으로 계획 짜기」', async () => {
@@ -179,7 +179,7 @@ describe('MyMapCover — 편의시설만 담았을 때', () => {
     renderCover()
     await vi.waitFor(() => expect(bodyText()).toContain('남산 돈까스'))
     expect(bodyText()).not.toContain('아직 담은 곳이 없어요')
-    expect(bodyText()).toContain('내 지도 · 1곳')
+    expect(bodyText()).toContain('마이맵 · 1곳')
     expect(bodyText()).toContain('주변에서 담은 곳')
   })
 

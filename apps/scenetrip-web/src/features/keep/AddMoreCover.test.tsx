@@ -1,12 +1,12 @@
 /*
  * 「더 담기」 덮개 `/add` — 정본: docs/project/plans/web-ad-landing.md §2 · §3 · §7 · §9-4, keep-poi.md §9-2.
  *
- *   AddMoreCover({ onClose }): 머리줄 「내 지도 · N곳」(N = 촬영지 + 편의시설), 「더 담아 볼까요?」.
+ *   AddMoreCover({ onClose }): 머리줄 「마이맵 · N곳」(N = 촬영지 + 편의시설), 「더 담아 볼까요?」.
  *   다른 작품: moreWorks(지금 뜨는 작품, 이미 담은 작품들, 9). 칸의 ＋ → 촬영지 받아 addMany(…, 'more') + keep_more, 칸에 「✓ +N」.
  *   주변 세 줄(쇼핑·명소·식당·카페): 담은 곳 둘레(nearbyBbox)에서 GET /pois(sort=spread).
  *     쇼핑 categories=쇼핑 + hasImage=true, 명소 categories=관광지,문화시설 + hasImage=true, 식당 categoryGroup=food(사진 조건 없음).
- *     칸 ＋ → addPoi. 다시 눌러도 빼지 않는다(§10-3-12 — 빼기는 내 지도에서). 줄이 비면 줄을 그리지 않는다. 실패는 「불러오지 못했어요」 + 다시 시도.
- *   아래: 「이 N곳으로 여행 일정 짜기」 → 간직하기(②, 설치된 환경이면 ③) + add_more(plan). 「내 지도 보기」 → /my-map.
+ *     칸 ＋ → addPoi. 다시 눌러도 빼지 않는다(§10-3-12 — 빼기는 마이맵에서). 줄이 비면 줄을 그리지 않는다. 실패는 「불러오지 못했어요」 + 다시 시도.
+ *   아래: 「이 N곳으로 여행 일정 짜기」 → 간직하기(②, 설치된 환경이면 ③) + add_more(plan). 「마이맵 보기」 → /my-map.
  *   이벤트: 뜨면 add_more(view), 주변 칸으로 담으면 add_more(poi).
  *
  * 시험이 의지하는 이음매(명세에 이름이 없어 시험이 정한 것 — 구현이 따른다):
@@ -257,9 +257,9 @@ afterEach(() => {
 
 describe('머리줄', () => {
   it.each<[Lang, string, string]>([
-    ['ko', '내 지도 · 3곳', '더 담아 볼까요?'],
-    ['en', 'My map · 3 spots', 'Add more to your map'],
-  ])('%s — 「내 지도 · N곳」 과 「더 담아 볼까요?」', async (lang, head, sub) => {
+    ['ko', '마이맵 · 3곳', '더 담아 볼까요?'],
+    ['en', 'My map · 3 spots', 'Add more to My map'],
+  ])('%s — 「마이맵 · N곳」 과 「더 담아 볼까요?」', async (lang, head, sub) => {
     chooseLanguage(lang)
     withCart(ITEMS)
     renderCover()
@@ -271,7 +271,7 @@ describe('머리줄', () => {
     const saved = { ...poi(99, 'food', '담아 둔 식당'), addedAt: '2026-11-14T00:00:00Z', closed: false } as unknown as CartPoi
     withCart(ITEMS, [saved])
     renderCover()
-    await vi.waitFor(() => expect(bodyText()).toContain('내 지도 · 4곳'))
+    await vi.waitFor(() => expect(bodyText()).toContain('마이맵 · 4곳'))
   })
 
   it('뜨면 add_more(view)', async () => {
@@ -313,7 +313,7 @@ describe('다른 작품의 촬영지', () => {
   it('다른 작품이 없으면 그 구획을 뺀다', async () => {
     homeStore.set((s) => ({ ...s, works: [work(32, '케이팝 데몬 헌터스')] }))
     renderCover()
-    await vi.waitFor(() => expect(bodyText()).toContain('내 지도 · 3곳'))
+    await vi.waitFor(() => expect(bodyText()).toContain('마이맵 · 3곳'))
     await new Promise((r) => setTimeout(r, 20))
     expect(bodyText()).not.toContain('다른 작품의 촬영지')
   })
@@ -469,7 +469,7 @@ describe('주변 — 담기·빼기', () => {
     expect(addButton('창덕궁').getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('줄 끝 「지도에서 더 보기」 → 그 칩이 켜진 내 지도', async () => {
+  it('줄 끝 「지도에서 더 보기」 → 그 칩이 켜진 마이맵', async () => {
     renderCover()
     await vi.waitFor(() => expect(screen.queryAllByText('지도에서 더 보기').length).toBeGreaterThanOrEqual(1))
     // 줄 순서: 쇼핑 → 명소 → 식당·카페
@@ -500,8 +500,8 @@ describe('주변 — 실패', () => {
 
 describe('아래 단추', () => {
   it.each<[Lang, string, string]>([
-    ['ko', '이 3곳으로 여행 일정 짜기', '내 지도 보기'],
-    ['en', 'Plan my trip with 3 spots', 'See my map'],
+    ['ko', '이 3곳으로 여행 일정 짜기', '마이맵 보기'],
+    ['en', 'Plan my trip with 3 spots', 'See My map'],
   ])('%s — 주 단추·보조 단추 문구', async (lang, plan, see) => {
     chooseLanguage(lang)
     withCart(ITEMS)
@@ -538,10 +538,10 @@ describe('아래 단추', () => {
     expect(keepStore.get().step).toBe('plan')
   })
 
-  it('「내 지도 보기」 → /my-map', async () => {
+  it('「마이맵 보기」 → /my-map', async () => {
     renderCover()
-    await vi.waitFor(() => expect(buttonWith('내 지도 보기')).toBeTruthy())
-    fireEvent.click(buttonWith('내 지도 보기'))
+    await vi.waitFor(() => expect(buttonWith('마이맵 보기')).toBeTruthy())
+    fireEvent.click(buttonWith('마이맵 보기'))
     await vi.waitFor(() => expect(location?.pathname).toBe('/my-map'))
   })
 })
@@ -561,7 +561,7 @@ describe('앱 안 브라우저 띠', () => {
   it('앱 안 브라우저가 아니면 띠가 없다', async () => {
     h.env.value = 'other'
     renderCover()
-    await vi.waitFor(() => expect(bodyText()).toContain('내 지도 · 3곳'))
+    await vi.waitFor(() => expect(bodyText()).toContain('마이맵 · 3곳'))
     expect(bodyText()).not.toContain('이 창을 닫으면 사라져요')
   })
 })
