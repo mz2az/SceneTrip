@@ -14,13 +14,15 @@
 
 ```yaml
 Cart:
-  required: [items, totalCount, pois, poiCount]   # pois·poiCount 는 1.31.0
+  required: [items, totalCount]   # pois·poiCount 는 필수로 두지 않는다(아래)
   properties:
     items: CartItem[]        # 그대로 — 촬영지만
     totalCount: integer      # 그대로 — 촬영지 수
     pois: CartPoi[]          # 담은 편의시설, 담은 순서(오래된 것부터). 없으면 빈 배열
     poiCount: integer        # pois 길이
 ```
+
+`pois`·`poiCount` 는 **필수 칸이 아니다**. 서버는 언제나 채워 보내지만, 계약에서 필수로 두면 (1) 이 계약으로 만든 앱 클라이언트가 옛 서버의 응답을 읽지 못하고 (2) iOS·Android 코드가 `Cart` 를 직접 만드는 자리(시험 포함)가 모두 깨진다 — 2026-11-14 `just check` 에서 iOS 시험 네 곳이 실제로 깨졌다. 응답에 칸을 더할 때는 필수로 두지 않는다.
 
 ### 1-2. `CartPoi`
 

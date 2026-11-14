@@ -39,9 +39,12 @@ class CartController implements CartApi {
   public ResponseEntity<Cart> getCart(UUID xInstallId, Lang acceptLanguage) {
     CartStore.Contents contents = store.list(accounts.resolve(xInstallId), acceptLanguage);
     // 편의시설은 items 에 섞지 않고 따로(1.31.0) — 옛 앱은 CartItem.placeId 가 반드시 있다고 읽는다.
+    // 계약에서 pois·poiCount 는 필수가 아니지만(옛 서버 응답 호환) 이 서버는 언제나 보낸다 — 비어도 [] · 0.
+    // 생성된 모델은 NON_NULL 이라 빈 목록은 생략되지 않는다.
     Cart body =
-        new Cart(
-            contents.items(), contents.items().size(), contents.pois(), contents.pois().size());
+        new Cart(contents.items(), contents.items().size())
+            .pois(contents.pois())
+            .poiCount(contents.pois().size());
     return Responses.ok(body, Responses.used(acceptLanguage, contents.shownLangs()));
   }
 
