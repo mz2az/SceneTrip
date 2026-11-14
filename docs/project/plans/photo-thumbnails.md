@@ -139,7 +139,7 @@ app.scenetrip.io 첫 방문(모바일 화면)에서 바깥 이미지가 2.76MB, 
 
 ## 7. 하지 않는 것
 
-- WebP·여러 크기, 장면 스틸(`sceneImageUrls`) 작은 사진, iOS·Android 앱 코드(iOS 는 웹뷰로 간다, Android 중단).
+- WebP·여러 크기, 장면 스틸 작은 사진(→ 2026-11-15 §10 에서 한다), iOS·Android 앱 코드(iOS 는 웹뷰로 간다, Android 중단).
 - 서명 주소가 응답마다 달라 브라우저 캐시가 안 맞는 문제 — 작은 사진이 줄여 주는 몫과 별개다(아래 「정할 것」).
 
 ## 8. 정한 것 (사용자, 2026-11-13)
@@ -161,3 +161,23 @@ app.scenetrip.io 첫 방문(모바일 화면)에서 바깥 이미지가 2.76MB, 
 6. **CoverPhoto 갱신** — 서명 만료로 다시 받을 때도 작은 사진(`photoThumbnailUrls[0]`)을 쓴다. 구현 쪽이 시험을 더한다.
 7. **사진 없는 글** — `photoThumbnailUrls` 는 `photoUrls` 와 같게 빈 배열.
 8. **장바구니·코스·마켓** — 통합 시험을 구현 쪽이 하나씩 더한다(`imageThumbnailUrl`, `CourseSummary.thumbnailUrl` 의 COALESCE).
+
+## 10. 장면 사진 (2026-11-15, 계약 1.32.0 — [web-ad-landing.md](./web-ad-landing.md) §10-2)
+
+느린 폰에서 광고 랜딩의 첫 장면이 원본 PNG(장당 2~3MB)라 늦게 떴다. 장면 사진도 촬영지 사진과 **같은 방식**으로 작은 판을 만든다.
+
+- **도구**: `just place-thumbnails --scene`(미리 보기) · `--scene --sample-dir DIR`(앞 20 장 실측, 로컬에만) · `--scene --upload`(올리기).
+  `seed/candidates.csv` 의 `scene_image_url` 중 공용 버킷 `scene/…` 주소만, 긴 변 720px JPEG q0.80 로 `scene/thumb-720/<scene/ 뒤 경로>.jpg`
+  에 덮어쓰기 없이(`If-None-Match: *`, 이미 있는 키는 건너뜀) 올리고 `seed/scene_image_thumbnails.tsv`(`url`, `thumbnail_url`)를 쓴다.
+  코드는 `PlaceThumbnails.Source`(`PLACE`·`SCENE` — 자리·CSV 칸·TSV)와 `ThumbnailRules.PREFIXES` 에 `scene/` 를 더한 것뿐이다.
+- **DB**: `V50__scene_image_thumbnail.sql` — `place_content_image.thumbnail_url TEXT NULL`(촬영지의 `place_image.thumbnail_url` 과 같은 모양).
+- **적재**: `seed/candidates.sql` 이 장면 사진 줄을 넣은 뒤 `/tmp/scene-image-thumbnails.tsv` 로 이번 적재 줄의 빈 칸만 채운다. 로컬
+  `just seed`(`tools/scripts/seed.sh`)와 원격 적재 이미지(`seed/remote-load.sh`, `:data_load_seed_layer`)가 TSV 를 그 자리에 놓는다 —
+  DEV·PRD 는 서버 배포 뒤 `aws-deploy.yml` 의 `data-load`(= `just aws-data-load <env>`)로 들어간다.
+- **응답**: `Scene.sceneImageThumbnailUrls`(원본과 같은 순서·길이, 작은 판이 없는 장은 원본)·`sceneImageThumbnailUrl`(첫 장),
+  작품을 특정한 촬영지 목록(`GET /contents/{id}/places`·`GET /places?contentId=`)의 `PlaceSummary.sceneImageThumbnailUrl`(그 작품
+  장면 첫 장, 없으면 원본, 장면 사진이 없으면 null — 페이지의 촬영지에만 한 번 더 묻는다). 함께 `PlaceSummary.nameKo`·`CartItem.nameKo`
+  (`place_i18n` 의 `ko` 이름, 기본키 한 번 찾기).
+- **시험**: 단위 `SceneThumbnailsTest`(경로·대상·CSV 칸)·`PlacesSceneThumbnailControllerTest`·`ContentPlacesSceneThumbnailControllerTest`·
+  `CartNameKoControllerTest`, 통합 `SceneThumbnailIntegrationTest`·`CartNameKoIntegrationTest`.
+

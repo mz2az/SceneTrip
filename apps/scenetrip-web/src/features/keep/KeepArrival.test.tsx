@@ -93,8 +93,8 @@ beforeEach(() => {
     return respond(200, { items: [], total: 0, limit: 20, offset: 0 })
   })
   vi.mocked(track).mockClear()
-  cartStore.set({ loadState: 'loaded', placeIds: new Set(), items: [], toast: null })
-  keepStore.set({ open: false, step: 'more', contentIds: [], title: null, arriving: false })
+  cartStore.set({ loadState: 'loaded', placeIds: new Set(), items: [], pois: [], poiIds: new Set(), toast: null })
+  keepStore.set({ open: false, step: 'more', contentIds: [], title: null, arriving: false, nearby: null })
   addMany = vi.spyOn(cartActions, 'addMany').mockImplementation(async (ids) => ({ saved: ids.length, already: 0, failed: 0 }))
 })
 

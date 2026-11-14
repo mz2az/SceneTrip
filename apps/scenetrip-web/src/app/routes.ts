@@ -6,10 +6,10 @@
  *
  * 구조는 iOS 와 같다 (RootTabs.swift / TabRouter.swift):
  *   탭 셋  — 작품검색(/search) · 홈(/) · 커뮤니티(/community)
- *   덮개 넷 — 경로여정(/courses) · 마이페이지(/profile) · 지금 뜨는 작품 전체(/trending) · 내 지도(/my-map): 홈 위에 전체 화면으로 덮인다.
+ *   덮개 — 경로여정(/courses) · 마이페이지(/profile) · 지금 뜨는 작품 전체(/trending) · 내 지도(/my-map) · 더 담기(/add) : 홈 위에 전체 화면으로 덮인다.
  */
 export type TabId = 'search' | 'home' | 'community'
-export type CoverId = 'route' | 'profile' | 'trending' | 'myMap'
+export type CoverId = 'route' | 'profile' | 'trending' | 'myMap' | 'addMore'
 
 export const paths = {
   home: '/',
@@ -30,6 +30,10 @@ export const paths = {
   trending: '/trending',
   /** 내 지도 — 담은 촬영지를 지도와 작품별 목록으로(docs/project/plans/web-keep-flow.md §5-3). `?keep=` 으로 넘어오기도 한다. */
   myMap: '/my-map',
+  /** 첫 화면을 그 작품으로(web-ad-landing.md §11) — `/?show={id}` 와 같다. 이미 본 사람은 그 작품 상세로 간다(IntroShell). */
+  landing: (contentId: number) => `/go/${contentId}` as const,
+  /** 「더 담기」 — 다른 작품·주변 쇼핑·명소·식당을 사진 칸으로 더 담는다(web-ad-landing.md §2). */
+  addMore: '/add',
 } as const
 
 /** react-router `matchPath` 용 패턴 */
@@ -41,7 +45,16 @@ export const patterns = {
   course: '/courses/:courseId',
   courseNew: '/courses/new',
   profileSection: '/profile/:section',
+  landing: '/go/:contentId',
 } as const
+
+/** `/go/32` → 32. 랜딩 주소가 아니거나 id 가 양의 정수가 아니면 null. */
+export function landingIdOf(pathname: string): number | null {
+  const m = /^\/go\/(\d+)\/?$/.exec(pathname)
+  if (!m) return null
+  const id = Number(m[1])
+  return id > 0 && Number.isSafeInteger(id) ? id : null
+}
 
 export function tabOf(pathname: string): TabId {
   if (pathname === '/search' || pathname.startsWith('/search/')) return 'search'
@@ -54,6 +67,7 @@ export function coverOf(pathname: string): CoverId | null {
   if (pathname === '/profile' || pathname.startsWith('/profile/')) return 'profile'
   if (pathname === '/trending') return 'trending'
   if (pathname === '/my-map') return 'myMap'
+  if (pathname === '/add') return 'addMore'
   return null
 }
 

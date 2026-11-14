@@ -8,14 +8,25 @@ import type { AppEvent } from './events'
 import { type GtagWindow, createGa4 } from './ga4'
 import { createPostHog } from './posthog'
 import { createSentry } from './sentry'
+import { type Utm, storeUtm } from './utm'
+import { afterDeferred } from '@/app/deferred'
 
 export { appEvent, webEvent } from './events'
 export type { AppEvent, EventName } from './events'
+
+/** 이번 실행의 광고 꼬리표 — `captureUtm` 이 채운다. */
+let utm: Utm = {}
+
+/** 앱이 뜰 때 한 번 — 주소의 utm_* 를 세션에 적고 이후 모든 이벤트에 싣는다(web-ad-landing.md §10-3-8). */
+export function captureUtm(search: string): void {
+  utm = storeUtm(search)
+}
 
 const ga4 = createGa4({
   measurementId: () => String(import.meta.env.VITE_GA_MEASUREMENT_ID ?? ''),
   statisticsEnabled: () => isStatisticsEnabled(),
   win: window as unknown as GtagWindow,
+  extraParams: () => utm,
   doc: document,
   debug: import.meta.env.DEV ? (name, params) => console.debug('[ga4]', name, params) : undefined,
 })
@@ -24,6 +35,7 @@ const posthog = createPostHog({
   key: () => String(import.meta.env.VITE_POSTHOG_KEY ?? ''),
   host: () => String(import.meta.env.VITE_POSTHOG_HOST ?? ''),
   statisticsEnabled: () => isStatisticsEnabled(),
+  superProperties: () => utm,
   load: async () => {
     const { default: ph } = await import('posthog-js')
     return {
@@ -31,6 +43,7 @@ const posthog = createPostHog({
       capture: (name, params) => void ph.capture(name, params),
       opt_in_capturing: () => ph.opt_in_capturing(),
       opt_out_capturing: () => ph.opt_out_capturing(),
+      register: (props) => ph.register(props),
     }
   },
   debug: import.meta.env.DEV ? (name, params) => console.debug('[posthog]', name, params) : undefined,
@@ -49,15 +62,20 @@ const sentry = createSentry({
   },
 })
 
-/** 이벤트를 하나 기록한다. 던지지 않는다 — 분석이 화면 동작을 깨면 안 된다. */
+/**
+ * 이벤트를 하나 기록한다. 던지지 않는다 — 분석이 화면 동작을 깨면 안 된다.
+ * 첫 화면 덮개가 떠 있는 동안은 분석 라이브러리(gtag·PostHog)를 받지 않으려고 줄을 세웠다가 풀릴 때 보낸다(§10-3-2).
+ */
 export function track(event: AppEvent): void {
-  for (const sink of [ga4, posthog]) {
-    try {
-      sink.track(event)
-    } catch {
-      /* 분석 실패는 버린다 */
+  afterDeferred(() => {
+    for (const sink of [ga4, posthog]) {
+      try {
+        sink.track(event)
+      } catch {
+        /* 분석 실패는 버린다 */
+      }
     }
-  }
+  })
 }
 
 /** 오류 추적을 시작한다. 앱이 뜰 때 한 번 부르고, 이용 통계 설정이 바뀌면 스스로 켜고 끈다. DSN 이 없으면 아무 일도 없다. */

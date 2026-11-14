@@ -10,7 +10,7 @@
  */
 import type { PlaceSummary } from '../sceneData'
 import type { CoordinateSource } from '../sceneData'
-import type { LatLng } from '@/map'
+import type { LatLng, MapHandle } from '@/map'
 
 export type LocateOutcome = 'denied' | 'failed'
 
@@ -44,4 +44,9 @@ export interface MapViewProps {
   onLocateFailure: (outcome: LocateOutcome) => void
   /** 지도가 만들어지면 한 번 불린다. */
   onReady: (camera: MapCameraHandle) => void
+  /**
+   * 지도 핸들 자체가 필요한 화면(내 지도 — 편의시설 점·담은 편의시설 핀·카메라를 직접 얹는다, keep-poi.md §3-3)만 준다.
+   * 지도가 만들어지면 한 번, 사라지면 null 로 한 번 더 불린다.
+   */
+  onMap?: (map: MapHandle | null) => void
 }

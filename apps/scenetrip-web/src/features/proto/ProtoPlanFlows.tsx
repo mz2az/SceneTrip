@@ -21,18 +21,21 @@ import { AIConsentSheet, LocationConsentSheet, useAIConsent, useLocationConsent 
 import { RouteEditor } from '@/features/route/editor/RouteEditor'
 import {
   type ContentSummary, PACE_CAPTION, PACE_SYMBOL, PACE_TITLE, type PlaceSummary, type RouteCourse, type RoutePace, SPAN_NIGHTS,
-  addDays, formatDay, makeCourse, makeDay, makeStop, spanDays, toIso,
+  type RouteStop, addDays, formatDay, makeCourse, makeDay, makePoiStop, makeStop, spanDays, toIso,
 } from '@/features/route/models'
+import { PoiDot } from '@/features/route/poi/PoiDot'
+import { poiGlyph, poiGroupOf } from '@/features/route/poi/poiGroup'
 import { type PlanFailure, planFailureMessage } from '@/features/route/planFailure'
 import { guideDraft, routeActions, routeStore } from '@/features/route/store'
 import { GlassDialog } from '@/features/route/ui/GlassDialog'
 import { Pressable } from '@/features/route/ui/Press'
 import { Calendar } from '@/features/route/wizard/Calendar'
-import { tr, trAt } from '@/i18n'
-import { type CartItem, useCart } from '@/state/cart'
+import { tr, trAt, useLang } from '@/i18n'
+import { type CartItem, type CartPoi, useCart } from '@/state/cart'
 import { likeActions, useLikes } from '@/state/likes'
 import { PrimaryButton, ProtoScreen, StepTransition } from './protoParts'
 import { placesForNewCourse } from './savedPlan'
+import { groupByDays } from './dayGroups'
 import { ProtoWorkStep } from './ProtoWizardSteps'
 import { daysLabel, say } from './protoState'
 import { color, radius, shadow } from './protoTokens'
@@ -40,6 +43,7 @@ import { useWorksBrowse } from './useWorksBrowse'
 import { MAX_PICKED_WORKS, appendPage, favoritesFirst, requestTitles, togglePick } from './worksBrowse'
 import './proto.css'
 import { smallImage } from '@/shared/smallImage'
+import { savedPoiName } from '@/features/keep/keepPoiRules'
 
 /** 서버(`POST /guide/plan`)가 받는 작품 제목 수. 넘게 고르면 뒤엣것이 버려지므로 고를 때 막는다. */
 const MAX_WORKS = MAX_PICKED_WORKS
@@ -386,71 +390,36 @@ export function ProtoAIPlan({ onClose }: { onClose: () => void }) {
 
 // ---------------------------------------------------------------- ② 담은 곳으로
 
-/** 시·도 이름을 짧게 — 「서울특별시」→「서울」, 「경상북도」→「경북」. 주소가 없으면 「기타」. 같은 시·도끼리 먼저 잇는 데 쓴다. */
-const PROVINCE: Record<string, string> = {
-  경상북도: '경북', 경상남도: '경남', 전라북도: '전북', 전북특별자치도: '전북', 전라남도: '전남', 충청북도: '충북', 충청남도: '충남',
-  강원도: '강원', 강원특별자치도: '강원', 제주특별자치도: '제주', 경기도: '경기', 세종특별자치시: '세종',
-}
-export function regionOf(address: string | null | undefined): string {
-  const head = address?.trim().split(/\s+/)[0]
-  if (!head) return '기타'
-  return PROVINCE[head] ?? head.replace(/(특별시|광역시)$/, '')
-}
-
 const placeOf = (i: CartItem): PlaceSummary => ({
   id: i.placeId, name: i.name, address: i.address ?? null, latitude: i.latitude ?? 0, longitude: i.longitude ?? 0, imageUrl: i.imageUrl ?? null,
   imageThumbnailUrl: i.imageThumbnailUrl ?? null,
 })
 
-/** 지도 위 거리의 눈대중(위도·경도 차의 제곱합). 같은 시·도 안에서 순서를 정하는 데만 쓴다. */
-const near = (a: PlaceSummary, b: PlaceSummary) => (a.latitude - b.latitude) ** 2 + ((a.longitude - b.longitude) * 0.8) ** 2
-
-/** 가까운 곳 잇기 — 시·도 묶음을 큰 것부터, 묶음 안에서는 앞 장소에서 가장 가까운 곳을 차례로. 좌표가 없는 곳은 맨 뒤. */
-export function arrange(places: readonly PlaceSummary[]): PlaceSummary[] {
-  const groups = new Map<string, PlaceSummary[]>()
-  for (const p of places) groups.set(regionOf(p.address), [...(groups.get(regionOf(p.address)) ?? []), p])
-  const out: PlaceSummary[] = []
-  for (const group of [...groups.values()].sort((a, b) => b.length - a.length)) {
-    const located = group.filter((p) => p.latitude !== 0 || p.longitude !== 0)
-    const rest = group.filter((p) => !located.includes(p))
-    let at = located.shift()
-    while (at) {
-      out.push(at)
-      if (located.length === 0) break
-      const from: PlaceSummary = at
-      located.sort((a, b) => near(from, a) - near(from, b))
-      at = located.shift()
-    }
-    out.push(...rest)
-  }
-  return out
-}
-
-/** 차례대로 날마다 고르게 나눈다 — 남는 것은 앞날부터 하나씩. 날이 장소보다 많으면 뒷날은 비어 있다. */
-export function splitEven<T>(items: readonly T[], days: number): T[][] {
-  const base = Math.floor(items.length / days)
-  const extra = items.length % days
-  const out: T[][] = []
-  let at = 0
-  for (let d = 0; d < days; d++) {
-    const n = base + (d < extra ? 1 : 0)
-    out.push(items.slice(at, at + n))
-    at += n
-  }
-  return out
-}
-
 /**
  * 담은 곳으로 — 기간·날짜와 넣을 곳을 묻고, 고른 곳을 날마다 나눠 넣은 편집 화면을 연다.
  * 넣을 곳은 담아 둔 곳 중에서 고른다 — 처음에는 아무것도 골라져 있지 않다(MZ2AZ-551: 전에는 담아 둔 곳이 전부 들어갔다).
  */
+/** 담은 편의시설 → 코스의 편의시설 줄(`poiId` 로 저장된다, keep-poi.md §3-5). 화면 글자(displayName 등)도 싣는다. */
+function poiStopOf(p: CartPoi): RouteStop {
+  return {
+    ...makePoiStop(p.id, { name: p.name, category: p.category, address: p.address ?? null, latitude: p.latitude, longitude: p.longitude }),
+    poiText: { displayName: p.displayName ?? null, nameRoman: p.nameRoman ?? null, categoryLabel: p.categoryLabel ?? null, displayAddress: p.displayAddress ?? null },
+  }
+}
+
 /**
  * `pickAll` — 담은 곳이 전부 골라진 채로 시작한다(「담은 곳으로 계획 짜기」, web-keep-flow.md §9-5). 사용자가 하나라도 누르기 전까지는
  * 「전부」 로 두므로, 장바구니가 늦게 도착해도 도착한 곳이 모두 골라진다. 경로여정에서 평소처럼 연 마법사는 빈 채로 시작한다.
+ * 담은 편의시설(keep-poi.md §3-5·§8)은 촬영지 줄 아래에 같은 모양의 줄로 — 고르는 규칙도 같다(`pickAll` 이면 전부, 아니면 빈 채로).
+ * 폐업한 것은 흐리게, 고를 수 없다. 코스에는 `poiId` 로 들어간다.
  */
 export function ProtoSavedPlan({ onClose, pickAll = false }: { onClose: () => void; pickAll?: boolean }) {
   const cart = useCart()
   const items = cart.items.filter((i) => !i.delisted)
+  const pois = cart.pois
+  const [poisPickedOrAll, setPoisPicked] = useState<ReadonlySet<number> | null>(() => (pickAll ? null : new Set()))
+  const pickedPois: ReadonlySet<number> = poisPickedOrAll ?? new Set(pois.filter((p) => !p.closed).map((p) => p.id))
+  const chosenPois = pois.filter((p) => !p.closed && pickedPois.has(p.id))
   const [nights, setNights] = useState(1)
   const [date, setDate] = useState<string | null>(null)
   const [course, setCourse] = useState<RouteCourse | null>(null)
@@ -461,14 +430,30 @@ export function ProtoSavedPlan({ onClose, pickAll = false }: { onClose: () => vo
   if (course) return <RouteEditor course={course} isNew onClose={onClose} />
 
   const chosen = placesForNewCourse(items, picked)
+  const total = chosen.length + chosenPois.length
   const create = () => {
-    const days = splitEven(arrange(chosen.map(placeOf)), spanDays(nights))
-    setCourse(makeCourse({ title: trAt('내 코스', '코스 제목'), startDate: date, days: days.map((ps) => makeDay(ps.map((p) => makeStop(p)))) }))
+    // 촬영지와 편의시설을 한데 묶어 날로 나눈다 — 나눌 모양(PlaceSummary)과 넣을 줄을 짝지어 둔다.
+    const stopOf = new Map<PlaceSummary, RouteStop>()
+    for (const i of chosen) {
+      const summary = placeOf(i)
+      stopOf.set(summary, makeStop(summary))
+    }
+    for (const p of chosenPois) {
+      stopOf.set({ id: -p.id, name: p.name, address: p.address ?? null, latitude: p.latitude, longitude: p.longitude, imageUrl: null, imageThumbnailUrl: null }, poiStopOf(p))
+    }
+    // 날 나누기는 좌표로 가까운 곳끼리(keep-poi.md §9-3, dayGroups) — 좌표가 없는 곳은 마지막 날 끝에.
+    const days = groupByDays([...stopOf.keys()], spanDays(nights), (p) => p)
+    setCourse(makeCourse({ title: trAt('내 코스', '코스 제목'), startDate: date, days: days.map((ps) => makeDay(ps.map((p) => stopOf.get(p)!))) }))
   }
   const toggle = (id: number) => {
     const next = new Set(picked)
     if (!next.delete(id)) next.add(id)
     setPicked(next)
+  }
+  const togglePoi = (id: number) => {
+    const next = new Set(pickedPois)
+    if (!next.delete(id)) next.add(id)
+    setPoisPicked(next)
   }
 
   return (
@@ -476,16 +461,16 @@ export function ProtoSavedPlan({ onClose, pickAll = false }: { onClose: () => vo
       <ProtoScreen
         title={say('며칠 다녀오나요?', 'How long is the trip?')}
         onBack={onClose}
-        footer={<PrimaryButton onClick={create}>{chosen.length > 0 ? say(`${chosen.length}곳으로 코스 만들기`, `Create trip with ${chosen.length}`) : say('코스 만들기', 'Create trip')}</PrimaryButton>}
+        footer={<PrimaryButton onClick={create}>{total > 0 ? say(`${total}곳으로 코스 만들기`, `Create trip with ${total}`) : say('코스 만들기', 'Create trip')}</PrimaryButton>}
       >
         <TripGroup nights={nights} date={date} onNights={setNights} onDate={setDate} />
         <Group
           label={say('넣을 곳', 'Places')}
-          footnote={items.length > 0
+          footnote={items.length + pois.length > 0
             ? say('넣을 곳을 골라 주세요. 가까운 곳끼리 날마다 나눠 넣고, 빼거나 순서를 바꾸는 건 다음 화면에서 할 수 있어요', 'Pick the places to include. We split them by day, nearest first — reorder on the next screen.')
             : say('담아 둔 곳이 없어 빈 코스로 시작해요. 다음 화면에서 하나씩 넣으면 돼요', 'Nothing saved, so this starts empty. Add places on the next screen.')}
         >
-          {items.length === 0 ? (
+          {items.length + pois.length === 0 ? (
             <Row first pad="10px 14px">
               <HStack spacing={12} style={{ width: '100%' }}>
                 <Icon name="bag" size={20} color="secondary" />
@@ -519,10 +504,47 @@ export function ProtoSavedPlan({ onClose, pickAll = false }: { onClose: () => vo
                   </HStack>
                 </Pressable>
               )
-            })
+            }).concat(pois.map((p, k) => <SavedPoiPick key={`poi-${p.id}`} poi={p} on={!p.closed && pickedPois.has(p.id)} divider={items.length + k > 0} onToggle={() => togglePoi(p.id)} />))
           )}
         </Group>
       </ProtoScreen>
     </div>
+  )
+}
+
+/** 담은 편의시설 한 줄 — 촬영지 줄과 같은 모양(그림 자리에 갈래 점). 폐업한 것은 흐리게, 고를 수 없다(keep-poi.md §8). */
+function SavedPoiPick({ poi, on, divider, onToggle }: { poi: CartPoi; on: boolean; divider: boolean; onToggle: () => void }) {
+  const lang = useLang()
+  const closed = poi.closed === true
+  // 이름 — 제목 displayName ?? name, 그 아래 로마자 읽기(displayName 이 없고 한국어 화면이 아닐 때만, keep-poi.md §9-2).
+  const { title, roman } = savedPoiName(poi, lang === 'ko')
+  const group = poiGroupOf(poi.categoryGroup, poi.category)
+  const category = poi.categoryLabel ?? poi.category
+  return (
+    <Pressable
+      plain
+      role="checkbox"
+      aria-checked={on}
+      aria-disabled={closed || undefined}
+      disabled={closed}
+      onClick={closed ? undefined : onToggle}
+      style={{ width: '100%', textAlign: 'left', padding: '10px 14px', borderTop: divider ? HAIRLINE : undefined, opacity: closed ? 0.5 : 1 }}
+    >
+      <HStack spacing={12} style={{ width: '100%' }}>
+        <div aria-hidden style={{ width: 36, height: 36, flex: 'none', display: 'grid', placeItems: 'center' }}>
+          <PoiDot group={group} symbol={poiGlyph(group, poi.category)} size={32} glyph={15} />
+        </div>
+        <VStack spacing={1} align="start" style={{ flex: 1, minWidth: 0 }}>
+          <Txt size={15} lines={1} style={{ maxWidth: '100%' }}>{title}</Txt>
+          {roman && <Txt size={12} color="secondary" lines={1} style={{ maxWidth: '100%' }}>{roman}</Txt>}
+          <Txt size={12} color="secondary" lines={1} style={{ maxWidth: '100%' }}>
+            {closed ? `${category} · ${say('문을 닫았어요', 'Closed')}` : category}
+          </Txt>
+        </VStack>
+        <span aria-hidden style={{ width: 22, height: 22, flex: 'none', borderRadius: 6, display: 'grid', placeItems: 'center', background: on ? color.primaryFill : undefined, border: on ? undefined : '1.5px solid var(--system-gray3)' }}>
+          {on && <Icon name="checkmark" size={12} weight="bold" color="white" />}
+        </span>
+      </HStack>
+    </Pressable>
   )
 }

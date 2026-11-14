@@ -26,7 +26,7 @@ vi.mock('@/analytics', async (importOriginal) => {
   return { ...actual, track: vi.fn() }
 })
 
-import { keepStore } from '@/features/keep/keepStore'
+import { addMoreRequestStore, keepStore } from '@/features/keep/keepStore'
 import { chooseLanguage } from '@/i18n'
 import { cartActions, cartStore } from '@/state/cart'
 import type { ContentSummary, PlaceSummary } from '../sceneData'
@@ -73,7 +73,7 @@ const precedes = (a: Node, b: Node) => (a.compareDocumentPosition(b) & Node.DOCU
 let addMany: MockInstance<typeof cartActions.addMany>
 
 beforeEach(() => {
-  cartStore.set({ loadState: 'notLoaded', placeIds: new Set(), items: [], toast: null })
+  cartStore.set({ loadState: 'notLoaded', placeIds: new Set(), items: [], pois: [], poiIds: new Set(), toast: null })
   chooseLanguage('ko')
   h.GET.mockReset()
   h.GET.mockImplementation(async (path: string) => {
@@ -81,7 +81,7 @@ beforeEach(() => {
     if (path === '/cart') return respond(200, { items: [] })
     return respond(200, { items: [], total: 0, limit: 20, offset: 0 })
   })
-  cartStore.set({ loadState: 'loaded', placeIds: new Set(), items: [], toast: null })
+  cartStore.set({ loadState: 'loaded', placeIds: new Set(), items: [], pois: [], poiIds: new Set(), toast: null })
   keepStore.set((s) => ({ ...s, open: false, step: 'more', contentIds: [], title: null }))
   addMany = vi.spyOn(cartActions, 'addMany').mockResolvedValue({ saved: 3, already: 0, failed: 0 })
 })
@@ -123,19 +123,21 @@ describe('ContentDetail — 누르면(§9-2·§9-3)', () => {
   })
 
   it('이미 담긴 촬영지는 빼고 넘긴다', async () => {
-    cartStore.set({ loadState: 'loaded', placeIds: new Set([102]), items: [], toast: null })
+    cartStore.set({ loadState: 'loaded', placeIds: new Set([102]), items: [], pois: [], poiIds: new Set(), toast: null })
     renderDetail()
     fireEvent.click(screen.getByText('남은 2곳도 담기').closest('button')!)
     await vi.waitFor(() => expect(addMany).toHaveBeenCalledTimes(1))
     expect(addMany.mock.calls[0]![0]).toEqual([101, 103])
   })
 
-  it('전부 담겼으면 담은 뒤 시트를 ① more 로, 이 작품과 제목으로 연다', async () => {
+  // web-ad-landing.md §2 — 시트 ① 은 없어졌다. 「더 담기」(/add)로 보내는 쪽지를 남기고, 이 작품과 제목을 든다.
+  it('전부 담겼으면 「더 담기」 로 보낸다 — 이 작품과 제목을 들고', async () => {
     addMany.mockResolvedValue({ saved: 2, already: 1, failed: 0 })
+    const before = addMoreRequestStore.get()
     renderDetail()
     fireEvent.click(saveAllButton())
-    await vi.waitFor(() => expect(keepStore.get().open).toBe(true))
-    expect(keepStore.get()).toMatchObject({ open: true, step: 'more', contentIds: [32], title: '케이팝 데몬 헌터스' })
+    await vi.waitFor(() => expect(addMoreRequestStore.get()).toBe(before + 1))
+    expect(keepStore.get()).toMatchObject({ open: false, contentIds: [32], title: '케이팝 데몬 헌터스' })
   })
 
   it('실패가 하나라도 있으면 시트를 열지 않는다', async () => {
@@ -154,5 +156,39 @@ describe('ContentDetail — 누르면(§9-2·§9-3)', () => {
     await vi.waitFor(() => expect(addMany).toHaveBeenCalledTimes(1))
     await new Promise((r) => setTimeout(r, 30))
     expect(keepStore.get().open).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------- web-ad-landing.md §10-3-9 — 날아가기는 저장 결과 뒤, 머리줄의 「내 지도」
+
+import { myMapLandStore } from '@/features/keep/flyToMyMap'
+
+describe('날아가기 — 저장 결과를 받은 뒤(§10-3-9)', () => {
+  it('머리줄 오른쪽에 「내 지도」 단추가 있다(날아갈 곳)', () => {
+    renderDetail()
+    expect(screen.getByRole('button', { name: '내 지도' })).toBeTruthy()
+  })
+
+  it('담기는 동안에는 날지 않고, 끝나면 담긴 것만 날아간다(jsdom 은 배지만 튄다)', async () => {
+    let finish: (v: { saved: number; already: number; failed: number }) => void = () => {}
+    addMany.mockImplementation(() => new Promise((r) => (finish = r)))
+    const before = myMapLandStore.get()
+    renderDetail()
+    fireEvent.click(saveAllButton())
+    await new Promise((r) => setTimeout(r, 0))
+    expect(myMapLandStore.get()).toBe(before)
+    // 둘만 담겼다(하나는 실패).
+    cartStore.set((s) => ({ ...s, placeIds: new Set([101, 102]) }))
+    finish({ saved: 2, already: 0, failed: 1 })
+    await vi.waitFor(() => expect(myMapLandStore.get()).toBe(before + 2))
+  })
+
+  it('하나도 담기지 않으면 날지 않는다', async () => {
+    addMany.mockResolvedValue({ saved: 0, already: 0, failed: 3 })
+    const before = myMapLandStore.get()
+    renderDetail()
+    fireEvent.click(saveAllButton())
+    await new Promise((r) => setTimeout(r, 10))
+    expect(myMapLandStore.get()).toBe(before)
   })
 })

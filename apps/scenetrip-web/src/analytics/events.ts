@@ -23,6 +23,10 @@ export type EventName =
   | 'view_post' | 'like_post' | 'comment_post' | 'save_post_course' | 'sign_in_prompt' | 'coach_tour'
   // 웹 전용 — 담기 중심 흐름(docs/project/plans/web-keep-flow.md §4).
   | 'save_all' | 'keep_more' | 'keep_prompt' | 'keep_arrive' | 'my_map'
+  // 웹 전용 — 편의시설 담기(docs/project/plans/keep-poi.md §4).
+  | 'save_poi' | 'my_map_nearby' | 'keep_nearby'
+  // 웹 전용 — 광고 랜딩·더 담기(docs/project/plans/web-ad-landing.md §6).
+  | 'landing' | 'add_more'
 
 export type EventParams = Readonly<Record<string, string | number>>
 
@@ -42,7 +46,8 @@ export type CourseOrigin = 'ai' | 'self' | 'review'
 /** 「길찾기」를 누른 자리(MZ2AZ-532). */
 export type DirectionsSource = 'place_detail'
 /** 화면 이름 — 탭과 덮개 단위. */
-export type ScreenName = 'search' | 'home' | 'community' | 'courses' | 'profile' | 'my_map'
+/** `intro` = 앱의 첫 화면 덮개(web-ad-landing.md §11 — 옛 `landing`). */
+export type ScreenName = 'search' | 'home' | 'community' | 'courses' | 'profile' | 'my_map' | 'intro' | 'add_more'
 
 const make = (name: EventName, params: EventParams = {}): AppEvent => ({ name, params })
 const flag = (on: boolean): number => (on ? 1 : 0)
@@ -99,7 +104,10 @@ export type HomeCitySource = 'default' | 'chip' | 'near_me' | 'proto_chip' | 'pr
 
 /** 새 홈(시안 A)의 이벤트 값 — web-proto-events.md §1. */
 export type HomeScrollDepth = 25 | 50 | 75 | 100
-export type HomeTapSection = 'trending_title' | 'trending_all' | 'today_place' | 'today_save' | 'community' | 'my_record' | 'plan_bar'
+export type HomeTapSection =
+  | 'trending_title' | 'trending_all' | 'today_place' | 'today_save' | 'community' | 'my_record' | 'plan_bar'
+  // 다시 온 사람의 홈(web-ad-landing.md §4·§6)
+  | 'pick_title' | 'add_title' | 'add_nearby' | 'city_chip'
 export type PlanEntry = 'city_chip' | 'city_map' | 'fork_city' | 'fork_works' | 'fork_saved' | 'plan_bar' | 'my_map' | 'keep_sheet'
 export type PlanFlow = 'city' | 'works'
 export type PlanStep = 'city' | 'days' | 'how' | 'plan' | 'picker' | 'trip' | 'works' | 'planning'
@@ -112,7 +120,14 @@ export type KeepEnvParam = 'in_app_android' | 'in_app_ios' | 'installable' | 'an
 export type KeepPromptAction = 'view' | 'open_browser' | 'install' | 'install_accepted' | 'install_dismissed' | 'sign_in' | 'got_it' | 'skip'
 export type MyMapAction = 'open_home' | 'open_keep' | 'open_detail' | 'open_place' | 'plan' | 'add_more'
 /** 「모두 담기」 가 일어난 자리(§9-3) — 작품 상세 · 담은 뒤 시트 ① 의 포스터 · `?keep=` 으로 넘어옴. */
-export type SaveAllSource = 'detail' | 'more' | 'arrive'
+export type SaveAllSource = 'detail' | 'more' | 'arrive' | 'landing'
+/** 광고 랜딩에서 한 일(web-ad-landing.md §1-3). */
+export type LandingAction = 'view' | 'skip' | 'rest' | 'save' | 'browse'
+/** 「더 담기」 에서 한 일(web-ad-landing.md §2). */
+export type AddMoreAction = 'view' | 'poi' | 'plan'
+/** 편의시설 담기(keep-poi.md §4) — 편의시설 갈래와 주변 칩. keepPoiRules 의 NearbyKind 와 같다. */
+export type PoiGroupParam = 'food' | 'stay' | 'sight' | 'transit'
+export type NearbyKindParam = 'food' | 'shopping' | 'sight' | 'stay'
 
 /**
  * 웹에만 있는 실험 이벤트. 위 `appEvent`(세 플랫폼 공통 26개)와 섞지 않는다 — 공통 표의 개수·이름 시험이 그대로 지켜진다.
@@ -154,8 +169,20 @@ export const webEvent = {
   keepMore: (contentId: number) => make('keep_more', { content_id: contentId }),
   /** 담은 뒤 시트 ② 간직하기 권유 — 환경과 한 일. */
   keepPrompt: (env: KeepEnvParam, action: KeepPromptAction) => make('keep_prompt', { env, action }),
-  /** `?keep=` 로 넘어와 다시 담은 작품 수. */
-  keepArrive: (count: number) => make('keep_arrive', { count }),
+  /** `?keep=`·`?pois=` 로 넘어와 다시 담았다 — `count` 는 작품 수, `poi_count` 는 새로 담긴 편의시설 수(keep-poi.md §3-6·§8). */
+  keepArrive: (count: number, poiCount = 0) => make('keep_arrive', { count, poi_count: poiCount }),
   /** 내 지도를 열었다·거기서 한 일. */
   myMap: (action: MyMapAction) => make('my_map', { action }),
+  // ── 편의시설 담기 — keep-poi.md §4
+  /** 편의시설을 내 지도에 담았다. */
+  savePoi: (poiId: number, group: PoiGroupParam) => make('save_poi', { poi_id: poiId, category_group: group }),
+  /** 내 지도에서 주변 칩을 켰다(사용자가 누른 때만). */
+  myMapNearby: (kind: NearbyKindParam) => make('my_map_nearby', { kind }),
+  /** 담은 뒤 시트 ① 에서 주변 칩을 눌렀다. */
+  keepNearby: (kind: NearbyKindParam) => make('keep_nearby', { kind }),
+  // ── 광고 랜딩·더 담기 — web-ad-landing.md §6
+  /** 광고 랜딩(`/go/{id}`)이 떴다·건너뛰었다·끝 장면에 닿았다·담았다·둘러보러 갔다. */
+  landing: (contentId: number, action: LandingAction) => make('landing', { content_id: contentId, action }),
+  /** 「더 담기」(`/add`)가 떴다·주변 칸으로 담았다·일정 짜기를 눌렀다. */
+  addMore: (action: AddMoreAction) => make('add_more', { action }),
 } as const

@@ -22,6 +22,8 @@ export interface Ga4Deps {
   statisticsEnabled: () => boolean
   win: GtagWindow
   doc: Pick<Document, 'createElement' | 'head'>
+  /** 모든 이벤트에 덧붙이는 매개변수(광고 꼬리표 utm_*, web-ad-landing.md §10-3-8). 이벤트 자체의 값이 이긴다. */
+  extraParams?: () => Record<string, string>
   /** 개발 모드에서 ID 가 있을 때만 보이는 로그. */
   debug?: (name: string, params: AppEvent['params']) => void
 }
@@ -59,7 +61,7 @@ export function createGa4(deps: Ga4Deps): { track(event: AppEvent): void } {
       if (!on) return
       if (loadedFor !== id) load(id)
       deps.debug?.(event.name, event.params)
-      deps.win.gtag!('event', event.name, { ...event.params })
+      deps.win.gtag!('event', event.name, { ...(deps.extraParams?.() ?? {}), ...event.params })
     },
   }
 }

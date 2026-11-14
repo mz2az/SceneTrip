@@ -17,6 +17,8 @@ export interface PostHogLike {
   capture(name: string, params: Record<string, string | number>): void
   opt_in_capturing(): void
   opt_out_capturing(): void
+  /** super property — 이 뒤의 모든 이벤트에 실린다(광고 꼬리표). */
+  register?(properties: Record<string, string>): void
 }
 
 export interface PostHogDeps {
@@ -25,6 +27,8 @@ export interface PostHogDeps {
   host: () => string
   statisticsEnabled: () => boolean
   load: () => Promise<PostHogLike>
+  /** SDK 가 뜨면 super property 로 거는 값(광고 꼬리표 utm_*, web-ad-landing.md §10-3-8). 비면 걸지 않는다. */
+  superProperties?: () => Record<string, string>
   debug?: (name: string, params: AppEvent['params']) => void
 }
 
@@ -88,6 +92,8 @@ export function createPostHog(deps: PostHogDeps): { track(event: AppEvent): void
           persistence: 'localStorage',
           before_send: scrubCapture,
         })
+        const props = deps.superProperties?.() ?? {}
+        if (Object.keys(props).length > 0) ph.register?.(props)
         sdk = ph
         // 줄 선 이벤트는 지금도 켜져 있을 때만 보낸다.
         for (const e of queue.splice(0)) if (deps.statisticsEnabled()) send(ph, e)

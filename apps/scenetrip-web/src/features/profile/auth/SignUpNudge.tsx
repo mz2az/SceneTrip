@@ -10,12 +10,13 @@ import { useStore } from '@/state/storage'
 import { cartStore } from '@/state/cart'
 import { likeStore } from '@/state/likes'
 import { accountActions, useAccount } from './account'
-import { dismiss, markShown, nudgeMessage, nudgeShownThisSession, nudgeTrigger, nudgeVisible, readNudgeState } from './signUpNudgeRules'
+import { dismiss, markShown, nudgeCompact, nudgeMessage, nudgeShownThisSession, nudgeTrigger, nudgeVisible, readNudgeState } from './signUpNudgeRules'
 
 export function SignUpNudge({ onHome, protoOn = false }: { onHome: boolean; protoOn?: boolean }) {
   const lang = useLang()
   const { signedIn } = useAccount()
   const savedPlaces = useStore(cartStore, (s) => s.placeIds.size)
+  const savedSpots = useStore(cartStore, (s) => s.placeIds.size + s.poiIds.size)
   const likedWorks = useStore(likeStore, (s) => s.contentIds.size)
   const [closed, setClosed] = useState(false)
 
@@ -32,11 +33,12 @@ export function SignUpNudge({ onHome, protoOn = false }: { onHome: boolean; prot
   useEffect(() => {
     if (!visible) return
     const root = document.documentElement
+    if (nudgeCompact(protoOn, savedSpots)) return
     root.style.setProperty('--nudge-inset', '88px')
     return () => {
       root.style.removeProperty('--nudge-inset')
     }
-  }, [visible])
+  }, [visible, protoOn, savedSpots])
 
   if (!visible) return null
 
@@ -47,6 +49,26 @@ export function SignUpNudge({ onHome, protoOn = false }: { onHome: boolean; prot
   const onDismiss = () => {
     dismiss(trigger)
     setClosed(true)
+  }
+
+  // 담은 사람의 새 홈 — 「Plan my trip」 옆 작은 원(§10-3-11). 바닥에 탭바·줄·알약이 세 겹으로 쌓이지 않게.
+  if (nudgeCompact(protoOn, savedSpots)) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`${nudgeMessage(savedPlaces, likedWorks, lang)} · ${say('로그인', 'Sign in')}`}
+        title={nudgeMessage(savedPlaces, likedWorks, lang)}
+        style={{
+          position: 'absolute', left: 16, zIndex: 10, width: 44, height: 44, padding: 0, border: 0, borderRadius: 999,
+          bottom: 'calc(var(--tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 22px)',
+          background: 'var(--pin-gradient)', boxShadow: '0 6px 18px rgba(60, 40, 180, 0.35)', display: 'grid', placeItems: 'center', cursor: 'pointer',
+          animation: 'st-nudge-in 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.2) both',
+        }}
+      >
+        <Icon name="person.fill" size={18} weight="semibold" color="#fff" />
+      </button>
+    )
   }
 
   return (

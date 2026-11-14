@@ -28,6 +28,7 @@ vi.mock('@/analytics', async (importOriginal) => {
 })
 
 import type { NudgeContext, NudgeState } from './signUpNudgeRules'
+import { nudgeCompact } from './signUpNudgeRules'
 
 const KEY = 'scenetrip.signupNudge'
 const DAY = 86_400_000
@@ -308,5 +309,15 @@ describe('dismiss — §4 닫기', () => {
     const state = nudge.readNudgeState()
     expect(nudge.nudgeVisible(state, { ...baseCtx, now: now + DAY })).toBe(false)
     expect(nudge.nudgeVisible(state, { ...baseCtx, now: now + THREE_DAYS })).toBe(true)
+  })
+})
+
+describe('nudgeCompact — 담은 사람의 새 홈에서는 작은 원(web-ad-landing.md §10-3-11)', () => {
+  it.each<[boolean, number, boolean]>([
+    [true, 1, true],
+    [true, 0, false],
+    [false, 3, false],
+  ])('protoOn=%s 담은 수=%d → %s', (protoOn, saved, want) => {
+    expect(nudgeCompact(protoOn, saved)).toBe(want)
   })
 })

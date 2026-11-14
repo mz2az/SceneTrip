@@ -11,7 +11,7 @@ import { LayerVisibleContext } from '@/design/DeferredImg'
 import { Cover } from '@/design/overlay'
 import { CommunityTab } from '@/features/community/CommunityTab'
 import { HomeTab } from '@/features/home/HomeTab'
-import { KeepArrival, KeepSheet, MyMapCover } from '@/features/keep'
+import { AddMoreCover, CartToast, KeepArrival, KeepSheet, MyMapCover } from '@/features/keep'
 import { TrendingCover } from '@/features/home/TrendingWorks'
 import { ProfileCover } from '@/features/profile/ProfileCover'
 import { RootSheets } from '@/features/profile/RootSheets'
@@ -22,6 +22,7 @@ import { protoAvailable, protoStore } from '@/features/proto/protoState'
 import { ProtoTabBar } from '@/features/proto/ProtoTabBar'
 import { useStore } from '@/state/storage'
 import { TabBar } from './TabBar'
+import { introOpenStore } from './intro'
 import { coverOf, tabOf, tabPath } from './routes'
 import { GoogleOneTap } from '@/features/profile/auth/GoogleOneTap'
 import { SignUpNudge } from '@/features/profile/auth/SignUpNudge'
@@ -38,8 +39,18 @@ export function RootTabs() {
   // 어느 화면을 보는가 — 탭과 덮개 단위, 덮개가 떠 있으면 덮개가 이긴다 (iOS RootTabs.screenName, MZ2AZ-353).
   // 지금 뜨는 작품 전체(/trending)는 홈의 일부로 센다 — 새 화면 이름을 늘리지 않는다(MZ2AZ-534).
   // 내 지도(/my-map)는 따로 센다 — `my_map`(docs/project/plans/web-keep-flow.md §8).
-  const screenName = cover === 'route' ? 'courses' : cover === 'profile' ? 'profile' : cover === 'myMap' ? 'my_map' : tab
-  useEffect(() => track(appEvent.screenView(screenName)), [screenName])
+  // 더 담기(/add)는 `add_more`(docs/project/plans/web-ad-landing.md §6). 첫 화면 덮개(§11)는 IntroShell 이 `intro` 를 보낸다 —
+  // 덮개 밑에 미리 붙어 있는 동안은 보내지 않고, 덮개가 걷히면 그때의 화면을 보낸다.
+  const screenName =
+    cover === 'route' ? 'courses'
+      : cover === 'profile' ? 'profile'
+        : cover === 'myMap' ? 'my_map'
+          : cover === 'addMore' ? 'add_more'
+            : tab
+  const introOpen = useStore(introOpenStore, (open) => open)
+  useEffect(() => {
+    if (!introOpen) track(appEvent.screenView(screenName))
+  }, [screenName, introOpen])
 
   // 시안(떠 있는 알약 탭바)이면 탭 내용이 화면 바닥까지 내려가고 알약은 그 위에 뜬다 — 알약 뒤로 지도·목록이 비친다.
   // 목록들은 `--proto-tab-inset` 만큼 바닥을 비워 마지막 줄이 알약에 가리지 않게 한다(시안이 아니면 0).
@@ -83,6 +94,10 @@ export function RootTabs() {
       <Cover open={cover === 'myMap'} background="var(--grouped-background)">
         <MyMapCover onClose={closeCover} />
       </Cover>
+      {/* 더 담기 — 다른 작품·주변 쇼핑·명소·식당을 사진 칸으로(web-ad-landing.md §2). */}
+      <Cover open={cover === 'addMore'} background="var(--grouped-background)">
+        <AddMoreCover onClose={closeCover} />
+      </Cover>
       {/* 담은 뒤 시트(§5-2)와 `?keep=` 으로 넘어온 사람 처리(§5-4). */}
       <KeepSheet />
       <KeepArrival />
@@ -90,6 +105,8 @@ export function RootTabs() {
       {protoAvailable && <ProtoHomeBar onHome={tab === 'home' && cover === null} />}
       {protoAvailable && <ProtoLayer />}
       {protoAvailable && <ProtoSwitcher />}
+      {/* 담기 알림 — 탭·덮개·시트 어디서 담아도 보이게 맨 위 한 곳에서(keep-poi.md §9-1). */}
+      <CartToast />
     </div>
   )
 }

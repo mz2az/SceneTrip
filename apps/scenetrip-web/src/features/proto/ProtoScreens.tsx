@@ -14,6 +14,7 @@ import { Pressable } from '@/features/route/ui/Press'
 import { PinoMascot } from '@/design/PinoMascot'
 import { useRouteState } from '@/features/route/store'
 import { useStore } from '@/state/storage'
+import { cartStore } from '@/state/cart'
 import { api, ok } from '@/api/client'
 import { appEvent, track, webEvent } from '@/analytics'
 import { cityPlanRequest, planFromGuide, removeStop, swapNearbyQuery, swapStop } from './cityPlan'
@@ -509,6 +510,7 @@ export function TripFloatBar() {
     .filter((c) => c.serverId !== null)
     .slice(0, FLOAT_TRIPS)
   const running = courses.find((c) => c.isRunning) ?? null
+  const hasSaved = useStore(cartStore, (c) => c.placeIds.size + c.poiIds.size > 0)
   const row = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (open) row.current?.scrollTo?.({ left: row.current.scrollWidth })
@@ -603,6 +605,14 @@ export function TripFloatBar() {
               </HStack>
             </Pressable>
           </>
+        ) : hasSaved ? (
+          // 담은 것이 있으면 「일정 짜기」 하나 — 간직하기를 거치지 않고 바로 담은 곳으로 짜기(web-ad-landing.md §4·§9-3).
+          <Pressable plain className="proto-press" onClick={() => { track(webEvent.homeTap('plan_bar')); track(webEvent.planStart('plan_bar')); router.openPlanFromSaved() }} style={mainPill}>
+            <HStack spacing={7}>
+              <Icon name="paperplane.fill" size={14} color="white" />
+              {label(say('일정 짜기', 'Plan my trip'))}
+            </HStack>
+          </Pressable>
         ) : (
           <Pressable plain className="proto-press" onClick={() => { track(webEvent.homeTap('plan_bar')); if (courses.length === 0) newPlan(); else setOpen(true) }} aria-expanded={courses.length === 0 ? undefined : open} style={mainPill}>
             <HStack spacing={7}>

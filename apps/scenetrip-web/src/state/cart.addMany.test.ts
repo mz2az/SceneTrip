@@ -57,7 +57,7 @@ let toasts: string[]
 let unsubscribe: () => void = () => {}
 
 function startWith(placeIds: number[]) {
-  cartStore.set({ loadState: 'loaded', placeIds: new Set(placeIds), items: [], toast: null })
+  cartStore.set({ loadState: 'loaded', placeIds: new Set(placeIds), items: [], pois: [], poiIds: new Set(), toast: null })
   server = new Set(placeIds)
 }
 
@@ -66,7 +66,7 @@ function startWith(placeIds: number[]) {
  * 그 refresh 가 앞 시험의 GET 모의로 나가 앞 시험의 목록을 스토어에 되살리지 않게, 먼저 'notLoaded' 로 비운다.
  */
 function switchLanguage(lang: 'ko' | 'en') {
-  cartStore.set({ loadState: 'notLoaded', placeIds: new Set(), items: [], toast: null })
+  cartStore.set({ loadState: 'notLoaded', placeIds: new Set(), items: [], pois: [], poiIds: new Set(), toast: null })
   chooseLanguage(lang)
 }
 

@@ -2,6 +2,9 @@
  * 홈 — 첫 화면. iOS HomeTab/HomeTabView.swift (2026-09-01, 목업 `docs/product/canvas/home/Main.dc.html`·`HomeFull.dc.html`).
  *
  * 위에서부터: 인사 · 도시의 성지(웹 실험 MZ2AZ-531) · 내 여행 이어가기(경로여정의 입구) · 지금 뜨는 작품 · 오늘의 성지 · 커뮤니티 지금 · 내 기록(마이페이지의 입구).
+ *
+ * 다시 온 사람의 홈(docs/project/plans/web-ad-landing.md §4·§9-8) — 담은 것이 없으면 장면 카드 → 작품 고르기 → 오늘의 성지 → 도시로 찾기,
+ * 있으면 내 지도 카드 → 더 담아 볼까요? → (내 여행) → 오늘의 성지. 「지금 뜨는 작품」 줄과 「어디로 여행 가세요?」 카드는 이 칸들이 대신한다.
  * 목업의 맨 윗줄 검색칸은 뺐다 — 검색은 작품검색 탭이 맡는다(사용자 지시). iOS 의 홈에는 「여행자들의 코스」(코스 마켓) 절이 없다 — 마켓 세그먼트도
  * 쓰지 않는 기능이라 걷어냈다(2026-10-03 팀 회의, MZ2AZ-350). 숫자·문구는 전부 서버·기기 값이다.
  */
@@ -20,15 +23,22 @@ import { useLikes } from '@/state/likes'
 import { useOnAccountChange } from '@/state/shared'
 import { useStore } from '@/state/storage'
 import { useRouteState } from '../route/store'
-import { CommunityNow, HomeHeader, MyRecord, TodayCard, WorkShelf } from './HomeCards'
+import { CommunityNow, HomeHeader, MyRecord, TodayCard } from './HomeCards'
 import { HomeCitySpots } from './HomeCitySpots'
-import { AskCard } from '../proto/ProtoScreens'
 import { MyMapCard } from '../keep/MyMapCard'
+import { moreWorks } from '../keep/keepRules'
+import { useCities } from '../proto/protoParts'
+import { areaBbox, regionBbox } from './homeCities'
+import { focusCity } from './cityFocus'
+import { paths } from '@/app/routes'
+import { AddMoreRow, CityChips, PICK_SHOWS, PickShows, ShowHero } from './HomeStart'
 import { protoStore } from '../proto/protoState'
 import { homeStore, reloadHome } from './homeModel'
 import { tripCard } from './homeRules'
 import { TripPager } from './TripCard'
 import '../route/ui/route.css'
+import { flyWhenSaved } from '@/features/keep/flyToMyMap'
+import { smallImage } from '@/shared/smallImage'
 
 /** 「커뮤니티 지금」에 올리는 글 수. */
 const NOW_POSTS = 2
@@ -68,6 +78,7 @@ export function HomeTab() {
     hadCover.current = has
   }, [pathname])
 
+  const { cities } = useCities()
   const hasCourses = route.routeCourses.length > 0
   const card = tripCard({ hasTrip: home.trips.length > 0, courseList: route.courseList, hasCourses, tripsLoading: home.tripsLoading })
   const today = home.today
@@ -83,21 +94,69 @@ export function HomeTab() {
     }
   }
 
+  // 담은 것이 있나(§4) — 촬영지든 편의시설이든.
+  const saved = cart.items.length + (cart.pois?.length ?? 0) > 0
+  const listed = moreWorks(home.works, new Set(), home.works.length)
+  const hero = listed[0] ?? null
+  const savedWorks = new Set(cart.items.map((i) => i.sourceContentId).filter((id): id is number => typeof id === 'number'))
+  const unsaved = moreWorks(home.works, savedWorks, 12)
+  const openLanding = (id: number) => router.navigate(paths.landing(id))
+  const pickCity = (c: (typeof cities)[number]) => {
+    track(webEvent.homeTap('city_chip'))
+    track(webEvent.selectHomeCity(c.key, 'proto_chip'))
+    const bbox = c.places.length > 0 ? regionBbox(c.places) : c.area ? areaBbox(c.area) : null
+    focusCity(c.key)
+    if (bbox) router.openRegion(bbox)
+    else router.selectTab('search')
+  }
+  const todayCard = today && (
+    // 목적지는 코스 항목으로만 받아 코스 없는 길찾기가 없다(MZ2AZ-313) — 대신 장바구니에 담아 코스로 이어지게 한다.
+    <TodayCard
+      place={today}
+      saved={cart.placeIds.has(today.id)}
+      // 카드 본체를 누르면 그 촬영지의 상세로(2026-09-16 사용자 요청).
+      onOpen={() => { track(webEvent.homeTap('today_place')); router.openPlace(today) }}
+      // 담기면 「내 지도」 로 날아간다 — 저장 결과를 받은 뒤(web-ad-landing.md §10-3-9).
+      onSave={(from) => {
+        track(webEvent.homeTap('today_save'))
+        if (cart.placeIds.has(today.id)) void cartActions.remove(today.id)
+        else void flyWhenSaved(cartActions.add(today.id), from, { imageUrl: smallImage(today.imageThumbnailUrl, today.imageUrl) })
+      }}
+    />
+  )
+
   return (
     <div className="scroll-y" onScroll={onScroll} style={{ height: '100%', background: 'var(--grouped-background)', paddingBottom: 'var(--proto-tab-inset, 0px)' }}>
       <VStack spacing={18} align="stretch" style={{ padding: proto !== null ? '8.7px 0 calc(84px + var(--nudge-inset, 0px))' : '8.7px 0 calc(28px + var(--nudge-inset, 0px))' }}>
-        <HomeHeader onProfile={() => router.openProfile()} />
-        {/* 내 지도 — 담은 곳이 있으면 인사 바로 아래, 질문 카드 위(web-keep-flow.md §5-6). 없으면 카드가 스스로 그리지 않는다. */}
+        <HomeHeader onProfile={() => router.openProfile()} onMyMap={saved ? () => { track(webEvent.myMap('open_home')); router.openMyMap() } : undefined} />
+        {/* 담은 것이 없는 사람(광고로 처음 온 사람 포함) — 장면 카드 하나와 작품 고르기(§9-8). 칸은 모두 그 작품의 랜딩으로. */}
+        {!saved && hero && (
+          <ShowHero work={hero} onOpen={() => { track(webEvent.homeTap('pick_title')); openLanding(hero.id) }} />
+        )}
+        {!saved && (
+          <PickShows
+            works={listed.slice(0, PICK_SHOWS)}
+            failed={home.failed}
+            onPick={(w) => { track(webEvent.homeTap('pick_title')); openLanding(w.id) }}
+            onAll={() => { track(webEvent.homeTap('trending_all')); router.openTrending() }}
+          />
+        )}
+        {/* 내 지도 — 담은 곳이 있으면 인사 바로 아래(web-keep-flow.md §5-6). 없으면 카드가 스스로 그리지 않는다. */}
         <MyMapCard
           items={cart.items}
+          pois={cart.pois}
           onOpenMap={() => { track(webEvent.myMap('open_home')); router.openMyMap() }}
           onPlan={() => { track(webEvent.planStart('my_map')); router.openPlanFromSaved() }}
         />
-        {/* 「어디로 가세요?」 시안(로컬 전용, docs/project/plans/web-trip-first-prototypes.md). */}
-        {/* 시안: 맨 위는 사진 질문 카드, 코스는 아래에 떠 있는 「여행 계획」 줄이 맡는다(사용자 결정 2026-11-07). */}
-        {proto !== null && <AskCard />}
-        {/* 광고로 들어와 첫 화면만 보는 사람에게 도시별 촬영지를 바로 보여 준다(웹 DEV 실험, MZ2AZ-531). 카드는 「오늘의 성지」와 같은 길로 상세를 연다. */}
-        {/* 시안이 켜져 있으면 도시 고르기는 시안이 맡는다 — 같은 줄을 두 번 보이지 않는다. */}
+        {/* 더 담아 볼까요? — 아직 안 담은 작품(→ 작품 상세)과 끝의 「주변 식당·쇼핑」(→ /add). */}
+        {saved && (
+          <AddMoreRow
+            works={unsaved}
+            onOpen={(w) => { track(webEvent.homeTap('add_title')); router.openContent(w) }}
+            onNearby={() => { track(webEvent.homeTap('add_nearby')); router.navigate(paths.addMore) }}
+          />
+        )}
+        {/* 광고로 들어와 첫 화면만 보는 사람에게 도시별 촬영지를 바로 보여 준다(웹 DEV 실험, MZ2AZ-531) — 옛 홈(시안 꺼짐)에서만. */}
         {proto === null && <HomeCitySpots onOpenPlace={(place) => router.openPlace(place)} onOpenMap={(bbox) => router.openRegion(bbox)} />}
         {proto === null && <TripPager
           trips={home.trips}
@@ -113,19 +172,9 @@ export function HomeTab() {
           onOpenCourse={() => router.openRoute()}
           onCreate={() => router.openRoute()}
         />}
-        <div style={{ margin: "0.6px 0 0.7px" }}>
-          <WorkShelf works={home.works} failed={home.failed} onOpen={(w) => { track(webEvent.homeTap('trending_title')); router.openContent(w) }} onAll={() => { track(webEvent.homeTap('trending_all')); router.openTrending() }} />
-        </div>
-        {today && (
-          // 목적지는 코스 항목으로만 받아 코스 없는 길찾기가 없다(MZ2AZ-313) — 대신 장바구니에 담아 코스로 이어지게 한다.
-          <TodayCard
-            place={today}
-            saved={cart.placeIds.has(today.id)}
-            // 카드 본체를 누르면 그 촬영지의 상세로(2026-09-16 사용자 요청).
-            onOpen={() => { track(webEvent.homeTap('today_place')); router.openPlace(today) }}
-            onSave={() => void (track(webEvent.homeTap('today_save')), cart.placeIds.has(today.id) ? cartActions.remove(today.id) : cartActions.add(today.id))}
-          />
-        )}
+        {todayCard}
+        {/* 도시로 찾기 — 「어디로 여행 가세요?」 사진 카드의 칩만 한 줄로(§4). 시안에서만(옛 홈은 도시의 성지가 맡는다). */}
+        {!saved && proto !== null && <CityChips cities={cities} onPick={pickCity} />}
         <CommunityNow posts={community.posts.slice(0, NOW_POSTS)} moderation={moderation} onOpen={() => { track(webEvent.homeTap('community')); router.selectTab('community') }} />
         <MyRecord stamps={home.stamps} likeCount={likes.contentIds.size} onOpen={() => { track(webEvent.homeTap('my_record')); router.openProfile() }} />
       </VStack>

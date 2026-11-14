@@ -93,6 +93,8 @@
 - [웹 새 홈 분석 이벤트](web-proto-events.md) — 시안 A 에 빠진 이벤트, 로그인 창 이유, PostHog 익명 프로필
 - [웹 도시 칩 → 지도 먼저](web-city-map-first.md) — 도시 영역 음영, 지도 위 도시 카드, 코스 만들기는 그다음
 - [웹 담기 중심 흐름](web-keep-flow.md) — 한꺼번에 담기, 다른 작품도 담기, 간직하기(앱 안 브라우저면 브라우저에서 열기), 내 지도, 계획은 그다음
+- [편의시설도 내 지도에 담기](keep-poi.md) — 계약 1.31.0(`/cart/pois`, `GET /pois` 의 `categories`), 표 `saved_poi`, 내 지도의 주변 칩·정보 카드, 계획 마법사에 편의시설 (MZ2AZ-571)
+- [웹 광고 랜딩 · 더 담기 · 홈 개편](web-ad-landing.md) — `/go/{작품}` 세 박자 움직임, `/add` 사진 칸, 다시 온 사람의 홈, `PoiSummary.imageUrl`·`hasImage` (MZ2AZ-572)
 - [편의시설 「골고루」 정렬과 이름 검색](poi-spread-search.md) — MZ2AZ-540·283, GET /pois 의 sort=spread·q
 - [커뮤니티 보강 — 좋아요·댓글·게시판·글 검색·커서](community-social.md) — MZ2AZ-538, 계약 1.24.0
 - [정한 여행(도시·며칠) 기억 — /me/trip](trip-memory.md) — MZ2AZ-542, 계약 1.25.0

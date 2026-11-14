@@ -1,0 +1,424 @@
+/* 첫 화면 덮개(web-ad-landing.md §1·§9·§10·§11) — 움직임은 transform·opacity 만. 흐림(filter·backdrop-filter)·모서리 전환은 쓰지 않는다(§10-3-10). */
+
+.st-landing {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.st-landing img {
+  -webkit-user-drag: none;
+}
+
+.st-landing--loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: radial-gradient(120% 80% at 50% 30%, #7a52d6 0%, var(--home-purple) 45%, #2a1856 100%);
+}
+.st-landing--loading img {
+  animation: st-landing-breathe 1.1s ease-in-out infinite;
+}
+@keyframes st-landing-breathe {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-6px) scale(1.04);
+  }
+}
+
+.st-landing__veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.86) 0, rgba(255, 255, 255, 0) 120px), linear-gradient(to top, rgba(28, 21, 48, 0.28) 0, rgba(28, 21, 48, 0) 38%);
+}
+
+/* 머리줄 */
+.st-landing__head {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(var(--safe-top, 0px) + 8px) 16px 0;
+  min-height: 52px;
+}
+.st-landing__skip {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+}
+
+/* ① 의 큰 글씨 */
+.st-landing__scene-text {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: calc(var(--safe-bottom, 0px) + 56px);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition:
+    opacity 0.35s ease,
+    transform 0.35s ease;
+  pointer-events: auto;
+}
+
+/* 영웅 카드(장면 ↔ 실제 사진) */
+.st-landing__hero {
+  position: absolute;
+  z-index: 25;
+  overflow: hidden;
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(20, 10, 40, 0.38);
+  will-change: transform, opacity;
+  perspective: 1100px;
+  background: #1c1530;
+}
+.st-landing__flip {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 0.9s cubic-bezier(0.45, 0, 0.2, 1) 0.12s;
+}
+.st-landing__flip--turned {
+  transform: rotateY(180deg);
+}
+.st-landing__face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+}
+.st-landing__face img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.st-landing__face--back {
+  transform: rotateY(180deg);
+}
+.st-landing__shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.32) 0, rgba(0, 0, 0, 0) 22%, rgba(0, 0, 0, 0) 48%, rgba(0, 0, 0, 0.7) 100%);
+  transition: opacity 0.4s ease;
+}
+.st-landing__kenburns {
+  animation: st-landing-kenburns 2.6s ease-out both;
+}
+@keyframes st-landing-kenburns {
+  from {
+    transform: scale(1.08);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+/* 포스터로 시작한 ① — 흐리게(filter) 대신 어둡게 깐다(§10-3-10). 장면 사진이 오면 바꿔 끼운다. */
+.st-landing__dim {
+  opacity: 0.6;
+}
+.st-landing__real {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--home-purple);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+/* 부채 카드 */
+.st-landing__card {
+  position: absolute;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 3px solid #fff;
+  background: var(--pin-gradient);
+  box-shadow: 0 10px 24px rgba(20, 10, 40, 0.3);
+  will-change: transform, opacity;
+}
+.st-landing__card img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.st-landing__card-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 18px 7px 6px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #fff;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.7));
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.st-landing__caption {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  z-index: 26;
+  display: flex;
+  justify-content: center;
+  animation: st-landing-rise 0.4s ease-out 0.75s both;
+}
+.st-landing__caption > span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6px 18px rgba(20, 10, 40, 0.18);
+  max-width: 100%;
+}
+@keyframes st-landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 「내 지도」 접시 */
+.st-landing__plate-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--safe-bottom, 0px) + 28px);
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.st-landing__plate {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 8px 0 16px;
+  border-radius: 999px;
+  background: var(--home-purple);
+  box-shadow: 0 10px 26px rgba(60, 30, 120, 0.4);
+  animation: st-landing-rise 0.35s ease-out 0.3s both;
+}
+.st-landing__plate-count {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--home-purple);
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 32px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  animation: st-badge-pop 0.36s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* 핀 — 사진을 품은 물방울 */
+.st-landing__pin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 5;
+  width: 42px;
+  height: 52px;
+  transition: transform 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+  pointer-events: none;
+}
+.st-landing__pin-head {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--home-purple);
+  box-shadow: 0 4px 10px rgba(30, 15, 70, 0.35);
+  overflow: hidden;
+  border: 3px solid #fff;
+}
+.st-landing__pin-head img {
+  position: absolute;
+  inset: -6px;
+  width: calc(100% + 12px);
+  height: calc(100% + 12px);
+  object-fit: cover;
+  transform: rotate(45deg);
+}
+.st-landing__pin--drop .st-landing__pin-head {
+  animation: st-landing-drop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: inherit;
+}
+@keyframes st-landing-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-18px) rotate(-45deg) scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(-45deg) scale(1);
+  }
+}
+
+/* ③ 아래 판 */
+.st-landing__panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 20px calc(var(--safe-bottom, 0px) + 14px);
+  border-radius: 24px 24px 0 0;
+  background: var(--system-background, #fff);
+  box-shadow: 0 -10px 30px rgba(20, 10, 40, 0.18);
+}
+.st-landing__panel--in {
+  animation: st-landing-panel 0.45s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes st-landing-panel {
+  from {
+    transform: translateY(40%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.st-landing__strip {
+  display: flex;
+  gap: 10px;
+  margin: 0 -20px;
+  padding: 2px 20px 2px;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.st-landing__chip {
+  flex: none;
+  width: 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.st-landing__chip-photo {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--pin-gradient);
+}
+.st-landing__chip-photo > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.st-landing__chip-photo > img.st-landing__chip-scene {
+  inset: auto 4px 4px auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+.st-landing__chip-kept {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--home-purple);
+}
+.st-landing__chip-name {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--label, #1c1530);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.st-landing__chip-ko {
+  margin-top: -3px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--secondary-label, #6b6880);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.st-landing__keep {
+  width: 100%;
+  min-height: 54px;
+  border-radius: 16px;
+  background: var(--home-purple);
+  box-shadow: 0 8px 20px rgba(80, 40, 160, 0.32);
+  display: grid;
+  place-items: center;
+}
+.st-landing__keep:disabled {
+  opacity: 0.85;
+}
+.st-landing__browse {
+  width: 100%;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-landing *,
+  .st-landing *::before,
+  .st-landing *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

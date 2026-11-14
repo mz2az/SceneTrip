@@ -49,7 +49,12 @@ export const KEEP_MAX = 6
 
 /** `?keep=32,25` → `[32, 25]`. 양의 정수만, 중복은 처음 것만(순서 그대로), 중복을 지운 뒤 앞에서 6개(§8). */
 export function parseKeepParam(search: string): number[] {
-  const raw = new URLSearchParams(search).get('keep')
+  return parseIdsParam(search, 'keep', KEEP_MAX)
+}
+
+/** `?{name}=…` 의 양의 정수 id — 중복은 처음 것만(순서 그대로), 중복을 지운 뒤 앞에서 `max` 개. */
+export function parseIdsParam(search: string, name: string, max: number): number[] {
+  const raw = new URLSearchParams(search).get(name)
   if (!raw) return []
   const ids: number[] = []
   for (const piece of raw.split(',')) {
@@ -59,13 +64,23 @@ export function parseKeepParam(search: string): number[] {
     if (id <= 0 || !Number.isSafeInteger(id) || ids.includes(id)) continue
     ids.push(id)
   }
-  return ids.slice(0, KEEP_MAX)
+  return ids.slice(0, max)
 }
 
-/** `origin` + `/my-map?keep=…`. id 가 없으면 `/my-map` 만. 6개까지만. */
-export function keepUrl(origin: string, contentIds: readonly number[]): string {
+/** 넘기는 주소에 싣는 편의시설 수의 끝(keep-poi.md §3-2). */
+export const KEEP_POI_MAX = 30
+
+/**
+ * `origin` + `/my-map?keep=…&pois=…`. 작품은 6개, 편의시설은 30개까지. 둘 다 없으면 `/my-map` 만.
+ * 세 번째 인자(편의시설)는 keep-poi.md §3-2 — 두 인자 호출의 결과는 그대로다.
+ */
+export function keepUrl(origin: string, contentIds: readonly number[], poiIds: readonly number[] = []): string {
+  const query: string[] = []
   const ids = contentIds.slice(0, KEEP_MAX)
-  return ids.length === 0 ? `${origin}/my-map` : `${origin}/my-map?keep=${ids.join(',')}`
+  if (ids.length > 0) query.push(`keep=${ids.join(',')}`)
+  const pois = poiIds.slice(0, KEEP_POI_MAX)
+  if (pois.length > 0) query.push(`pois=${pois.join(',')}`)
+  return query.length === 0 ? `${origin}/my-map` : `${origin}/my-map?${query.join('&')}`
 }
 
 /**
