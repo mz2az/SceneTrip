@@ -4,6 +4,7 @@
  * 목록 화면 하나가 컨트롤러를 들고, 줄의 「⋯」 가 부른다 — 신고 시트·차단 확인 창·안내를 화면 한 곳에 단다
  * (`<ModerationSheets>`). 지연 목록의 줄마다 시트를 달면 줄이 사라질 때 같이 사라진다.
  */
+import type { SignInPromptKey } from '@/analytics/events'
 import { useMemo } from 'react'
 import { say } from '@/i18n'
 import { authStore, promptSignIn as authPromptSignIn } from '@/state/auth'
@@ -39,7 +40,7 @@ export interface ModerationState {
 export interface ModerationDeps {
   client?: ModerationClient
   signedIn?: () => boolean
-  promptSignIn?: (reason?: string | null) => void
+  promptSignIn?: (reason?: string | null, key?: SignInPromptKey) => void
   events?: ModerationEvents
 }
 
@@ -77,7 +78,7 @@ export function createModerationController(deps: ModerationDeps = {}): Moderatio
     askReport: (target) => patch({ reporting: target }),
     askBlock(target) {
       if (!signedIn()) {
-        promptSignIn(blockSignInReason())
+        promptSignIn(blockSignInReason(), 'block')
         return
       }
       patch({ confirmingBlock: target })
@@ -97,7 +98,7 @@ export function createModerationController(deps: ModerationDeps = {}): Moderatio
     async block(target) {
       patch({ confirmingBlock: null })
       if (!signedIn()) {
-        promptSignIn(blockSignInReason())
+        promptSignIn(blockSignInReason(), 'block')
         return false
       }
       if (store.get().sending) return false
@@ -111,7 +112,7 @@ export function createModerationController(deps: ModerationDeps = {}): Moderatio
       } finally {
         patch({ sending: false })
       }
-      if (outcome === 'signInRequired') promptSignIn(blockSignInReason())
+      if (outcome === 'signInRequired') promptSignIn(blockSignInReason(), 'block')
       patch({ notice: blockMessage(outcome) })
       if (outcome === 'blocked') events.changed()
       return outcome === 'blocked'

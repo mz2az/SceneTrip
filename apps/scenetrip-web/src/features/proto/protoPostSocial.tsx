@@ -5,6 +5,7 @@
  *  - `PostComments`: 그 아래 댓글 목록(오래된 순)과 맨 끝 입력칸(바닥에 고정하지 않고 글에 붙는다 — 2026-11-08 사용자 결정).
  *    내 댓글은 「지우기」, 남의 댓글은 글과 같은 「⋯」 신고·차단 메뉴(moderation). 차단하면 서버가 그 사람의 댓글을 빼고 다시 받는다.
  */
+import { track, webEvent } from '@/analytics'
 import { ThumbsUp } from 'lucide-react'
 import { type CSSProperties, useCallback, useEffect, useState } from 'react'
 import { Icon, registerIcon } from '@/design/Icon'
@@ -64,7 +65,7 @@ export function PostLike({ post }: { post: CommunityPost }) {
   const postId = post.serverId
   const toggle = async () => {
     if (!signedIn) {
-      promptSignIn(say('좋아요를 누르려면 로그인이 필요해요', 'Sign in to like posts'))
+      promptSignIn(say('좋아요를 누르려면 로그인이 필요해요', 'Sign in to like posts'), 'like')
       return
     }
     if (busy) return
@@ -76,6 +77,7 @@ export function PostLike({ post }: { post: CommunityPost }) {
     setPop((n) => n + 1)
     try {
       await socialClient.like(postId, next)
+      track(webEvent.likePost(postId, next))
       // 목록 줄의 숫자도 바로 맞춘다(MZ2AZ-551) — 전에는 목록을 다시 받을 때까지 옛 숫자였다.
       communityStore.api.patchPost(postId, { liked: next, likeCount: nextCount })
     } catch {
@@ -139,12 +141,13 @@ export function PostComments({ postId }: { postId: number }) {
   const send = async () => {
     if (body === '' || sending) return
     if (!signedIn) {
-      promptSignIn(say('댓글을 쓰려면 로그인이 필요해요', 'Sign in to comment'))
+      promptSignIn(say('댓글을 쓰려면 로그인이 필요해요', 'Sign in to comment'), 'comment')
       return
     }
     setSending(true)
     try {
       const created = await socialClient.addComment(postId, body.slice(0, BODY_MAX))
+      track(webEvent.commentPost(postId))
       setItems((cur) => [...(cur ?? []), created])
       setTotal(total + 1)
       communityStore.api.patchPost(postId, { commentCount: total + 1 })

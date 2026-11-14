@@ -153,7 +153,7 @@ function ReviewsBody({ onClose, subject, title, focusReviewId, onChanged }: { on
     if (account.signedIn) setComposing(true)
     else {
       setComposeAfterSignIn(true)
-      promptSignIn(say('후기를 쓰려면 로그인이 필요해요', 'Sign in to write a review'))
+      promptSignIn(say('후기를 쓰려면 로그인이 필요해요', 'Sign in to write a review'), 'review')
     }
   }
 

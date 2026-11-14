@@ -5,6 +5,7 @@
  * 그림자 띄운 큰 카드·타일을 쓰던 모양은 「틀 없이 적은 느낌」(2026-11-07 사용자 지적)이라 앱 설정 화면 같은 묶음 목록으로 바꿨다.
  * 로컬 개발 서버 + 시안이 켜졌을 때만 원래 시트 대신 뜬다(docs/project/plans/web-trip-first-prototypes.md).
  */
+import { track, webEvent } from '@/analytics'
 import { useTabRouter } from '@/app/tabRouter'
 import { Icon } from '@/design/Icon'
 import { Sheet } from '@/design/overlay'
@@ -91,6 +92,7 @@ export function ProtoForkSheet({ open, onClose, onAI, onManual }: { open: boolea
             title={say('도시로 시작', 'Start with a city')}
             caption={say('어디로·며칠만 고르면 코스 완성', 'Pick where and for how long.')}
             onPress={go(() => {
+              track(webEvent.planStart('fork_city'))
               router.closeCover()
               protoActions.plan()
             })}
@@ -102,7 +104,7 @@ export function ProtoForkSheet({ open, onClose, onAI, onManual }: { open: boolea
             title={say('작품으로', 'From shows')}
             tag="AI"
             caption={say('좋아하는 작품을 고르면 촬영지를 이어 줘요', 'Pick shows you love. AI links their spots.')}
-            onPress={go(onAI)}
+            onPress={go(() => { track(webEvent.planStart('fork_works')); onAI() })}
           />
           <OptionRow
             coach="fork-saved"
@@ -110,7 +112,7 @@ export function ProtoForkSheet({ open, onClose, onAI, onManual }: { open: boolea
             icon="bag"
             title={say('담은 곳으로', 'From saved')}
             caption={saved.length > 0 ? say(`담아 둔 ${saved.length}곳을 날마다 나눠 넣어요`, `Split your ${saved.length} saved places by day`) : say('빈 코스에서 하나씩 넣어요', 'Start empty and add places')}
-            onPress={go(onManual)}
+            onPress={go(() => { track(webEvent.planStart('fork_saved')); onManual() })}
           />
         </div>
       </VStack>

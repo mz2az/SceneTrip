@@ -161,7 +161,7 @@ export function ComposeView({ onClose, registerClose, board: initialBoard }: { o
             </>
           )}
           {!signedIn ? (
-            <Pressable onClick={() => promptSignIn(say('글을 쓰려면 로그인이 필요해요', 'Sign in to write a post'))} style={{ padding: '0 20px' }}><Txt size={17} color="accent">{tr('로그인한 뒤에 쓸 수 있어요')}</Txt></Pressable>
+            <Pressable onClick={() => promptSignIn(say('글을 쓰려면 로그인이 필요해요', 'Sign in to write a post'), 'compose')} style={{ padding: '0 20px' }}><Txt size={17} color="accent">{tr('로그인한 뒤에 쓸 수 있어요')}</Txt></Pressable>
           ) : (
             composingEpoch !== account.epoch && <Txt size={13} color="red" style={{ padding: '0 20px' }}>{tr('계정이 바뀌었어요. 이 초안을 닫고 새로 작성해 주세요')}</Txt>
           )}

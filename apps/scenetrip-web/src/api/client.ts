@@ -134,7 +134,7 @@ async function handleUnauthorized(first: Response, base: Request, method: string
       authHooks.loseSession?.(identity)
       return first
     case 'promptSignIn':
-      promptSignIn()
+      promptSignIn(null, 'server')
       return first
     case 'none':
       return first

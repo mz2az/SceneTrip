@@ -164,7 +164,7 @@ DebugView 수신과 기기 로그(「Logging event」, 업로드 204)로 확인�
 
 | 이벤트 | 언제 | 매개변수 | 웹 호출 위치 |
 | --- | --- | --- | --- |
-| `select_home_city` | 홈 「도시의 성지」의 도시가 정해졌다 — 처음 고른 것(세션에 한 번)·칩을 눌렀다·「내 위치」로 골랐다 | `city`(한국어 도시 열쇠, 예 `서울`·`경주`·`경기 광주`), `source`(`default`·`chip`·`near_me`) — **좌표는 보내지 않는다** | `features/home/HomeCitySpots.tsx` |
+| `select_home_city` | 홈 「도시의 성지」의 도시가 정해졌다 — 처음 고른 것(세션에 한 번)·칩을 눌렀다·「내 위치」로 골랐다. 새 홈(시안 A)에서는 히어로 도시 칩·코스 만들기의 도시 고르기 | `city`(한국어 도시 열쇠, 예 `서울`·`경주`·`경기 광주`), `source`(`default`·`chip`·`near_me`·`proto_chip`·`proto_grid`) — **좌표는 보내지 않는다** | `features/home/HomeCitySpots.tsx`·`features/proto/ProtoScreens.tsx` |
 
 그 절의 카드에서 촬영지를 열면 따로 보내지 않는다 — 작품검색 탭의 촬영지 상세가 열리며 기존 `view_place` 가 나간다. 계획: [web-home-city-spots.md](web-home-city-spots.md).
 
@@ -177,3 +177,24 @@ iOS·Android 에는 아직 없다. 실험이 끝나 두 앱에 옮기면 §3 표
 | `start_directions` | 촬영지 상세의 「길찾기」를 눌렀다(MZ2AZ-532 DEV 실험 — [계획](web-place-directions.md)). 로그인 전이어도 누른 그때 한 번 센다. 진행 중 겹친 누름·로그인 뒤 이어 가기는 세지 않는다. 실제 안내 시작은 `start_trip` 이, 코스 생성은 `create_course`(`course_origin=self`, `place_count=1`)가 따로 센다 | `source` = `place_detail`, `signed_in`(1·0 — 참/거짓은 1·0 규칙) | `features/route/placeDirections.ts` |
 | `signup_nudge_view` · `signup_nudge_click` · `signup_nudge_dismiss` | 홈 탭의 비회원 가입 권유 알약이 이번 세션에 처음 보였다 / 알약을 눌러 로그인 시트를 열었다 / ✕ 로 닫았다(MZ2AZ-564 — [계획](web-signup-nudge.md)). 효과는 `signup_nudge_click` → `sign_up` 퍼널로 본다 | `trigger` = `saved`(찜·장바구니에 담은 게 있음) · `views`(상세를 3 번 열었음). 개수·이름은 보내지 않는다 | `features/profile/auth/signUpNudgeRules.ts`·`SignUpNudge.tsx` |
 | `one_tap_sign_in` | 구글 원탭으로 로그인이 끝났다(MZ2AZ-565 — [계획](web-google-one-tap.md)). 같은 때 공통 `sign_up`·`login`(method `google`)도 나간다 | `new_user`(1·0 — 이번에 가입했으면 1) | `features/profile/auth/account.ts` |
+
+### 새 홈(시안 A) 이벤트 (2026-11-14 — [계획](web-proto-events.md))
+
+11/11 부터 운영 첫 화면인 시안 A 에 기록이 없어 더했다. 웹 전용이다.
+
+| 이벤트 | 언제 | 매개변수 | 구현(웹) |
+| --- | --- | --- | --- |
+| `home_scroll` | 홈을 그 깊이까지 내려 봤다(세션에 깊이마다 한 번, 홈이 보일 때만) | `depth` 25·50·75·100 | `features/home/HomeTab.tsx`, `features/proto/homeScroll.ts` |
+| `home_tap` | 홈의 칸을 눌렀다 | `section` = `trending_title`·`trending_all`·`today_place`·`today_save`·`community`·`my_record`·`plan_bar` | `HomeTab.tsx`·`ProtoScreens.tsx` |
+| `plan_start` | 코스 만들기를 시작했다 | `entry` = `city_chip`·`fork_city`·`fork_works`·`fork_saved`·`plan_bar` | `ProtoScreens.tsx`·`ProtoFork.tsx` |
+| `plan_step` | 코스 만들기 단계에 들어왔다 | `flow` = `city`·`works`, `step` = `city`·`days`·`how`·`plan`·`picker`·`trip`·`works`·`planning` | `ProtoScreens.tsx`·`ProtoPlanFlows.tsx` |
+| `plan_failed` | 코스를 못 짰거나 못 저장했다 | `flow`, `reason` = `empty`·`error`·`save` | 같음 |
+| `view_post` | 커뮤니티 글을 열었다(목록·주소 모두) | `post_id` | `features/community/PostView.tsx` |
+| `like_post` | 글 좋아요를 눌렀다(성공한 뒤) | `post_id`, `liked` 1·0 | `features/proto/protoPostSocial.tsx` |
+| `comment_post` | 댓글을 달았다 — 본문은 안 보낸다 | `post_id` | 같음 |
+| `save_post_course` | 글의 코스를 내 코스로 담았다 | `post_id` | `PostView.tsx` |
+| `coach_tour` | 화면 위 사용법 안내가 시작됐다 / 마지막 단계까지 봤다(건너뛰기는 안 센다) | `tour`(안내 id), `action` = `begin`·`complete` | `features/proto/CoachTour.tsx` |
+| `sign_in_prompt` | 로그인 창이 떴다(이미 떠 있으면 안 센다) | `reason` = `like`·`comment`·`save_course`·`compose`·`my_posts`·`review`·`block`·`directions`·`nudge`·`profile`·`session`(세션이 풀려 다시 띄움)·`server`(서버가 가입 전용으로 막음)·`other` | `features/profile/auth/account.ts` `openSignInFor` |
+
+공통 이벤트를 새로 부르는 곳: 도시 AI 코스가 성공하면 `generate_plan`(`title_count` 0). 「여행 계획」 줄은 `home_tap` 만 세고 시작은 갈래 시트의 `plan_start` 가 센다. `plan_step` 은 `entry` 로 나눠 본다(도시 칩 경로엔 `city` 단계가 없다).
+

@@ -3,6 +3,7 @@
  * 블로그 글처럼 **사진이 먼저, 그 아래 글, 끝에 다녀온 코스.** 붙은 코스는 일차별 장소까지 보이고, 「내 코스로 담기」를 누르면
  * 같은 코스가 내 것으로 하나 생긴다 — 후기를 읽고 「나도 이대로 가야지」가 한 번에 되어야 한다.
  */
+import { track, webEvent } from '@/analytics'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTabRouter } from '@/app/tabRouter'
 import { Alert } from '@/design/overlay'
@@ -34,6 +35,10 @@ export function PostView({ initialPost, onClose, page = false }: { initialPost: 
   const signedIn = useIsSignedIn()
   const router = useTabRouter()
   const moderation = useModerationController()
+  // 글을 열었다 — 목록에서든 주소(딥링크)로든(web-proto-events.md). 서버 글만 센다.
+  useEffect(() => {
+    if (initialPost.serverId !== undefined) track(webEvent.viewPost(initialPost.serverId))
+  }, [initialPost.serverId])
   const isOperator = useIsOperator()
   const [loaded, setLoaded] = useState<CommunityPost | null>(null)
   const [loading, setLoading] = useState(false)
@@ -124,7 +129,7 @@ export function PostView({ initialPost, onClose, page = false }: { initialPost: 
 
   const save = async () => {
     if (!signedIn) {
-      promptSignIn(say('코스를 담으려면 로그인이 필요해요', 'Sign in to save this course'))
+      promptSignIn(say('코스를 담으려면 로그인이 필요해요', 'Sign in to save this course'), 'save_course')
       return
     }
     if (saving || post.serverId === undefined) return
@@ -132,6 +137,7 @@ export function PostView({ initialPost, onClose, page = false }: { initialPost: 
     setSaving(true)
     try {
       const id = await communityStore.api.saveCourse(post.serverId)
+      track(webEvent.savePostCourse(post.serverId))
       if (epoch === accountGeneration()) setSavedCourseId(id)
     } catch {
       if (epoch === accountGeneration()) setSaveFailed(true)

@@ -143,7 +143,7 @@ export function directionsSignInReason(): string {
 /** 로그인 시트를 이유 문구와 함께 띄우고, 로그인되거나 시트가 닫힐 때까지 기다린다. */
 export function askSignInForDirections(): Promise<boolean> {
   const store = account.store
-  accountActions.openSignInFor(directionsSignInReason())
+  accountActions.openSignInFor(directionsSignInReason(), 'directions')
   return new Promise((resolve) => {
     const settle = (): boolean => {
       const s = store.get()

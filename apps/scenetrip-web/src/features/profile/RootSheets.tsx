@@ -30,7 +30,7 @@ export function RootSheets({ active: _active }: { active: boolean }) {
 
   useEffect(() => {
     if (!requested) return
-    accountActions.openSignInFor(signInPromptStore.get().reason)
+    accountActions.openSignInFor(signInPromptStore.get().reason, signInPromptStore.get().key ?? 'other')
     dismissSignInPrompt()
   }, [requested])
 
