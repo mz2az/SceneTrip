@@ -4,7 +4,7 @@
  *   §9-1  알림은 앱 맨 위 CartToast 한 곳 — role="status", 2.4초, 새 알림은 바꿔 끼우고 시간을 다시 잰다(같은 글자여도).
  *   §9-2  이름 — 제목 displayName ?? name, 그 아래 nameRoman 은 displayName 이 없고 한국어 화면이 아닐 때만(savedPoiName, SavedPoiRow).
  *   §9-4  빼는 중이면 SavedPoiRow 의 빼기 단추가 눌리지 않는다.
- *   §9-5  N 은 폐업한 편의시설·목록에서 빠진 촬영지를 뺀 수(usableCount, 홈 카드·내 지도).
+ *   §9-5  N 은 폐업한 편의시설·목록에서 빠진 촬영지를 뺀 수(usableCount, 홈 카드·마이맵).
  *   §9-6  칩은 눌리는 높이 44px 이상.
  */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -99,14 +99,14 @@ describe('§9-1 CartToast', () => {
   it('알림이 오면 role="status" 로 그 글자를 보인다', () => {
     render(<CartToast />)
     expect(screen.queryByRole('status')).toBeNull()
-    act(() => cartActions.notify('내 지도에 담았어요'))
-    expect(screen.getByRole('status').textContent).toBe('내 지도에 담았어요')
+    act(() => cartActions.notify('마이맵에 담았어요'))
+    expect(screen.getByRole('status').textContent).toBe('마이맵에 담았어요')
   })
 
   it('2.4초 뒤 사라진다(2초에는 아직 있다)', () => {
     vi.useFakeTimers()
     render(<CartToast />)
-    act(() => cartActions.notify('내 지도에 담았어요'))
+    act(() => cartActions.notify('마이맵에 담았어요'))
     act(() => vi.advanceTimersByTime(2000))
     expect(screen.queryByRole('status')).not.toBeNull()
     act(() => vi.advanceTimersByTime(CART_TOAST_MS - 2000))
@@ -117,18 +117,18 @@ describe('§9-1 CartToast', () => {
   it('새 알림이 오면 바꿔 끼우고 시간을 다시 잰다 — 같은 글자여도', () => {
     vi.useFakeTimers()
     render(<CartToast />)
-    act(() => cartActions.notify('내 지도에 담았어요'))
+    act(() => cartActions.notify('마이맵에 담았어요'))
     act(() => vi.advanceTimersByTime(2000))
-    act(() => cartActions.notify('내 지도에 담았어요'))
+    act(() => cartActions.notify('마이맵에 담았어요'))
     act(() => vi.advanceTimersByTime(2000))
     expect(screen.queryByRole('status')).not.toBeNull()
-    act(() => cartActions.notify('내 지도에서 뺐어요'))
-    expect(screen.getByRole('status').textContent).toBe('내 지도에서 뺐어요')
+    act(() => cartActions.notify('마이맵에서 뺐어요'))
+    expect(screen.getByRole('status').textContent).toBe('마이맵에서 뺐어요')
     act(() => vi.advanceTimersByTime(CART_TOAST_MS))
     expect(screen.queryByRole('status')).toBeNull()
   })
 
-  it('내 지도 덮개가 떠 있어도 보인다 — 덮개와 같은 앱 맨 위 층에 있다', async () => {
+  it('마이맵 덮개가 떠 있어도 보인다 — 덮개와 같은 앱 맨 위 층에 있다', async () => {
     withCart([item(101)], [])
     render(
       <MemoryRouter initialEntries={[paths.myMap]}>
@@ -136,8 +136,8 @@ describe('§9-1 CartToast', () => {
         <CartToast />
       </MemoryRouter>,
     )
-    act(() => cartActions.notify('내 지도에 담았어요'))
-    expect(screen.getAllByRole('status').some((e) => e.textContent === '내 지도에 담았어요')).toBe(true)
+    act(() => cartActions.notify('마이맵에 담았어요'))
+    expect(screen.getAllByRole('status').some((e) => e.textContent === '마이맵에 담았어요')).toBe(true)
   })
 })
 
@@ -181,7 +181,7 @@ describe('§9-4 빼는 중', () => {
     expect(onRemove).not.toHaveBeenCalled()
   })
 
-  it('내 지도 — 그 편의시설을 빼는 중이면 줄의 빼기 단추가 눌리지 않는다', async () => {
+  it('마이맵 — 그 편의시설을 빼는 중이면 줄의 빼기 단추가 눌리지 않는다', async () => {
     withCart([item(101)], [poi(7, { name: '남산 돈까스' })])
     render(
       <MemoryRouter initialEntries={[paths.myMap]}>
@@ -210,17 +210,17 @@ describe('§9-5 N 은 폐업·목록에서 빠진 것을 뺀 수', () => {
 
   it('홈 카드 — 폐업한 편의시설뿐이어도 카드는 뜬다', () => {
     const { container } = render(<MyMapCard items={[]} pois={[poi(8, { closed: true })]} onOpenMap={vi.fn()} onPlan={vi.fn()} />)
-    expect(container.textContent).toContain('내 지도')
+    expect(container.textContent).toContain('마이맵')
   })
 
-  it('내 지도 — 머리줄과 「이 N곳으로」 의 N', async () => {
+  it('마이맵 — 머리줄과 「이 N곳으로」 의 N', async () => {
     withCart([item(101), item(102, { delisted: true })], [poi(7), poi(8, { closed: true }), poi(9)])
     render(
       <MemoryRouter initialEntries={[paths.myMap]}>
         <MyMapCover onClose={vi.fn()} />
       </MemoryRouter>,
     )
-    await vi.waitFor(() => expect(document.body.textContent).toContain('내 지도 · 3곳'))
+    await vi.waitFor(() => expect(document.body.textContent).toContain('마이맵 · 3곳'))
     expect(document.body.textContent).toContain('이 3곳으로 계획 짜기')
   })
 })

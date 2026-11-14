@@ -1,7 +1,7 @@
 /*
  * 담은 뒤 시트 ① — 주변도 담기. 정본: docs/project/plans/keep-poi.md §3-4 · §7 → web-ad-landing.md §2 가 바꿨다.
  *
- *   시트 ① 은 없어졌다. 「모두 담기」 뒤에는 「더 담기」(/add)로 가고, 주변 쇼핑·명소·식당 줄과 「지도에서 더 보기」(칩이 켜진 내 지도)는
+ *   시트 ① 은 없어졌다. 「모두 담기」 뒤에는 「더 담기」(/add)로 가고, 주변 쇼핑·명소·식당 줄과 「지도에서 더 보기」(칩이 켜진 마이맵)는
  *   그 덮개가 맡는다(AddMoreCover.test.tsx). 이 파일은 시트가 ① 의 주변 칩을 더는 그리지 않고 /add 로 보내는지만 본다.
  *
  * 띄우는 방법은 KeepSheet.test.tsx 와 같다(OverlayRootContext · MemoryRouter · track 가짜).

@@ -43,10 +43,10 @@ export function MyMapCard({ items, pois = [], onOpenMap, onPlan }: MyMapCardProp
     .slice(0, MAX_PHOTOS)
 
   return (
-    <section style={{ padding: '0 20px' }} aria-label={say('내 지도', 'My map')}>
+    <section style={{ padding: '0 20px' }} aria-label={say('마이맵', 'My map')}>
       <VStack spacing={12} align="stretch" style={{ padding: 16, ...homeCard(radius.l) }}>
         <HStack spacing={8} align="baseline">
-          <Txt as="h2" size={19} weight="heavy" style={{ margin: 0 }}>{say('내 지도', 'My map')}</Txt>
+          <Txt as="h2" size={19} weight="heavy" style={{ margin: 0 }}>{say('마이맵', 'My map')}</Txt>
           <Txt size={15} weight="bold" style={{ color: color.primaryText }}>{say(`${total}곳`, spots(total))}</Txt>
         </HStack>
 

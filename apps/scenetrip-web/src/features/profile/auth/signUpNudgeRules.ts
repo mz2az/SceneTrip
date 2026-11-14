@@ -75,8 +75,8 @@ export function nudgeTrigger(savedPlaces: number, likedWorks: number): NudgeTrig
 export function nudgeMessage(savedPlaces: number, likedWorks: number, lang: Lang): string {
   if (savedPlaces >= 1) {
     return lang === 'ko'
-      ? `담아 둔 ${savedPlaces}곳, 로그인하면 어느 기기서든 이어져요`
-      : `Sign in to keep your ${savedPlaces} saved ${savedPlaces === 1 ? 'spot' : 'spots'} on any device`
+      ? `마이맵의 ${savedPlaces}곳, 로그인하면 어느 기기서든 이어져요`
+      : `Sign in to keep the ${savedPlaces} ${savedPlaces === 1 ? 'spot' : 'spots'} on your My map on any device`
   }
   if (likedWorks >= 1) {
     return lang === 'ko'

@@ -11,7 +11,7 @@ import type { SaveAllSource } from '@/analytics/events'
 import type { components } from '@/api/generated/schema'
 import { api, asFailure, installHeader, ok } from '@/api/client'
 import { unavailableRejection } from '@/api/failure'
-import { onLanguageChange, say, tr } from '@/i18n'
+import { onLanguageChange, say } from '@/i18n'
 import { spots } from '@/shared/spots'
 import { accountGeneration, onAccountReset } from './shared'
 import { createStore, useStore } from './storage'
@@ -66,22 +66,19 @@ export interface AddPoiOptions {
   quiet?: boolean
 }
 
-/** 촬영지 담기의 알림 문구 — 촬영지 상세(`add`)는 옛 문구, 편의시설로 누른 것(`addPoi`)은 내 지도 문구(§9-7). */
+/** 담기 알림 문구 — 촬영지·편의시설 모두 「마이맵」 하나(web-keep-flow.md §11-3). */
 interface AddWords {
   saved: () => string
   already: () => string
   failed: () => string
 }
-const PLACE_WORDS: AddWords = {
-  saved: () => tr('장바구니에 담았습니다'),
-  already: () => tr('이미 저장된 장소입니다'),
-  failed: () => tr('담지 못했습니다. 잠시 후 다시 시도해 주세요'),
+const WORDS: AddWords = {
+  saved: () => say('마이맵에 담았어요', 'Saved to My map'),
+  already: () => say('이미 마이맵에 있어요', 'Already on My map'),
+  failed: () => say('마이맵에 담지 못했어요. 잠시 후 다시 시도해 주세요', "Couldn't save to My map. Try again in a moment."),
 }
-const POI_WORDS: AddWords = {
-  saved: () => say('내 지도에 담았어요', 'Saved to your map'),
-  already: () => say('이미 담은 곳이에요', 'Already on your map'),
-  failed: () => say('담지 못했어요. 잠시 후 다시 시도해 주세요', "Couldn't save. Try again in a moment."),
-}
+const PLACE_WORDS = WORDS
+const POI_WORDS = WORDS
 
 /** 촬영지 담기 한 번 — `add` 와 `addPoi`(촬영지와 같은 곳) 가 같이 쓴다. 이벤트는 언제나 `save_place`. */
 async function addPlace(placeId: number, sourceContentId: number | null | undefined, words: AddWords, quiet: boolean): Promise<AddPoiResult> {
@@ -198,7 +195,7 @@ export const cartActions = {
     patch({
       toast:
         counts.failed === 0
-          ? say(`${counts.saved + counts.already}곳을 내 지도에 담았어요`, `Saved ${spots(counts.saved + counts.already)} to your map`)
+          ? say(`${counts.saved + counts.already}곳을 마이맵에 담았어요`, `Saved ${spots(counts.saved + counts.already)} to My map`)
           : say(`${counts.failed}곳은 담지 못했어요. 다시 눌러 주세요`, `Couldn't save ${spots(counts.failed)}. Tap again.`),
     })
     track(webEvent.saveAll(sourceContentId ?? 0, total, counts.saved, source))
@@ -212,14 +209,14 @@ export const cartActions = {
       await ok(api.DELETE('/cart/items/{placeId}', { params: { header: installHeader(), path: { placeId } } }))
     } catch {
       if (generation !== accountGeneration()) return
-      patch({ toast: tr('빼지 못했습니다. 잠시 후 다시 시도해 주세요') })
+      patch({ toast: say('마이맵에서 빼지 못했어요. 잠시 후 다시 시도해 주세요', "Couldn't remove from My map. Try again in a moment.") })
       return
     }
     if (generation !== accountGeneration()) return
     const { items, placeIds } = cartStore.get()
     const next = new Set(placeIds)
     next.delete(placeId)
-    patch({ items: items.filter((i) => i.placeId !== placeId), placeIds: next, toast: tr('장바구니에서 뺐습니다') })
+    patch({ items: items.filter((i) => i.placeId !== placeId), placeIds: next, toast: say('마이맵에서 뺐어요', 'Removed from My map') })
     await cartActions.refresh()
   },
 
@@ -298,7 +295,7 @@ async function sendRemovePoi(poiId: number): Promise<void> {
   } catch (error) {
     if (generation !== accountGeneration()) return
     if (asFailure(error).statusCode !== 404) {
-      patch({ toast: say('빼지 못했어요. 잠시 후 다시 시도해 주세요', "Couldn't remove. Try again in a moment.") })
+      patch({ toast: say('마이맵에서 빼지 못했어요. 잠시 후 다시 시도해 주세요', "Couldn't remove from My map. Try again in a moment.") })
       return
     }
   }
@@ -306,6 +303,6 @@ async function sendRemovePoi(poiId: number): Promise<void> {
   const { pois, poiIds } = cartStore.get()
   const next = new Set(poiIds)
   next.delete(poiId)
-  patch({ pois: pois.filter((p) => p.id !== poiId), poiIds: next, toast: say('내 지도에서 뺐어요', 'Removed from your map') })
+  patch({ pois: pois.filter((p) => p.id !== poiId), poiIds: next, toast: say('마이맵에서 뺐어요', 'Removed from My map') })
   await cartActions.refresh()
 }

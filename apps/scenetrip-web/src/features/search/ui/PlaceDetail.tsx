@@ -9,7 +9,7 @@ import { countDetailView } from '@/features/profile/auth/signUpNudgeRules'
 import { hasSession } from '@/state/auth'
 import { Icon } from '@/design/Icon'
 import { HStack, Spinner, Txt, VStack } from '@/design/primitives'
-import { tr } from '@/i18n'
+import { say, tr } from '@/i18n'
 import { useModerationChange } from '@/features/moderation'
 import { usePlaceDirections } from '@/features/route/placeDirections'
 import { PhotoGallery } from '@/features/reviews/photoGallery'
@@ -131,7 +131,7 @@ export function PlaceDetail({ summary, sourceContentId, load, onBack, onOpenTrip
                 style={{ flex: 1, minHeight: 34 }}
               >
                 <Icon name={saved ? 'checkmark' : 'bag.badge.plus'} size={FONT.body} color="accent" />
-                <Txt size={FONT.body} color="accent">{saved ? tr('담김 · 누르면 빼기') : tr('장바구니에 담기')}</Txt>
+                <Txt size={FONT.body} color="accent">{saved ? say('마이맵에 있음 · 누르면 빼기', 'On My map · Tap to remove') : say('마이맵에 담기', 'Save to My map')}</Txt>
               </BorderedButton>
               {naver && (
                 <a href={naver} target="_blank" rel="noopener noreferrer" style={{ flex: 'none' }}>

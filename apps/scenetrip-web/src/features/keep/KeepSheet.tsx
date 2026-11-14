@@ -69,7 +69,7 @@ export function KeepSheet(): JSX.Element | null {
   const detent = Math.min(wanted, typeof window === 'undefined' ? wanted : window.innerHeight - 24)
 
   return (
-    <Sheet open={open} onClose={keepActions.close} dim={0.25} floating detent={detent} radius={30} label={say('내 지도에 담았어요', 'Saved to your map')}>
+    <Sheet open={open} onClose={keepActions.close} dim={0.25} floating detent={detent} radius={30} label={say('마이맵에 담았어요', 'Saved to My map')}>
       <VStack spacing={0} align="stretch" style={{ background: 'var(--grouped-background)', height: '100%', minHeight: 0 }}>
         {/* 손잡이는 가운데 — Pressable 은 세로 flex 라 가로 가운데는 alignItems 가 맡는다. */}
         <Pressable plain onClick={keepActions.close} aria-label={say('닫기', 'Close')} style={{ flex: 'none', width: '100%', height: TAP, justifyContent: 'flex-start', alignItems: 'center', paddingTop: 8 }}>
@@ -171,9 +171,9 @@ function KeepPromptStep() {
 
   const title =
     env === 'in_app_android'
-      ? say('브라우저에서 열어 내 지도를 간직하세요', 'Open in your browser to keep your map')
+      ? say('브라우저에서 열어 마이맵을 간직하세요', 'Open in your browser to keep My map')
       : env === 'in_app_ios'
-        ? say('사파리에서 열어 내 지도를 간직하세요', 'Open in Safari to keep your map')
+        ? say('사파리에서 열어 마이맵을 간직하세요', 'Open in Safari to keep My map')
         : env === 'other'
           ? say('이 페이지를 즐겨찾기에 추가하세요', 'Bookmark this page')
           : say('홈 화면에 SceneTrip 을 추가하세요', 'Add SceneTrip to your Home Screen')
@@ -260,7 +260,7 @@ function PlanStep() {
         {say(`이 ${n}곳으로 여행 계획을 짜 볼까요?`, `Plan a trip with these ${spots(n)}?`)}
       </Txt>
       <PrimaryButton onClick={plan}>{say('계획 짜기', 'Plan my trip')}</PrimaryButton>
-      <SecondaryButton onClick={openMap}>{say('내 지도 보기', 'See my map')}</SecondaryButton>
+      <SecondaryButton onClick={openMap}>{say('마이맵 보기', 'See My map')}</SecondaryButton>
       <TextButton onClick={keepActions.close}>{say('닫기', 'Close')}</TextButton>
     </VStack>
   )

@@ -85,8 +85,11 @@ export function useTabRouter() {
     openProfile: () => navigate(paths.profile),
     /** 홈 「지금 뜨는 작품」 전체 — 포스터 격자 덮개(MZ2AZ-534). */
     openTrending: () => navigate(paths.trending),
-    /** 내 지도(/my-map) 덮개 — 담은 촬영지(web-keep-flow.md §5-3). */
-    openMyMap: () => navigate(paths.myMap),
+    /**
+     * 마이맵(/my-map) 덮개 — 담은 촬영지·편의시설(web-keep-flow.md §5-3·§11). `returnTo`(앱 안 경로)를 주면 마이맵의 「뒤로」 가 그리로 간다
+     * — 작품검색 탭·마이페이지에서 연 사람이 홈으로 튕기지 않게.
+     */
+    openMyMap: (returnTo?: string) => navigate(paths.myMap, returnTo ? { state: { returnTo } } : undefined),
     /** 담은 곳으로 계획 짜기 — 쪽지를 남기고 경로여정을 연다. 경로여정이 열리면 직접 짜기 마법사를 띄운다(§5-5). */
     openPlanFromSaved: () => {
       pendingStore.set((s) => ({ ...s, plannerManual: true }))

@@ -5,19 +5,18 @@ import { type RefObject } from 'react'
 import { Icon } from '@/design/Icon'
 import { HStack, Pressable, Txt, shadow } from '@/design/primitives'
 import { tr } from '@/i18n'
-import { protoAvailable, protoStore, say } from '@/features/proto/protoState'
-import { useStore } from '@/state/storage'
+import { MyMapButton } from '@/features/keep/flyToMyMap'
 import { FONT } from './common'
 
 /** SwiftUI 기본 `.shadow(radius: 3, y: 1)` — 색은 검정 33%. */
 const SOFT = shadow('rgba(0,0,0,0.33)', 3, 1)
 
 /**
- * 검색어와 장바구니가 한 캡슐이다 — 프로토타입의 검색바와 같다.
- * 장바구니 단추는 스크린샷에서 파랑(accent)이다: 소스는 `.foregroundStyle(.primary)` 지만 단추 안의 계층 스타일은 tint 로 풀린다.
+ * 검색어와 마이맵 단추가 한 캡슐이다 — 프로토타입의 검색바와 같다.
+ * 마이맵 단추는 머리줄의 「마이맵」 단추(MyMapButton)와 같은 지도 기호·담은 수 배지이고 `/my-map` 을 연다(web-keep-flow.md §11-1).
  */
 export function SearchBar({
-  draft, onDraft, onSubmit, onClear, onFocus, inputRef, cartCount, onCart,
+  draft, onDraft, onSubmit, onClear, onFocus, inputRef, onMyMap,
 }: {
   draft: string
   onDraft: (v: string) => void
@@ -25,11 +24,8 @@ export function SearchBar({
   onClear: () => void
   onFocus: () => void
   inputRef: RefObject<HTMLInputElement | null>
-  cartCount: number
-  onCart: () => void
+  onMyMap: () => void
 }) {
-  // 시안(로컬 개발 서버 전용): 장바구니 대신 보관함 — 코스 편집의 「보관함에서 추가」와 같은 가방 아이콘.
-  const proto = useStore(protoStore, (s) => protoAvailable && s.proto !== null)
   return (
     <form
       onSubmit={(e) => {
@@ -61,19 +57,8 @@ export function SearchBar({
           </Pressable>
         )}
         <div style={{ width: 0.5, height: 22, background: 'var(--separator)', flex: 'none' }} />
-        <Pressable plain onClick={onCart} aria-label={proto ? say('보관함', 'Saved') : tr('장바구니')} style={{ position: 'relative', flex: 'none', width: 20, height: 20, display: 'grid', placeItems: 'center', marginRight: 2 }}>
-          <Icon name={proto ? 'bag' : 'cart'} size={proto ? 20 : 20.5} weight="medium" color={proto ? 'var(--home-purple)' : 'accent'} />
-          {cartCount > 0 && (
-            <Txt
-              size={FONT.caption2}
-              weight="bold"
-              color="white"
-              style={{ position: 'absolute', top: -8, right: -10, padding: '2px 5px', borderRadius: 999, background: 'var(--system-red)', lineHeight: 1.2 }}
-            >
-              {cartCount}
-            </Txt>
-          )}
-        </Pressable>
+        {/* 캡슐 높이(44)는 그대로 두고 단추만 겹쳐 놓는다 — 그림자 없는 투명 동그라미. */}
+        <MyMapButton onPress={onMyMap} style={{ width: 36, height: 36, margin: '-7px -6px -7px -4px', background: 'transparent', boxShadow: 'none' }} />
       </HStack>
     </form>
   )

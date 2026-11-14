@@ -217,18 +217,18 @@ describe('addMany — 진행·새로 받기', () => {
 })
 
 describe('addMany — 알림은 한 번', () => {
-  it('실패가 없으면 「N곳을 내 지도에 담았어요」 (N = saved + already)', async () => {
+  it('실패가 없으면 「N곳을 마이맵에 담았어요」 (N = saved + already)', async () => {
     startWith([1])
     outcome.set(3, duplicate)
     await cartActions.addMany([1, 2, 3, 4], 32)
-    expect(toasts).toEqual(['4곳을 내 지도에 담았어요'])
+    expect(toasts).toEqual(['4곳을 마이맵에 담았어요'])
   })
 
-  it('영어 — Saved N spots to your map', async () => {
+  it('영어 — Saved N spots to My map', async () => {
     switchLanguage('en')
     startWith([])
     await cartActions.addMany([1, 2, 3], 32)
-    expect(toasts).toEqual(['Saved 3 spots to your map'])
+    expect(toasts).toEqual(['Saved 3 spots to My map'])
   })
 
   it('실패가 있으면 「N곳은 담지 못했어요. 다시 눌러 주세요」 (N = failed)', async () => {
@@ -247,11 +247,11 @@ describe('addMany — 알림은 한 번', () => {
   })
 
   // §9-7 — 영어는 1이면 단수(1 spot), 한국어는 그대로 1곳.
-  it('영어 단수 — Saved 1 spot to your map', async () => {
+  it('영어 단수 — Saved 1 spot to My map', async () => {
     switchLanguage('en')
     startWith([])
     await cartActions.addMany([1], 32)
-    expect(toasts).toEqual(['Saved 1 spot to your map'])
+    expect(toasts).toEqual(['Saved 1 spot to My map'])
   })
 
   it("영어 복수 — Couldn't save 2 spots. Tap again.", async () => {
@@ -263,9 +263,9 @@ describe('addMany — 알림은 한 번', () => {
     expect(toasts).toEqual(["Couldn't save 2 spots. Tap again."])
   })
 
-  it('한국어는 1 이어도 그대로 — 1곳을 내 지도에 담았어요', async () => {
+  it('한국어는 1 이어도 그대로 — 1곳을 마이맵에 담았어요', async () => {
     await cartActions.addMany([1], 32)
-    expect(toasts).toEqual(['1곳을 내 지도에 담았어요'])
+    expect(toasts).toEqual(['1곳을 마이맵에 담았어요'])
   })
 })
 

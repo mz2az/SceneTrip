@@ -24,11 +24,12 @@ import { useStore } from '@/state/storage'
 import { TabBar } from './TabBar'
 import { introOpenStore } from './intro'
 import { coverOf, tabOf, tabPath } from './routes'
+import { returnToOf } from './tabRouter'
 import { GoogleOneTap } from '@/features/profile/auth/GoogleOneTap'
 import { SignUpNudge } from '@/features/profile/auth/SignUpNudge'
 
 export function RootTabs() {
-  const { pathname } = useLocation()
+  const { pathname, state } = useLocation()
   const navigate = useNavigate()
   const tab = tabOf(pathname)
   const cover = coverOf(pathname)
@@ -92,7 +93,7 @@ export function RootTabs() {
       </Cover>
       {/* 내 지도 — 담은 촬영지(web-keep-flow.md §5-3). */}
       <Cover open={cover === 'myMap'} background="var(--grouped-background)">
-        <MyMapCover onClose={closeCover} />
+        <MyMapCover onClose={() => navigate(returnToOf(state) ?? tabPath('home'))} />
       </Cover>
       {/* 더 담기 — 다른 작품·주변 쇼핑·명소·식당을 사진 칸으로(web-ad-landing.md §2). */}
       <Cover open={cover === 'addMore'} background="var(--grouped-background)">

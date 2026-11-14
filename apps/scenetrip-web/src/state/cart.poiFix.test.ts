@@ -2,7 +2,7 @@
  * 편의시설 담기 — 검증 뒤 바꾼 것. 정본: docs/project/plans/keep-poi.md §9-4 · §9-7 · §9-8 · §9-1.
  *
  *   §9-4  같은 편의시설의 addPoi·removePoi 가 진행 중이면 두 번째 누름은 요청을 보내지 않는다(진행 표시 cartPoiBusyStore).
- *   §9-7  addPoi 가 촬영지로 보낼 때(placeId 있음)도 알림은 「내 지도에 담았어요」, 이벤트는 save_place 만(save_poi 없음).
+ *   §9-7  addPoi 가 촬영지로 보낼 때(placeId 있음)도 알림은 「마이맵에 담았어요」, 이벤트는 save_place 만(save_poi 없음).
  *   §9-8  addPoi(…, { quiet: true }) 는 알림도 refresh 도 하지 않는다.
  *   §9-1  알림을 띄울 때마다 cartToastSeqStore 가 하나씩 는다(같은 글자여도).
  *
@@ -151,18 +151,18 @@ describe('§9-4 담는 중에는 다시 보내지 않는다', () => {
 })
 
 describe('§9-7 촬영지로 담긴 편의시설의 알림·이벤트', () => {
-  it('placeId 가 있으면 알림은 「내 지도에 담았어요」', async () => {
+  it('placeId 가 있으면 알림은 「마이맵에 담았어요」', async () => {
     await cartActions.addPoi({ id: 9, placeId: 45 })
-    expect(toasts).toEqual(['내 지도에 담았어요'])
+    expect(toasts).toEqual(['마이맵에 담았어요'])
   })
 
-  it('영어 — Saved to your map', async () => {
+  it('영어 — Saved to My map', async () => {
     cartStore.set({ loadState: 'notLoaded', placeIds: new Set(), items: [], pois: [], poiIds: new Set(), toast: null })
     chooseLanguage('en')
     await settle()
     toasts = []
     await cartActions.addPoi({ id: 9, placeId: 45 })
-    expect(toasts).toEqual(['Saved to your map'])
+    expect(toasts).toEqual(['Saved to My map'])
   })
 
   it('이벤트는 save_place 만 — save_poi 는 없다', async () => {
@@ -171,15 +171,15 @@ describe('§9-7 촬영지로 담긴 편의시설의 알림·이벤트', () => {
     expect(events().filter((e) => e.name === 'save_poi')).toEqual([])
   })
 
-  it('이미 담긴 촬영지(409)면 「이미 담은 곳이에요」', async () => {
+  it('이미 담긴 촬영지(409)면 「이미 마이맵에 있어요」', async () => {
     h.POST.mockImplementation(async () => respond(409, undefined, { code: 'DUPLICATE_CART_ITEM', message: 'dup' }))
     expect(await cartActions.addPoi({ id: 9, placeId: 45 })).toBe('already')
-    expect(toasts).toEqual(['이미 담은 곳이에요'])
+    expect(toasts).toEqual(['이미 마이맵에 있어요'])
   })
 
-  it('촬영지 상세의 담기(add)는 옛 문구 그대로', async () => {
+  it('촬영지 상세의 담기(add)도 같은 마이맵 문구(web-keep-flow.md §11-3)', async () => {
     await cartActions.add(45)
-    expect(toasts).toEqual(['장바구니에 담았습니다'])
+    expect(toasts).toEqual(['마이맵에 담았어요'])
   })
 })
 
@@ -198,8 +198,8 @@ describe('§9-8 quiet', () => {
 describe('§9-1 알림 번호', () => {
   it('같은 글자의 알림이 또 와도 번호가 는다', () => {
     const before = cartToastSeqStore.get()
-    cartActions.notify('내 지도에 담았어요')
-    cartActions.notify('내 지도에 담았어요')
+    cartActions.notify('마이맵에 담았어요')
+    cartActions.notify('마이맵에 담았어요')
     expect(cartToastSeqStore.get()).toBe(before + 2)
     cartActions.clearToast()
     expect(cartToastSeqStore.get()).toBe(before + 2)

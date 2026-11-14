@@ -90,7 +90,7 @@ export function KeepArrival(): null {
             await cartActions.refresh()
             cartActions.notify(
               poiFailed === 0
-                ? say(`${poiKept}곳을 내 지도에 담았어요`, `Saved ${spots(poiKept)} to your map`)
+                ? say(`${poiKept}곳을 마이맵에 담았어요`, `Saved ${spots(poiKept)} to My map`)
                 : say(`${poiFailed}곳은 담지 못했어요`, `Couldn't save ${spots(poiFailed)}`),
             )
           }

@@ -1,5 +1,5 @@
 /*
- * 내 지도 줄 사이의 거리 칩 — 정본: docs/project/plans/web-ad-landing.md §9-5
+ * 마이맵 줄 사이의 거리 칩 — 정본: docs/project/plans/web-ad-landing.md §9-5
  * 「줄 사이에 다음 장소까지의 거리 칩(직선 거리, 1km 미만은 m)」.
  *
  * 이음매(시험이 정한 것 — 구현이 따른다):

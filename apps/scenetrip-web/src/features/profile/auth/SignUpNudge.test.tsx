@@ -29,7 +29,7 @@ import { cartStore } from '@/state/cart'
 import { likeStore } from '@/state/likes'
 import { SignUpNudge } from './SignUpNudge'
 
-const SAVED_ONE_KO = '담아 둔 1곳, 로그인하면 어느 기기서든 이어져요'
+const SAVED_ONE_KO = '마이맵의 1곳, 로그인하면 어느 기기서든 이어져요'
 
 function guestWithSavedPlace() {
   clearSession()
@@ -105,7 +105,7 @@ describe('SignUpNudge — 홈의 가입 권유 알약', () => {
   it('영어일 때 ✕ 의 접근성 이름은 Dismiss', () => {
     chooseLanguage('en')
     render(<SignUpNudge onHome />)
-    expect(screen.getByText('Sign in to keep your 1 saved spot on any device')).toBeTruthy()
+    expect(screen.getByText('Sign in to keep the 1 spot on your My map on any device')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Dismiss' })).toBeTruthy()
   })
 })

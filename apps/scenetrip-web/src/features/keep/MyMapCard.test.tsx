@@ -1,8 +1,8 @@
 /*
- * 홈의 「내 지도」 카드 — 정본: docs/project/plans/web-keep-flow.md §5-6.
+ * 홈의 「마이맵」 카드 — 정본: docs/project/plans/web-keep-flow.md §5-6.
  *
  *   MyMapCard({ items, onOpenMap, onPlan }): JSX.Element | null
- *   빈 목록 → null · 제목 「내 지도」 · 「N곳」 · 작품별 칩(mapGroups) 최대 3개 + 「+N」
+ *   빈 목록 → null · 제목 「마이맵」 · 「N곳」 · 작품별 칩(mapGroups) 최대 3개 + 「+N」
  *   주 단추 지도에서 보기 → onOpenMap · 보조 계획 짜기 → onPlan
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -45,10 +45,10 @@ describe('MyMapCard', () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it('제목 「내 지도」 와 담은 곳 수 「N곳」 을 보인다', () => {
+  it('제목 「마이맵」 와 담은 곳 수 「N곳」 을 보인다', () => {
     const items = [item(10, '도깨비'), item(10, '도깨비'), item(20, '케이팝 데몬 헌터스'), item(20, '케이팝 데몬 헌터스'), item(20, '케이팝 데몬 헌터스'), item(null, null), item(30, '기생충')]
     const { container } = setup(items)
-    expect(container.textContent).toContain('내 지도')
+    expect(container.textContent).toContain('마이맵')
     expect(container.textContent).toContain('7곳')
   })
 

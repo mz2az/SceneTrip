@@ -1,5 +1,5 @@
 /*
- * 홈의 「내 지도」 카드 — 담은 편의시설. 정본: docs/project/plans/keep-poi.md §3-7 · §7.
+ * 홈의 「마이맵」 카드 — 담은 편의시설. 정본: docs/project/plans/keep-poi.md §3-7 · §7.
  *
  *   MyMapCard({ items, pois?, onOpenMap, onPlan })
  *   수는 items.length + pois.length. 편의시설이 있으면 칩 「주변 N」/Nearby N 이 작품 칩들 뒤에 붙는다
@@ -90,11 +90,11 @@ describe('MyMapCard — 편의시설', () => {
     expect(b.container.textContent).toContain('1곳')
   })
 
-  it('편의시설뿐이어도 카드가 뜬다 — 「내 지도」·「N곳」·「주변 N」, 단추도 그대로', () => {
+  it('편의시설뿐이어도 카드가 뜬다 — 「마이맵」·「N곳」·「주변 N」, 단추도 그대로', () => {
     const { container, onOpenMap, onPlan } = setup([], [poi(7), poi(8)])
     expect(container.firstChild).not.toBeNull()
     const text = container.textContent ?? ''
-    expect(text).toContain('내 지도')
+    expect(text).toContain('마이맵')
     expect(text).toContain('2곳')
     expect(text).toContain('주변 2')
     fireEvent.click(screen.getByText('지도에서 보기').closest('button')!)

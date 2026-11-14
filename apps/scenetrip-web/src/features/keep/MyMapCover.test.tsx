@@ -1,7 +1,7 @@
 /*
- * 내 지도 덮개 `/my-map` — 정본: docs/project/plans/web-keep-flow.md §5-3 · §6.
+ * 마이맵 덮개 `/my-map` — 정본: docs/project/plans/web-keep-flow.md §5-3 · §6.
  *
- *   MyMapCover({ onClose }): 담은 곳은 useCart()/cartStore. 머리줄 「내 지도 · N곳」, 위는 지도, 아래는 작품별 묶음 목록.
+ *   MyMapCover({ onClose }): 담은 곳은 useCart()/cartStore. 머리줄 「마이맵 · N곳」, 위는 지도, 아래는 작품별 묶음 목록.
  *   줄을 누르면 my_map(open_place). 주 단추 「이 N곳으로 계획 짜기」 → my_map(plan) + plan_start(my_map) + 담은 곳으로 계획.
  *   「더 담기」 → /add + my_map(add_more)(web-ad-landing.md §2 가 /trending 에서 바꿨다). 비었음·실패 안내.
  *
@@ -12,11 +12,11 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const h = vi.hoisted(() => ({ GET: vi.fn() }))
+const h = vi.hoisted(() => ({ GET: vi.fn(), DELETE: vi.fn() }))
 
 vi.mock('@/api/client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/client')>()),
-  api: { GET: (...args: unknown[]) => h.GET(...args), POST: vi.fn(), DELETE: vi.fn() },
+  api: { GET: (...args: unknown[]) => h.GET(...args), POST: vi.fn(), DELETE: (...args: unknown[]) => h.DELETE(...args) },
 }))
 
 vi.mock('@/analytics', async (importOriginal) => {
@@ -96,6 +96,8 @@ beforeEach(() => {
   chooseLanguage('ko')
   location = null
   h.GET.mockReset()
+  h.DELETE.mockReset()
+  h.DELETE.mockImplementation(async () => respond(204))
   h.GET.mockImplementation(async (path: string) => {
     if (path === '/cart') return cartReply === 'fail' ? respond(500) : respond(200, { items: cartReply })
     return respond(200, { items: [], total: 0, limit: 20, offset: 0 })
@@ -113,9 +115,9 @@ afterEach(() => {
 })
 
 describe('MyMapCover — 머리줄', () => {
-  it('「내 지도 · N곳」', async () => {
+  it('「마이맵 · N곳」', async () => {
     renderCover()
-    await vi.waitFor(() => expect(bodyText()).toContain('내 지도 · 5곳'))
+    await vi.waitFor(() => expect(bodyText()).toContain('마이맵 · 5곳'))
   })
 
   it('영어 — My map · N spots', async () => {
@@ -181,7 +183,7 @@ describe('MyMapCover — 아래 단추', () => {
     await vi.waitFor(() => expect(buttonWith('Plan a trip with these 5 spots')).toBeTruthy())
   })
 
-  // web-ad-landing.md §2 — 내 지도의 「더 담기」 도 「더 담기」 덮개(/add)로 온다.
+  // web-ad-landing.md §2 — 마이맵의 「더 담기」 도 「더 담기」 덮개(/add)로 온다.
   it('「더 담기」 → /add + my_map(add_more)', async () => {
     renderCover()
     await vi.waitFor(() => expect(screen.getByText('더 담기')).toBeTruthy())
@@ -233,5 +235,56 @@ describe('MyMapCover — 영어 단수', () => {
     renderCover()
     await vi.waitFor(() => expect(bodyText()).toContain('My map · 1 spot'))
     expect(bodyText()).not.toContain('1 spots')
+  })
+})
+
+/*
+ * 옛 장바구니 시트(작품검색 탭·마이페이지)에만 있던 「빼기」 를 마이맵 촬영지 줄로 옮겼다(web-keep-flow.md §11-1).
+ * 목록에서 빠진 촬영지(누를 수 없는 흐린 줄)도 뺄 수 있다 — 옛 시트가 그랬다.
+ */
+describe('MyMapCover — 촬영지 줄 빼기(§11-1)', () => {
+  it('줄마다 「마이맵에서 빼기」 가 있고, 누르면 DELETE /cart/items/{placeId}', async () => {
+    renderCover()
+    await vi.waitFor(() => expect(screen.getAllByRole('button', { name: '마이맵에서 빼기' })).toHaveLength(ITEMS.length))
+    const row = screen.getByText('덕수궁 돌담길').closest('[data-place-row]') as HTMLElement
+    const remove = Array.from(row.querySelectorAll('button')).find((b) => b.getAttribute('aria-label') === '마이맵에서 빼기')!
+    await act(async () => {
+      fireEvent.click(remove)
+    })
+    const placeId = ITEMS.find((i) => i.name === '덕수궁 돌담길')!.placeId
+    expect(h.DELETE).toHaveBeenCalledWith('/cart/items/{placeId}', expect.objectContaining({ params: expect.objectContaining({ path: { placeId } }) }))
+  })
+
+  it('빼기를 눌러도 장소 상세로 가지 않는다(줄 누르기와 따로)', async () => {
+    renderCover()
+    await vi.waitFor(() => expect(screen.getAllByRole('button', { name: '마이맵에서 빼기' }).length).toBeGreaterThan(0))
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: '마이맵에서 빼기' })[0]!)
+    })
+    expect(location?.pathname).toBe(paths.myMap)
+    expect(events()).not.toContainEqual(webEvent.myMap('open_place'))
+  })
+
+  it('목록에서 빠진 촬영지도 뺄 수 있다', async () => {
+    const gone = item({ name: '빠진 촬영지', sourceContentId: 7, sourceContentTitle: '도깨비', latitude: 37.57, longitude: 126.98, delisted: true })
+    withCart([...ITEMS, gone])
+    renderCover()
+    await vi.waitFor(() => expect(screen.getByText('빠진 촬영지')).toBeTruthy())
+    expect(screen.getAllByRole('button', { name: '마이맵에서 빼기' })).toHaveLength(ITEMS.length + 1)
+    // 흐린 줄은 누를 수 없다 — 그 줄을 감싼 칸에서 빼기 단추만 찾는다.
+    let line: HTMLElement | null = screen.getByText('빠진 촬영지')
+    while (line && !line.querySelector('button[aria-label="마이맵에서 빼기"]')) line = line.parentElement
+    expect(line?.closest('button'), '흐린 줄 자체는 단추가 아니다').toBeNull()
+    await act(async () => {
+      fireEvent.click(line!.querySelector('button[aria-label="마이맵에서 빼기"]')!)
+    })
+    expect(h.DELETE).toHaveBeenCalledWith('/cart/items/{placeId}', expect.objectContaining({ params: expect.objectContaining({ path: { placeId: gone.placeId } }) }))
+  })
+
+  it('영어 — Remove from My map', async () => {
+    chooseLanguage('en')
+    withCart(ITEMS)
+    renderCover()
+    await vi.waitFor(() => expect(screen.getAllByRole('button', { name: 'Remove from My map' })).toHaveLength(ITEMS.length))
   })
 })

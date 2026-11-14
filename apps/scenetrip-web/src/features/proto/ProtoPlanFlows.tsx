@@ -468,13 +468,13 @@ export function ProtoSavedPlan({ onClose, pickAll = false }: { onClose: () => vo
           label={say('넣을 곳', 'Places')}
           footnote={items.length + pois.length > 0
             ? say('넣을 곳을 골라 주세요. 가까운 곳끼리 날마다 나눠 넣고, 빼거나 순서를 바꾸는 건 다음 화면에서 할 수 있어요', 'Pick the places to include. We split them by day, nearest first — reorder on the next screen.')
-            : say('담아 둔 곳이 없어 빈 코스로 시작해요. 다음 화면에서 하나씩 넣으면 돼요', 'Nothing saved, so this starts empty. Add places on the next screen.')}
+            : say('마이맵에 담은 곳이 없어 빈 코스로 시작해요. 다음 화면에서 하나씩 넣으면 돼요', 'Nothing on My map, so this starts empty. Add places on the next screen.')}
         >
           {items.length + pois.length === 0 ? (
             <Row first pad="10px 14px">
               <HStack spacing={12} style={{ width: '100%' }}>
                 <Icon name="bag" size={20} color="secondary" />
-                <Txt size={15}>{say('담아 둔 곳', 'Saved places')}</Txt>
+                <Txt size={15}>{say('마이맵', 'My map')}</Txt>
                 <Spacer />
                 <Txt size={15} color="secondary">{say('0곳', '0')}</Txt>
               </HStack>

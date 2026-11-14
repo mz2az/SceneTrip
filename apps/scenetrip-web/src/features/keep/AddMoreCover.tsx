@@ -97,7 +97,7 @@ export function AddMoreCover({ onClose }: { onClose: () => void }): JSX.Element 
           <Icon name="chevron.left" size={20} weight="semibold" />
         </Pressable>
         <Txt as="h1" size={19} weight="bold" lines={1} style={{ margin: 0, flex: 1, minWidth: 0 }}>
-          {say(`내 지도 · ${count}곳`, `My map · ${spots(count)}`)}
+          {say(`마이맵 · ${count}곳`, `My map · ${spots(count)}`)}
         </Txt>
         <MyMapButton onPress={openMap} />
       </HStack>
@@ -106,7 +106,7 @@ export function AddMoreCover({ onClose }: { onClose: () => void }): JSX.Element 
       <div className="scroll-y" style={{ flex: 1, minHeight: 0, ...contained }}>
         <VStack spacing={26} align="stretch" style={{ padding: '6px 0 28px' }}>
           <Txt as="h2" size={26} weight="heavy" style={{ margin: 0, padding: '0 20px', letterSpacing: -0.4 }}>
-            {say('더 담아 볼까요?', 'Add more to your map')}
+            {say('더 담아 볼까요?', 'Add more to My map')}
           </Txt>
           <OtherWorks />
           <NearbyRows />
@@ -122,7 +122,7 @@ export function AddMoreCover({ onClose }: { onClose: () => void }): JSX.Element 
             </HStack>
           </Pressable>
           <Pressable plain onClick={openMap} style={{ width: '100%', minHeight: 44, display: 'grid', placeItems: 'center' }}>
-            <Txt size={15} weight="semibold" style={{ color: color.primaryText }}>{say('내 지도 보기', 'See my map')}</Txt>
+            <Txt size={15} weight="semibold" style={{ color: color.primaryText }}>{say('마이맵 보기', 'See My map')}</Txt>
           </Pressable>
         </VStack>
       </div>

@@ -74,7 +74,6 @@ export function useSearchTab(active = true, embedded = false) {
   const [focusToken, setFocusToken] = useState(0)
   const [panToken, setPanToken] = useState(0)
   const [panTarget, setPanTarget] = useState<PlaceSummary | null>(null)
-  const [showCart, setShowCart] = useState(false)
   const [nearby, setNearby] = useState(false)
   const [koreaToken, setKoreaToken] = useState(0)
   const [locateToken, setLocateToken] = useState(0)
@@ -511,7 +510,7 @@ export function useSearchTab(active = true, embedded = false) {
     draft, setDraft, committed, tab, setTab, chip, setChip, detent, setDetent,
     selectedPlace, selectedContent, contentPlaces, contentLoading, suggestions, topWork,
     fitToken, focusToken, panToken, panTarget, koreaToken, locateToken, setLocateToken,
-    showCart, setShowCart, nearby, locateFailure, setLocateFailure, outsideKorea, sheetHeight, setSheetHeight,
+    nearby, locateFailure, setLocateFailure, outsideKorea, sheetHeight, setSheetHeight,
     searchFocused, setSearchFocused, chipFillRetry, bumpChipFill: () => setChipFillRetry((n) => n + 1),
     camera, inputRef, initial, visiblePlaces, mapPlaces, numbered, location,
     commit, openContent, openPlace, save, toggleLike, selectPlaceSuggestion, closePlace, closeContent, clearSearch,

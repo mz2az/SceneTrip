@@ -8,7 +8,7 @@
  *   ② 「저기 어디야?」, 포스터가 안 왔으면 제목 카드, 오면 바꿔 끼운다. ③ 썸네일이 주머니로 — 수가 오른다, 사진이 안 온 것은 수만.
  *   ④ 「{N}곳, 전부 {도시}에 있어요!」 + 담기 + 「먼저 둘러볼게요」.
  *   화면을 누르면 rest + landing(id,'skip'). 「건너뛰기」 → onClose('skip') + landing(id,'skip')(§11).
- *   rest: onRest(). 「이 N곳 내 지도에 담기」 → addMany(전부, id, onProgress, 'landing'), 「담는 중… d/t」, 끝나면 onClose('kept').
+ *   rest: onRest(). 「이 N곳 마이맵에 담기」 → addMany(전부, id, onProgress, 'landing'), 「담는 중… d/t」, 끝나면 onClose('kept').
  *         실패가 있으면 남고 「남은 N곳도 담기」. 「먼저 둘러볼게요」 → onClose('browse') + browse. 담는 중에 걷히면 kept 를 부르지 않는다(§10-3-7).
  *   prefers-reduced-motion 이면 처음부터 rest.
  *
@@ -347,7 +347,7 @@ describe('네 박자 (§12)', () => {
     expect(document.querySelector('.st-film__hero')).not.toBeNull()
     expect(bodyText()).toContain('SceneTrip')
     expect(document.querySelector('.st-film__poster')).toBeNull()
-    expect(queryButtonWith('이 3곳 내 지도에 담기')).toBeNull()
+    expect(queryButtonWith('이 3곳 마이맵에 담기')).toBeNull()
   })
 
   it.each<[Lang, string]>([
@@ -362,7 +362,7 @@ describe('네 박자 (§12)', () => {
     expect(document.querySelector('.st-film__peek .st-film__head')).not.toBeNull()
     expect(document.querySelectorAll('.st-film__paw')).toHaveLength(2)
     expect(bodyText()).toContain(ask)
-    expect(queryButtonWith(lang === 'ko' ? '이 3곳 내 지도에 담기' : 'Keep these 3 on my map')).toBeNull()
+    expect(queryButtonWith(lang === 'ko' ? '이 3곳 마이맵에 담기' : 'Keep these 3 on My map')).toBeNull()
   })
 
   it('③ spill — 썸네일이 하나씩 튀어나오고(이름과 함께) 주머니의 수가 0 에서 N 까지 오른다', async () => {
@@ -384,8 +384,8 @@ describe('네 박자 (§12)', () => {
   })
 
   it.each<[Lang, string, string, string]>([
-    ['ko', '3곳, 전부 서울에 있어요!', '이 3곳 내 지도에 담기', '먼저 둘러볼게요'],
-    ['en', '3 places, all in Seoul!', 'Keep these 3 on my map', 'Just looking'],
+    ['ko', '3곳, 전부 서울에 있어요!', '이 3곳 마이맵에 담기', '먼저 둘러볼게요'],
+    ['en', '3 places, all in Seoul!', 'Keep these 3 on My map', 'Just looking'],
   ])('%s — ④ rest: 핀 든 해태 + 「%s」 + 주 단추·둘러보기, onRest', async (lang, line, keep, browse) => {
     chooseLanguage(lang)
     renderLanding()
@@ -411,8 +411,8 @@ describe('네 박자 (§12)', () => {
   })
 
   it.each<[Lang, string, string]>([
-    ['ko', '이 1곳 내 지도에 담기', '1곳, 서울에 있어요!'],
-    ['en', 'Keep this 1 on my map', '1 place, in Seoul!'],
+    ['ko', '이 1곳 마이맵에 담기', '1곳, 서울에 있어요!'],
+    ['en', 'Keep this 1 on My map', '1 place, in Seoul!'],
   ])('%s — 1곳이면 단수', async (lang, keep, line) => {
     chooseLanguage(lang)
     placesReply = placesN(1)
@@ -427,10 +427,10 @@ describe('화면 누르기·건너뛰기', () => {
   it('화면을 누르면 바로 rest 로, landing(id, skip) — 덮개는 그대로', async () => {
     renderLanding()
     await toDrop()
-    expect(queryButtonWith('이 3곳 내 지도에 담기')).toBeNull()
+    expect(queryButtonWith('이 3곳 마이맵에 담기')).toBeNull()
     fireEvent.click(document.querySelector('.st-landing')!)
     await advance(0)
-    expect(buttonWith('이 3곳 내 지도에 담기')).toBeTruthy()
+    expect(buttonWith('이 3곳 마이맵에 담기')).toBeTruthy()
     expect(hasLanding('skip')).toBe(true)
     expect(closes).toEqual([])
   })
@@ -472,7 +472,7 @@ describe('prefers-reduced-motion', () => {
     renderLanding()
     await advance(50)
     await advance(100)
-    expect(buttonWith('이 3곳 내 지도에 담기')).toBeTruthy()
+    expect(buttonWith('이 3곳 마이맵에 담기')).toBeTruthy()
     expect(document.querySelector('.st-film')?.hasAttribute('data-instant')).toBe(true)
     expect(document.querySelector('.st-film__thumb')).toBeNull()
   })
@@ -484,7 +484,7 @@ describe('담기', () => {
   it('addMany(전부, id, onProgress, landing) 를 부르고 landing(id, save)', async () => {
     renderLanding()
     await toRest()
-    fireEvent.click(buttonWith('이 3곳 내 지도에 담기'))
+    fireEvent.click(buttonWith('이 3곳 마이맵에 담기'))
     await advance(0)
     expect(addMany).toHaveBeenCalledTimes(1)
     const [ids, contentId, onProgress, source] = addMany.mock.calls[0]!
@@ -497,8 +497,8 @@ describe('담기', () => {
   })
 
   it.each<[Lang, string, string]>([
-    ['ko', '이 3곳 내 지도에 담기', '담는 중… 1/3'],
-    ['en', 'Keep these 3 on my map', 'Saving… 1/3'],
+    ['ko', '이 3곳 마이맵에 담기', '담는 중… 1/3'],
+    ['en', 'Keep these 3 on My map', 'Saving… 1/3'],
   ])('%s — 담는 동안 단추가 진행을 보인다', async (lang, keep, saving) => {
     chooseLanguage(lang)
     let progress: ((done: number, total: number) => void) | undefined
@@ -519,7 +519,7 @@ describe('담기', () => {
   it('끝나고 실패가 없으면 onClose(kept) — 「더 담기」 로', async () => {
     renderLanding()
     await toRest()
-    fireEvent.click(buttonWith('이 3곳 내 지도에 담기'))
+    fireEvent.click(buttonWith('이 3곳 마이맵에 담기'))
     await advance(0)
     await advance(0)
     expect(closes).toEqual(['kept'])
@@ -533,7 +533,7 @@ describe('담기', () => {
     })
     renderLanding()
     await toRest()
-    fireEvent.click(buttonWith('이 3곳 내 지도에 담기'))
+    fireEvent.click(buttonWith('이 3곳 마이맵에 담기'))
     await advance(0)
     await advance(0)
     expect(closes).toEqual([])
@@ -543,7 +543,7 @@ describe('담기', () => {
     expect(addMany).toHaveBeenCalledTimes(2)
   })
 
-  it('담긴 것부터 하나씩 「내 지도」 로 날아간다 — 실패한 곳은 날지 않는다(§10-3-9)', async () => {
+  it('담긴 것부터 하나씩 「마이맵」 로 날아간다 — 실패한 곳은 날지 않는다(§10-3-9)', async () => {
     let progress: ((done: number, total: number) => void) | undefined
     let finish: (v: { saved: number; already: number; failed: number }) => void = () => {}
     addMany.mockImplementation((_ids, _cid, onProgress) => {
@@ -553,7 +553,7 @@ describe('담기', () => {
     renderLanding()
     await toRest()
     const before = myMapLandStore.get()
-    fireEvent.click(buttonWith('이 3곳 내 지도에 담기'))
+    fireEvent.click(buttonWith('이 3곳 마이맵에 담기'))
     await advance(0)
     expect(myMapLandStore.get()).toBe(before)
     act(() => {
@@ -578,7 +578,7 @@ describe('담기', () => {
     addMany.mockImplementation(() => new Promise((resolve) => (finish = resolve)))
     renderLanding()
     await toRest()
-    fireEvent.click(buttonWith('이 3곳 내 지도에 담기'))
+    fireEvent.click(buttonWith('이 3곳 마이맵에 담기'))
     await advance(0)
     fireEvent.click(buttonWith('먼저 둘러볼게요'))
     await advance(0)
@@ -600,10 +600,10 @@ describe('먼저 둘러볼게요', () => {
     expect(addMany).not.toHaveBeenCalled()
   })
 
-  it('③ 의 「내 지도」 단추 → onClose(myMap)', async () => {
+  it('③ 의 「마이맵」 단추 → onClose(myMap)', async () => {
     renderLanding()
     await toRest()
-    fireEvent.click(screen.getByRole('button', { name: '내 지도' }))
+    fireEvent.click(screen.getByRole('button', { name: '마이맵' }))
     await advance(0)
     expect(closes).toEqual(['myMap'])
   })
