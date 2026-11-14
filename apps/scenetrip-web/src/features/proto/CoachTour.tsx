@@ -4,6 +4,7 @@
  * 안내마다 `id` 가 있고 한 번 끝까지 보거나 「건너뛰기」 하면 이 브라우저에서는 다시 띄우지 않는다(localStorage). 가리킬 버튼은 `data-coach`
  * 같은 선택자로 찾는다 — 화면 코드를 감싸지 않고 표식만 단다. 버튼이 아직 없으면(시트가 올라오는 중) 잠깐 기다리고, 끝내 없으면 그 단계를 건너뛴다.
  */
+import { track, webEvent } from '@/analytics'
 import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Txt } from '@/design/primitives'
@@ -80,7 +81,11 @@ export function CoachTour({ id, steps, active, delay = 500 }: { id: string; step
     let t = 0
     const tryStart = () => {
       if (document.querySelector('.proto-coach-bubble')) t = window.setTimeout(tryStart, 400)
-      else setIndex(0)
+      else {
+        // 사용법 안내가 시작됐다 — 웹 전용 coach_tour(공통 tutorial_* 와 뜻이 달라 따로, web-proto-events.md).
+        track(webEvent.coachTour(id, 'begin'))
+        setIndex(0)
+      }
     }
     t = window.setTimeout(tryStart, delay)
     return () => window.clearTimeout(t)
@@ -95,7 +100,14 @@ export function CoachTour({ id, steps, active, delay = 500 }: { id: string; step
     markSeen(id)
     setIndex(null)
   }
-  const next = () => setIndex((i) => (i === null ? null : i + 1 < steps.length ? i + 1 : (markSeen(id), null)))
+  const next = () => {
+    if (index === null) return
+    if (index + 1 < steps.length) return setIndex(index + 1)
+    // 마지막 단계까지 봤다 — 건너뛰기는 세지 않는다.
+    markSeen(id)
+    track(webEvent.coachTour(id, 'complete'))
+    setIndex(null)
+  }
 
   // 가리킬 요소의 자리를 계속 따라간다 — 시트가 올라오거나 화면이 움직여도 말풍선이 붙어 있게.
   useLayoutEffect(() => {

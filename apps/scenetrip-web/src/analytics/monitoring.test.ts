@@ -121,7 +121,7 @@ describe('PostHog', () => {
     await flush()
     const [key, opt] = ph.init.mock.calls[0] as [string, Record<string, unknown>]
     expect(key).toBe('phc_test')
-    expect(opt).toMatchObject({ api_host: DEFAULT_HOST, autocapture: false, capture_pageview: false, disable_session_recording: true, person_profiles: 'identified_only', ip: false })
+    expect(opt).toMatchObject({ api_host: DEFAULT_HOST, autocapture: false, capture_pageview: false, disable_session_recording: true, person_profiles: 'always', ip: false })
     expect(ph.capture.mock.calls).toEqual([['select_language', { language: 'ko' }], ['view_title', { content_id: 7 }]])
   })
 

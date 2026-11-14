@@ -36,7 +36,7 @@ export function ProfileHeader({ onEditNickname }: { onEditNickname: () => void }
           <Pressable
             plain
             disabled={busy}
-            onClick={accountActions.openSignIn}
+            onClick={() => accountActions.openSignInFor(null, 'profile')}
             style={{ marginTop: 3.5, padding: '7px 22px', borderRadius: 20, background: 'var(--accent)', opacity: busy ? 0.5 : 1 }}
           >
             <Txt size={15} weight="semibold" color="white" style={{ lineHeight: '19px' }}>{tr('로그인')}</Txt>

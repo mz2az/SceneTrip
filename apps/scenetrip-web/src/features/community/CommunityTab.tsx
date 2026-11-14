@@ -65,7 +65,7 @@ export function CommunityTab() {
   const proto = useStore(protoStore, (p) => protoAvailable && p.proto !== null)
   const [board, setBoard] = useState<Board>('review')
   const [query, setQuery] = useState<string | null>(null)
-  const onCompose = () => (signedIn || proto ? navigate(paths.communityCompose) : promptSignIn(say('글을 쓰려면 로그인이 필요해요', 'Sign in to write a post')))
+  const onCompose = () => (signedIn || proto ? navigate(paths.communityCompose) : promptSignIn(say('글을 쓰려면 로그인이 필요해요', 'Sign in to write a post'), 'compose'))
   const allRows = useMemo(() => store.posts.map(postFromSummary), [store.posts])
   const rows = allRows
   // 게시판·검색어는 서버가 거른다(1.24.0, MZ2AZ-538). 검색어는 2자부터, 입력이 0.35초 멈추면. 탭을 떠나면 조건을 지운다 — 홈 「커뮤니티 지금」 도

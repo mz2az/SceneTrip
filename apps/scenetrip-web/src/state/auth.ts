@@ -8,6 +8,7 @@
  * 이 파일은 api/client 가 읽는 낮은 층이다 — api 를 부르지 않는다(순환을 피한다). 로그인·갱신·로그아웃 흐름은
  * features/profile/auth/ 가 하고, 401 처리에 필요한 갈고리(`authHooks`)만 여기서 받아 둔다.
  */
+import type { SignInPromptKey } from '@/analytics/events'
 import { createStore, readJSON, removeStorage, useStore, writeJSON } from './storage'
 
 /** 로그인·갱신 응답이 준 토큰 묶음 — 계약 `AuthSession` 의 토큰 부분. */
@@ -142,8 +143,9 @@ export const authHooks: AuthHooks = { refresh: null, loseSession: null }
 // iOS `AuthStore.shared.promptSignIn()` — 가입 전용 기능을 비회원이 부르면 어디서든 로그인 시트를 올려 달라고 부탁한다.
 // 시트 자체는 features/profile/RootSheets.tsx 가 그린다.
 // `reason` 은 「왜 로그인해야 하나」 한 줄 — 시트의 기본 설명 자리에 보인다(MZ2AZ-551). 없으면 기본 설명.
-export const signInPromptStore = createStore<{ requested: boolean; reason: string | null }>({ requested: false, reason: null })
-export const promptSignIn = (reason?: string | null): void => {
-  if (!hasSession()) signInPromptStore.set({ requested: true, reason: reason ?? null })
+// `key` 는 언어와 무관한 이유 열쇠 — 분석 이벤트 `sign_in_prompt` 에 실린다(web-proto-events.md §2-2). 없으면 `other`.
+export const signInPromptStore = createStore<{ requested: boolean; reason: string | null; key: SignInPromptKey | null }>({ requested: false, reason: null, key: null })
+export const promptSignIn = (reason?: string | null, key?: SignInPromptKey): void => {
+  if (!hasSession()) signInPromptStore.set({ requested: true, reason: reason ?? null, key: key ?? null })
 }
-export const dismissSignInPrompt = (): void => signInPromptStore.set({ requested: false, reason: null })
+export const dismissSignInPrompt = (): void => signInPromptStore.set({ requested: false, reason: null, key: null })

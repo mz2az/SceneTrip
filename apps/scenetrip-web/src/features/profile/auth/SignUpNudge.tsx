@@ -42,7 +42,7 @@ export function SignUpNudge({ onHome, protoOn = false }: { onHome: boolean; prot
 
   const onOpen = () => {
     track(webEvent.signupNudgeClick(trigger))
-    accountActions.openSignIn()
+    accountActions.openSignInFor(null, 'nudge')
   }
   const onDismiss = () => {
     dismiss(trigger)

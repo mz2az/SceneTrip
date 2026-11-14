@@ -38,7 +38,7 @@ export function MyPostsSheet({ open, onClose }: { open: boolean; onClose: () => 
         <div style={{ marginTop: -2 }} />
         {store.message && <Txt as="div" size={13} color="red" style={{ padding: `10px ${PLAIN_LIST_PAD}px` }}>{store.message}</Txt>}
         {!signedIn && (
-          <PlainRow onClick={() => promptSignIn(say('내가 쓴 글을 보려면 로그인이 필요해요', 'Sign in to see your posts'))}>
+          <PlainRow onClick={() => promptSignIn(say('내가 쓴 글을 보려면 로그인이 필요해요', 'Sign in to see your posts'), 'my_posts')}>
             <Txt size={17} kerning={PLAIN_TEXT_KERNING}>{tr('로그인')}</Txt>
           </PlainRow>
         )}
