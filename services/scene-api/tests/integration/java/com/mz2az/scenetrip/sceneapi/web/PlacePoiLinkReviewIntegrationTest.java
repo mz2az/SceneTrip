@@ -132,7 +132,7 @@ class PlacePoiLinkReviewIntegrationTest {
     link(toHidden, hiddenPlace);
 
     List<PoiSummary> items =
-        pois.listPois(Lang.KO, BBOX, null, null, null, null, null, null, null, 200, 0)
+        pois.listPois(Lang.KO, BBOX, null, null, null, null, null, null, null, null, null, 200, 0)
             .getBody()
             .getItems();
 

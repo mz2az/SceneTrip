@@ -43,9 +43,11 @@ SceneTrip 앱의 **검색·지도 탭**과 **경로여정 탭**을 받치는 백
 | `GET /v1/app/versions` | 앱 최소·최신 버전(로그인 없음, 5분 캐시). 값은 `scenetrip.app-versions` 설정 — 새 앱을 내면 숫자를 고쳐 배포 |
 | `GET /v1/places/cities` | 도시별 촬영지 수·가운데·범위 — 홈 도시 칸. 도시는 한국어 주소로 정한다(`place/CityRules`, 웹 `homeCities.ts` 와 같은 규칙) |
 | `GET /v1/places/{placeId}` | 촬영지 상세 |
-| `GET /v1/cart` | 장바구니 조회 |
+| `GET /v1/cart` | 장바구니 조회. 촬영지는 `items`, 담은 편의시설은 `pois`(1.31.0, 담은 순서·폐업은 `closed`) |
 | `POST /v1/cart/items` | 장바구니에 담기 |
 | `DELETE /v1/cart/items/{placeId}` | 장바구니에서 빼기 |
+| `POST /v1/cart/pois` | 편의시설 담기(1.31.0) — 표 `saved_poi`(V49). 촬영지와 이어진 편의시설(`place_poi_link`, 숨긴 촬영지 제외)은 `saved_place` 에 촬영지로 담긴다. 없거나 폐업이면 `404 POI_NOT_FOUND`, 이미 담겼으면 `409` |
+| `DELETE /v1/cart/pois/{poiId}` | 담은 편의시설 빼기(폐업한 것도) |
 | `GET /v1/courses` | 내 코스 목록. 여행 중이 위, 예정이 아래 |
 | `POST /v1/courses` | 코스 만들기. **받는 것은 기간과 만든 방식뿐** |
 | `GET /v1/courses/{courseId}` | 코스 상세 — 일차·장소·하루 소요 시간 |

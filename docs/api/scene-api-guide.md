@@ -182,6 +182,19 @@ DELETE /v1/cart/items/{placeId}
 
 같은 장소를 두 번 담으면 **409** 다. 이때 "이미 저장된 장소입니다" 토스트를 띄운다.
 
+편의시설도 담을 수 있다(1.31.0). `GET /v1/cart` 의 `items` 에는 섞이지 않고 `pois`·`poiCount`
+로 따로 온다(담은 순서, 폐업한 곳은 `closed: true`). 각 항목의 `imageUrl` 은 편의시설 상세가 주는
+사진의 첫 장이고 없으면 `null` 이다 — `GET /v1/pois` 의 항목도 같고, `hasImage=true` 면 사진이 있는 것만 온다.
+
+```
+POST   /v1/cart/pois           { "poiId": 1234 }
+DELETE /v1/cart/pois/{poiId}
+```
+
+촬영지와 같은 곳인 편의시설(`PoiSummary.placeId` 가 있다)은 서버가 **촬영지로** 담는다 — 응답의
+`placeId` 가 채워지고 다음 `GET /v1/cart` 에서는 `items` 에 나온다. 없거나 폐업한 편의시설은
+`404 POI_NOT_FOUND`, 이미 담았으면(이어진 촬영지가 이미 담겨 있어도) `409 DUPLICATE_CART_ITEM`.
+
 ---
 
 ## 3. v1 응답에 없는 것

@@ -16,12 +16,12 @@ import org.springframework.stereotype.Repository;
  *
  * <h2>합치기</h2>
  *
- * <p>비회원 G 를 가입 계정 X 로 합친다. 옮기는 표는 MZ2AZ-256 이 정한 넷이다.
+ * <p>비회원 G 를 가입 계정 X 로 합친다. 옮기는 표는 MZ2AZ-256 이 정한 넷에 담은 편의시설(1.31.0)이 더해졌다.
  *
  * <ul>
  *   <li>{@code course} — 주인만 바꾼다. 아이템·직접 찍은 핀은 코스에 매달려 따라온다.
- *   <li>{@code saved_place} · {@code saved_content} — 「누가 무엇을」 이 기본키라 양쪽에 같은 것이 있으면 겹친다. X 에 없는 것만
- *       옮기고 G 쪽은 지운다.
+ *   <li>{@code saved_place} · {@code saved_poi}(1.31.0) · {@code saved_content} — 「누가 무엇을」 이 기본키라
+ *       양쪽에 같은 것이 있으면 겹친다. X 에 없는 것만 옮기고 G 쪽은 지운다.
  *   <li>{@code user_device} — G 를 가리키던 설치본이 X 를 가리키게 한다.
  * </ul>
  *
@@ -60,6 +60,15 @@ public class AccountLinkStore {
       INSERT INTO saved_place (user_id, place_id, source_content_id, created_at)
       SELECT CAST(:to AS UUID), place_id, source_content_id, created_at
       FROM saved_place WHERE user_id = CAST(:from AS UUID)
+      ON CONFLICT DO NOTHING
+      """;
+
+  /** 담은 편의시설(1.31.0) — {@link #COPY_PLACES_SQL} 와 같은 규칙: X 에 없는 것만 옮긴다(겹치면 X 의 것 하나만 남는다). */
+  private static final String COPY_POIS_SQL =
+      """
+      INSERT INTO saved_poi (user_id, poi_id, created_at)
+      SELECT CAST(:to AS UUID), poi_id, created_at
+      FROM saved_poi WHERE user_id = CAST(:from AS UUID)
       ON CONFLICT DO NOTHING
       """;
 
@@ -275,7 +284,7 @@ public class AccountLinkStore {
   }
 
   /**
-   * 코스·장바구니·찜·정한 여행을 옮긴다. 여러 번 불러도 같은 결과다.
+   * 코스·장바구니(촬영지·편의시설)·찜·정한 여행을 옮긴다. 여러 번 불러도 같은 결과다.
    *
    * @return {@code from} 에서 빠진 행 수 — 옮겨졌든 {@code to} 에 이미 있어 버려졌든. 「빈 행에 무언가 있었다」 를 세는 것이라 복사된 수가
    *     아니라 지운 수로 센다
@@ -287,6 +296,11 @@ public class AccountLinkStore {
     jdbc.sql(COPY_PLACES_SQL).param("from", f).param("to", t).update();
     moved +=
         jdbc.sql("DELETE FROM saved_place WHERE user_id = CAST(:from AS UUID)")
+            .param("from", f)
+            .update();
+    jdbc.sql(COPY_POIS_SQL).param("from", f).param("to", t).update();
+    moved +=
+        jdbc.sql("DELETE FROM saved_poi WHERE user_id = CAST(:from AS UUID)")
             .param("from", f)
             .update();
     jdbc.sql(COPY_CONTENTS_SQL).param("from", f).param("to", t).update();
