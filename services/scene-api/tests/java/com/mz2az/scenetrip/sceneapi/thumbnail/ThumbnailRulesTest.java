@@ -113,11 +113,12 @@ class ThumbnailRulesTest {
     }
 
     @Test
-    @DisplayName("임시 자리·장면 사진·모르는 자리는 거절한다 — uploads/tmp/, scene/, content/, 접두사 없음, 비슷한 이름")
+    // 장면 사진(scene/)은 1.32.0 부터 작은 판을 만든다(web-ad-landing.md §10-2) — SceneThumbnailsTest 가 본다.
+    @DisplayName("임시 자리·모르는 자리는 거절한다 — uploads/tmp/, content/, 접두사 없음, 비슷한 이름")
     void rejectsOtherPrefixes() {
       for (String key :
           new String[] {
-            "uploads/tmp/a.jpg", "scene/mv1/a.png", "content/a.jpg", "a.jpg", "postsX/a.jpg", ""
+            "uploads/tmp/a.jpg", "content/a.jpg", "a.jpg", "postsX/a.jpg", "sceneX/a.png", ""
           }) {
         assertThatThrownBy(() -> ThumbnailRules.thumbnailKey(key))
             .as(key)

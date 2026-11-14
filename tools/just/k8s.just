@@ -273,6 +273,7 @@ place-poi-link *flags:
 # 촬영지 사진의 작은 사진(긴 변 720 JPEG, MZ2AZ-561) — 기본은 미리 보기(올릴 목록·경로만, 망·AWS 없음).
 # `--sample-dir DIR` 은 앞 20 장을 받아 줄인 결과를 그 폴더에만 쓴다(실측). `--upload` 는 사람의 AWS 자격으로 공용 버킷
 # place/thumb-720/ 에 덮어쓰기 없이 올리고 seed/place_image_thumbnails.tsv 를 쓴다 — 사용자 승인 뒤에만(계획 photo-thumbnails.md §8-3).
+# `--scene` 을 붙이면 장면 사진(scene/…)을 같은 방식으로 scene/thumb-720/ 에, 결과는 seed/scene_image_thumbnails.tsv(계약 1.32.0).
 [group('db')]
 place-thumbnails *flags:
     {{BAZEL}} run //services/scene-api:place_thumbnails -- {{ flags }}

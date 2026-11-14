@@ -39,8 +39,9 @@ say "① 촬영지 — candidates.csv"
 cp "$DATA/seed/candidates.csv" "$TMP/seed-input.csv"
 cp "$DATA/seed/place_image_credits.tsv" "$TMP/place-image-credits.tsv"
 cp "$DATA/seed/place_image_thumbnails.tsv" "$TMP/place-image-thumbnails.tsv"
+cp "$DATA/seed/scene_image_thumbnails.tsv" "$TMP/scene-image-thumbnails.tsv"
 run -f "$DATA/seed/candidates.sql" || fail "촬영지 적재"
-rm -f "$TMP/seed-input.csv" "$TMP/place-image-credits.tsv" "$TMP/place-image-thumbnails.tsv"
+rm -f "$TMP/seed-input.csv" "$TMP/place-image-credits.tsv" "$TMP/place-image-thumbnails.tsv" "$TMP/scene-image-thumbnails.tsv"
 
 existing=$(q -c "SELECT count(*) FROM poi")
 update=0
