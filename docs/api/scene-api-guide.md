@@ -154,6 +154,10 @@ GET /v1/search/suggestions?q=gob
 `null` 이면 자리를 비우고 설명만 보여 준다** — 포스터로 대신 채우면 사용자가
 그것을 장면 사진으로 읽는다.
 
+작은 칸·목록에는 장면 사진의 작은 판(긴 변 720px JPEG)을 쓴다(1.32.0) — `scenes[].sceneImageThumbnailUrls`(원본과 같은
+순서·길이, 작은 판이 없는 장은 원본)·`sceneImageThumbnailUrl`(첫 장), `GET /v1/contents/{id}/places` 항목의
+`sceneImageThumbnailUrl`(그 작품 장면 첫 장). 촬영지의 한국어 이름은 `nameKo`(`PlaceSummary`·`CartItem`, 요청 언어와 무관).
+
 장면 스틸의 저작권 판단은 아직 끝나지 않았다. 지금 넣기로 한 근거와 되돌리는
 조건은 [ADR 0007](../architecture/adr/0007-scene-still-images-pending-rights.md).
 

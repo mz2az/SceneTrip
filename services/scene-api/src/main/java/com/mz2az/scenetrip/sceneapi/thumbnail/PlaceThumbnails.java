@@ -8,12 +8,13 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * 촬영지 사진의 작은 사진 — {@code just place-thumbnails} 도구의 순수한 부분(계획 {@code photo-thumbnails.md} §2-1·§3,
- * MZ2AZ-561). 내려받기·올리기는 {@link PlaceThumbnailsTool} 이 한다.
+ * 촬영지 사진·장면 사진의 작은 사진 — {@code just place-thumbnails} 도구의 순수한 부분(계획 {@code photo-thumbnails.md}
+ * §2-1·§3·「장면 사진」, MZ2AZ-561, 계약 1.32.0). 내려받기·올리기는 {@link PlaceThumbnailsTool} 이 한다.
  *
- * <p>대상은 공용 버킷 {@code scenetrip-media-prod} 의 {@code place/…} 사진뿐이다 — 장면 스틸({@code scene/…})·관광공사 등
- * 바깥 주소는 아니다. 작은 사진은 같은 버킷 {@code place/thumb-720/<place/ 뒤 경로, 확장자 .jpg>} 에 덮어쓰기 없이 올리고, 결과는
- * {@code seed/place_image_thumbnails.tsv}({@link #TSV_HEADER})에 적는다.
+ * <p>대상은 공용 버킷 {@code scenetrip-media-prod} 의 사진뿐이다 — 관광공사 등 바깥 주소는 아니다. {@link Source} 가 어느 사진인지
+ * 정한다: 촬영지 사진({@code place/…}, CSV {@code place_image_url})과 장면 사진({@code scene/…}, CSV {@code
+ * scene_image_url}). 작은 사진은 같은 버킷 {@code <자리>/thumb-720/<자리 뒤 경로, 확장자 .jpg>} 에 덮어쓰기 없이 올리고, 결과는
+ * 자리마다의 TSV({@link #TSV_HEADER})에 적는다. 인자 하나짜리 메서드는 촬영지 사진이다.
  */
 public final class PlaceThumbnails {
 
@@ -26,18 +27,56 @@ public final class PlaceThumbnails {
   /** 결과 TSV 의 머리줄. */
   public static final String TSV_HEADER = "url\tthumbnail_url";
 
-  private static final String PLACE = "place/";
-
   private PlaceThumbnails() {}
 
-  /** 원본 사진 주소의 작은 사진 키. 대상이 아니면(바깥 주소·장면 사진·이미 작은 사진·빈 값) 비어 있다. */
+  /** 어느 사진의 작은 사진인가 — 버킷 안 자리, CSV 칸, 결과 TSV. */
+  public enum Source {
+    /** 촬영지 사진 — {@code place_image.thumbnail_url}(V42)로 적재된다. */
+    PLACE("place/", "place_image_url", "services/scene-api/seed/place_image_thumbnails.tsv"),
+    /** 장면 사진 — {@code place_content_image.thumbnail_url}(V50)로 적재된다. */
+    SCENE("scene/", "scene_image_url", "services/scene-api/seed/scene_image_thumbnails.tsv");
+
+    private final String prefix;
+    private final String column;
+    private final String tsv;
+
+    Source(String prefix, String column, String tsv) {
+      this.prefix = prefix;
+      this.column = column;
+      this.tsv = tsv;
+    }
+
+    /** 버킷 안 자리(끝에 /). */
+    public String prefix() {
+      return prefix;
+    }
+
+    /** 원본 주소가 있는 {@code seed/candidates.csv} 의 칸({@code ;} 로 나뉜 목록). */
+    public String column() {
+      return column;
+    }
+
+    /** 결과 TSV 의 저장소 안 경로. */
+    public String tsv() {
+      return tsv;
+    }
+  }
+
+  /** 촬영지 사진 주소의 작은 사진 키. 대상이 아니면(바깥 주소·장면 사진·이미 작은 사진·빈 값) 비어 있다. */
   public static Optional<String> thumbnailKey(String url) {
+    return thumbnailKey(Source.PLACE, url);
+  }
+
+  /** 그 자리 원본 사진 주소의 작은 사진 키. 대상이 아니면(바깥 주소·다른 자리·이미 작은 사진·빈 값) 비어 있다. */
+  public static Optional<String> thumbnailKey(Source source, String url) {
     if (url == null || !url.startsWith(ORIGIN)) {
       return Optional.empty();
     }
     String key = url.substring(ORIGIN.length());
     // 주소 꼴 그대로 키로 쓴다 — 인코딩·질의가 섞인 주소는 키와 어긋날 수 있어 건드리지 않는다(지금 자료에는 없다).
-    if (!key.startsWith(PLACE) || ThumbnailRules.isThumbnailKey(key) || hasUrlSyntax(key)) {
+    if (!key.startsWith(source.prefix())
+        || ThumbnailRules.isThumbnailKey(key)
+        || hasUrlSyntax(key)) {
       return Optional.empty();
     }
     try {
@@ -47,9 +86,14 @@ public final class PlaceThumbnails {
     }
   }
 
-  /** 원본 사진 주소의 작은 사진 공개 주소. 대상이 아니면 비어 있다. */
+  /** 촬영지 사진 주소의 작은 사진 공개 주소. 대상이 아니면 비어 있다. */
   public static Optional<String> thumbnailUrl(String url) {
-    return thumbnailKey(url).map(k -> ORIGIN + k);
+    return thumbnailUrl(Source.PLACE, url);
+  }
+
+  /** 그 자리 원본 사진 주소의 작은 사진 공개 주소. 대상이 아니면 비어 있다. */
+  public static Optional<String> thumbnailUrl(Source source, String url) {
+    return thumbnailKey(source, url).map(k -> ORIGIN + k);
   }
 
   /** 원본 주소의 저장소 키 — {@link #thumbnailKey} 가 대상으로 본 주소에만 부른다. */
@@ -75,10 +119,16 @@ public final class PlaceThumbnails {
    * 대상 주소 — 우리 촬영지 사진만, 중복 없이, 처음 나온 순서로. 작은 사진 키가 이미 {@code existingKeys} 에 있으면 건너뛴다(덮어쓰지 않는다).
    */
   public static List<String> pending(Collection<String> urls, Set<String> existingKeys) {
+    return pending(Source.PLACE, urls, existingKeys);
+  }
+
+  /** {@link #pending(Collection, Set)} 의 자리 지정판 — 그 자리 사진만. */
+  public static List<String> pending(
+      Source source, Collection<String> urls, Set<String> existingKeys) {
     Set<String> seen = new LinkedHashSet<>();
     List<String> out = new ArrayList<>();
     for (String url : urls) {
-      Optional<String> key = thumbnailKey(url);
+      Optional<String> key = thumbnailKey(source, url);
       if (key.isEmpty() || !seen.add(url) || existingKeys.contains(key.get())) {
         continue;
       }

@@ -30,11 +30,15 @@ STAGED_CREDITS="/tmp/place-image-credits.tsv"
 # 우리 촬영지 사진의 작은 사진(MZ2AZ-561) — 같은 규칙. candidates.sql 이 출처 뒤에, 비어 있는 줄만 채운다.
 THUMBNAILS="services/scene-api/seed/place_image_thumbnails.tsv"
 STAGED_THUMBNAILS="/tmp/place-image-thumbnails.tsv"
+# 장면 사진의 작은 판(계약 1.32.0, V50) — 같은 규칙. candidates.sql 이 이번에 넣은 장면 사진 줄의 빈 칸만 채운다.
+SCENE_THUMBNAILS="services/scene-api/seed/scene_image_thumbnails.tsv"
+STAGED_SCENE_THUMBNAILS="/tmp/scene-image-thumbnails.tsv"
 
 [ -f "$CSV" ] || die "CSV 를 찾을 수 없습니다: $CSV
        인자 없이 실행하면 저장소의 성지후보($SAMPLE)를 넣습니다."
 [ -f "$TRANSFORM" ] || die "변환 SQL 이 없습니다: $TRANSFORM"
 [ -f "$THUMBNAILS" ] || die "작은 사진 목록이 없습니다: $THUMBNAILS"
+[ -f "$SCENE_THUMBNAILS" ] || die "장면 사진 작은 판 목록이 없습니다: $SCENE_THUMBNAILS"
 
 # 붙는 길이 둘이다 (ADR 0005).
 #
@@ -78,7 +82,8 @@ if [ -n "$DIRECT" ]; then
   cp "$CSV" "$STAGED_CSV" || die "CSV 를 $STAGED_CSV 로 놓지 못했습니다"
   cp "$CREDITS" "$STAGED_CREDITS" || die "사진 출처를 $STAGED_CREDITS 로 놓지 못했습니다"
   cp "$THUMBNAILS" "$STAGED_THUMBNAILS" || die "작은 사진 목록을 $STAGED_THUMBNAILS 로 놓지 못했습니다"
-  cleanup() { rm -f "$STAGED_CSV" "$STAGED_CREDITS" "$STAGED_THUMBNAILS"; }
+  cp "$SCENE_THUMBNAILS" "$STAGED_SCENE_THUMBNAILS" || die "장면 사진 작은 판 목록을 $STAGED_SCENE_THUMBNAILS 로 놓지 못했습니다"
+  cleanup() { rm -f "$STAGED_CSV" "$STAGED_CREDITS" "$STAGED_THUMBNAILS" "$STAGED_SCENE_THUMBNAILS"; }
   trap cleanup EXIT
 
   log "변환 실행 — $DB_HOST:$DB_PORT/$DB_NAME"
@@ -90,8 +95,9 @@ else
   kubectl cp "$CSV" "$NAMESPACE/$POD:$STAGED_CSV" || die "CSV 복사 실패"
   kubectl cp "$CREDITS" "$NAMESPACE/$POD:$STAGED_CREDITS" || die "사진 출처 복사 실패"
   kubectl cp "$THUMBNAILS" "$NAMESPACE/$POD:$STAGED_THUMBNAILS" || die "작은 사진 목록 복사 실패"
+  kubectl cp "$SCENE_THUMBNAILS" "$NAMESPACE/$POD:$STAGED_SCENE_THUMBNAILS" || die "장면 사진 작은 판 목록 복사 실패"
 
-  cleanup() { kubectl exec "$POD" -n "$NAMESPACE" -- rm -f "$STAGED_CSV" "$STAGED_CREDITS" "$STAGED_THUMBNAILS" >/dev/null 2>&1 || true; }
+  cleanup() { kubectl exec "$POD" -n "$NAMESPACE" -- rm -f "$STAGED_CSV" "$STAGED_CREDITS" "$STAGED_THUMBNAILS" "$STAGED_SCENE_THUMBNAILS" >/dev/null 2>&1 || true; }
   trap cleanup EXIT
 
   log "변환 실행"

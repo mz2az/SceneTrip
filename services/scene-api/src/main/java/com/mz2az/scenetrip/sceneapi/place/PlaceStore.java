@@ -14,6 +14,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -230,6 +231,9 @@ public class PlaceStore {
           (SELECT pim.thumbnail_url FROM place_image pim
             WHERE pim.place_id = p.id
             ORDER BY pim.sort_order, pim.id LIMIT 1) AS image_thumbnail_url,
+          -- 한국어 이름(1.32.0) — 요청 언어와 무관하게. 기본키(place_id, lang) 한 번 찾기다.
+          (SELECT k.name FROM place_i18n k
+            WHERE k.place_id = p.id AND k.lang = 'ko') AS name_ko,
           CASE WHEN o.point IS NULL THEN NULL
                ELSE round(ST_Distance(p.geom, o.point))::INT END AS distance_meters,
           count(*) OVER () AS total_count
@@ -372,7 +376,11 @@ public class PlaceStore {
              -- 장면 스틸 — 한 장이 한 줄(V33, MZ2AZ-429). 보여 줄 순서대로 묶는다. 없으면 빈 배열.
              ARRAY(SELECT pci.url FROM place_content_image pci
                    WHERE pci.place_content_id = pc.id
-                   ORDER BY pci.sort_order, pci.id) AS scene_image_urls
+                   ORDER BY pci.sort_order, pci.id) AS scene_image_urls,
+             -- 같은 순서의 작은 판(1.32.0, V50). 없는 장은 그 자리에 원본 — 두 배열은 길이가 같다.
+             ARRAY(SELECT COALESCE(pci.thumbnail_url, pci.url) FROM place_content_image pci
+                   WHERE pci.place_content_id = pc.id
+                   ORDER BY pci.sort_order, pci.id) AS scene_image_thumbnail_urls
       FROM place_content pc
       JOIN content c ON c.id = pc.content_id
       JOIN display d ON d.content_id = c.id
@@ -380,6 +388,20 @@ public class PlaceStore {
       WHERE pc.place_id = :id
         AND c.hidden_at IS NULL
       ORDER BY c.popularity_score DESC, c.id DESC
+      """;
+
+  /**
+   * 그 작품의 그 촬영지 장면 첫 장의 작은 판(1.32.0) — 작은 판이 없으면 원본. 작품을 특정한 목록({@code GET
+   * /contents/{id}/places})에서만, 이미 고른 페이지의 촬영지에만 부른다.
+   */
+  private static final String FIRST_SCENE_THUMBNAIL_SQL =
+      """
+      SELECT pc.place_id,
+             (SELECT COALESCE(pci.thumbnail_url, pci.url) FROM place_content_image pci
+               WHERE pci.place_content_id = pc.id
+               ORDER BY pci.sort_order, pci.id LIMIT 1) AS thumb
+      FROM place_content pc
+      WHERE pc.content_id = :contentId AND pc.place_id IN (:placeIds)
       """;
 
   /** 상세와 그것이 실제로 나온 언어. 없으면 {@link Optional#empty()}. */
@@ -420,12 +442,18 @@ public class PlaceStore {
             .param("lang", lang.getValue())
             .query(
                 (rs, rowNum) -> {
-                  List<URI> stills = sceneImages(rs.getArray("scene_image_urls"));
-                  return new Scene(rs.getLong("content_id"), rs.getString("title"), stills)
+                  SceneStills stills =
+                      sceneStills(
+                          rs.getArray("scene_image_urls"),
+                          rs.getArray("scene_image_thumbnail_urls"));
+                  return new Scene(rs.getLong("content_id"), rs.getString("title"), stills.full())
                       .posterUrl(uri(rs.getString("poster_url")))
                       .producerUrl(uri(rs.getString("producer_url")))
                       .sceneDescription(rs.getString("relation_description"))
-                      .sceneImageUrl(stills.isEmpty() ? null : stills.get(0));
+                      .sceneImageUrl(stills.full().isEmpty() ? null : stills.full().get(0))
+                      .sceneImageThumbnailUrls(stills.thumbnails())
+                      .sceneImageThumbnailUrl(
+                          stills.thumbnails().isEmpty() ? null : stills.thumbnails().get(0));
                 })
             .list());
 
@@ -656,11 +684,32 @@ public class PlaceStore {
             })
         .list();
 
+    Map<Long, URI> sceneThumbByPlace =
+        contentId == null ? Map.of() : firstSceneThumbnails(contentId, placeIds);
+
     for (Row row : rows) {
       long id = row.summary().getId();
       row.summary().setContents(byPlace.getOrDefault(id, List.of()));
       row.summary().setSceneDescription(sceneByPlace.get(id));
+      row.summary().setSceneImageThumbnailUrl(sceneThumbByPlace.get(id));
     }
+  }
+
+  private Map<Long, URI> firstSceneThumbnails(long contentId, List<Long> placeIds) {
+    Map<Long, URI> out = new HashMap<>();
+    jdbc.sql(FIRST_SCENE_THUMBNAIL_SQL)
+        .param("contentId", contentId)
+        .param("placeIds", placeIds)
+        .query(
+            (rs, rowNum) -> {
+              URI thumb = uri(rs.getString("thumb"));
+              if (thumb != null) {
+                out.put(rs.getLong("place_id"), thumb);
+              }
+              return null;
+            })
+        .list();
+    return out;
   }
 
   private static Row mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -674,8 +723,33 @@ public class PlaceStore {
             .address(rs.getString("address"))
             .imageUrl(uri(rs.getString("image_url")))
             .imageThumbnailUrl(uri(rs.getString("image_thumbnail_url")))
+            .nameKo(rs.getString("name_ko"))
             .distanceMeters(integerOrNull(rs, "distance_meters"));
     return new Row(summary, rs.getInt("total_count"), Lang.fromValue(rs.getString("shown_lang")));
+  }
+
+  /** 장면 스틸과 같은 길이·순서의 작은 판. */
+  record SceneStills(List<URI> full, List<URI> thumbnails) {}
+
+  /**
+   * 장면 스틸과 그 작은 판(SQL {@code ARRAY(...)} 둘, 같은 순서) — 원본이 주소가 아닌 장은 두 배열에서 함께 버리고, 작은 판만 주소가 아니면 그
+   * 자리에 원본을 둔다. 두 배열의 길이가 언제나 같다(계약 1.32.0).
+   */
+  static SceneStills sceneStills(Array fullValue, Array thumbValue) throws SQLException {
+    String[] full = fullValue == null ? new String[0] : (String[]) fullValue.getArray();
+    String[] thumbs = thumbValue == null ? new String[0] : (String[]) thumbValue.getArray();
+    List<URI> outFull = new ArrayList<>();
+    List<URI> outThumbs = new ArrayList<>();
+    for (int i = 0; i < full.length; i++) {
+      URI original = uri(full[i]);
+      if (original == null) {
+        continue;
+      }
+      URI thumb = i < thumbs.length ? uri(thumbs[i]) : null;
+      outFull.add(original);
+      outThumbs.add(thumb == null ? original : thumb);
+    }
+    return new SceneStills(List.copyOf(outFull), List.copyOf(outThumbs));
   }
 
   /** 장면 스틸 배열(SQL {@code ARRAY(...)}) — 주소가 아닌 값은 버린다. */
