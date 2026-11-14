@@ -474,13 +474,6 @@ export function useSearchTab(active = true, embedded = false) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 주소가 바뀔 때만.
   }, [pathname])
 
-  // 담기 알림은 2초 뒤 사라진다.
-  useEffect(() => {
-    if (!cart.toast) return
-    const t = setTimeout(() => cartActions.clearToast(), 2000)
-    return () => clearTimeout(t)
-  }, [cart.toast])
-
   // 자동완성 — 글자마다 부르되 응답이 오는 사이 검색어가 바뀌었으면 버린다(늦게 온 응답이 최신을 덮는다).
   useEffect(() => {
     const query = draft.trim()

@@ -12,8 +12,9 @@ import { PrimaryButton, SecondaryButton } from '@/features/proto/protoParts'
 import { color, radius } from '@/features/proto/protoTokens'
 import { say, useLang } from '@/i18n'
 import { smallImage } from '@/shared/smallImage'
-import type { CartItem } from '@/state/cart'
+import type { CartItem, CartPoi } from '@/state/cart'
 import { spots } from '@/shared/spots'
+import { myMapCount, usableCount } from './keepPoiRules'
 import { mapGroups } from './keepRules'
 
 const MAX_CHIPS = 3
@@ -21,13 +22,18 @@ const MAX_PHOTOS = 6
 
 export interface MyMapCardProps {
   items: readonly CartItem[]
+  /** 담은 편의시설(keep-poi.md §3-7) — 수에 더하고, 있으면 작품 칩들 뒤에 「주변 N」 칩. */
+  pois?: readonly CartPoi[]
   onOpenMap: () => void
   onPlan: () => void
 }
 
-export function MyMapCard({ items, onOpenMap, onPlan }: MyMapCardProps): JSX.Element | null {
+export function MyMapCard({ items, pois = [], onOpenMap, onPlan }: MyMapCardProps): JSX.Element | null {
   useLang()
-  if (items.length === 0) return null
+  if (myMapCount(items.length, pois.length) === 0) return null
+  // 보이는 수는 목록에서 빠진 촬영지·폐업한 편의시설을 뺀 것(keep-poi.md §9-5). 카드는 무엇이든 담겨 있으면 뜬다.
+  const total = usableCount(items, pois)
+  const nearby = pois.filter((p) => p.closed !== true).length
   const groups = mapGroups(items)
   const chips = groups.slice(0, MAX_CHIPS)
   const hidden = groups.length - chips.length
@@ -41,7 +47,7 @@ export function MyMapCard({ items, onOpenMap, onPlan }: MyMapCardProps): JSX.Ele
       <VStack spacing={12} align="stretch" style={{ padding: 16, ...homeCard(radius.l) }}>
         <HStack spacing={8} align="baseline">
           <Txt as="h2" size={19} weight="heavy" style={{ margin: 0 }}>{say('내 지도', 'My map')}</Txt>
-          <Txt size={15} weight="bold" style={{ color: color.primaryText }}>{say(`${items.length}곳`, spots(items.length))}</Txt>
+          <Txt size={15} weight="bold" style={{ color: color.primaryText }}>{say(`${total}곳`, spots(total))}</Txt>
         </HStack>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -57,6 +63,11 @@ export function MyMapCard({ items, onOpenMap, onPlan }: MyMapCardProps): JSX.Ele
           {hidden > 0 && (
             <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 10px', borderRadius: radius.pill, background: 'var(--system-gray6)' }}>
               <Txt size={13} weight="semibold" color="secondary">{`+${hidden}`}</Txt>
+            </span>
+          )}
+          {nearby > 0 && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 10px', borderRadius: radius.pill, background: 'var(--system-gray6)' }}>
+              <Txt size={13} weight="semibold">{say(`주변 ${nearby}`, `Nearby ${nearby}`)}</Txt>
             </span>
           )}
         </div>

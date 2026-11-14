@@ -6,14 +6,17 @@
  *   §9-4 — arriving(처음 값 false) · keepActions.setArriving(on)
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { keepActions, keepStore } from './keepStore'
+import { addMoreRequestStore, keepActions, keepStore } from './keepStore'
 
 beforeEach(() => keepActions.close())
 
 describe('keepActions', () => {
-  it('openAfterSave — ① more 단계로, 담은 작품 하나와 제목을 들고 연다', () => {
+  // web-ad-landing.md §2 — 시트 ① 은 없어지고 「더 담기」(/add)로 보낸다. 시트는 열지 않고 작품·제목만 든다.
+  it('openAfterSave — 「더 담기」 로 보낸다(시트는 열지 않고), 담은 작품 하나와 제목을 든다', () => {
+    const before = addMoreRequestStore.get()
     keepActions.openAfterSave(32, '케이팝 데몬 헌터스')
-    expect(keepStore.get()).toMatchObject({ open: true, step: 'more', contentIds: [32], title: '케이팝 데몬 헌터스' })
+    expect(keepStore.get()).toMatchObject({ open: false, contentIds: [32], title: '케이팝 데몬 헌터스' })
+    expect(addMoreRequestStore.get()).toBe(before + 1)
   })
 
   it('openAfterSave — 앞서 연 작품들은 버리고 이번 작품 하나로 시작한다', () => {
@@ -21,7 +24,7 @@ describe('keepActions', () => {
     keepActions.close()
     keepActions.openAfterSave(3, '도깨비')
     expect(keepStore.get().contentIds).toEqual([3])
-    expect(keepStore.get().step).toBe('more')
+    expect(keepStore.get().open).toBe(false)
   })
 
   it('openAt — 그 단계와 작품들로 연다', () => {
@@ -35,9 +38,9 @@ describe('keepActions', () => {
   it('go — 단계만 바꾸고 열림·작품·제목은 그대로', () => {
     keepActions.openAfterSave(32, '케이팝 데몬 헌터스')
     keepActions.go('keep')
-    expect(keepStore.get()).toMatchObject({ open: true, step: 'keep', contentIds: [32], title: '케이팝 데몬 헌터스' })
+    expect(keepStore.get()).toMatchObject({ open: false, step: 'keep', contentIds: [32], title: '케이팝 데몬 헌터스' })
     keepActions.go('plan')
-    expect(keepStore.get()).toMatchObject({ open: true, step: 'plan', contentIds: [32], title: '케이팝 데몬 헌터스' })
+    expect(keepStore.get()).toMatchObject({ open: false, step: 'plan', contentIds: [32], title: '케이팝 데몬 헌터스' })
   })
 
   it('close — 닫는다', () => {

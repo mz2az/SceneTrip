@@ -49,7 +49,7 @@ export function ProminentButton({ children, onClick, disabled, style, label }: {
 }
 
 /** `.buttonStyle(.bordered)` — 연한 회색 바탕 캡슐에 accent 글자. */
-export function BorderedButton({ children, onClick, disabled, style, label }: { children: ReactNode; onClick?: () => void; disabled?: boolean; style?: CSSProperties; label?: string }) {
+export function BorderedButton({ children, onClick, disabled, style, label }: { children: ReactNode; onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void; disabled?: boolean; style?: CSSProperties; label?: string }) {
   return (
     <Pressable
       onClick={onClick}
@@ -130,7 +130,7 @@ export function ListEmptyNote({ title, detail }: { title: string; detail: string
 }
 
 /** 상세·검색결과 머리줄 — `DetailHeader` */
-export function DetailHeader({ title, subtitle, onBack }: { title: string; subtitle: string; onBack: () => void }) {
+export function DetailHeader({ title, subtitle, onBack, trailing }: { title: string; subtitle: string; onBack: () => void; trailing?: ReactNode }) {
   return (
     <HStack spacing={10} pad="0 14px 10px" style={{ flex: 'none' }}>
       <Pressable plain onClick={onBack} aria-label={tr('뒤로')} style={{ width: 13, height: 18, display: 'grid', placeItems: 'center', flex: 'none', overflow: 'visible' }}>
@@ -141,6 +141,7 @@ export function DetailHeader({ title, subtitle, onBack }: { title: string; subti
         <Txt size={FONT.headline} weight="semibold" lines={1}>{title}</Txt>
         {subtitle !== '' && <Txt size={FONT.caption} color="secondary" lines={1}>{subtitle}</Txt>}
       </VStack>
+      {trailing}
     </HStack>
   )
 }

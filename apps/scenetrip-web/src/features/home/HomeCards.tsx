@@ -7,6 +7,7 @@ import { smallImage } from '@/shared/smallImage'
 import { Icon } from '@/design/Icon'
 import { HStack, Spacer, Txt, VStack, homeCard, rr, shadow } from '@/design/primitives'
 import { Pressable } from '../route/ui/Press'
+import { MyMapButton } from '../keep/flyToMyMap'
 import { tr } from '@/i18n'
 import { CoverPhoto } from '../community/CoverPhoto'
 import { type PostSummary, postFromSummary } from '../community/store'
@@ -35,7 +36,7 @@ export function SectionHeader({ title, subtitle, action, onAction }: { title: st
 }
 
 /** 인사 — 해태 얼굴, 두 줄, 오른쪽 프로필 단추(마이페이지의 입구). */
-export function HomeHeader({ onProfile }: { onProfile: () => void }) {
+export function HomeHeader({ onProfile, onMyMap }: { onProfile: () => void; onMyMap?: () => void }) {
   return (
     <HStack spacing={10} style={{ padding: '10px 20px 0' }}>
       <img src="/generated/haetae-face.png" alt="" width={44} height={38} style={{ objectFit: 'contain', flex: 'none' }} draggable={false} />
@@ -45,6 +46,8 @@ export function HomeHeader({ onProfile }: { onProfile: () => void }) {
         <Txt size={19} weight="bold">{tr('오늘은 어느 장면으로 갈까요?')}</Txt>
       </VStack>
       <Spacer />
+      {/* 담은 것이 있으면 「내 지도」 단추(배지 = 담은 수) — 어디서 담든 날아가 내려앉는 자리(web-ad-landing.md §9-3). */}
+      {onMyMap && <MyMapButton onPress={onMyMap} />}
       <Pressable
         plain
         onClick={onProfile}
@@ -103,7 +106,7 @@ function Poster({ work }: { work: ContentSummary }) {
 }
 
 /** 오늘의 성지 — 하루 한 곳. 작품 배지 · 장소명과 장면 · 주소 · 담기. */
-export function TodayCard({ place, saved, onOpen, onSave }: { place: PlaceSummary; saved: boolean; onOpen: () => void; onSave: () => void }) {
+export function TodayCard({ place, saved, onOpen, onSave }: { place: PlaceSummary; saved: boolean; onOpen: () => void; onSave: (from: Element) => void }) {
   const scene = place.sceneDescription?.trim()
   const title = scene ? `${place.name} — ${scene}` : place.name
   const work = place.contents?.[0]?.title
@@ -136,7 +139,7 @@ export function TodayCard({ place, saved, onOpen, onSave }: { place: PlaceSummar
             <Icon name="mappin.and.ellipse" size={12} color="deep" />
             <Txt size={12} color="secondary" lines={1}>{place.address ?? tr('주소 없음')}</Txt>
             <Spacer />
-            <Pressable plain onClick={onSave} style={{ flex: 'none' }}>
+            <Pressable plain onClick={(e) => onSave(e.currentTarget)} style={{ flex: 'none' }}>
               <HStack spacing={5}>
                 <Icon name={saved ? 'checkmark.circle.fill' : 'plus.circle'} size={14} weight="bold" color={saved ? 'deep' : 'accent'} />
                 <Txt size={13} weight="bold" color={saved ? 'deep' : 'accent'}>{saved ? tr('담김') : tr('담기')}</Txt>

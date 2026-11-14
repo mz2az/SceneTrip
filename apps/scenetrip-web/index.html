@@ -11,28 +11,39 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <!-- 촬영지 사진(작은 판)이 있는 곳 — 첫 화면의 카드 사진이 연결을 새로 맺느라 왕복을 더 쓰지 않게(§10-3-3). -->
+    <link rel="preconnect" href="https://scenetrip-media-prod.s3.ap-northeast-2.amazonaws.com" />
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
-    <!-- 검색 결과·링크 미리보기에 보이는 글. scenetrip.io 첫 화면은 여기로 301 로 넘어온다(Cloudflare 리디렉션 규칙) -->
-    <title>SceneTrip — K-드라마·영화 촬영지 여행 코스</title>
-    <meta
-      name="description"
-      content="드라마·영화 속 그 장면이 찍힌 곳으로. 작품을 고르면 촬영지와 주변 맛집·카페를 엮어 여행 코스를 짜 드려요. Plan a Korea trip around K-drama and movie filming locations."
-    />
-    <link rel="canonical" href="https://app.scenetrip.io/" />
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="SceneTrip" />
-    <meta property="og:url" content="https://app.scenetrip.io/" />
-    <meta property="og:title" content="SceneTrip — K-드라마·영화 촬영지 여행 코스" />
-    <meta
-      property="og:description"
-      content="작품을 고르면 촬영지와 주변 맛집·카페를 엮어 여행 코스를 짜 드려요. Stand where the scene happened."
-    />
-    <meta property="og:image" content="https://app.scenetrip.io/icons/icon-512.png" />
-    <meta name="twitter:card" content="summary" />
+    <title>SceneTrip</title>
+    <!--
+      첫 화면(web-ad-landing.md §10-3-1 · §11): 처음 온 사람일 수 있으면(첫 화면을 본 기록·로그인이 없으면) JS 를 받기 전에
+      보라 바탕 + 해태 + SceneTrip 을 그린다. 모양은 src/features/landing/IntroSplash.tsx 와 같다. 그림은 빌드가 끼워 넣는다(vite.config.ts).
+    -->
+    <style>
+      .st-splash { display: none; }
+      html.st-intro .st-splash {
+        position: absolute; inset: 0; z-index: 50;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+        background: radial-gradient(120% 80% at 50% 30%, #7a52d6 0%, #5c4ad6 45%, #2a1856 100%);
+        color: #fff; font: 800 22px/1.2 -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Segoe UI', Roboto, sans-serif;
+        letter-spacing: -0.2px;
+      }
+      html.st-intro #root > .st-splash { position: fixed; }
+      html.st-intro .st-splash img { width: 72px; height: 62px; object-fit: contain; animation: st-splash-breathe 1.1s ease-in-out infinite; }
+      @keyframes st-splash-breathe { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-6px) scale(1.04); } }
+      @media (prefers-reduced-motion: reduce) { html.st-intro .st-splash img { animation: none; } }
+    </style>
+    <script>
+      try {
+        if (!localStorage.getItem('scenetrip.intro.done') && !localStorage.getItem('scenetrip.auth.session')) document.documentElement.classList.add('st-intro')
+      } catch (e) {}
+      // 탭 아이콘(22KB)은 첫 화면이면 미뤄 둔 일이 풀릴 때 붙인다(src/main.tsx) — 느린 망에서 첫 사진과 대역폭을 다투지 않게.
+      window.__stIcon = function () { document.head.insertAdjacentHTML('beforeend', '<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />') }
+      if (!document.documentElement.classList.contains('st-intro')) window.__stIcon()
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="st-splash st-landing st-landing--loading" aria-busy="true"><img src="%SCENETRIP_INTRO_HAETAE%" alt="" width="72" height="62" /><span>SceneTrip</span></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

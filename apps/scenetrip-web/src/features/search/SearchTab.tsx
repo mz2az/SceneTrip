@@ -228,12 +228,7 @@ export function SearchTab({ active, embedded = false }: { active: boolean; embed
         )}
       </VStack>
 
-      {/* 계약이 409 에 「이미 저장된 장소입니다」 를 띄우라고 적어 뒀다. 담기는 화면을 옮기지 않으므로 알림이 그 자리에 떠야 한다. */}
-      {t.cart.toast && (
-        <div className="st-toast" role="status">
-          <Txt size={FONT.subheadline}>{t.cart.toast}</Txt>
-        </div>
-      )}
+      {/* 담기 알림(「이미 저장된 장소입니다」 등)은 앱 맨 위 한 곳(features/keep/CartToast, RootTabs)이 그린다(keep-poi.md §9-1). */}
       {likes.failure && (
         <HStack spacing={12} align="start" className="st-notice" role="alert">
           <VStack spacing={4} align="start" style={{ flex: 1, minWidth: 0 }}>

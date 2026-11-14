@@ -4,10 +4,12 @@
  * 작품 탭에서 작품을 고르면 검색 상태를 건드리지 않고 이 화면으로 들어온다 — 뒤로 가면 고르기 전 화면 그대로다(검색어를 작품명으로 치환하던
  * 초기 구현은 폐기했다). 목록에서 넘어온 `ContentSummary` 로 먼저 그리고, 상세(`GET /contents/{id}`)가 오면 채운다 — 줄거리·별칭·출연진.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { appEvent, track, webEvent } from '@/analytics'
 import { useTabRouter } from '@/app/tabRouter'
 import { SaveAllBar, SaveAllBarPlaceholder } from '@/features/keep/SaveAllBar'
+import { MyMapButton, flyToMyMap } from '@/features/keep/flyToMyMap'
+import { smallImage } from '@/shared/smallImage'
 import { keepActions, saveAllProgress, useSaveAllProgress } from '@/features/keep/keepStore'
 import { countDetailView } from '@/features/profile/auth/signUpNudgeRules'
 import { hasSession } from '@/state/auth'
@@ -68,6 +70,7 @@ export function ContentDetail({
   const producer = producerDestination(summary, detail)
 
   const savedCount = places.filter((p) => cart.placeIds.has(p.id)).length
+  const bar = useRef<HTMLDivElement>(null)
   const saveAll = async () => {
     // 어느 작품이든 담는 중이면 또 시작하지 않는다 — 한 줄로 차례로 보내는 담기가 둘 겹치면 셈과 알림이 섞인다.
     if (saveAllProgress.get().current !== null) return
@@ -79,6 +82,13 @@ export function ContentDetail({
     saveAllProgress.set({ current: { contentId, done: 0, total: rest.length } })
     try {
       const result = await cartActions.addMany(rest, contentId, (done, total) => saveAllProgress.set({ current: { contentId, done, total } }))
+      // 담긴 사진들이 머리줄의 「내 지도」 로 날아간다 — 저장 결과를 받은 뒤, 담긴 것만(web-ad-landing.md §9-3 · §10-3-9).
+      if (generation === accountGeneration()) {
+        places
+          .filter((p) => rest.includes(p.id) && cartActions.contains(p.id))
+          .slice(0, 4)
+          .forEach((p, i) => flyToMyMap(bar.current, { imageUrl: smallImage(p.imageThumbnailUrl, p.imageUrl), delayMs: i * 80 }))
+      }
       // 도중에 계정이 바뀌었으면(addMany 가 멈췄다) 시트를 열지 않는다. 실패가 하나라도 있으면 알림과 「남은 N곳도 담기」 가 남는다(§9-2).
       if (generation !== accountGeneration()) return
       if (result.failed === 0 && result.saved + result.already > 0) keepActions.openAfterSave(contentId, title)
@@ -97,7 +107,8 @@ export function ContentDetail({
 
   return (
     <VStack style={{ flex: 1, minHeight: 0 }}>
-      <DetailHeader title={summary.title} subtitle="" onBack={onBack} />
+      {/* 머리줄 오른쪽 「내 지도」 — 담긴 것이 날아가 내려앉는 곳(§10-3-9). */}
+      <DetailHeader title={summary.title} subtitle="" onBack={onBack} trailing={<MyMapButton onPress={openMyMap} style={{ width: 36, height: 36 }} />} />
       {/* 떠 있는 탭바(시안)에 마지막 줄이 가리지 않게 바닥을 비운다 — 인기 목록(SearchList)과 같은 값(2026-11-11 사용자 지적: 촬영지 목록 끝이 안 보임). */}
       <div className="scroll-y" data-sheet-scroll style={{ flex: 1, minHeight: 0, touchAction: 'pan-y', paddingBottom: 'var(--proto-tab-inset, 0px)' }}>
         <VStack spacing={16} align="start" pad="4px 0">
@@ -106,7 +117,7 @@ export function ContentDetail({
           {!delisted && (loading ? (
             <div style={{ width: '100%' }}><SaveAllBarPlaceholder padX={14} /></div>
           ) : places.length > 0 && (
-            <div style={{ width: '100%' }}>
+            <div ref={bar} style={{ width: '100%' }}>
               <SaveAllBar padX={14} total={places.length} savedCount={savedCount} progress={progress} onSaveAll={() => void saveAll()} onOpenMap={openMyMap} />
             </div>
           ))}

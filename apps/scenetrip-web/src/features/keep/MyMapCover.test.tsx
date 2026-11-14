@@ -3,7 +3,7 @@
  *
  *   MyMapCover({ onClose }): 담은 곳은 useCart()/cartStore. 머리줄 「내 지도 · N곳」, 위는 지도, 아래는 작품별 묶음 목록.
  *   줄을 누르면 my_map(open_place). 주 단추 「이 N곳으로 계획 짜기」 → my_map(plan) + plan_start(my_map) + 담은 곳으로 계획.
- *   「더 담기」 → /trending + my_map(add_more). 비었음·실패 안내.
+ *   「더 담기」 → /add + my_map(add_more)(web-ad-landing.md §2 가 /trending 에서 바꿨다). 비었음·실패 안내.
  *
  * 지도 부품(@/features/search/map/MapView)은 jsdom 에서 뜨지 않아 빈 부품으로 바꾼다.
  * 장바구니는 스토어에 미리 넣고, GET /cart 도 같은 값을 돌려준다 — 덮개가 열릴 때 다시 받아도 같은 결과다.
@@ -77,7 +77,7 @@ function renderCover(onClose = vi.fn()) {
 
 function withCart(items: CartItem[]) {
   cartReply = items
-  cartStore.set({ loadState: 'loaded', placeIds: new Set(items.map((i) => i.placeId)), items, toast: null })
+  cartStore.set({ loadState: 'loaded', placeIds: new Set(items.map((i) => i.placeId)), items, pois: [], poiIds: new Set(), toast: null })
 }
 
 const events = () => vi.mocked(track).mock.calls.map(([e]) => e)
@@ -92,7 +92,7 @@ function buttonWith(text: string): HTMLElement {
 
 beforeEach(() => {
   // 언어를 먼저 정하고 나서 장바구니를 채운다 — 언어가 바뀌면 cart.ts 가 다시 받기 때문이다.
-  cartStore.set({ loadState: 'notLoaded', placeIds: new Set(), items: [], toast: null })
+  cartStore.set({ loadState: 'notLoaded', placeIds: new Set(), items: [], pois: [], poiIds: new Set(), toast: null })
   chooseLanguage('ko')
   location = null
   h.GET.mockReset()
@@ -108,7 +108,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
-  cartStore.set({ loadState: 'notLoaded', placeIds: new Set(), items: [], toast: null })
+  cartStore.set({ loadState: 'notLoaded', placeIds: new Set(), items: [], pois: [], poiIds: new Set(), toast: null })
   chooseLanguage('ko')
 })
 
@@ -119,7 +119,7 @@ describe('MyMapCover — 머리줄', () => {
   })
 
   it('영어 — My map · N spots', async () => {
-    cartStore.set({ loadState: 'notLoaded', placeIds: new Set(), items: [], toast: null })
+    cartStore.set({ loadState: 'notLoaded', placeIds: new Set(), items: [], pois: [], poiIds: new Set(), toast: null })
     chooseLanguage('en')
     withCart(ITEMS)
     renderCover()
@@ -174,19 +174,20 @@ describe('MyMapCover — 아래 단추', () => {
   })
 
   it('영어 — Plan a trip with these N spots', async () => {
-    cartStore.set({ loadState: 'notLoaded', placeIds: new Set(), items: [], toast: null })
+    cartStore.set({ loadState: 'notLoaded', placeIds: new Set(), items: [], pois: [], poiIds: new Set(), toast: null })
     chooseLanguage('en')
     withCart(ITEMS)
     renderCover()
     await vi.waitFor(() => expect(buttonWith('Plan a trip with these 5 spots')).toBeTruthy())
   })
 
-  it('「더 담기」 → /trending + my_map(add_more)', async () => {
+  // web-ad-landing.md §2 — 내 지도의 「더 담기」 도 「더 담기」 덮개(/add)로 온다.
+  it('「더 담기」 → /add + my_map(add_more)', async () => {
     renderCover()
     await vi.waitFor(() => expect(screen.getByText('더 담기')).toBeTruthy())
     fireEvent.click(buttonWith('더 담기'))
     expect(events()).toContainEqual(webEvent.myMap('add_more'))
-    expect(location?.pathname).toBe(paths.trending)
+    expect(location?.pathname).toBe(paths.addMore)
   })
 })
 
@@ -201,7 +202,7 @@ describe('MyMapCover — 비었음 · 실패', () => {
 
   it('못 받으면 「못 불러왔어요」 + 다시 시도 → 다시 받는다', async () => {
     cartReply = 'fail'
-    cartStore.set({ loadState: 'failed', placeIds: new Set(), items: [], toast: null })
+    cartStore.set({ loadState: 'failed', placeIds: new Set(), items: [], pois: [], poiIds: new Set(), toast: null })
     renderCover()
     await vi.waitFor(() => expect(bodyText()).toContain('못 불러왔어요'))
     const before = cartGets()
@@ -226,7 +227,7 @@ describe('MyMapCover — 넘어오는 중', () => {
 // §9-7 — 영어는 1이면 단수.
 describe('MyMapCover — 영어 단수', () => {
   it('1곳이면 「My map · 1 spot」, 어디에도 「1 spots」 가 없다', async () => {
-    cartStore.set({ loadState: 'notLoaded', placeIds: new Set(), items: [], toast: null })
+    cartStore.set({ loadState: 'notLoaded', placeIds: new Set(), items: [], pois: [], poiIds: new Set(), toast: null })
     chooseLanguage('en')
     withCart([ITEMS[0]!])
     renderCover()

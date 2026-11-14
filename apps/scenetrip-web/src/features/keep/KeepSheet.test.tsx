@@ -12,7 +12,7 @@
  */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router'
-import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
   GET: vi.fn(),
@@ -54,7 +54,6 @@ import { KeepSheet } from './KeepSheet'
 import { type KeepEnv, handoffHref, keepUrl } from './keepRules'
 import { keepActions, keepStore } from './keepStore'
 
-type ContentSummary = components['schemas']['ContentSummary']
 type PlaceSummary = components['schemas']['PlaceSummary']
 
 const respond = (status: number, data?: unknown, error?: unknown) => ({
@@ -63,14 +62,6 @@ const respond = (status: number, data?: unknown, error?: unknown) => ({
   response: { ok: status >= 200 && status < 300, status, headers: new Headers() },
 })
 
-const work = (id: number, title: string, placeCount = 3, delisted?: boolean): ContentSummary => ({
-  id,
-  category: 'drama',
-  title,
-  placeCount,
-  ...(delisted === undefined ? {} : { delisted }),
-})
-const place = (id: number): PlaceSummary => ({ id, name: `장소${id}`, latitude: 37.5, longitude: 127 }) as PlaceSummary
 
 /** 작품 id → 그 작품의 촬영지. 없으면 빈 목록. */
 let placesOf: Map<number, PlaceSummary[]>
@@ -115,7 +106,6 @@ function setSignedIn(signedIn: boolean) {
   account.store.set((s) => ({ ...s, signedIn, showingSignIn: false }))
 }
 
-let addMany: MockInstance<typeof cartActions.addMany>
 
 beforeEach(() => {
   chooseLanguage('ko')
@@ -140,11 +130,11 @@ beforeEach(() => {
   h.promptInstall.mockReset()
   h.handoffOpen.mockReset()
   vi.mocked(track).mockClear()
-  cartStore.set({ loadState: 'loaded', placeIds: new Set(), items: [], toast: null })
+  cartStore.set({ loadState: 'loaded', placeIds: new Set(), items: [], pois: [], poiIds: new Set(), toast: null })
   homeStore.set((s) => ({ ...s, works: [] }))
   pendingStore.set((s) => ({ ...s, plannerManual: false }))
-  keepStore.set({ open: false, step: 'more', contentIds: [], title: null, arriving: false })
-  addMany = vi.spyOn(cartActions, 'addMany').mockResolvedValue({ saved: 3, already: 0, failed: 0 })
+  keepStore.set({ open: false, step: 'more', contentIds: [], title: null, arriving: false, nearby: null })
+  vi.spyOn(cartActions, 'addMany').mockResolvedValue({ saved: 3, already: 0, failed: 0 })
 })
 
 afterEach(() => {
@@ -163,82 +153,19 @@ describe('KeepSheet — 닫혀 있으면', () => {
   })
 })
 
-describe('① more — 다른 작품도 담기', () => {
-  it.each<[Lang, string]>([
-    ['ko', '다 담았어요'],
-    ['en', "I'm done"],
-  ])('%s — 담은 작품 제목과 주 단추', (lang, done) => {
-    chooseLanguage(lang)
-    keepActions.openAfterSave(32, '케이팝 데몬 헌터스')
+// web-ad-landing.md §2 — 시트 ① 은 없어졌다. 「모두 담기」 뒤에는 「더 담기」(/add)로 간다(다른 작품 포스터는 AddMoreCover.test.tsx 가 지킨다).
+describe('① more — 「더 담기」 로 간다', () => {
+  it('openAfterSave → 시트는 열리지 않고 /add 로 옮긴다', async () => {
     renderSheet()
-    expect(bodyText()).toContain('케이팝 데몬 헌터스')
-    expect(buttonWith(done)).toBeTruthy()
+    act(() => keepActions.openAfterSave(32, '케이팝 데몬 헌터스'))
+    await vi.waitFor(() => expect(location?.pathname).toBe(paths.addMore))
+    expect(keepStore.get().open).toBe(false)
+    expect(bodyText()).not.toContain('다 담았어요')
   })
 
-  it('포스터는 최대 5개 — 촬영지 없는 작품·빠진 작품·이번에 담은 작품은 빼고 받은 순서대로', () => {
-    homeStore.set((s) => ({
-      ...s,
-      works: [
-        work(32, '이번에 담은 작품(홈 목록의 이름)'),
-        work(1, '도깨비'),
-        work(2, '촬영지 없는 작품', 0),
-        work(3, '기생충'),
-        work(4, '빠진 작품', 5, true),
-        work(5, '오징어 게임'),
-        work(6, '사랑의 불시착'),
-        work(7, '이상한 변호사 우영우'),
-        work(8, '여섯 번째 작품'),
-      ],
-    }))
-    keepActions.openAfterSave(32, '케이팝 데몬 헌터스')
+  it('그린 뒤 처음에는 옮기지 않는다', () => {
     renderSheet()
-    const text = bodyText()
-    for (const shown of ['도깨비', '기생충', '오징어 게임', '사랑의 불시착', '이상한 변호사 우영우']) expect(text, shown).toContain(shown)
-    for (const hidden of ['이번에 담은 작품(홈 목록의 이름)', '촬영지 없는 작품', '빠진 작품', '여섯 번째 작품']) expect(text, hidden).not.toContain(hidden)
-    // 받은 순서 그대로
-    expect(text.indexOf('도깨비')).toBeLessThan(text.indexOf('기생충'))
-    expect(text.indexOf('기생충')).toBeLessThan(text.indexOf('오징어 게임'))
-  })
-
-  it('포스터를 누르면 그 작품 촬영지를 받아 addMany 로 담고 keep_more, 작품이 contentIds 뒤에 붙는다', async () => {
-    homeStore.set((s) => ({ ...s, works: [work(7, '도깨비')] }))
-    placesOf.set(7, [place(101), place(102), place(103)])
-    keepActions.openAfterSave(32, '케이팝 데몬 헌터스')
-    renderSheet()
-
-    fireEvent.click(buttonWith('도깨비'))
-
-    await vi.waitFor(() => expect(addMany).toHaveBeenCalledTimes(1))
-    const placeCalls = h.GET.mock.calls.filter((c) => c[0] === '/contents/{contentId}/places')
-    expect(placeCalls.length).toBeGreaterThanOrEqual(1)
-    expect((placeCalls[0]![1] as { params: { path: { contentId: number } } }).params.path.contentId).toBe(7)
-    // 네 번째 인자는 출처 — 시트 ① 포스터는 'more'(§9-3).
-    const call = addMany.mock.calls[0]!
-    expect([call[0], call[1], call[3]]).toEqual([[101, 102, 103], 7, 'more'])
-    expect(hasEvent(webEvent.keepMore(7))).toBe(true)
-    await vi.waitFor(() => expect(keepStore.get().contentIds).toEqual([32, 7]))
-  })
-
-  it('촬영지를 못 받으면 「담지 못했어요」 — 다시 누를 수 있다', async () => {
-    homeStore.set((s) => ({ ...s, works: [work(7, '도깨비')] }))
-    placesFail.add(7)
-    keepActions.openAfterSave(32, '케이팝 데몬 헌터스')
-    renderSheet()
-
-    fireEvent.click(buttonWith('도깨비'))
-    await vi.waitFor(() => expect(bodyText()).toContain('담지 못했어요'))
-
-    const before = h.GET.mock.calls.filter((c) => c[0] === '/contents/{contentId}/places').length
-    fireEvent.click(buttonWith('도깨비'))
-    await vi.waitFor(() => expect(h.GET.mock.calls.filter((c) => c[0] === '/contents/{contentId}/places').length).toBeGreaterThan(before))
-  })
-
-  it('「다 담았어요」 → ② keep', () => {
-    keepActions.openAfterSave(32, '케이팝 데몬 헌터스')
-    renderSheet()
-    fireEvent.click(buttonWith('다 담았어요'))
-    expect(keepStore.get().step).toBe('keep')
-    expect(keepStore.get().open).toBe(true)
+    expect(location?.pathname).toBe('/search/content/32')
   })
 })
 
@@ -410,7 +337,7 @@ describe('③ plan', () => {
     const one = { placeId: 101, name: '남산서울타워', addedAt: '2026-11-14T00:00:00Z', sourceContentId: 32, sourceContentTitle: '케이팝 데몬 헌터스', latitude: 37.55, longitude: 126.99 }
     // 언어를 먼저 — 언어가 바뀌면 cart.ts 가 장바구니를 다시 받아 덮어쓴다.
     chooseLanguage('en')
-    cartStore.set({ loadState: 'loaded', placeIds: new Set([101]), items: [one], toast: null })
+    cartStore.set({ loadState: 'loaded', placeIds: new Set([101]), items: [one], pois: [], poiIds: new Set(), toast: null })
     setEnv('other')
     keepActions.openAt('plan', [32])
     renderSheet()

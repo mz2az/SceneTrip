@@ -117,6 +117,7 @@ export function SearchMap(props: MapViewProps) {
         source: () => source.current,
       }
       latest.current.onReady(camera)
+      latest.current.onMap?.(map)
 
       const resize = new ResizeObserver(() => map.resize())
       resize.observe(el)
@@ -128,6 +129,7 @@ export function SearchMap(props: MapViewProps) {
         el.removeEventListener('wheel', byUser)
         cancelSettle()
         if (w.id !== null) navigator.geolocation?.clearWatch(w.id)
+        latest.current.onMap?.(null)
         map.destroy()
         mapRef.current = null
         pinLayer.current = null

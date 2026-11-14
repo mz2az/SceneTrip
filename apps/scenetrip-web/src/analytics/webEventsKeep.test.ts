@@ -31,8 +31,9 @@ describe('keep_prompt', () => {
 })
 
 describe('keep_arrive', () => {
-  it('keepArrive(count) → count 정수', () => {
-    expect(webEvent.keepArrive(2)).toEqual({ name: 'keep_arrive', params: { count: 2 } })
+  // keep-poi.md §4 — poi_count 가 더해졌다(인자 하나면 0).
+  it('keepArrive(count) → count 정수, poi_count 0', () => {
+    expect(webEvent.keepArrive(2)).toEqual({ name: 'keep_arrive', params: { count: 2, poi_count: 0 } })
   })
 })
 

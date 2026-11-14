@@ -27,6 +27,11 @@ export interface PlaceCardProps {
   /** 이미 코스에 들어 있는가. 그러면 추가 단추가 체크 표시로 바뀌고, 한 번 더 누르면 경로에서 뺀다(2026-08-27). */
   added?: boolean
   onRemove?: () => void
+  /** 주 단추의 글자 — 코스 편집이 아닌 화면(내 지도, keep-poi.md §3-3)이 「내 지도에 담기」 / 「담음 · 빼기」 로 바꾼다. 없으면 코스 문구. */
+  addLabel?: string
+  addedLabel?: string
+  /** 담거나 빼는 중 — 주 단추가 눌리지 않는 모양이 된다(내 지도, keep-poi.md §9-4). */
+  addBusy?: boolean
   /** 「여기로 길찾기」. 여행 중 화면에서만 준다 — 계획 화면에서는 갈아탈 경로 자체가 없다. */
   onReroute?: () => void
   onClose: () => void
@@ -45,7 +50,7 @@ const CARD_RADIUS = 16
 const PIN_LIGHT = '143, 204, 247'
 const PIN_DEEP = '122, 105, 237'
 
-export function PlaceCard({ place, onAdd, added = false, onRemove, onReroute, onClose, onOpenReviews, onOpenPhotos, reloadToken = 0, fetchCard = defaultFetchCard }: PlaceCardProps) {
+export function PlaceCard({ place, onAdd, added = false, onRemove, addLabel, addedLabel, addBusy = false, onReroute, onClose, onOpenReviews, onOpenPhotos, reloadToken = 0, fetchCard = defaultFetchCard }: PlaceCardProps) {
   const [card, setCard] = useState<PlaceCardData | null>(null)
   /** `card` 가 어느 장소의 것인가. 카드가 열린 채 다른 점을 누르면 앞 가게의 카드가 한 프레임 남는다 — 머리줄이 앞 가게 이름을 적지 않게 가른다. */
   const [cardFor, setCardFor] = useState<string | null>(null)
@@ -128,7 +133,7 @@ export function PlaceCard({ place, onAdd, added = false, onRemove, onReroute, on
           <Txt size={12} color="secondary">{tr('불러오는 중입니다')}</Txt>
         </HStack>
       ) : card && cardFor === place.id ? (
-        <Found card={card} onAdd={onAdd} added={added} onRemove={onRemove} onReroute={onReroute} onOpenPhotos={onOpenPhotos ? (photos, i) => onOpenPhotos(photos, i, reviewTitle) : undefined} />
+        <Found card={card} onAdd={onAdd} added={added} onRemove={onRemove} addLabel={addLabel} addedLabel={addedLabel} addBusy={addBusy} onReroute={onReroute} onOpenPhotos={onOpenPhotos ? (photos, i) => onOpenPhotos(photos, i, reviewTitle) : undefined} />
       ) : (
         <Missing category={label.category} />
       )}
@@ -220,7 +225,7 @@ function CloseButton({ onClose }: { onClose: () => void }) {
   )
 }
 
-function Found({ card, onAdd, added, onRemove, onReroute, onOpenPhotos }: { card: PlaceCardData; onAdd?: () => void; added: boolean; onRemove?: () => void; onReroute?: () => void; onOpenPhotos?: (photos: PlaceCardData['photos'], index: number) => void }) {
+function Found({ card, onAdd, added, onRemove, addLabel, addedLabel, addBusy = false, onReroute, onOpenPhotos }: { card: PlaceCardData; onAdd?: () => void; added: boolean; onRemove?: () => void; addLabel?: string; addedLabel?: string; addBusy?: boolean; onReroute?: () => void; onOpenPhotos?: (photos: PlaceCardData['photos'], index: number) => void }) {
   return (
     <>
       {card.photos.length > 0 && (
@@ -239,15 +244,16 @@ function Found({ card, onAdd, added, onRemove, onReroute, onOpenPhotos }: { card
       {onAdd && (
         <Pressable
           plain
-          onClick={added ? onRemove : onAdd}
-          disabled={added && !onRemove}
+          onClick={addBusy ? undefined : added ? onRemove : onAdd}
+          disabled={addBusy || (added && !onRemove)}
+          aria-busy={addBusy || undefined}
           style={{
-            margin: '12px 14px 0', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer',
-            background: added ? 'var(--system-gray5)' : 'var(--accent)', ...rr(10),
+            margin: '12px 14px 0', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: addBusy ? 'default' : 'pointer',
+            background: added ? 'var(--system-gray5)' : 'var(--accent)', opacity: addBusy ? 0.5 : 1, ...rr(10),
           }}
         >
           <Icon name={added ? 'checkmark.circle.fill' : 'plus.circle.fill'} size={12} color={added ? 'secondary' : 'white'} style={{ ['--icon-cut' as string]: 'var(--accent)' }} />
-          <Txt size={15} weight="semibold" color={added ? 'secondary' : 'white'}>{added ? tr('경로에 있음 · 누르면 빼기') : tr('경로에 추가')}</Txt>
+          <Txt size={15} weight="semibold" color={added ? 'secondary' : 'white'}>{added ? (addedLabel ?? tr('경로에 있음 · 누르면 빼기')) : (addLabel ?? tr('경로에 추가'))}</Txt>
         </Pressable>
       )}
 

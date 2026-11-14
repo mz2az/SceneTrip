@@ -1,8 +1,9 @@
 /*
- * 담은 뒤 시트(① more → ② keep → ③ plan) — 정본: docs/project/plans/web-keep-flow.md §5-2·§6.
+ * 담은 뒤 시트(② keep → ③ plan) — 정본: docs/project/plans/web-keep-flow.md §5-2·§6, web-ad-landing.md §2.
  * 상태는 keepStore(useKeep·keepActions). RootTabs 가 늘 붙여 두고, 시트는 `open` 일 때만 보인다.
  *
- *   ① 「✓ {작품} N곳을 내 지도에 담았어요」 + 다른 작품 포스터(누르면 그 작품 촬영지를 전부 담는다) → 「다 담았어요」
+ *   ① more(다른 작품도 담기)는 없어졌다 — 「더 담기」 덮개(/add)가 대신한다. `openAfterSave` 가 남긴 쪽지(addMoreRequestStore)를
+ *     여기(라우터 안)서 읽어 /add 로 옮긴다.
  *   ② 환경(currentKeepEnv)마다 한 가지 권유 — 바깥 브라우저로 넘기기 · 홈 화면 추가 · 메뉴 안내. 홈 화면에서 연 앱이면 건너뛴다.
  *   ③ 「이 N곳으로 여행 계획을 짜 볼까요?」 — 계획 짜기 · 내 지도 보기
  *
@@ -13,26 +14,24 @@ import { track, webEvent } from '@/analytics'
 import { useTabRouter } from '@/app/tabRouter'
 import { Icon } from '@/design/Icon'
 import { Sheet } from '@/design/overlay'
-import { HStack, Spinner, Txt, VStack } from '@/design/primitives'
-import { homeStore, reloadHome } from '@/features/home/homeModel'
+import { HStack, Txt, VStack } from '@/design/primitives'
 import { accountActions, useAccount } from '@/features/profile/auth/account'
 import { PrimaryButton, SecondaryButton } from '@/features/proto/protoParts'
 import { color, contained, heading, radius } from '@/features/proto/protoTokens'
 import { Pressable } from '@/features/route/ui/Press'
-import { SceneData } from '@/features/search/sceneData'
+import { paths } from '@/app/routes'
 import { say, useLang } from '@/i18n'
 import { spots } from '@/shared/spots'
-import { cartActions, useCart } from '@/state/cart'
+import { useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { handoff } from './handoff'
 import { currentKeepEnv, promptInstall } from './installPrompt'
-import { type KeepEnv, handoffHref, keepUrl, moreWorks } from './keepRules'
-import { type KeepStep, keepActions, useKeep } from './keepStore'
+import { type KeepEnv, handoffHref, keepUrl } from './keepRules'
+import { myMapCount } from './keepPoiRules'
+import { type KeepStep, addMoreRequestStore, keepActions, useKeep } from './keepStore'
 
 /** 바깥 브라우저로 넘긴 뒤 이만큼 지나도 화면이 보이면 넘어가지 못한 것으로 본다. */
 const HANDOFF_CHECK_MS = 1500
-const POSTER_W = 92
-const POSTER_H = 132
 /** 단추·누르는 자리의 최소 높이(접근성). */
 const TAP = 44
 /** 내용을 재기 전(첫 그림·재는 수단이 없는 환경)의 높이. */
@@ -45,6 +44,16 @@ const isGuide = (env: KeepEnv) => env === 'android_menu' || env === 'ios_safari'
 export function KeepSheet(): JSX.Element | null {
   useLang()
   const { open, step } = useKeep()
+  const router = useTabRouter()
+  // 「모두 담기」 가 끝났다 — 「더 담기」 로(처음 그릴 때의 값은 지나간 쪽지라 옮기지 않는다).
+  const addMoreRequest = useStore(addMoreRequestStore, (n) => n)
+  const seenRequest = useRef(addMoreRequest)
+  useEffect(() => {
+    if (addMoreRequest === seenRequest.current) return
+    seenRequest.current = addMoreRequest
+    router.navigate(paths.addMore)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 쪽지가 바뀔 때만.
+  }, [addMoreRequest])
   // 시트 높이는 내용에 맞춘다(§9-8) — 내용 높이를 재어 손잡이 줄을 더한다. 화면보다 크면 화면 안에서 멈추고 안에서 스크롤한다.
   const [contentH, setContentH] = useState<number | null>(null)
   const measure = useCallback((el: HTMLDivElement | null) => {
@@ -90,114 +99,16 @@ function Brand() {
 }
 
 function StepBody({ step }: { step: KeepStep }) {
-  if (step === 'more') return <MoreStep />
-  if (step === 'keep') return <KeepPromptStep />
-  return <PlanStep />
-}
-
-// ---------------------------------------------------------------- ① more
-
-type PosterState = { kind: 'loading' } | { kind: 'done'; count: number } | { kind: 'failed' }
-
-function MoreStep() {
-  const { contentIds, title } = useKeep()
-  const cart = useCart()
-  const works = useStore(homeStore, (s) => s.works)
-  const [posters, setPosters] = useState<Record<number, PosterState>>({})
-  const scene = useRef<SceneData | null>(null)
-
-  // 작품 상세로 바로 들어온 사람은 홈 목록이 아직 비어 있을 수 있다 — 한 번 받아 온다.
-  const asked = useRef(false)
-  useEffect(() => {
-    if (asked.current || homeStore.get().works.length > 0) return
-    asked.current = true
-    void reloadHome().catch(() => {})
-  }, [])
-
-  // 이 시트에서 고른 작품은 contentIds 에 붙어도 포스터 줄에서 빠지지 않는다(「✓ N곳」 이 보여야 한다).
-  const exclude = new Set(contentIds.filter((id) => posters[id] === undefined))
-  const list = moreWorks(works, exclude)
-
-  const firstId = contentIds[0]
-  const firstCount = firstId === undefined ? 0 : cart.items.filter((i) => i.sourceContentId === firstId).length
-  const headline =
-    title && firstCount > 0
-      ? say(`✓ ${title} ${firstCount}곳을 내 지도에 담았어요`, `✓ Saved ${firstCount} ${title} ${firstCount === 1 ? 'spot' : 'spots'} to your map`)
-      : title
-        ? say(`✓ ${title} 촬영지를 내 지도에 담았어요`, `✓ Saved ${title} spots to your map`)
-        : say(`✓ ${cart.placeIds.size}곳을 내 지도에 담았어요`, `✓ Saved ${spots(cart.placeIds.size)} to your map`)
-
-  const hasList = list.length > 0
-
-  const pick = async (contentId: number) => {
-    const now = posters[contentId]
-    if (now?.kind === 'loading' || now?.kind === 'done') return
-    setPosters((p) => ({ ...p, [contentId]: { kind: 'loading' } }))
-    try {
-      scene.current ??= new SceneData()
-      const placeIds = (await scene.current.placesOfContent(contentId)).map((p) => p.id)
-      if (placeIds.length === 0) throw new Error('no places')
-      const result = await cartActions.addMany(placeIds, contentId, undefined, 'more')
-      const count = result.saved + result.already
-      if (count === 0) throw new Error('nothing saved')
-      keepActions.addContent(contentId)
-      track(webEvent.keepMore(contentId))
-      setPosters((p) => ({ ...p, [contentId]: { kind: 'done', count } }))
-    } catch {
-      setPosters((p) => ({ ...p, [contentId]: { kind: 'failed' } }))
-    }
-  }
-
-  return (
-    <VStack spacing={16} align="stretch">
-      <VStack spacing={4} align="start" style={{ padding: '0 4px' }}>
-        <Txt as="h2" size={20} weight="heavy" lines={2} style={heading}>{headline}</Txt>
-        {hasList && <Txt size={14} color="secondary">{say('다른 작품도 담아 볼까요?', 'Save spots from other shows too?')}</Txt>}
-      </VStack>
-      {hasList && (
-        <div className="scroll-x" style={{ display: 'flex', gap: 10, overflowX: 'auto', padding: '0 4px 2px', ...contained }}>
-          {list.map((w) => (
-            <Poster key={w.id} title={w.title} posterUrl={w.posterUrl ?? null} state={posters[w.id]} onPress={() => void pick(w.id)} />
-          ))}
-        </div>
-      )}
-      <PrimaryButton onClick={() => keepActions.go('keep')}>{say('다 담았어요', "I'm done")}</PrimaryButton>
-    </VStack>
-  )
-}
-
-function Poster({ title, posterUrl, state, onPress }: { title: string; posterUrl: string | null; state: PosterState | undefined; onPress: () => void }) {
-  const busy = state?.kind === 'loading'
-  const done = state?.kind === 'done'
-  const label = done
-    ? say(`${title} — ${state.count}곳 담음`, `${title} — ${spots(state.count)} saved`)
-    : busy
-      ? say(`${title} 담는 중`, `Saving ${title}`)
-      : say(`${title} 촬영지 담기`, `Save ${title} spots`)
-  return (
-    <Pressable plain onClick={onPress} aria-label={label} aria-busy={busy || undefined} style={{ flex: 'none', width: POSTER_W, textAlign: 'left' }}>
-      <VStack spacing={6} align="start" style={{ width: POSTER_W }}>
-        <div style={{ position: 'relative', width: POSTER_W, height: POSTER_H, borderRadius: radius.s, overflow: 'hidden', background: color.brandFill }}>
-          {posterUrl && <img src={posterUrl} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
-          {(busy || done) && (
-            <div aria-hidden style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: busy ? 'rgba(0,0,0,0.35)' : 'color-mix(in srgb, var(--home-purple) 55%, transparent)' }}>
-              {busy ? <Spinner size={22} /> : (
-                <Txt size={15} weight="heavy" style={{ color: color.onPhoto }}>{say(`✓ ${state.count}곳`, `✓ ${state.count}`)}</Txt>
-              )}
-            </div>
-          )}
-        </div>
-        <Txt size={13} weight="semibold" lines={1} style={{ width: POSTER_W }}>{title}</Txt>
-        {state?.kind === 'failed' && <Txt size={12} color="red" lines={2} style={{ width: POSTER_W }}>{say('담지 못했어요', "Couldn't save")}</Txt>}
-      </VStack>
-    </Pressable>
-  )
+  // 옛 ① more 로 열려도 ② 부터 보인다.
+  if (step === 'plan') return <PlanStep />
+  return <KeepPromptStep />
 }
 
 // ---------------------------------------------------------------- ② keep
 
 function KeepPromptStep() {
   const { contentIds } = useKeep()
+  const { poiIds } = useCart()
   const { signedIn } = useAccount()
   // 이 단계에 들어온 순간의 환경으로 고정한다 — 설치 창을 쓰고 나면 `installable` 이 아니게 되어 화면이 바뀌면 안 된다.
   const [env] = useState<KeepEnv>(currentKeepEnv)
@@ -231,7 +142,7 @@ function KeepPromptStep() {
   }
 
   const openBrowser = () => {
-    const href = handoffHref(env, keepUrl(window.location.origin, contentIds))
+    const href = handoffHref(env, keepUrl(window.location.origin, contentIds, [...poiIds]))
     if (!href) return
     track(webEvent.keepPrompt(env, 'open_browser'))
     handoff.open(href)
@@ -326,7 +237,11 @@ function GuideLines({ env }: { env: KeepEnv }) {
 
 function PlanStep() {
   const router = useTabRouter()
-  const n = useCart().placeIds.size
+  const cart = useCart()
+  // 목록에서 빠진 촬영지·폐업한 편의시설은 세지 않는다(keep-poi.md §9-5). 담은 직후라 목록(items·pois)보다 id 집합이 앞서 있을 수 있어 id 집합에서 뺀다.
+  const delisted = cart.items.filter((i) => i.delisted === true && cart.placeIds.has(i.placeId)).length
+  const closed = cart.pois.filter((p) => p.closed === true && cart.poiIds.has(p.id)).length
+  const n = myMapCount(cart.placeIds.size - delisted, cart.poiIds.size - closed)
 
   const plan = () => {
     keepActions.close()

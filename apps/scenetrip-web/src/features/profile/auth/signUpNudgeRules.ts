@@ -60,6 +60,14 @@ export function nudgeVisible(state: NudgeState, ctx: NudgeContext): boolean {
   return state.sessionsShown < MAX_SESSIONS || ctx.shownThisSession
 }
 
+/**
+ * 작은 원으로 그리는가 — 새 홈(protoOn)에서 담은 것이 있는 사람은 「Plan my trip」 줄이 탭바 위에 떠 있다.
+ * 알약까지 그 위에 쌓으면 바닥에 세 겹이 되므로, 알약 대신 「Plan my trip」 옆(왼쪽) 작은 원으로 같은 높이에 둔다(web-ad-landing.md §10-3-11).
+ */
+export function nudgeCompact(protoOn: boolean, savedSpots: number): boolean {
+  return protoOn && savedSpots > 0
+}
+
 export function nudgeTrigger(savedPlaces: number, likedWorks: number): NudgeTrigger {
   return savedPlaces + likedWorks > 0 ? 'saved' : 'views'
 }

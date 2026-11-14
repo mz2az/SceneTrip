@@ -1,0 +1,141 @@
+/* 담기 피드백(web-ad-landing.md §9-3) — 날아가는 조각과 「내 지도」 배지. transform·opacity 만 움직인다. */
+
+.st-fly-piece {
+  position: fixed;
+  z-index: 200;
+  border-radius: 12px;
+  background-color: var(--home-purple);
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  border: 2px solid #fff;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.st-fly-piece--pin {
+  border-radius: 999px;
+  background-image: radial-gradient(circle at 50% 42%, #fff 0 18%, transparent 19%), var(--pin-gradient);
+}
+
+.st-badge {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ff3b30;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+  box-shadow: 0 0 0 2px #fff;
+  font-variant-numeric: tabular-nums;
+}
+.st-badge--pop {
+  animation: st-badge-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes st-badge-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.45);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 「더 담기」 모자이크(§9-4) — 사진 위 굵은 흰 글씨, 아래쪽 어둡게. */
+.st-tile {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--pin-gradient);
+}
+.st-tile > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.st-tile__shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 38%, rgba(0, 0, 0, 0.72) 100%);
+  pointer-events: none;
+}
+.st-tile__done {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--home-purple) 42%, transparent);
+  pointer-events: none;
+  animation: st-fade-in 0.2s ease-out both;
+}
+.st-plus {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.st-plus > span {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: transform 0.18s ease, background-color 0.18s ease;
+}
+.st-plus:active > span {
+  transform: scale(0.88);
+}
+.st-plus[aria-pressed='true'] > span {
+  background: var(--home-purple);
+}
+
+/* 내 지도의 강조된 핀(§9-5) — 마커 바깥 요소는 지도가 transform 으로 옮기므로 안쪽만 움직인다. */
+.st-focus-pin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--home-purple);
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--home-purple) 28%, transparent), 0 6px 14px rgba(30, 15, 70, 0.4);
+  overflow: hidden;
+  animation: st-focus-pop 0.36s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes st-focus-pop {
+  from {
+    transform: rotate(-45deg) scale(0.4);
+    opacity: 0.4;
+  }
+  to {
+    transform: rotate(-45deg) scale(1);
+    opacity: 1;
+  }
+}
+.st-focus-pin img {
+  position: absolute;
+  inset: -7px;
+  width: calc(100% + 14px);
+  height: calc(100% + 14px);
+  object-fit: cover;
+  transform: rotate(45deg);
+}

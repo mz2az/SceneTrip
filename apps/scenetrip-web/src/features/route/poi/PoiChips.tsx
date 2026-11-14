@@ -4,7 +4,7 @@
  * 편집 화면(일차 탭 아래)과 길찾기 화면(요약 줄 위)이 같은 것을 쓴다 — 두 화면의 칩이 다르게 생기면 같은 기능인 줄 모른다.
  * 「전체」는 마스터 스위치다: 다 켜져 있으면 다 끄고, 하나라도 꺼져 있으면 다 켠다. 갈래별 개수가 0 이면 그 칩은 아예 안 나온다.
  */
-import { HStack, Pressable, Txt } from '@/design/primitives'
+import { HStack, Pressable, Spinner, Txt } from '@/design/primitives'
 import { tr } from '@/i18n'
 import './icons'
 import { POI_GROUPS, type PoiGroup, poiGroupLabel, poiTone } from './poiGroup'
@@ -89,32 +89,46 @@ export function PoiChips({ places, groupsOn, onChange, onGroupOff, extras = [] }
   )
 }
 
-/** iOS `chip(...)` — 캡슐. 켜짐: accent 14% 바탕 + accent 50% 1pt 테두리 + 글자 primary semibold. 꺼짐: systemGray6 + secondary regular. */
-function Chip({ label, tone, isOn, image, onTap }: { label: string; tone?: string; isOn: boolean; image?: string; onTap: () => void }) {
+/**
+ * iOS `chip(...)` — 캡슐. 켜짐: accent 14% 바탕 + accent 50% 1pt 테두리 + 글자 primary semibold. 꺼짐: systemGray6 + secondary regular.
+ * 내 지도의 주변 칩(features/keep/NearbyChips)도 같은 캡슐을 쓴다 — `busy` 면 색 점 자리에 도는 표시(받는 중), `background` 는 지도 위에 띄울 때의 바탕,
+ * `shadow` 는 캡슐의 그림자.
+ * 눌리는 자리는 높이 44px 이고 보이는 캡슐은 그 가운데 그대로다(keep-poi.md §9-6) — 칩 줄의 높이가 그만큼 는다.
+ */
+export function Chip({ label, tone, isOn, image, busy = false, background, shadow, onTap }: { label: string; tone?: string; isOn: boolean; image?: string; busy?: boolean; background?: string; shadow?: string; onTap: () => void }) {
+  const ring = isOn ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent)' : undefined
   return (
     <Pressable
       plain
       onClick={onTap}
       aria-pressed={isOn}
-      style={{
-        flex: 'none',
-        borderRadius: 999,
-        padding: '6px 10px',
-        background: isOn ? 'color-mix(in srgb, var(--accent) 14%, transparent)' : 'var(--system-gray6)',
-        boxShadow: isOn ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent)' : undefined,
-        cursor: 'pointer',
-      }}
+      style={{ flex: 'none', minHeight: CHIP_TAP, display: 'flex', alignItems: 'center', cursor: 'pointer', background: 'transparent' }}
     >
-      <HStack spacing={5}>
-        {image ? (
-          <img src={`/generated/${image}`} alt="" width={16} height={16} style={{ width: 16, height: 16, objectFit: 'contain' }} draggable={false} />
-        ) : tone ? (
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: tone, flex: 'none' }} />
-        ) : null}
-        <Txt size={12} weight={isOn ? 'semibold' : 'regular'} color={isOn ? 'primary' : 'secondary'} style={{ whiteSpace: 'nowrap' }}>
-          {label}
-        </Txt>
-      </HStack>
+      <span
+        style={{
+          display: 'inline-flex',
+          borderRadius: 999,
+          padding: '6px 10px',
+          background: isOn ? `color-mix(in srgb, var(--accent) 14%, ${background ?? 'transparent'})` : (background ?? 'var(--system-gray6)'),
+          boxShadow: [ring, shadow].filter(Boolean).join(', ') || undefined,
+        }}
+      >
+        <HStack spacing={5}>
+          {busy ? (
+            <Spinner size={10} />
+          ) : image ? (
+            <img src={`/generated/${image}`} alt="" width={16} height={16} style={{ width: 16, height: 16, objectFit: 'contain' }} draggable={false} />
+          ) : tone ? (
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: tone, flex: 'none' }} />
+          ) : null}
+          <Txt size={12} weight={isOn ? 'semibold' : 'regular'} color={isOn ? 'primary' : 'secondary'} style={{ whiteSpace: 'nowrap' }}>
+            {label}
+          </Txt>
+        </HStack>
+      </span>
     </Pressable>
   )
 }
+
+/** 칩의 눌리는 높이(px) — 손가락 최소 크기. */
+export const CHIP_TAP = 44
