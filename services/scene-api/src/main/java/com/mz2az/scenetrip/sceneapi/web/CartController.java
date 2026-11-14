@@ -4,6 +4,8 @@ import com.mz2az.scenetrip.sceneapi.api.CartApi;
 import com.mz2az.scenetrip.sceneapi.api.model.Cart;
 import com.mz2az.scenetrip.sceneapi.api.model.CartItem;
 import com.mz2az.scenetrip.sceneapi.api.model.CartItemCreate;
+import com.mz2az.scenetrip.sceneapi.api.model.CartPoi;
+import com.mz2az.scenetrip.sceneapi.api.model.CartPoiCreate;
 import com.mz2az.scenetrip.sceneapi.api.model.Lang;
 import com.mz2az.scenetrip.sceneapi.cart.CartStore;
 import java.util.UUID;
@@ -12,7 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 장바구니 — 담기까지만.
+ * 장바구니 — 담기까지만. 촬영지({@code /cart/items})와 편의시설({@code /cart/pois}, 1.31.0)을 담는다.
  *
  * <p><b>헤더로 오는 {@code X-Install-Id} 는 설치 UUID 이고, 저장의 주체는 계정({@code app_user.id})이다.</b> 그 사이를
  * {@link CurrentAccount#resolve} 가 잇는다 — 로그인했으면 토큰의 계정이다.
@@ -36,7 +38,10 @@ class CartController implements CartApi {
   @Override
   public ResponseEntity<Cart> getCart(UUID xInstallId, Lang acceptLanguage) {
     CartStore.Contents contents = store.list(accounts.resolve(xInstallId), acceptLanguage);
-    Cart body = new Cart(contents.items(), contents.items().size());
+    // 편의시설은 items 에 섞지 않고 따로(1.31.0) — 옛 앱은 CartItem.placeId 가 반드시 있다고 읽는다.
+    Cart body =
+        new Cart(
+            contents.items(), contents.items().size(), contents.pois(), contents.pois().size());
     return Responses.ok(body, Responses.used(acceptLanguage, contents.shownLangs()));
   }
 
@@ -66,6 +71,41 @@ class CartController implements CartApi {
                         "DUPLICATE_CART_ITEM", "장소 " + placeId + " 은(는) 이미 담겨 있습니다"));
 
     return ResponseEntity.status(HttpStatus.CREATED).body(item);
+  }
+
+  /**
+   * 편의시설 담기(1.31.0, keep-poi.md §1-3). 촬영지와 같은 곳이면 Store 가 촬영지로 담고 본문의 {@code placeId} 가 채워진다 — 그
+   * 촬영지가 이미 담겨 있었으면 409.
+   */
+  @Override
+  public ResponseEntity<CartPoi> addCartPoi(
+      UUID xInstallId, CartPoiCreate cartPoiCreate, Lang acceptLanguage) {
+
+    long poiId = cartPoiCreate.getPoiId();
+
+    // 없거나 폐업한 편의시설은 404 — 그냥 넣으면 외래키 위반이 500 으로 나간다. 폐업은 새로 담을 수 없다.
+    if (!store.poiAvailable(poiId)) {
+      throw ApiException.notFound("POI_NOT_FOUND", "편의시설 " + poiId + " 이(가) 없습니다");
+    }
+
+    CartPoi poi =
+        store
+            .addPoi(accounts.resolve(xInstallId), poiId, acceptLanguage)
+            .orElseThrow(
+                () ->
+                    ApiException.conflict(
+                        "DUPLICATE_CART_ITEM", "편의시설 " + poiId + " 은(는) 이미 담겨 있습니다"));
+
+    return ResponseEntity.status(HttpStatus.CREATED).body(poi);
+  }
+
+  /** 담은 편의시설 빼기. 폐업한 것도 뺄 수 있다. 담겨 있지 않으면 404 — {@link #removeCartItem} 과 같은 이유. */
+  @Override
+  public ResponseEntity<Void> removeCartPoi(UUID xInstallId, Long poiId) {
+    if (!store.removePoi(accounts.resolve(xInstallId), poiId)) {
+      throw ApiException.notFound("CART_ITEM_NOT_FOUND", "편의시설 " + poiId + " 은(는) 장바구니에 없습니다");
+    }
+    return ResponseEntity.noContent().build();
   }
 
   @Override

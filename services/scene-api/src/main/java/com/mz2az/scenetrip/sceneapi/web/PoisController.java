@@ -12,6 +12,7 @@ import com.mz2az.scenetrip.sceneapi.poi.PoiStore;
 import com.mz2az.scenetrip.sceneapi.poi.naver.NaverLinks;
 import com.mz2az.scenetrip.sceneapi.poi.naver.PoiCardService;
 import com.mz2az.scenetrip.sceneapi.review.ReviewStore;
+import java.util.Arrays;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -47,6 +48,8 @@ class PoisController implements PoisApi {
       Double lng,
       Integer radiusMeters,
       PoiCategoryGroup categoryGroup,
+      String categories,
+      Boolean hasImage,
       String q,
       String sort,
       Integer spreadZoom,
@@ -55,6 +58,7 @@ class PoisController implements PoisApi {
 
     PlaceQueryRules.requireCompleteOrigin(lat, lng);
     String query = searchTerm(q);
+    List<String> kinds = categoryList(categories);
     Bbox area = PlaceQueryRules.resolveArea(bbox, radiusMeters);
     boolean hasOrigin = lat != null;
     // 이름 검색이면 영역 없이도 된다(1.23.0) — 「이 지역 밖에서도 찾기」. 걸린 것만 보므로 전국이 대상이어도 줄 세울 수 있다.
@@ -82,7 +86,10 @@ class PoisController implements PoisApi {
                 offset,
                 acceptLanguage,
                 query,
-                order == PoiStore.Sort.SPREAD ? spreadZoom : null));
+                order == PoiStore.Sort.SPREAD ? spreadZoom : null,
+                kinds,
+                // true 일 때만 거른다 — false·없음은 거르지 않는다(1.31.0).
+                Boolean.TRUE.equals(hasImage)));
 
     // 칸마다 따로 폴백한다(명세 「언어」). Content-Language 는 분류 이름의 언어 — PoiStore 클래스 주석.
     return Responses.ok(
@@ -142,6 +149,26 @@ class PoisController implements PoisApi {
       throw ApiException.badRequest("INVALID_PARAMETER", "q 는 앞뒤 공백을 빼고 2자 이상이어야 합니다");
     }
     return trimmed;
+  }
+
+  /** 세부 종류는 최대 10 개(1.31.0) — 계약. */
+  private static final int MAX_CATEGORIES = 10;
+
+  /**
+   * 세부 종류(1.31.0, keep-poi.md §1-5) — 쉼표로 나누고 앞뒤 공백을 떼고 빈 조각을 버린 목록. 없으면 null(거르지 않는다). 남은 조각이 없거나
+   * 10 개를 넘으면 400.
+   */
+  private static List<String> categoryList(String categories) {
+    if (categories == null) {
+      return null;
+    }
+    List<String> pieces =
+        Arrays.stream(categories.split(",")).map(String::strip).filter(s -> !s.isEmpty()).toList();
+    if (pieces.isEmpty() || pieces.size() > MAX_CATEGORIES) {
+      throw ApiException.badRequest(
+          "INVALID_PARAMETER", "categories 는 빈 조각을 빼고 1~" + MAX_CATEGORIES + " 개여야 합니다");
+    }
+    return pieces;
   }
 
   /**
