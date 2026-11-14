@@ -104,7 +104,7 @@ export function pinLayout(places: readonly { latitude: number; longitude: number
 | 이벤트 | 함수 | 매개변수 |
 | --- | --- | --- |
 | `landing` | `webEvent.landing(contentId, action)` | `content_id`, `action` = `view`·`skip`·`rest`·`save`·`browse` |
-| `landing` (박자) | `webEvent.landingBeat(contentId, beat)` | `content_id`, `action` = `beat`, `beat` = `scene`·`spread`·`rest` (박자마다 한 번) |
+| `landing` (박자) | `webEvent.landingBeat(contentId, beat)` | `content_id`, `action` = `beat`, `beat` = `drop`·`poster`·`spill`·`rest` (박자마다 한 번, §12 — 2026-11-15 전에는 `scene`·`spread`·`rest`) |
 | `landing` (떠남) | `webEvent.landingLeave(contentId, beat, ms)` | `content_id`, `action` = `leave`, `beat` = 마지막 박자 또는 `loading`, `ms` = 첫 화면을 시작하고 지난 시간. 담기 전에 `pagehide`·가려짐이면 한 번(§10-3-2) |
 | `add_more` | `webEvent.addMore(action)` | `action` = `view`·`poi`·`plan` |
 | `save_all` (있음) | — | `source` 에 `landing` |
@@ -188,3 +188,27 @@ export function pinLayout(places: readonly { latitude: number; longitude: number
 - §10-3-1 의 HTML 첫 화면(보라 바탕 + 해태 + SceneTrip)은 처음 온 사람일 가능성이 있을 때(`scenetrip.intro.done` 이 없을 때) 그린다 — 인라인 스크립트가 `localStorage` 를 읽어 정한다.
 - §10-3-6 의 「본 랜딩」 은 이 `scenetrip.intro.done` 으로 바뀐다(탭이 아니라 브라우저 기준, 한 번).
 - 분석: 이벤트 이름 `landing` 그대로, `screen_view` 의 화면 이름은 `intro`.
+
+## 12. 첫 화면은 해태가 나오는 캐릭터 애니메이션 (2026-11-15 사용자 정정 — §1-2·§9-1·§9-2 의 「장면 사진 → 지도 위 카드」 연출을 대신한다)
+
+사용자: 「앱 크기의 화면 전체로 뭔가 애니메이션이 일어나야 해. 영화 포스터를 쓰면 되잖아? 튜토리얼 할 때 해태가 위에서 내려오면서 방긋 웃듯, 우리 앱에서 할 때 했던 것처럼.」
+기준이 되는 것: iOS 시작 화면(`apps/scenetrip-ios/src/Onboarding/SplashView.swift` — 해태가 앞발로 「SceneTrip」 윗변을 잡고 머리를 빼꼼, MZ2AZ-549, 약 1.5초)과 iOS·웹 튜토리얼의 해태(`OnboardingView.swift`). 그림은 웹에 이미 있는 것: `public/generated/` 의 `splash-haetae-face.png`·`splash-paw-left.png`·`splash-paw-right.png`·`haetae-joy.png`·`haetae-bow.png`·`haetae-pinhold.png`·`haetae-sit.png`·`haetae-face.png`.
+
+**앱 화면 전체(폰 크기 컨테이너 전체)를 쓰는 한 편의 짧은 애니메이션**이다. 지도·카드 목록 연출이 아니다. 장면 사진(무거움)은 쓰지 않고 **작품 포스터**(`posterUrl`, 작다)와 촬영지 썸네일만 쓴다.
+
+| 박자 | 시간 | 보이는 것 |
+| --- | --- | --- |
+| ① 등장 | 0~1.2초 | 화면 가득 보라 바탕. 해태가 위에서 떨어져 내려와 통통 두어 번 튀고(스프링) 자리를 잡은 뒤 **방긋 웃는다**(얼굴이 웃는 얼굴로 바뀌고 살짝 커졌다 돌아온다). 그 아래 「SceneTrip」 굵은 흰 글씨가 페이드인 |
+| ② 포스터와 빼꼼 | 1.2~2.6초 | 작품 포스터가 아래에서 올라와 화면 가운데 큰 카드로 선다(살짝 기울었다 바로 섬). 해태가 포스터 윗변 뒤로 들어가 **앞발 둘을 윗변에 걸고 머리를 빼꼼**(iOS 시작 화면과 같은 동작). 말풍선 `say('저기 어디야?', 'Where is this?')` 이 톡 튀어나온다 — 광고 속 인물의 대사 |
+| ③ 쏟아짐 | 2.6~4.8초 | 포스터에서 촬영지 썸네일이 하나씩 톡톡 튀어나와(포물선) 화면 아래 「내 지도」 주머니(지갑/가방 모양 + 숫자 배지)로 쏙 들어간다. 들어갈 때마다 숫자가 오르고 주머니가 통 튄다. 해태는 포스터 위에서 고개를 따라 돌리거나 박수. 썸네일 아래 이름 한 줄(작게) |
+| ④ 끝 | 4.8초~ | 해태가 핀을 들고(`haetae-pinhold`) 웃으며 말풍선 `say('{N}곳, 전부 {도시}에 있어요!', '{N} places, all in {도시}!')`(도시는 촬영지 주소에서 가장 많은 시·도, 모르면 `한국`/`Korea`). 아래 주 단추 하나 `Keep these {N} on my map`(§1-2 문구 그대로), 그 아래 `Just looking` |
+
+- 화면 아무 곳이나 누르면 ④ 로. 「Skip」 은 오른쪽 위. `prefers-reduced-motion` 이면 ④ 를 바로(해태 정지).
+- 움직임은 CSS transform/opacity 와 Web Animations 만(새 의존성 없음). 해태의 「방긋」 은 얼굴 그림을 바꾸고 scale 1 → 1.08 → 1 로.
+- 포스터가 늦으면(1.2초 안에 안 오면) 포스터 자리에 작품 제목을 쓴 보라 카드로 대신하고 오면 바꿔 끼운다. 썸네일은 온 것부터 튀어나온다(③ 은 최대 2.2초 — 안 온 것은 숫자만 오른다).
+- 담기 단추를 누르면 주머니가 통 튀며 「더 담기」 로(§2). 지도는 ④ 뒤 「더 담기」·내 지도에서 보인다.
+- 느린 폰 목표(§10-1)는 그대로: 보라 첫 화면 1.5초 안, ④ 단추 9초 안(이 연출은 그림이 가벼워 더 빨라야 한다). index.html 의 첫 화면(보라 + 해태)과 이어지게 — HTML 의 해태 자리에서 ① 의 해태가 떨어져 내려오는 것처럼 보이면 더 좋다.
+- 분석 박자 이름(`beat`)은 `drop`·`poster`·`spill`·`rest` 로 바꾼다(PostHog 직접 전송 포함).
+- 구현(2026-11-15): 박자 시간은 `landingScript.ts` 의 `landingTimeline(n)` — ① 1.2초, ② 1.4초, ③ = 640ms(한 장이 나는 시간) + 간격 × (n − 1) + 160ms(주머니가 가라앉음), 간격 = min(300, ⌊1400 / (n − 1)⌋)ms 라 ③ 은 2.2초를 넘지 않는다. 썸네일은 사진이 온 것부터 최대 12장이 난다. 해태 그림은 `features/landing/art/` 의 작은 WebP(합 44KB)로 덮개 덩어리에 실려 와 기다리지 않는다.
+- 도시가 섞여 있으면(주소를 아는 촬영지가 모두 한 시·도가 아니거나 모르는 주소가 있으면) 「전부」 대신 `say('{N}곳, 대부분 {도시}에 있어요!', '{N} places, mostly in {도시}!')`, 1곳이면 `say('1곳, {도시}에 있어요!', '1 place, in {도시}!')`.
+- ④ 의 머리줄 오른쪽은 「내 지도」 단추(§9-3) 그대로이고, 담을 때 날아가는 조각은 주머니로 내려앉는다(주머니가 과녁).

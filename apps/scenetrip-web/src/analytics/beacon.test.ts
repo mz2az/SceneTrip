@@ -59,7 +59,7 @@ describe('createPostHogBeacon', () => {
 
   it('설정된 호스트를 쓴다(끝의 / 는 하나로)', () => {
     const { beacon, calls } = setup({ host: () => 'https://eu.i.posthog.com/' })
-    beacon.send(webEvent.landingBeat(32, 'scene'))
+    beacon.send(webEvent.landingBeat(32, 'drop'))
     expect(calls[0]!.url).toBe('https://eu.i.posthog.com/i/v0/e/')
   })
 
@@ -75,7 +75,7 @@ describe('createPostHogBeacon', () => {
 
   it('이름·이메일·좌표 같은 칸은 싣지 않는다 — 이벤트 매개변수와 utm 밖의 것은 $lib·$current_url 뿐', () => {
     const { beacon, calls } = setup()
-    beacon.send(webEvent.landingLeave(32, 'spread', 5000))
+    beacon.send(webEvent.landingLeave(32, 'spill', 5000))
     expect(Object.keys(calls[0]!.body.properties as object).sort()).toEqual(
       ['$current_url', '$lib', 'action', 'beat', 'content_id', 'ms', 'utm_content', 'utm_source'].sort(),
     )
