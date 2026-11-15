@@ -404,7 +404,7 @@ describe('네 박자 (§12)', () => {
     placesReply = placesN(3)
     renderLanding()
     await untilBeat('spill')
-    await advance(1300 + 650 + 340 + 50) // 첫 장이 들어간 뒤
+    await advance(1300 + 900 + 340 + 50) // 첫 장이 들어간 뒤
     expect(pouchCount()).toBe(1)
     expect(document.querySelectorAll('.st-card')).toHaveLength(2)
     expect(document.querySelector('.st-film')?.getAttribute('data-phase')).toBe('one')

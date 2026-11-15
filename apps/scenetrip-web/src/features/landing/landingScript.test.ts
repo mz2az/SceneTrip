@@ -1,11 +1,11 @@
 /*
  * 첫 화면 애니메이션의 박자 — 순수 함수. 정본: docs/project/plans/web-ad-landing.md §12-1.
  *
- *   landingTimeline(n)  dropMs = 1500, posterMs = 1700, spreadMs = 1300, oneMs = 650, featured = min(n, 10),
- *                       spillMs = featured = 0 이면 0, 아니면 1300 + 650 × featured + 340(마지막 장이 날기) + 220(가라앉기), total = 합
+ *   landingTimeline(n)  dropMs = 1500, posterMs = 1700, spreadMs = 1300, oneMs = 900, featured = min(n, 10),
+ *                       spillMs = featured = 0 이면 0, 아니면 1300 + 900 × featured + 340(마지막 장이 날기) + 220(가라앉기), total = 합
  *   beatAt(elapsed, t)  < 1500 → drop, < 3200 → poster, < total → spill, 그 뒤 → rest
  *   spreadAt(i)  펼침에서 i 번째 카드가 떠나는 때 — 모두 펼침(3.2~4.5초) 안에 제자리를 잡는다
- *   zoomAt(i) = 4500 + 650 i, leaveAt(i) = zoomAt(i + 1), pocketAt(i) = leaveAt(i) + 340
+ *   zoomAt(i) = 4500 + 900 i, leaveAt(i) = zoomAt(i + 1), pocketAt(i) = leaveAt(i) + 340
  *   centerCard(elapsed)  지금 가운데의 카드 — 하나씩 박자 밖이면 null
  *   pocketedCount(elapsed, t, n)  i 번째는 pocketAt(i) 에 주머니로, 마지막 장과 함께 나머지도. 최대 n, rest 는 언제나 n
  *   topRegion(addresses)  가장 많은 시·도(같으면 먼저 나온 것), 모르면 한국. all = 모두 그 시·도이고 모르는 주소가 없다
@@ -27,18 +27,18 @@ import {
 } from './landingScript'
 
 describe('landingTimeline', () => {
-  it('① 1.5초, ② 1.7초, 펼침 1.3초, 한 장 0.65초 — 곳 수와 무관', () => {
+  it('① 1.5초, ② 1.7초, 펼침 1.3초, 한 장 0.9초 — 곳 수와 무관', () => {
     for (const n of [0, 1, 5, 10, 40]) {
       const t = landingTimeline(n)
-      expect([t.dropMs, t.posterMs, t.spreadMs, t.oneMs], `n=${n}`).toEqual([1500, 1700, 1300, 650])
+      expect([t.dropMs, t.posterMs, t.spreadMs, t.oneMs], `n=${n}`).toEqual([1500, 1700, 1300, 900])
     }
   })
 
   it.each<[number, number, number]>([
-    [1, 1, 1300 + 650 + 340 + 220],
-    [3, 3, 1300 + 3 * 650 + 560],
-    [10, 10, 1300 + 10 * 650 + 560],
-    [40, 10, 1300 + 10 * 650 + 560],
+    [1, 1, 1300 + 900 + 340 + 220],
+    [3, 3, 1300 + 3 * 900 + 560],
+    [10, 10, 1300 + 10 * 900 + 560],
+    [40, 10, 1300 + 10 * 900 + 560],
   ])('n=%i → 하나씩 %i장, spillMs %i', (n, featured, spill) => {
     const t = landingTimeline(n)
     expect(t.featured).toBe(featured)
@@ -46,10 +46,10 @@ describe('landingTimeline', () => {
     expect(t.total).toBe(3200 + spill)
   })
 
-  it('10곳이면 약 12초 — ④ 는 11~12초 사이에 시작한다', () => {
+  it('10곳이면 약 14초 — ④ 는 13.5~14.5초 사이에 시작한다(사용자 11/15 「더 천천히, 0.9초로」)', () => {
     const t = landingTimeline(10)
-    expect(t.total).toBeGreaterThanOrEqual(11_000)
-    expect(t.total).toBeLessThanOrEqual(12_000)
+    expect(t.total).toBeGreaterThanOrEqual(13_500)
+    expect(t.total).toBeLessThanOrEqual(14_500)
   })
 
   it('하나씩 보이는 카드는 최대 10장', () => {
@@ -70,7 +70,7 @@ describe('landingTimeline', () => {
 })
 
 describe('beatAt', () => {
-  const t = landingTimeline(10) // total 11560
+  const t = landingTimeline(10) // total 14060
   it.each<[number, string]>([
     [0, 'drop'],
     [1499, 'drop'],
@@ -78,7 +78,7 @@ describe('beatAt', () => {
     [3199, 'poster'],
     [3200, 'spill'],
     [11_559, 'spill'],
-    [11_560, 'rest'],
+    [14_060, 'rest'],
     [60_000, 'rest'],
   ])('%i ms → %s', (elapsed, beat) => {
     expect(beatAt(elapsed, t)).toBe(beat)
@@ -104,9 +104,9 @@ describe('펼침과 하나씩', () => {
     }
   })
 
-  it('하나씩 — 4.5초부터 0.65초마다 한 장, 다음 장이 커질 때 앞 장이 떠나 0.34초 뒤 주머니에', () => {
+  it('하나씩 — 4.5초부터 0.9초마다 한 장, 다음 장이 커질 때 앞 장이 떠나 0.34초 뒤 주머니에', () => {
     for (let i = 0; i < 10; i++) {
-      expect(zoomAt(i, t)).toBe(4500 + 650 * i)
+      expect(zoomAt(i, t)).toBe(4500 + 900 * i)
       expect(leaveAt(i, t)).toBe(zoomAt(i + 1, t))
       expect(pocketAt(i, t)).toBe(leaveAt(i, t) + 340)
     }
@@ -118,10 +118,10 @@ describe('펼침과 하나씩', () => {
     [4499, null],
     [4500, 0],
     [5149, 0],
-    [5150, 1],
-    [4500 + 650 * 9, 9],
-    [4500 + 650 * 10, null],
-    [11_560, null],
+    [5400, 1],
+    [4500 + 900 * 9, 9],
+    [4500 + 900 * 10, null],
+    [14_060, null],
   ])('centerCard(%i) → %s', (elapsed, card) => {
     expect(centerCard(elapsed, t)).toBe(card)
   })
