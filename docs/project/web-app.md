@@ -234,6 +234,8 @@ cd apps/scenetrip-web && npm ci && npm run check
 
 `.env.local` 의 안전장치(`VITE_BLOCK_WRITES`·`VITE_BLOCK_PATHS=/guide,/navigation`)는 그대로 둔다. 화면 확인용 쿼리: `?dev-lang=ko|en`, `?dev-trip-dwell=10`(머무름 초). 첫 실행 덮개가 없어져 `dev-seen`·`dev-nosplash` 는 2026-11-03 제거했다.
 
+시험용 초기화 링크: `?reset=1`(예: `https://dev.scenetrip.io/?reset=1`). 시험용 웹(`isDevSite`)·로컬(`localhost`)에서만, 앱이 뜨기 전에 `index.html` 의 첫 인라인 스크립트가 localStorage·sessionStorage 의 `scenetrip.`·`proto.`·`ph_` 키(첫 화면 기록·설치 id·PostHog 익명 id 포함)를 지우고 주소에서 `reset` 만 뗀다(나머지 쿼리는 남는다) — 앱 안 브라우저에서도 처음 온 사람으로 다시 볼 수 있다. 운영 주소에서는 지우지 않고 떼기만 한다. 서버의 비회원 데이터는 지우지 않는다(새 설치 id 라 비어 보인다). 규칙은 `src/app/resetLink.ts`.
+
 2026-10-30 확인 결과: typecheck 통과, lint 통과(오류 0·경고 0), vitest 34 파일 464 시험 통과, `vite build` 통과. 모든 탭·덮개·시트 라우트(`/`, `/search`, `/search/content/:id`, `/search/place/:id`, `/community`, `/community/new`, `/courses`, `/courses/new`, `/courses/:id`, `/profile`, `/profile/*`)를 열어 페이지 오류 0 을 확인했다.
 
 ### 이번 마무리에서 고친 것
