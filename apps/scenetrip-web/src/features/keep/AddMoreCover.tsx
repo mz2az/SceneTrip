@@ -22,6 +22,7 @@ import { api, ok } from '@/api/client'
 import type { components } from '@/api/generated/schema'
 import { paths } from '@/app/routes'
 import { Icon } from '@/design/Icon'
+import { PosterImg } from '@/design/PosterImg'
 import { HStack, Spinner, Txt, VStack } from '@/design/primitives'
 import { homeStore, reloadHome } from '@/features/home/homeModel'
 import { color, contained } from '@/features/proto/protoTokens'
@@ -214,6 +215,7 @@ function OtherWorks() {
               name={w.title}
               sub={say(`촬영지 ${w.placeCount}곳`, spots(w.placeCount))}
               imageUrl={w.posterUrl ?? null}
+              poster
               pressed={state?.kind === 'done'}
               busy={state?.kind === 'loading'}
               badge={state?.kind === 'done' ? `✓ +${state.count}` : null}
@@ -376,9 +378,11 @@ function LoadFailed({ onRetry }: { onRetry: () => void }) {
  * 모자이크 칸 — 사진(없으면 분류 아이콘) 위 왼쪽 아래 굵은 흰 글씨, 아래쪽 어둡게, 오른쪽 위 원형 ＋(담기면 ✓).
  * 칸 전체가 단추이고 이름은 「{name} 담기」 / 「Add {name}」.
  */
-function Tile({ name, original, sub, imageUrl, glyph, tone, pressed, busy, badge, note, big, size, onPress }: {
+function Tile({ name, original, sub, imageUrl, poster, glyph, tone, pressed, busy, badge, note, big, size, onPress }: {
   name: string
   original?: string | null
+  /** 작품 포스터 — 가로 배너면 자르지 않고 전체를 보인다(web-app.md §15). 편의시설 사진은 그대로 cover. */
+  poster?: boolean
   sub?: string | null
   imageUrl: string | null
   glyph?: string | null
@@ -405,9 +409,11 @@ function Tile({ name, original, sub, imageUrl, glyph, tone, pressed, busy, badge
         aria-busy={busy || undefined}
         style={{ ...box, position: 'relative', display: 'block', width: size ?? '100%', padding: 0, textAlign: 'left', background }}
       >
-        {imageUrl ? (
+        {imageUrl && poster ? (
           // 큰 가로 카드는 세로 포스터를 16:9 로 자른다 — 가운데를 자르면 얼굴이 잘리므로 위쪽(얼굴·제목이 있는 곳)을 보인다.
-          <img src={imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" draggable={false} style={big ? { objectPosition: 'center 15%' } : undefined} />
+          <PosterImg src={imageUrl} position={big ? 'center 15%' : 'center'} />
+        ) : imageUrl ? (
+          <img src={imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" draggable={false} />
         ) : glyph ? (
           <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', paddingBottom: 30 }}>
             <Icon name={glyph} size={40} weight="semibold" color="rgba(255,255,255,0.92)" />
