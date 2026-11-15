@@ -4,6 +4,7 @@
  * 편집 화면(일차 탭 아래)과 길찾기 화면(요약 줄 위)이 같은 것을 쓴다 — 두 화면의 칩이 다르게 생기면 같은 기능인 줄 모른다.
  * 「전체」는 마스터 스위치다: 다 켜져 있으면 다 끄고, 하나라도 꺼져 있으면 다 켠다. 갈래별 개수가 0 이면 그 칩은 아예 안 나온다.
  */
+import { Icon } from '@/design/Icon'
 import { HStack, Pressable, Spinner, Txt } from '@/design/primitives'
 import { tr } from '@/i18n'
 import './icons'
@@ -93,10 +94,31 @@ export function PoiChips({ places, groupsOn, onChange, onGroupOff, extras = [] }
  * iOS `chip(...)` — 캡슐. 켜짐: accent 14% 바탕 + accent 50% 1pt 테두리 + 글자 primary semibold. 꺼짐: systemGray6 + secondary regular.
  * 내 지도의 주변 칩(features/keep/NearbyChips)도 같은 캡슐을 쓴다 — `busy` 면 색 점 자리에 도는 표시(받는 중), `background` 는 지도 위에 띄울 때의 바탕,
  * `shadow` 는 캡슐의 그림자.
+ * `solid`(그 갈래의 진한 색)를 주면 켜짐·꺼짐이 한눈에 갈린다(keep-poi.md §7, 11/15 — 지도 위 주변 칩만 쓴다, 코스 편집 화면은 그대로):
+ *   켜짐 = `solid` 로 꽉 찬 바탕 + 흰 굵은 글자 + 점 대신 흰 체크 + 그림자 조금 더. 꺼짐 = `background` 바탕 + 회색 글자 + 색 점, 살짝 흐리게.
  * 눌리는 자리는 높이 44px 이고 보이는 캡슐은 그 가운데 그대로다(keep-poi.md §9-6) — 칩 줄의 높이가 그만큼 는다.
  */
-export function Chip({ label, tone, isOn, image, busy = false, background, shadow, onTap }: { label: string; tone?: string; isOn: boolean; image?: string; busy?: boolean; background?: string; shadow?: string; onTap: () => void }) {
-  const ring = isOn ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent)' : undefined
+export function Chip({ label, tone, isOn, image, busy = false, background, shadow, solid, onTap }: {
+  label: string
+  tone?: string
+  isOn: boolean
+  image?: string
+  busy?: boolean
+  background?: string
+  shadow?: string
+  /** 켜졌을 때 꽉 채울 바탕색 — 흰 글자가 읽히는 진하기여야 한다. 주면 켜짐·꺼짐이 크게 다른 모양이 된다. */
+  solid?: string
+  onTap: () => void
+}) {
+  const strong = solid !== undefined
+  const filled = strong && isOn
+  const ring = isOn && !strong ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent)' : undefined
+  const fill = filled
+    ? solid
+    : strong
+      ? (background ?? 'var(--system-gray6)')
+      : isOn ? `color-mix(in srgb, var(--accent) 14%, ${background ?? 'transparent'})` : (background ?? 'var(--system-gray6)')
+  const lift = filled ? '0 2px 8px rgba(0,0,0,0.32)' : shadow
   return (
     <Pressable
       plain
@@ -109,19 +131,32 @@ export function Chip({ label, tone, isOn, image, busy = false, background, shado
           display: 'inline-flex',
           borderRadius: 999,
           padding: '6px 10px',
-          background: isOn ? `color-mix(in srgb, var(--accent) 14%, ${background ?? 'transparent'})` : (background ?? 'var(--system-gray6)'),
-          boxShadow: [ring, shadow].filter(Boolean).join(', ') || undefined,
+          background: fill,
+          boxShadow: [ring, lift].filter(Boolean).join(', ') || undefined,
+          opacity: strong && !isOn ? 0.9 : undefined,
+          transition: strong ? 'background-color 0.15s ease, box-shadow 0.15s ease' : undefined,
         }}
       >
         <HStack spacing={5}>
           {busy ? (
-            <Spinner size={10} />
+            filled ? (
+              <span className="spinner" role="progressbar" style={{ width: 10, height: 10, borderColor: 'rgba(255,255,255,0.45)', borderTopColor: '#fff' }} />
+            ) : (
+              <Spinner size={10} />
+            )
           ) : image ? (
             <img src={`/generated/${image}`} alt="" width={16} height={16} style={{ width: 16, height: 16, objectFit: 'contain' }} draggable={false} />
+          ) : filled ? (
+            <Icon name="checkmark" size={11} weight="bold" color="#fff" />
           ) : tone ? (
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: tone, flex: 'none' }} />
           ) : null}
-          <Txt size={12} weight={isOn ? 'semibold' : 'regular'} color={isOn ? 'primary' : 'secondary'} style={{ whiteSpace: 'nowrap' }}>
+          <Txt
+            size={12}
+            weight={filled ? 'bold' : isOn ? 'semibold' : 'regular'}
+            color={filled ? '#fff' : isOn ? 'primary' : 'secondary'}
+            style={{ whiteSpace: 'nowrap' }}
+          >
             {label}
           </Txt>
         </HStack>

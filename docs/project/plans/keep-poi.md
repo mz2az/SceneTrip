@@ -171,6 +171,11 @@ export function keepUrl(origin: string, contentIds: readonly number[], poiIds?: 
 - 주변 칩의 상태는 `features/keep/keepStore.ts` 의 `keepStore` 에 `nearby: NearbyKind | null`(처음 값 `null`)로 둔다. `keepActions.setNearby(kind | null)`. 내 지도가 이것을 읽고, 담은 뒤 시트의 칩은 `setNearby(kind)` → 시트 닫기 → `router.openMyMap()` 순서로 부른다. 내 지도 덮개가 닫히면 `null` 로 돌린다.
 - 주변 편의시설은 `api.GET('/pois', { params: { query: { bbox, categoryGroup, categories?, sort: 'spread', spreadZoom, limit: 60 }, header: … } })` 로 받는다(`@/api/client` 의 `api`).
 - 담기·빼기는 `cartActions.addPoi`·`cartActions.removePoi` 만 지난다.
+- **열면 「식당·카페」 가 켜져 있다 (2026-11-15).** 사용자: 「너무 맘에 들긴 한데, 이게 뭔지 잘 눈에 안 띄었거든? 들어가자마자 음식점은 바로 켜져 있게 해 놓고, 눌러진 것과 안 눌러진 것의 차이를 좀 더 눈에 띄게 하면 어떨까.」
+  - 내 지도 덮개가 열릴 때 담은 곳(촬영지 또는 편의시설)이 하나라도 있고 `keepStore.nearby` 가 `null` 이면 `setNearby('food')`. 담은 것이 늦게 들어오면(받는 중 → 받음) 그때 한 번. 담은 것이 없으면 켜지 않는다.
+  - 한 덮개에 한 번뿐이다 — 사람이 끄면 그 덮개가 열려 있는 동안 다시 켜지 않는다(담은 것이 바뀌어도). 시트에서 다른 칩을 켜 두고 열었으면 그대로 둔다.
+  - 저절로 켠 것은 사람이 누른 것이 아니므로 `my_map_nearby` 를 보내지 않는다(§8 의 「내 지도에서 사용자가 칩을 눌러 켤 때만」 그대로).
+  - 지도 위 칩(`onMap`)의 켜짐은 그 갈래 색을 검정과 조금 섞은 색으로 꽉 찬 바탕 + 흰 굵은 글자 + 점 대신 흰 체크 + 그림자 조금 더, 꺼짐은 흰 바탕 + 회색 글자 + 색 점 + 불투명도 0.9. 섞는 양은 흰 12px 글자가 4.5:1 을 넘게 — 식당 10%, 명소·쇼핑(accent) 18%, 숙소 22%(`NearbyChips.solidOf`). 캡슐은 `Chip` 의 선택 prop `solid` 로만 바뀌고, 코스 편집·길찾기 화면의 칩 모양은 그대로다. `aria-pressed` 는 그대로.
 - 내 지도의 주변 칩 줄은 `features/keep/NearbyChips.tsx` 의 표시 전용 부품이다.
 
   ```ts

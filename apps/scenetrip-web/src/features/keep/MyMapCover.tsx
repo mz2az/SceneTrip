@@ -13,7 +13,7 @@
  * 머리줄 오른쪽 「내 지도」 단추(배지), 앱 안 브라우저면 머리줄 아래 띠(§3).
  *
  * 받는 중 · 비었음 · 실패(다시 시도) · 됨. 덮개는 닫히면 내려간 뒤 빠지므로(Cover 의 usePresence) 숨은 지도가 타일을 받지 않는다.
- * 덮개가 빠지면 주변 칩(keepStore.nearby)을 끈다.
+ * 덮개가 빠지면 주변 칩(keepStore.nearby)을 끈다. 열 때 담은 곳이 있고 칩이 꺼져 있으면 「식당·카페」 를 켠다(keep-poi.md §7, 11/15).
  */
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { track, webEvent } from '@/analytics'
@@ -50,7 +50,7 @@ import { useStore } from '@/state/storage'
 import { spots } from '@/shared/spots'
 import { type NearbyKind, myMapCount, nearbyBbox, nearbyQuery, usableCount } from './keepPoiRules'
 import { mapGroups } from './keepRules'
-import { keepActions, useKeep } from './keepStore'
+import { keepActions, keepStore, useKeep } from './keepStore'
 import { NearbyChips } from './NearbyChips'
 import { SAVED_POI_PIN, savedPoiPinHtml } from './savedPoiPin'
 import { SavedPoiRow } from './SavedPoiRow'
@@ -231,6 +231,16 @@ export function MyMapCover({ onClose }: { onClose: () => void }): JSX.Element {
   const items = cart.items
   const pois = cart.pois
   const saved = myMapCount(items.length, pois.length)
+
+  // 열면 「식당·카페」 가 켜져 있다(keep-poi.md §7, 11/15) — 담은 곳이 하나라도 생긴 첫 순간 한 번, 칩이 꺼져 있을 때만.
+  // 시트에서 다른 칩을 켜 두고 열었으면 그대로, 사람이 끄면 이 덮개가 열려 있는 동안 다시 켜지 않는다. 사람이 누른 것이 아니므로 my_map_nearby 는 없다.
+  const autoNearbyDone = useRef(false)
+  const hasSaved = saved > 0
+  useEffect(() => {
+    if (autoNearbyDone.current || !hasSaved) return
+    autoNearbyDone.current = true
+    if (keepStore.get().nearby === null) keepActions.setNearby('food')
+  }, [hasSaved])
   // 머리줄·「이 N곳으로」 의 N 은 목록에서 빠진 촬영지·폐업한 편의시설을 뺀 수(§9-5) — 그것들도 목록·핀에는 흐리게 남는다.
   const count = usableCount(items, pois)
   // 다시 받는 중이거나 다시 받기가 실패해도 들고 있는 목록은 그대로 보인다.

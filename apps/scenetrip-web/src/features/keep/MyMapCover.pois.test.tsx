@@ -5,11 +5,12 @@
  *   목록 맨 아래 묶음 「주변에서 담은 곳」/Saved nearby — 줄은 SavedPoiRow(이름·분류·주소, 폐업 「문을 닫았어요」).
  *   주변 칩(NearbyChips)을 켜면 GET /pois { bbox: nearbyBbox(담은 곳), categoryGroup, categories?, sort: 'spread', spreadZoom, limit: 60 }
  *   과 my_map_nearby(kind). keepStore.nearby 가 미리 켜져 있으면 그 칩이 켜진 채로 뜬다.
+ *   11/15 — 담은 곳이 있고 nearby 가 null 이면 열 때 「식당·카페」 를 저절로 켠다(이벤트 없음). 사람이 끄면 덮개가 열려 있는 동안 다시 켜지 않는다.
  *   0건 「이 둘레에는 없어요. 지도를 옮겨 보세요」, 실패 「불러오지 못했어요」.
  *
  * 지도 부품은 MyMapCover.test.tsx 처럼 빈 부품으로 바꾼다 — 그래서 지도 위 점을 눌러 카드를 띄우는 것은 여기서 보지 않는다.
  */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -252,18 +253,68 @@ describe('MyMapCover — 「주변에서 담은 곳」 묶음', () => {
 })
 
 describe('MyMapCover — 주변 칩', () => {
-  it('칩 넷이 보이고 처음에는 어느 것도 켜져 있지 않다, GET /pois 도 없다', async () => {
+  it('열면 「식당·카페」 가 켜져 있고(§7, 11/15) GET /pois(food) 가 나간다 — 나머지 셋은 꺼져 있다', async () => {
     renderCover()
     await vi.waitFor(() => expect(bodyText()).toContain('남산서울타워'))
-    for (const name of ['식당·카페', '쇼핑', '명소', '숙소']) expect(chip(name).getAttribute('aria-pressed')).not.toBe('true')
+    await vi.waitFor(() => expect(chip('식당·카페').getAttribute('aria-pressed')).toBe('true'))
+    for (const name of ['쇼핑', '명소', '숙소']) expect(chip(name).getAttribute('aria-pressed')).not.toBe('true')
+    await vi.waitFor(() => expect(poiCalls().length).toBeGreaterThanOrEqual(1))
+    expect(lastPoiQuery()).toMatchObject({ categoryGroup: 'food', sort: 'spread', limit: 60 })
+    expect(keepStore.get().nearby).toBe('food')
+  })
+
+  it('저절로 켠 것은 my_map_nearby 를 보내지 않는다 — 사람이 누른 것이 아니다', async () => {
+    renderCover()
+    await vi.waitFor(() => expect(chip('식당·카페').getAttribute('aria-pressed')).toBe('true'))
+    await vi.waitFor(() => expect(poiCalls().length).toBeGreaterThanOrEqual(1))
+    expect(events().filter((e) => e.name === 'my_map_nearby')).toEqual([])
+  })
+
+  it('편의시설만 담았어도 열면 「식당·카페」 가 켜진다', async () => {
+    withCart([], [POIS[0]!])
+    renderCover()
+    await vi.waitFor(() => expect(chip('식당·카페').getAttribute('aria-pressed')).toBe('true'))
+  })
+
+  it('담은 것이 늦게 들어와도(받는 중 → 받음) 그때 한 번 켠다', async () => {
+    cartStore.set({ loadState: 'notLoaded', placeIds: new Set(), items: [], pois: [], poiIds: new Set(), toast: null })
+    cartReply = { items: ITEMS, pois: POIS }
+    renderCover()
+    await vi.waitFor(() => expect(bodyText()).toContain('남산서울타워'))
+    await vi.waitFor(() => expect(chip('식당·카페').getAttribute('aria-pressed')).toBe('true'))
+    expect(events().filter((e) => e.name === 'my_map_nearby')).toEqual([])
+  })
+
+  it('담은 것이 없으면 켜지 않는다 — GET /pois 도 없다', async () => {
+    withCart([], [])
+    renderCover()
+    await vi.waitFor(() => expect(bodyText()).toContain('아직 담은 곳이 없어요'))
+    await new Promise((r) => setTimeout(r, 30))
+    expect(keepStore.get().nearby).toBeNull()
     expect(poiCalls()).toEqual([])
   })
 
-  it('「식당·카페」 를 켜면 GET /pois(categoryGroup food, sort spread, limit 60, bbox 는 담은 곳 둘레)와 my_map_nearby(food)', async () => {
+  it('사람이 끄면 덮개가 열려 있는 동안 다시 켜지 않는다 — 담은 것이 바뀌어도', async () => {
     renderCover()
-    await vi.waitFor(() => expect(bodyText()).toContain('남산서울타워'))
+    await vi.waitFor(() => expect(chip('식당·카페').getAttribute('aria-pressed')).toBe('true'))
     fireEvent.click(chip('식당·카페'))
-    await vi.waitFor(() => expect(poiCalls().length).toBeGreaterThanOrEqual(1))
+    await vi.waitFor(() => expect(chip('식당·카페').getAttribute('aria-pressed')).not.toBe('true'))
+    // 담은 것이 바뀐다(편의시설 하나 더) — 그래도 다시 켜지 않는다.
+    act(() => withCart(ITEMS, [...POIS, savedPoi(503, { name: '새로 담은 곳' })]))
+    await vi.waitFor(() => expect(bodyText()).toContain('새로 담은 곳'))
+    await new Promise((r) => setTimeout(r, 30))
+    for (const name of ['식당·카페', '쇼핑', '명소', '숙소']) expect(chip(name).getAttribute('aria-pressed')).not.toBe('true')
+    expect(keepStore.get().nearby).toBeNull()
+  })
+
+  it('「식당·카페」 를 껐다 다시 켜면 GET /pois(categoryGroup food, sort spread, limit 60, bbox 는 담은 곳 둘레)와 my_map_nearby(food)', async () => {
+    renderCover()
+    await vi.waitFor(() => expect(chip('식당·카페').getAttribute('aria-pressed')).toBe('true'))
+    fireEvent.click(chip('식당·카페'))
+    await vi.waitFor(() => expect(chip('식당·카페').getAttribute('aria-pressed')).not.toBe('true'))
+    const before = poiCalls().length
+    fireEvent.click(chip('식당·카페'))
+    await vi.waitFor(() => expect(poiCalls().length).toBeGreaterThan(before))
     const query = lastPoiQuery()
     expect(query).toMatchObject({ categoryGroup: 'food', sort: 'spread', limit: 60 })
     expect(query.categories).toBeUndefined()
@@ -311,8 +362,6 @@ describe('MyMapCover — 주변 칩', () => {
 
   it('켜진 칩을 다시 누르면 꺼진다', async () => {
     renderCover()
-    await vi.waitFor(() => expect(bodyText()).toContain('남산서울타워'))
-    fireEvent.click(chip('식당·카페'))
     await vi.waitFor(() => expect(chip('식당·카페').getAttribute('aria-pressed')).toBe('true'))
     fireEvent.click(chip('식당·카페'))
     await vi.waitFor(() => expect(chip('식당·카페').getAttribute('aria-pressed')).not.toBe('true'))
@@ -324,6 +373,11 @@ describe('MyMapCover — 주변 칩', () => {
     await vi.waitFor(() => expect(chip('쇼핑').getAttribute('aria-pressed')).toBe('true'))
     await vi.waitFor(() => expect(poiCalls().length).toBeGreaterThanOrEqual(1))
     expect(lastPoiQuery()).toMatchObject({ categoryGroup: 'sight', categories: '쇼핑', sort: 'spread', limit: 60 })
+    // 시트에서 켜 두고 연 칩은 그대로 — 식당·카페로 바꾸지 않는다.
+    await new Promise((r) => setTimeout(r, 30))
+    expect(chip('쇼핑').getAttribute('aria-pressed')).toBe('true')
+    expect(chip('식당·카페').getAttribute('aria-pressed')).not.toBe('true')
+    expect(poiCalls().every((c) => (c[1] as { params: { query: Record<string, unknown> } }).params.query.categoryGroup !== 'food')).toBe(true)
   })
 
   it('받은 결과가 0건이면 「이 둘레에는 없어요. 지도를 옮겨 보세요」', async () => {
@@ -347,8 +401,7 @@ describe('MyMapCover — 주변 칩', () => {
 
   it('결과가 있으면 0건 안내가 없다', async () => {
     renderCover()
-    await vi.waitFor(() => expect(bodyText()).toContain('남산서울타워'))
-    fireEvent.click(chip('식당·카페'))
+    await vi.waitFor(() => expect(chip('식당·카페').getAttribute('aria-pressed')).toBe('true'))
     await vi.waitFor(() => expect(poiCalls().length).toBeGreaterThanOrEqual(1))
     await new Promise((r) => setTimeout(r, 30))
     expect(bodyText()).not.toContain('이 둘레에는 없어요')
@@ -358,8 +411,8 @@ describe('MyMapCover — 주변 칩', () => {
   it('실패면 「불러오지 못했어요」', async () => {
     poisReply = 'fail'
     renderCover()
+    // 저절로 켜진 「식당·카페」 의 받기가 실패한다.
     await vi.waitFor(() => expect(bodyText()).toContain('남산서울타워'))
-    fireEvent.click(chip('식당·카페'))
     await vi.waitFor(() => expect(bodyText()).toContain('불러오지 못했어요'))
   })
 
@@ -370,7 +423,6 @@ describe('MyMapCover — 주변 칩', () => {
     poisReply = 'fail'
     renderCover()
     await vi.waitFor(() => expect(bodyText()).toContain('My map'))
-    fireEvent.click(chip('Food & cafés'))
     await vi.waitFor(() => expect(bodyText()).toContain("Couldn't load"))
   })
 })
