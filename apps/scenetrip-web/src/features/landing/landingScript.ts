@@ -1,42 +1,63 @@
 /*
- * 첫 화면 애니메이션의 네 박자 — 순수 함수. 정본: docs/project/plans/web-ad-landing.md §12.
+ * 첫 화면 애니메이션의 박자 — 순수 함수. 정본: docs/project/plans/web-ad-landing.md §12-1(느리고 크게, intro-lab).
  *
- *   ① drop    0~1.2초   해태가 위에서 떨어져 통통 튀고 방긋, 그 아래 SceneTrip
- *   ② poster  1.2~2.6초 포스터가 아래에서 올라와 서고, 해태가 윗변에 앞발을 걸고 빼꼼 + 「저기 어디야?」
- *   ③ spill   2.6초~(최대 2.2초) 포스터에서 촬영지 썸네일이 하나씩 튀어나와 「내 지도」 주머니로 쏙
+ *   ① drop    0~1.5초    해태가 위에서 떨어져 통통 튀고 방긋, 그 아래 SceneTrip
+ *   ② poster  1.5~3.2초  포스터가 올라와 서고 해태가 빼꼼 + 「이 장소들, 진짜 {도시}에 있어요!」, 포스터 아래 「{작품}의 장면들」
+ *   ③ spill   3.2초~     (펼침) 촬영지 카드가 포스터 둘레로 쫙 펼쳐진다(1.3초 — 4.5초에 하나씩이 시작)
+ *                        (하나씩) 한 장씩 가운데로 크게 → 그림이 실제 사진으로 뒤집힘 → 이름 → 「My map」 주머니로 쏙
  *   ④ rest    핀을 든 해태 + 「{N}곳, 전부 {도시}에 있어요!」 + 담기 단추
+ *
+ * 모든 시간은 아래 INTRO_PACE 한 곳에 있다 — 늦추거나 당길 때는 이 값만 고친다.
+ * 분석 박자(`beat`)는 그대로 drop·poster·spill·rest — 펼침과 하나씩은 둘 다 spill 이다.
  */
 
 export type Beat = 'drop' | 'poster' | 'spill' | 'rest'
 
+/** 첫 화면의 모든 시간(ms) — 이름은 INTRO_PACE 의 칸. */
+export type IntroPace = Readonly<Record<'dropMs' | 'posterMs' | 'spreadMs' | 'spreadFlyMs' | 'oneMs' | 'zoomMs' | 'flipMs' | 'flyMs' | 'settleMs', number>>
+
+/** 첫 화면의 모든 시간(ms). */
+export const INTRO_PACE: IntroPace = {
+  /** ① 등장. */
+  dropMs: 1500,
+  /** ② 포스터와 빼꼼. */
+  posterMs: 1700,
+  /** ③ 의 펼침 — 카드가 포스터 둘레로 펼쳐지는 시간(마지막 카드가 자리를 잡을 때까지 포함). */
+  spreadMs: 1300,
+  /** 펼침에서 카드 하나가 포스터에서 제자리까지 나는 시간. */
+  spreadFlyMs: 620,
+  /** 하나씩 — 한 장의 차례(다음 장이 커지기 시작할 때까지). */
+  oneMs: 650,
+  /** 한 장이 제자리에서 가운데로 크게 커지는 시간. */
+  zoomMs: 180,
+  /** 커진 뒤 그림이 사진으로 뒤집히는 시간. */
+  flipMs: 250,
+  /** 한 장이 가운데에서 주머니까지 나는 시간 — 다음 장이 커지기 시작할 때 떠난다. */
+  flyMs: 340,
+  /** 마지막 장이 주머니에 들어간 뒤 ④ 까지. */
+  settleMs: 220,
+}
+
+/** 하나씩 보이는 카드의 최대 수 — 나머지는 마지막 장이 들어갈 때 수만 함께 오른다. */
+export const FEATURED_MAX = 10
+
 export interface LandingTimeline {
   dropMs: number
   posterMs: number
-  /** ③ 의 길이 — 첫 썸네일이 튀어나와 마지막 썸네일이 주머니에 들어가고 주머니가 가라앉기까지. 0곳이면 0. */
+  spreadMs: number
+  oneMs: number
+  /** 하나씩 보이는 카드 수 = min(곳 수, FEATURED_MAX). */
+  featured: number
+  /** ③ 의 길이 — 펼침 + 하나씩 + 마지막 장이 날아 들어가 주머니가 가라앉기까지. 0곳이면 0. */
   spillMs: number
-  /** 썸네일이 하나씩 튀어나오는 간격(ms). 1곳 이하면 0. */
-  perItemMs: number
   total: number
 }
 
-/** ① 의 길이(ms). */
-export const DROP_MS = 1200
-/** ② 의 길이(ms). */
-export const POSTER_MS = 1400
-/** ③ 의 최대 길이(ms). */
-export const SPILL_MAX_MS = 2200
-/** 썸네일 하나가 포스터에서 주머니까지 나는 시간(ms). */
-export const FLIGHT_MS = 640
-/** 마지막 썸네일이 들어간 뒤 주머니가 가라앉는 시간(ms). */
-export const SETTLE_MS = 160
-/** 썸네일 간격의 최대(ms) — 곳이 적어도 이보다 느리게 쏟아지지 않는다. */
-const PER_ITEM_MAX = 300
-
-export function landingTimeline(placeCount: number): LandingTimeline {
+export function landingTimeline(placeCount: number, pace: IntroPace = INTRO_PACE): LandingTimeline {
   const n = Math.max(0, Math.floor(placeCount))
-  const perItemMs = n <= 1 ? 0 : Math.min(PER_ITEM_MAX, Math.floor((SPILL_MAX_MS - FLIGHT_MS - SETTLE_MS) / (n - 1)))
-  const spillMs = n === 0 ? 0 : FLIGHT_MS + perItemMs * (n - 1) + SETTLE_MS
-  return { dropMs: DROP_MS, posterMs: POSTER_MS, spillMs, perItemMs, total: DROP_MS + POSTER_MS + spillMs }
+  const featured = Math.min(n, FEATURED_MAX)
+  const spillMs = featured === 0 ? 0 : pace.spreadMs + featured * pace.oneMs + pace.flyMs + pace.settleMs
+  return { dropMs: pace.dropMs, posterMs: pace.posterMs, spreadMs: pace.spreadMs, oneMs: pace.oneMs, featured, spillMs, total: pace.dropMs + pace.posterMs + spillMs }
 }
 
 export function beatAt(elapsedMs: number, t: LandingTimeline): Beat {
@@ -46,22 +67,43 @@ export function beatAt(elapsedMs: number, t: LandingTimeline): Beat {
   return 'rest'
 }
 
-/** ③ 이 시작하는 때(ms). */
+/** ③ 이 시작하는 때(ms) — 펼침의 시작. */
 export const spillStart = (t: LandingTimeline): number => t.dropMs + t.posterMs
 
-/** i 번째(0부터) 썸네일이 포스터에서 튀어나오는 때(ms). */
-export const launchAt = (i: number, t: LandingTimeline): number => spillStart(t) + i * t.perItemMs
+/** 펼침에서 i 번째(0부터) 카드가 포스터를 떠나는 때(ms). 마지막 카드도 펼침 안에 자리를 잡는다. */
+export function spreadAt(i: number, t: LandingTimeline, pace: IntroPace = INTRO_PACE): number {
+  const gap = t.featured <= 1 ? 0 : Math.floor((t.spreadMs - pace.spreadFlyMs - 120) / (t.featured - 1))
+  return spillStart(t) + 60 + i * Math.min(90, gap)
+}
+
+/** i 번째 카드가 가운데로 커지기 시작하는 때(ms). */
+export const zoomAt = (i: number, t: LandingTimeline): number => spillStart(t) + t.spreadMs + i * t.oneMs
+
+/** i 번째 카드가 가운데를 떠나 주머니로 나는 때(ms) = 다음 카드가 커지기 시작하는 때. */
+export const leaveAt = (i: number, t: LandingTimeline): number => zoomAt(i + 1, t)
+
+/** i 번째 카드가 주머니에 들어가는 때(ms). */
+export const pocketAt = (i: number, t: LandingTimeline, pace: IntroPace = INTRO_PACE): number => leaveAt(i, t) + pace.flyMs
+
+/** 지금 가운데에 있는 카드(0부터) — 하나씩 박자가 아니면 null. */
+export function centerCard(elapsedMs: number, t: LandingTimeline): number | null {
+  if (t.featured === 0) return null
+  const since = elapsedMs - zoomAt(0, t)
+  if (since < 0 || elapsedMs >= t.total) return null
+  const i = Math.floor(since / t.oneMs)
+  return i < t.featured ? i : null
+}
 
 /**
- * 주머니에 들어간 수 — ③ 전에는 0, i 번째는 `launchAt(i) + FLIGHT_MS` 에 들어간다. 최대 placeCount, rest 는 언제나 placeCount.
+ * 주머니에 들어간 수 — i 번째 카드는 pocketAt(i) 에 들어간다. 마지막 카드가 들어갈 때 하나씩 보이지 않은 나머지도 함께 들어간다.
+ * 최대 placeCount, rest 는 언제나 placeCount.
  */
 export function pocketedCount(elapsedMs: number, t: LandingTimeline, placeCount: number): number {
   if (placeCount <= 0) return 0
   if (elapsedMs >= t.total) return placeCount
-  const since = elapsedMs - spillStart(t) - FLIGHT_MS
-  if (since < 0) return 0
-  if (t.perItemMs === 0) return placeCount
-  return Math.min(placeCount, Math.floor(since / t.perItemMs) + 1)
+  let c = 0
+  while (c < t.featured && pocketAt(c, t) <= elapsedMs) c++
+  return c === t.featured ? placeCount : c
 }
 
 /** 시·도 — 주소에서 찾는 말(한국어 앞머리·영어 이름)과 화면에 쓰는 이름. */

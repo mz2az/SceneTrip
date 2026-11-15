@@ -118,6 +118,8 @@ describe('index.html 의 초기화 인라인 스크립트', () => {
     ['dev.scenetrip.io', '?reset=0'],
     ['dev.scenetrip.io', '?a=1&reset=1&b=2'],
     ['dev.scenetrip.io', '?reset=1'],
+    ['intro-lab.scenetrip-app.pages.dev', '?reset=1'],
+    ['other-lab.scenetrip-app.pages.dev', '?reset=1'],
   ]
   for (const [host, search] of cases) {
     it(`${host}${search} — resetLink.ts 와 같게`, () => {

@@ -42,7 +42,7 @@
         var stQuery = new URLSearchParams(location.search)
         if (stQuery.get('reset') === '1') {
           var stHost = location.hostname.toLowerCase()
-          if (['dev.scenetrip.io', 'dev.scenetrip-app.pages.dev', 'localhost', '127.0.0.1', '[::1]', '::1'].indexOf(stHost) >= 0) {
+          if (['dev.scenetrip.io', 'dev.scenetrip-app.pages.dev', 'intro-lab.scenetrip-app.pages.dev', 'localhost', '127.0.0.1', '[::1]', '::1'].indexOf(stHost) >= 0) {
             [localStorage, sessionStorage].forEach(function (s) {
               for (var i = s.length - 1; i >= 0; i--) {
                 var k = s.key(i)

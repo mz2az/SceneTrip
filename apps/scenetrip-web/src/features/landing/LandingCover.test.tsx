@@ -4,8 +4,10 @@
  *   LandingCover({ contentId, onRest, onClose }): GET /contents/{id} · /contents/{id}/places · /cart · /courses 만 받는다
  *   (§12 — 장면 사진·/places/{id} 는 받지 않는다).
  *   처음 온 사람이 아니면(담은 촬영지·편의시설·코스) onClose('notNew'). 받기 실패·404·0곳·목록에서 빠진 작품 → onClose('failed').
- *   네 박자 drop → poster → spill → rest(시간은 landingScript). 받으면 곧바로 ①.
- *   ② 「저기 어디야?」, 포스터가 안 왔으면 제목 카드, 오면 바꿔 끼운다. ③ 썸네일이 주머니로 — 수가 오른다, 사진이 안 온 것은 수만.
+ *   네 박자 drop → poster → spill → rest(시간은 landingScript — §12-1 느리고 크게). 받으면 곧바로 ①.
+ *   ② 「이 장소들, 진짜 {도시}에 있어요!」 + 포스터 아래 「{작품}의 장면들」, 포스터가 안 왔으면 제목 카드, 오면 바꿔 끼운다.
+ *   ③ 카드(최대 10장)가 포스터 둘레로 펼쳐졌다가 한 장씩 크게 → 주머니로, 수가 오른다. 작품 32 는 앞면이 일러스트(/intro/kdh/{id}.webp),
+ *      뒷면이 실제 사진(뒤집힘). 일러스트가 없으면 사진만, 사진도 없으면 이름 카드. 영어 화면이면 이름 아래 한국어 이름(한 번 더 받는다).
  *   ④ 「{N}곳, 전부 {도시}에 있어요!」 + 담기 + 「먼저 둘러볼게요」.
  *   화면을 누르면 rest + landing(id,'skip'). 「건너뛰기」 → onClose('skip') + landing(id,'skip')(§11).
  *   rest: onRest(). 「이 N곳 마이맵에 담기」 → addMany(전부, id, onProgress, 'landing'), 「담는 중… d/t」,
@@ -18,10 +20,11 @@
  *   - 받기 `api.GET`(@/api/client), 담기 `cartActions.addMany`(@/state/cart), 이벤트 `track`(@/analytics).
  *   - 「건너뛰기」 단추 이름 `say('건너뛰기','Skip')`. 움직임 줄이기는 `window.matchMedia('(prefers-reduced-motion: reduce)')`.
  *   - 화면 아무 곳 누르기 = 덮개 무대(.st-landing)를 누르는 것.
- *   - 주머니의 수 = .st-film__bag-count, 나는 썸네일 = .st-film__thumb, 포스터 = .st-film__poster.
+ *   - 주머니의 수 = .st-film__bag-count, 카드 = .st-card(뒤집는 카드는 data-flip, 뒷면 .st-card__face--back, 이름 .st-card__name·.st-card__ko,
+ *     이름 카드 .st-card__namecard), 포스터 = .st-film__poster, 포스터 아래 글 = .st-film__caption.
  *   - 사진 미리 받기는 jsdom 에서 하지 않는다(주소를 그대로 그린다). 받기 순서 시험만 가짜 Image 와 사용자 에이전트를 건다.
  *
- * 받으면 곧바로 ① — 그린 뒤 0.6초에는 ① drop(1.2초) 안에 있다.
+ * 받으면 곧바로 ① — 그린 뒤 0.6초에는 ① drop(1.5초) 안에 있다.
  */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
@@ -139,7 +142,7 @@ async function toDrop() {
   await advance(50)
   await advance(550)
 }
-/** ② poster 한가운데(받고 1.2초 + 0.7초). */
+/** ② poster 한가운데(받고 1.5초 + 0.4초 — ② 는 1.7초). */
 async function toPoster() {
   await toDrop()
   await advance(1300)
@@ -195,7 +198,7 @@ beforeEach(() => {
   placesReply = placesN(3)
   serverCart = []
   h.GET.mockReset()
-  h.GET.mockImplementation(async (path: string, init?: { params?: { path?: { contentId?: number; placeId?: number } } }) => {
+  h.GET.mockImplementation(async (path: string, init?: { params?: { path?: { contentId?: number; placeId?: number } }; headers?: Record<string, string> }) => {
     if (path === '/contents/{contentId}') {
       if (contentReply === 404) return respond(404)
       if (contentReply === 500) return respond(500)
@@ -211,7 +214,9 @@ beforeEach(() => {
     }
     if (path === '/contents/{contentId}/places') {
       if (placesReply === 'fail') return respond(500)
-      return respond(200, { items: placesReply, total: placesReply.length, limit: 100, offset: 0 })
+      // 한국어로 달라면 한국어 이름(영어 화면의 카드 아래 작은 줄).
+      const items = init?.headers?.['Accept-Language'] === 'ko' ? placesReply.map((p) => ({ ...p, name: `한글${p.id}` })) : placesReply
+      return respond(200, { items, total: placesReply.length, limit: 100, offset: 0 })
     }
     if (path === '/courses') {
       return respond(200, { items: Array.from({ length: serverCourses }, (_, i) => ({ id: 900 + i, title: `코스${i}` })) })
@@ -335,9 +340,9 @@ describe('처음 온 사람이 아니면 덮개 없음 — onClose(notNew)(§11)
 
 const pouchCount = () => Number(document.querySelector('.st-film__bag-count')?.textContent ?? 'NaN')
 const beatNow = () => document.querySelector('.st-film')?.getAttribute('data-beat') ?? null
-/** 그 박자가 될 때까지 10ms 씩(최대 10초). */
+/** 그 박자가 될 때까지 10ms 씩(최대 20초). */
 async function untilBeat(beat: string) {
-  for (let i = 0; i < 1000 && beatNow() !== beat; i++) await advance(10)
+  for (let i = 0; i < 2000 && beatNow() !== beat; i++) await advance(10)
 }
 
 describe('네 박자 (§12)', () => {
@@ -351,10 +356,10 @@ describe('네 박자 (§12)', () => {
     expect(queryButtonWith('이 3곳 마이맵에 담기')).toBeNull()
   })
 
-  it.each<[Lang, string]>([
-    ['ko', '저기 어디야?'],
-    ['en', 'Where is this?'],
-  ])('%s — ② poster: 포스터가 서고 해태가 빼꼼 + 「%s」', async (lang, ask) => {
+  it.each<[Lang, string, string]>([
+    ['ko', '이 장소들, 진짜 서울에 있어요!', `${TITLE}의 장면들`],
+    ['en', 'These places are real — in Seoul!', `Scenes from ${TITLE}`],
+  ])('%s — ② poster: 포스터가 서고 해태가 빼꼼 + 「%s」, 포스터 아래 「%s」', async (lang, ask, caption) => {
     chooseLanguage(lang)
     renderLanding()
     await toPoster()
@@ -363,25 +368,83 @@ describe('네 박자 (§12)', () => {
     expect(document.querySelector('.st-film__peek .st-film__head')).not.toBeNull()
     expect(document.querySelectorAll('.st-film__paw')).toHaveLength(2)
     expect(bodyText()).toContain(ask)
+    expect(bodyText()).not.toMatch(/Where is this|저기 어디야/)
+    expect(document.querySelector('.st-film__caption')?.textContent).toBe(caption)
     expect(queryButtonWith(lang === 'ko' ? '이 3곳 마이맵에 담기' : 'Keep these 3 on My map')).toBeNull()
   })
 
-  it('③ spill — 썸네일이 하나씩 튀어나오고(이름과 함께) 주머니의 수가 0 에서 N 까지 오른다', async () => {
+  it('③ spill — 카드가 펼쳐지고(앞면 일러스트, 뒷면 사진과 이름) 한 장씩 주머니로, 수가 0 에서 N 까지 오른다', async () => {
     placesReply = placesN(4)
     renderLanding()
-    await untilBeat('spill') // ③ 시작 직후
-    expect(document.querySelector('.st-film')?.getAttribute('data-beat')).toBe('spill')
+    await untilBeat('spill') // ③ 시작 직후 — 펼침
+    expect(beatNow()).toBe('spill')
+    expect(document.querySelector('.st-film')?.getAttribute('data-phase')).toBe('spread')
     expect(pouchCount()).toBe(0)
-    expect(document.querySelector('.st-film__thumb span')?.textContent).toBe('장소101')
+    const cards = [...document.querySelectorAll('.st-card')]
+    expect(cards).toHaveLength(4)
+    const first = cards[0]!
+    expect(first.hasAttribute('data-flip')).toBe(true)
+    expect(first.querySelector('.st-card__face:not(.st-card__face--back) img.st-card__photo')?.getAttribute('src')).toBe('/intro/kdh/101.webp')
+    expect(first.querySelector('.st-card__face--back img.st-card__photo')?.getAttribute('src')).toBe('https://x/place-101-s.jpg')
+    expect(first.querySelector('.st-card__face--back .st-card__name')?.textContent).toBe('장소101')
+    expect(first.querySelector('.st-card__face:not(.st-card__face--back) .st-card__name')).toBeNull()
     const seen: number[] = []
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 80; i++) {
       await advance(100)
       seen.push(pouchCount())
-      if (document.querySelector('.st-film')?.getAttribute('data-beat') === 'rest') break
+      if (beatNow() === 'rest') break
     }
     expect(seen.some((c) => c > 0 && c < 4)).toBe(true)
-    expect(document.querySelector('.st-film')?.getAttribute('data-beat')).toBe('rest')
+    expect(beatNow()).toBe('rest')
     expect(pouchCount()).toBe(4)
+    expect(document.querySelector('.st-card')).toBeNull()
+  })
+
+  it('③ — 주머니에 들어간 카드는 사라지고, 들어갈 때마다 하나씩 준다', async () => {
+    placesReply = placesN(3)
+    renderLanding()
+    await untilBeat('spill')
+    await advance(1300 + 650 + 340 + 50) // 첫 장이 들어간 뒤
+    expect(pouchCount()).toBe(1)
+    expect(document.querySelectorAll('.st-card')).toHaveLength(2)
+    expect(document.querySelector('.st-film')?.getAttribute('data-phase')).toBe('one')
+  })
+
+  it('③ — 10곳이 넘으면 카드는 10장, 마지막 장이 들어갈 때 수가 N 까지', async () => {
+    placesReply = placesN(14)
+    renderLanding()
+    await untilBeat('spill')
+    expect(document.querySelectorAll('.st-card')).toHaveLength(10)
+    await untilBeat('rest')
+    expect(pouchCount()).toBe(14)
+  })
+
+  it('en — 카드 이름 아래 작게 한국어 이름(한국어로 한 번 더 받는다)', async () => {
+    chooseLanguage('en')
+    renderLanding()
+    await untilBeat('spill')
+    const back = document.querySelector('.st-card .st-card__face--back')!
+    expect(back.querySelector('.st-card__name')?.textContent).toBe('장소101')
+    expect(back.querySelector('.st-card__ko')?.textContent).toBe('한글101')
+    const koCalls = h.GET.mock.calls.filter((c) => c[0] === '/contents/{contentId}/places' && (c[1] as { headers?: Record<string, string> }).headers?.['Accept-Language'] === 'ko')
+    expect(koCalls).toHaveLength(1)
+  })
+
+  it('ko — 한국어 화면이면 한국어 이름 줄도, 두 번째 받기도 없다', async () => {
+    renderLanding()
+    await untilBeat('spill')
+    expect(document.querySelector('.st-card__ko')).toBeNull()
+    expect(h.GET.mock.calls.filter((c) => c[0] === '/contents/{contentId}/places')).toHaveLength(1)
+  })
+
+  it('작품 32 가 아니면 일러스트 없이 실제 사진만 — 뒤집지 않는다', async () => {
+    renderLanding(7)
+    await untilBeat('spill')
+    const first = document.querySelector('.st-card')!
+    expect(first.hasAttribute('data-flip')).toBe(false)
+    expect(first.querySelector('img.st-card__photo')?.getAttribute('src')).toBe('https://x/place-101-s.jpg')
+    expect(first.querySelector('.st-card__name')?.textContent).toBe('장소101')
+    expect(document.querySelector('.st-card__face--back')).toBeNull()
   })
 
   it.each<[Lang, string, string, string]>([
@@ -475,7 +538,7 @@ describe('prefers-reduced-motion', () => {
     await advance(100)
     expect(buttonWith('이 3곳 마이맵에 담기')).toBeTruthy()
     expect(document.querySelector('.st-film')?.hasAttribute('data-instant')).toBe(true)
-    expect(document.querySelector('.st-film__thumb')).toBeNull()
+    expect(document.querySelector('.st-card')).toBeNull()
   })
 })
 
@@ -634,6 +697,11 @@ describe('사진 — 받는 순서와 늦은 포스터', () => {
       for (const img of FakeImage.made.filter((i) => i.src === url)) img.onload?.()
     })
   }
+  const fail = async (url: string) => {
+    await act(async () => {
+      for (const img of FakeImage.made.filter((i) => i.src === url)) img.onerror?.()
+    })
+  }
   const asked = () => FakeImage.made.map((i) => i.src)
   let uaSpy: MockInstance
   beforeEach(() => {
@@ -646,18 +714,29 @@ describe('사진 — 받는 순서와 늦은 포스터', () => {
     uaSpy.mockRestore()
   })
 
-  it('포스터를 먼저, 그다음 첫 썸네일 6장, 나머지는 그 뒤 — 장면 사진은 받지 않는다', async () => {
-    placesReply = placesN(8)
+  it('포스터를 먼저, 그다음 카드 앞면(일러스트), 그다음 뒷면 사진 — 10장까지만, 장면 사진은 받지 않는다', async () => {
+    placesReply = placesN(12)
     renderLanding()
     await advance(50)
     expect(asked()).toEqual(['https://x/poster-32.jpg'])
     await load('https://x/poster-32.jpg')
     await advance(0)
-    expect(asked().slice(1)).toEqual([101, 102, 103, 104, 105, 106].map((id) => `https://x/place-${id}-s.jpg`))
-    for (const id of [101, 102, 103, 104, 105, 106]) await load(`https://x/place-${id}-s.jpg`)
+    const ids = Array.from({ length: 10 }, (_, i) => 101 + i)
+    expect(asked().slice(1)).toEqual(ids.map((id) => `/intro/kdh/${id}.webp`))
+    for (const id of ids) await load(`/intro/kdh/${id}.webp`)
     await advance(0)
-    expect(asked().slice(7)).toEqual(['https://x/place-107-s.jpg', 'https://x/place-108-s.jpg'])
-    expect(asked().some((u) => u.includes('scene'))).toBe(false)
+    expect(asked().slice(11)).toEqual(ids.map((id) => `https://x/place-${id}-s.jpg`))
+    expect(asked().some((u) => u.includes('scene') || u.includes('place-111') || u.includes('place-112'))).toBe(false)
+  })
+
+  it('작품 32 가 아니면 카드 앞면이 곧 사진 — 일러스트를 받지 않는다', async () => {
+    placesReply = placesN(3)
+    renderLanding(7)
+    await advance(50)
+    await load('https://x/poster-32.jpg')
+    await advance(0)
+    expect(asked().slice(1)).toEqual([101, 102, 103].map((id) => `https://x/place-${id}-s.jpg`))
+    expect(asked().some((u) => u.includes('/intro/'))).toBe(false)
   })
 
   it('② 에 포스터가 아직이면 제목을 쓴 보라 카드, 오면 바꿔 끼운다', async () => {
@@ -671,17 +750,28 @@ describe('사진 — 받는 순서와 늦은 포스터', () => {
     expect(document.querySelector('.st-film__poster-card')).toBeNull()
   })
 
-  it('③ 의 썸네일은 사진이 온 것부터 난다 — 안 온 것은 수만 오른다', async () => {
-    placesReply = placesN(4)
+  it('③ — 일러스트가 없으면 사진만(뒤집지 않는다), 사진도 아직이면 이름 카드', async () => {
+    placesReply = placesN(3)
     renderLanding()
     await advance(50)
     await load('https://x/poster-32.jpg')
-    // 첫 썸네일 묶음 가운데 103 만 받았다.
-    await load('https://x/place-103-s.jpg')
-    await untilBeat('spill') // ③ 시작 직후
-    const flying = [...document.querySelectorAll('.st-film__thumb img')].map((i) => i.getAttribute('src'))
-    expect(flying).toEqual(['https://x/place-103-s.jpg'])
-    await advance(3000)
-    expect(pouchCount()).toBe(4)
+    await advance(0)
+    // 101 은 그림 파일이 없다(받기 실패), 102 는 그림이 왔다, 103 도 그림이 없다.
+    await fail('/intro/kdh/101.webp')
+    await load('/intro/kdh/102.webp')
+    await fail('/intro/kdh/103.webp')
+    await advance(0)
+    await load('https://x/place-101-s.jpg')
+    await load('https://x/place-102-s.jpg')
+    await untilBeat('spill')
+    const [c101, c102, c103] = [...document.querySelectorAll('.st-card')]
+    expect(c101!.hasAttribute('data-flip')).toBe(false)
+    expect(c101!.querySelector('img.st-card__photo')?.getAttribute('src')).toBe('https://x/place-101-s.jpg')
+    expect(c102!.hasAttribute('data-flip')).toBe(true)
+    expect(c102!.querySelector('.st-card__face--back img.st-card__photo')?.getAttribute('src')).toBe('https://x/place-102-s.jpg')
+    expect(c103!.hasAttribute('data-flip')).toBe(false)
+    expect(c103!.querySelector('.st-card__namecard')?.textContent).toContain('장소103')
+    await untilBeat('rest')
+    expect(pouchCount()).toBe(3)
   })
 })
