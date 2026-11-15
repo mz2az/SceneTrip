@@ -286,7 +286,7 @@ describe('② keep — 알겠어요 · 나중에', () => {
 })
 
 describe('② keep — 로그인 보조 단추', () => {
-  const SIGN_IN = '로그인해서 어디서나 보기'
+  const SIGN_IN = '로그인해서 간직하기'
 
   it.each(NOT_IN_APP)('%s · 가입 안 함 → 보인다, 누르면 로그인 창(이유 keep) + sign_in', (env) => {
     const openSignInFor = vi.spyOn(accountActions, 'openSignInFor')
@@ -297,10 +297,10 @@ describe('② keep — 로그인 보조 단추', () => {
     expect(hasEvent(webEvent.keepPrompt(env, 'sign_in'))).toBe(true)
   })
 
-  it('영어 — Sign in to see it anywhere', () => {
+  it('영어 — Sign in to keep it', () => {
     chooseLanguage('en')
     openKeep('other')
-    expect(buttonWith('Sign in to see it anywhere')).toBeTruthy()
+    expect(buttonWith('Sign in to keep it')).toBeTruthy()
   })
 
   it.each(IN_APP)('%s · 가입 안 함 → 앱 안 브라우저라 보이지 않는다', (env) => {

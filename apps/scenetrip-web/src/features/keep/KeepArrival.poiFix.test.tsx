@@ -108,17 +108,17 @@ describe('KeepArrival — ?pois= 한꺼번에 받기(§9-8)', () => {
     expect(cartGets()).toBe(2)
   })
 
-  it('알림은 끝에 한 번 — 「N곳을 마이맵에 담았어요」(이미 있던 것도 친다)', async () => {
+  it('알림은 끝에 한 번 — 「넘어왔어요! 마이맵이 그대로 있어요」(web-ad-landing.md §13-3, 이미 있던 것도 친다)', async () => {
     arrive('/?pois=7,8,9')
     await vi.waitFor(() => expect(arriveEvents()).toHaveLength(1))
-    expect(toasts).toEqual(['3곳을 마이맵에 담았어요'])
+    expect(toasts).toEqual(['넘어왔어요! 마이맵이 그대로 있어요'])
     expect(arriveEvents()[0]).toEqual(webEvent.keepArrive(0, 2))
   })
 
-  it('실패가 있으면 그 수를 한 번 알린다', async () => {
+  it('실패가 있으면 그 수를 한 번 알린다(담긴 것이 있으면 「넘어왔어요!」 와 함께)', async () => {
     arrive('/?pois=7,13')
     await vi.waitFor(() => expect(arriveEvents()).toHaveLength(1))
-    expect(toasts).toEqual(['1곳은 담지 못했어요'])
+    expect(toasts).toEqual(['넘어왔어요! 1곳은 담지 못했어요'])
   })
 
   it('끝나면 사본에 담긴 편의시설이 다 들어 있다', async () => {

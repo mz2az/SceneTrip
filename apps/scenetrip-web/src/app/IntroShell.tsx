@@ -3,7 +3,7 @@
  *
  * 덮개가 떠 있는 동안 밑의 앱(AppRoot — 홈·탭·지도·분석)은 그리지도 받지도 않는다. 덮개 코드도 따로 떨어진 덩어리라,
  * 처음 온 사람은 이 파일·라우터·React 와 덮개 덩어리만 받고 첫 화면을 본다. ③ 이 그려진 뒤 밑의 앱을 붙여 둔다(덮개가 가린다).
- * 덮개가 걷히면 그 자리의 앱이 보인다 — 주소는 그대로, 담기를 누른 경우만 「더 담기」(/add).
+ * 덮개가 걷히면 그 자리의 앱이 보인다 — 주소는 그대로, 담기를 누른 경우만 ⑤ 간직하기를 거쳐 「더 담기」(/add, §13-1).
  *
  * 앱이 떠 있는 동안 `/go/{id}` 로 오면(홈의 작품 칸) 덮개를 다시 띄우지 않고 그 작품 상세로 간다(§11).
  *
@@ -96,6 +96,9 @@ export function IntroShell({ initialIntro }: { initialIntro: { contentId: number
     setTimeout(() => setAppMounted(true), MOUNT_APP_AFTER_REST_MS)
   }, [])
 
+  // ⑤ 간직하기에서 로그인 창을 띄운다 — 로그인 창(RootSheets)은 밑의 앱에 있다. 덮개(z 45) 위로 뜬다(시트 z 60, 같은 포탈 자리).
+  const onNeedApp = useCallback(() => setAppMounted(true), [])
+
   const onClose = useCallback(
     (how: IntroClose) => {
       const fromGo = intro?.fromGo === true
@@ -122,7 +125,7 @@ export function IntroShell({ initialIntro }: { initialIntro: { contentId: number
       {intro !== null && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 45 }}>
           <Suspense fallback={<IntroSplash />}>
-            <LandingCover key={intro.contentId} contentId={intro.contentId} onRest={onRest} onClose={onClose} onBeat={onBeat} onKeep={onKeep} />
+            <LandingCover key={intro.contentId} contentId={intro.contentId} onRest={onRest} onClose={onClose} onBeat={onBeat} onKeep={onKeep} onNeedApp={onNeedApp} />
           </Suspense>
         </div>
       )}

@@ -15,6 +15,11 @@ export {
   mapGroups,
   moreWorks,
   parseKeepParam,
+  parsePlacesParam,
+  hasKeepParams,
+  handoffKeepUrl,
+  keepContentIds,
+  loosePlaceIds,
 } from './keepRules'
 export { type KeepState, type KeepStep, type SaveAllProgress, addMoreRequestStore, keepActions, keepStore, saveAllProgress, useKeep, useSaveAllProgress } from './keepStore'
 export { canPromptInstall, currentKeepEnv, promptInstall, startInstallPromptCapture, useCanPromptInstall } from './installPrompt'

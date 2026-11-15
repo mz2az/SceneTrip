@@ -8,7 +8,8 @@
  *   ② 「저기 어디야?」, 포스터가 안 왔으면 제목 카드, 오면 바꿔 끼운다. ③ 썸네일이 주머니로 — 수가 오른다, 사진이 안 온 것은 수만.
  *   ④ 「{N}곳, 전부 {도시}에 있어요!」 + 담기 + 「먼저 둘러볼게요」.
  *   화면을 누르면 rest + landing(id,'skip'). 「건너뛰기」 → onClose('skip') + landing(id,'skip')(§11).
- *   rest: onRest(). 「이 N곳 마이맵에 담기」 → addMany(전부, id, onProgress, 'landing'), 「담는 중… d/t」, 끝나면 onClose('kept').
+ *   rest: onRest(). 「이 N곳 마이맵에 담기」 → addMany(전부, id, onProgress, 'landing'), 「담는 중… d/t」,
+ *         끝나면 ⑤ 간직하기(§13-1 — 자세한 시험은 KeepBeat.test.tsx), 거기서 「나중에」 → onClose('kept').
  *         실패가 있으면 남고 「남은 N곳도 담기」. 「먼저 둘러볼게요」 → onClose('browse') + browse. 담는 중에 걷히면 kept 를 부르지 않는다(§10-3-7).
  *   prefers-reduced-motion 이면 처음부터 rest.
  *
@@ -516,11 +517,15 @@ describe('담기', () => {
     await act(async () => finish({ saved: 3, already: 0, failed: 0 }))
   })
 
-  it('끝나고 실패가 없으면 onClose(kept) — 「더 담기」 로', async () => {
+  it('끝나고 실패가 없으면 덮개 안에서 ⑤ 간직하기, 「나중에」 → onClose(kept) — 「더 담기」 로(§13-1)', async () => {
     renderLanding()
     await toRest()
     fireEvent.click(buttonWith('이 3곳 마이맵에 담기'))
     await advance(0)
+    await advance(0)
+    expect(closes).toEqual([])
+    expect(document.querySelector('.st-film')?.getAttribute('data-beat')).toBe('keep')
+    fireEvent.click(buttonWith('나중에'))
     await advance(0)
     expect(closes).toEqual(['kept'])
   })

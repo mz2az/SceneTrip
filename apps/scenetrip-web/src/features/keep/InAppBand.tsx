@@ -13,17 +13,11 @@ import { say, useLang } from '@/i18n'
 import { useCart } from '@/state/cart'
 import { handoff } from './handoff'
 import { currentKeepEnv } from './installPrompt'
-import { KEEP_MAX, type KeepEnv, handoffHref, keepUrl } from './keepRules'
+import { type KeepEnv, handoffHref, handoffKeepUrl, keepContentIds } from './keepRules'
 import { useKeep } from './keepStore'
 
-/** 넘기는 주소에 실을 작품들 — 이번에 담은 작품(keepStore) 먼저, 그다음 담은 촬영지의 작품들. */
-export function keepContentIds(fromSheet: readonly number[], items: readonly { sourceContentId?: number | null }[]): number[] {
-  const ids: number[] = []
-  for (const id of [...fromSheet, ...items.map((i) => i.sourceContentId ?? null)]) {
-    if (typeof id === 'number' && !ids.includes(id)) ids.push(id)
-  }
-  return ids.slice(0, KEEP_MAX)
-}
+/** 넘기는 작품 — keepRules 로 옮겼다(넘기는 주소 규칙과 한 곳에). 부르는 곳을 위해 다시 내보낸다. */
+export { keepContentIds }
 
 export function InAppBand(): JSX.Element | null {
   useLang()
@@ -33,7 +27,7 @@ export function InAppBand(): JSX.Element | null {
   if (env !== 'in_app_android' && env !== 'in_app_ios') return null
 
   const open = () => {
-    const href = handoffHref(env, keepUrl(window.location.origin, keepContentIds(contentIds, cart.items), [...cart.poiIds]))
+    const href = handoffHref(env, handoffKeepUrl(window.location.origin, contentIds, cart))
     if (!href) return
     track(webEvent.keepPrompt(env, 'open_browser'))
     handoff.open(href)

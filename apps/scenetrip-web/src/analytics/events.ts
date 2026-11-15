@@ -118,13 +118,15 @@ export type SignInPromptKey =
 /** 담기 중심 흐름(web-keep-flow.md §4) — 간직하기 권유의 환경은 keepRules 의 KeepEnv 와 같다. */
 export type KeepEnvParam = 'in_app_android' | 'in_app_ios' | 'installable' | 'android_menu' | 'ios_safari' | 'installed' | 'other'
 export type KeepPromptAction = 'view' | 'open_browser' | 'install' | 'install_accepted' | 'install_dismissed' | 'sign_in' | 'got_it' | 'skip'
+/** 간직하기 권유가 뜬 자리 — 없으면 담은 뒤 시트, `intro` 는 첫 화면의 ⑤(web-ad-landing.md §13-1). */
+export type KeepPromptWhere = 'intro'
 export type MyMapAction = 'open_home' | 'open_keep' | 'open_detail' | 'open_place' | 'plan' | 'add_more'
 /** 「모두 담기」 가 일어난 자리(§9-3) — 작품 상세 · 담은 뒤 시트 ① 의 포스터 · `?keep=` 으로 넘어옴. */
 export type SaveAllSource = 'detail' | 'more' | 'arrive' | 'landing'
 /** 광고 랜딩에서 한 일(web-ad-landing.md §1-3). `beat`·`leave` 는 아래 함수가 따로 만든다(§6). */
 export type LandingAction = 'view' | 'skip' | 'rest' | 'save' | 'browse'
-/** 첫 화면의 박자(landingScript 의 Beat 와 같다). */
-export type LandingBeat = 'drop' | 'poster' | 'spill' | 'rest'
+/** 첫 화면의 박자 — landingScript 의 Beat 네 박자 + 담은 뒤의 ⑤ `keep`(간직하기, web-ad-landing.md §13-1). */
+export type LandingBeat = 'drop' | 'poster' | 'spill' | 'rest' | 'keep'
 /** 떠날 때의 마지막 박자 — `loading` = 아직 보라 대기 화면(박자가 시작되기 전). */
 export type LandingLeaveBeat = LandingBeat | 'loading'
 /** 「더 담기」 에서 한 일(web-ad-landing.md §2). */
@@ -171,8 +173,9 @@ export const webEvent = {
     make('save_all', { content_id: contentId, place_count: placeCount, saved_count: savedCount, source }),
   /** 담은 뒤 시트 ① 「다른 작품도 담기」 에서 고른 작품. */
   keepMore: (contentId: number) => make('keep_more', { content_id: contentId }),
-  /** 담은 뒤 시트 ② 간직하기 권유 — 환경과 한 일. */
-  keepPrompt: (env: KeepEnvParam, action: KeepPromptAction) => make('keep_prompt', { env, action }),
+  /** 간직하기 권유 — 환경과 한 일. 담은 뒤 시트 ② 는 `where` 없이, 첫 화면의 ⑤ 는 `where=intro`(web-ad-landing.md §13-1). */
+  keepPrompt: (env: KeepEnvParam, action: KeepPromptAction, where?: KeepPromptWhere) =>
+    make('keep_prompt', where ? { env, action, where } : { env, action }),
   /** `?keep=`·`?pois=` 로 넘어와 다시 담았다 — `count` 는 작품 수, `poi_count` 는 새로 담긴 편의시설 수(keep-poi.md §3-6·§8). */
   keepArrive: (count: number, poiCount = 0) => make('keep_arrive', { count, poi_count: poiCount }),
   /** 내 지도를 열었다·거기서 한 일. */

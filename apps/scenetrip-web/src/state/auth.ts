@@ -149,3 +149,9 @@ export const promptSignIn = (reason?: string | null, key?: SignInPromptKey): voi
   if (!hasSession()) signInPromptStore.set({ requested: true, reason: reason ?? null, key: key ?? null })
 }
 export const dismissSignInPrompt = (): void => signInPromptStore.set({ requested: false, reason: null, key: null })
+
+/**
+ * 로그인 시트가 지금 떠 있나 — features/profile/auth/account.ts 가 제 상태(`showingSignIn`)를 여기에 비춰 둔다.
+ * 첫 화면 ⑤ 간직하기(web-ad-landing.md §13-1)가 계정 모듈을 받지 않고도(첫 화면 덩어리를 가볍게) 시트가 닫히는 것을 본다.
+ */
+export const signInSheetOpenStore = createStore<boolean>(false)

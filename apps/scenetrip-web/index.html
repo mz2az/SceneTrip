@@ -35,7 +35,8 @@
     </style>
     <script>
       try {
-        if (!localStorage.getItem('scenetrip.intro.done') && !localStorage.getItem('scenetrip.auth.session')) document.documentElement.classList.add('st-intro')
+        // 넘어온 주소(?keep=·?places=·?pois=)는 첫 화면을 띄우지 않는다(web-ad-landing.md §13-3, src/app/intro.ts 와 같은 규칙).
+        if (!localStorage.getItem('scenetrip.intro.done') && !localStorage.getItem('scenetrip.auth.session') && !/[?&](keep|places|pois)=\d/.test(location.search)) document.documentElement.classList.add('st-intro')
       } catch (e) {}
       // 탭 아이콘(22KB)은 첫 화면이면 미뤄 둔 일이 풀릴 때 붙인다(src/main.tsx) — 느린 망에서 첫 사진과 대역폭을 다투지 않게.
       window.__stIcon = function () { document.head.insertAdjacentHTML('beforeend', '<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />') }

@@ -11,33 +11,33 @@
  *   ③ spill   포스터에서 촬영지 썸네일이 하나씩 포물선으로 튀어나와 아래 「내 지도」 주머니로 쏙. 들어갈 때마다 수가 오르고 주머니가 통 튄다.
  *             썸네일은 사진이 온 것부터 난다 — 안 온 것은 수만 오른다.
  *   ④ rest    핀을 든 해태 + 「{N}곳, 전부 {도시}에 있어요!」 + 담기 + 「먼저 둘러볼게요」.
+ *   ⑤ keep    담기가 끝나면(실패 0) 해태가 주머니를 안고 간직하기를 권한다(KeepBeat, §13-1). 이미 로그인했거나 홈 화면에서 연 앱이면 건너뛴다.
  *
  * 화면 아무 곳이나 누르면(단추 제외) → ④. 「건너뛰기」·「먼저 둘러볼게요」 → 덮개가 걷힌다. 움직임 줄이기면 처음부터 ④(해태 정지).
- * 자동으로 담지 않는다. 담기를 끝내면 「더 담기」(/add). 담는 중에 덮개를 걷으면 담기는 끝까지 하되 /add 로 보내지 않는다(§10-3-7).
+ * 자동으로 담지 않는다. 담기를 끝내면 ⑤ 간직하기를 거쳐 「더 담기」(/add). 담는 중에 덮개를 걷으면 담기는 끝까지 하되 /add 로 보내지 않는다(§10-3-7).
  * 처음 온 사람이 아니면(담은 것·코스가 있다) 아무것도 그리지 않고 곧바로 걷힌다(§11).
  */
 import { type CSSProperties, type JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { track, webEvent } from '@/analytics'
+import { type LandingBeat, track, webEvent } from '@/analytics'
 import { api, installHeader, ok } from '@/api/client'
 import type { components } from '@/api/generated/schema'
 import { Icon } from '@/design/Icon'
 import { Spinner, Txt } from '@/design/primitives'
 import { MY_MAP_TARGET, MyMapButton, flyToMyMap, myMapLandStore } from '@/features/keep/flyToMyMap'
+import { currentKeepEnv } from '@/features/keep/installPrompt'
+import { keepActions } from '@/features/keep/keepStore'
 import { Pressable } from '@/features/route/ui/Press'
 import { say, useLang } from '@/i18n'
 import { smallImage } from '@/shared/smallImage'
 import { spots } from '@/shared/spots'
+import { hasSession } from '@/state/auth'
 import { cartActions, cartStore } from '@/state/cart'
 import { useStore } from '@/state/storage'
-import pawLeft from './art/paw-left.webp?inline'
-import pawRight from './art/paw-right.webp?inline'
-import haetaeJoy from './art/haetae-joy.webp?inline'
-import haetaePeek from './art/haetae-peek.webp?inline'
-import haetaePin from './art/haetae-pinhold.webp?inline'
-import haetaeSit from './art/haetae-sit.webp?inline'
+import { landingArt } from './art'
 import { INTRO_HAETAE_SRC, IntroSplash } from './IntroSplash'
+import { KeepBeat } from './KeepBeat'
 import type { IntroClose } from './introClose'
-import { type Beat, FLIGHT_MS, type LandingTimeline, beatAt, landingTimeline, launchAt, pocketedCount, spillStart, topRegion } from './landingScript'
+import { FLIGHT_MS, type LandingTimeline, beatAt, landingTimeline, launchAt, pocketedCount, spillStart, topRegion } from './landingScript'
 import './landing.css'
 
 type ContentDetail = components['schemas']['ContentDetail']
@@ -72,20 +72,24 @@ const thumbOf = (p: PlaceSummary) => smallImage(p.imageThumbnailUrl, p.imageUrl)
 /** 사진을 미리 받을 수 있는 환경인가(jsdom 은 사진을 받지 않는다 — 그때는 주소를 그대로 그린다). */
 const canPreload = (): boolean => typeof Image !== 'undefined' && typeof navigator !== 'undefined' && !/jsdom/i.test(navigator.userAgent)
 
-export function LandingCover({ contentId, onRest, onClose, onBeat, onKeep }: {
+export function LandingCover({ contentId, onRest, onClose, onBeat, onKeep, onNeedApp }: {
   contentId: number
   onRest?: () => void
   onClose: (how: IntroClose) => void
   /** 박자가 바뀌었다(IntroShell 이 `landing(beat)` 을 보내고 떠날 때의 박자로 적는다). */
-  onBeat?: (beat: Beat) => void
+  onBeat?: (beat: LandingBeat) => void
   /** 담기를 눌렀다 — 이 뒤로는 떠나도 `landing(leave)` 를 보내지 않는다. */
   onKeep?: () => void
+  /** ⑤ 에서 로그인 창을 띄우기 전 — 로그인 창이 사는 밑의 앱을 붙여 달라. */
+  onNeedApp?: () => void
 }): JSX.Element {
   useLang()
   const [ready, setReady] = useState<Ready | null>(null)
   /** 네 박자의 시계 — null 이면 아직 시작하지 않았다. */
   const [elapsed, setElapsed] = useState<number | null>(null)
   const [save, setSave] = useState<SaveState>({ kind: 'idle' })
+  /** ⑤ 간직하기 — 담기가 끝나고(실패 0) 보이는 박자(§13-1). */
+  const [keepStep, setKeepStep] = useState(false)
   const reduced = useRef(reducedMotion())
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   const sent = useRef<Set<string>>(new Set())
@@ -195,8 +199,9 @@ export function LandingCover({ contentId, onRest, onClose, onBeat, onKeep }: {
     startClock(reduced.current ? timeline.total : 0)
   }, [ready, elapsed, once, startClock, timeline.total])
 
-  const beat = elapsed === null ? null : beatAt(elapsed, timeline)
-  const rest = beat === 'rest'
+  const filmBeat = elapsed === null ? null : beatAt(elapsed, timeline)
+  const beat: LandingBeat | null = keepStep ? 'keep' : filmBeat
+  const rest = filmBeat === 'rest'
   const pocketed = elapsed === null ? 0 : pocketedCount(elapsed, timeline, n)
   const launched = elapsed === null || beat === 'drop' || beat === 'poster' ? 0 : rest ? n : countLaunched(elapsed, timeline, n)
   useEffect(() => {
@@ -289,7 +294,14 @@ export function LandingCover({ contentId, onRest, onClose, onBeat, onKeep }: {
     if (!alive.current) return
     if (result.failed === 0) {
       await Promise.all(flights)
-      if (alive.current) closeRef.current('kept')
+      if (!alive.current) return
+      // ⑤ 간직하기 — 이미 로그인했거나 홈 화면에서 연 앱이면 건너뛰고 곧바로 「더 담기」(§13-1).
+      if (hasSession() || currentKeepEnv() === 'installed') {
+        closeRef.current('kept')
+        return
+      }
+      keepActions.markIntroKeepSeen()
+      setKeepStep(true)
       return
     }
     setSave({ kind: 'failed', failed: result.failed })
@@ -305,6 +317,21 @@ export function LandingCover({ contentId, onRest, onClose, onBeat, onKeep }: {
 
   const { content, places } = ready
   const title = content.title
+
+  if (keepStep) {
+    return (
+      <div ref={stage} className="st-landing st-film" data-beat="keep">
+        <div className="st-landing__head">
+          <div className="st-film__brand">
+            <img src={INTRO_HAETAE_SRC} alt="" width={26} height={22} draggable={false} />
+            <Txt size={15} weight="heavy" style={{ color: '#fff' }}>SceneTrip</Txt>
+          </div>
+        </div>
+        <KeepBeat count={n} contentId={contentId} onDone={() => closeRef.current('kept')} onNeedApp={onNeedApp} />
+      </div>
+    )
+  }
+
   // ② 는 받고 1.2초 뒤에 시작한다 — 그때까지 포스터가 안 왔으면 제목 카드, 오면 바꿔 끼운다.
   const posterImg = has(poster) ? poster : null
   const region = topRegion(places.map((p) => p.address))
@@ -347,8 +374,8 @@ export function LandingCover({ contentId, onRest, onClose, onBeat, onKeep }: {
       {(beat === 'drop' || beat === 'poster') && (
         <div className="st-film__hero" aria-hidden style={{ left: g.w / 2 - g.sitW / 2, top: g.heroCy - g.sitH / 2, width: g.sitW, height: g.sitH }}>
           <div className="st-film__hero-in">
-            <img className="st-film__sit" src={haetaeSit} alt="" draggable={false} />
-            <img className="st-film__joy" src={haetaeJoy} alt="" draggable={false} />
+            <img className="st-film__sit" src={landingArt.sit} alt="" draggable={false} />
+            <img className="st-film__joy" src={landingArt.joy} alt="" draggable={false} />
           </div>
         </div>
       )}
@@ -374,17 +401,17 @@ export function LandingCover({ contentId, onRest, onClose, onBeat, onKeep }: {
         <>
           <div className="st-film__peek" aria-hidden style={{ left: g.w / 2 - 100, top: g.posterTop - 122 }}>
             <div className="st-film__look" style={{ transform: `rotate(${look * 9}deg)` }}>
-              <img className="st-film__head" src={haetaePeek} alt="" draggable={false} />
+              <img className="st-film__head" src={landingArt.peek} alt="" draggable={false} />
             </div>
           </div>
-          <img className="st-film__paw st-film__paw--l" src={pawLeft} alt="" aria-hidden draggable={false} style={{ left: g.w / 2 - 34 - 21, top: g.posterTop - 16 }} />
-          <img className="st-film__paw st-film__paw--r" src={pawRight} alt="" aria-hidden draggable={false} style={{ left: g.w / 2 + 34 - 21, top: g.posterTop - 16 }} />
+          <img className="st-film__paw st-film__paw--l" src={landingArt.pawLeft} alt="" aria-hidden draggable={false} style={{ left: g.w / 2 - 34 - 21, top: g.posterTop - 16 }} />
+          <img className="st-film__paw st-film__paw--r" src={landingArt.pawRight} alt="" aria-hidden draggable={false} style={{ left: g.w / 2 + 34 - 21, top: g.posterTop - 16 }} />
         </>
       )}
 
       {/* ④ — 핀을 든 해태가 포스터 윗변에서 올라온다. */}
       {rest && (
-        <img className="st-film__pin" src={haetaePin} alt="" aria-hidden draggable={false} style={{ left: g.pinLeft, top: g.posterTop + 26 - g.pinH, width: g.pinW, height: g.pinH }} />
+        <img className="st-film__pin" src={landingArt.pin} alt="" aria-hidden draggable={false} style={{ left: g.pinLeft, top: g.posterTop + 26 - g.pinH, width: g.pinW, height: g.pinH }} />
       )}
 
       {/* 말풍선 — ② 「저기 어디야?」, ④ 「{N}곳, 전부 {도시}에 있어요!」 */}

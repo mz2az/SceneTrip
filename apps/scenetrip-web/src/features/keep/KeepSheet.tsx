@@ -26,7 +26,7 @@ import { useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { handoff } from './handoff'
 import { currentKeepEnv, promptInstall } from './installPrompt'
-import { type KeepEnv, handoffHref, keepUrl } from './keepRules'
+import { type KeepEnv, handoffHref, handoffKeepUrl } from './keepRules'
 import { myMapCount } from './keepPoiRules'
 import { type KeepStep, addMoreRequestStore, keepActions, useKeep } from './keepStore'
 
@@ -108,7 +108,7 @@ function StepBody({ step }: { step: KeepStep }) {
 
 function KeepPromptStep() {
   const { contentIds } = useKeep()
-  const { poiIds } = useCart()
+  const cart = useCart()
   const { signedIn } = useAccount()
   // 이 단계에 들어온 순간의 환경으로 고정한다 — 설치 창을 쓰고 나면 `installable` 이 아니게 되어 화면이 바뀌면 안 된다.
   const [env] = useState<KeepEnv>(currentKeepEnv)
@@ -142,7 +142,7 @@ function KeepPromptStep() {
   }
 
   const openBrowser = () => {
-    const href = handoffHref(env, keepUrl(window.location.origin, contentIds, [...poiIds]))
+    const href = handoffHref(env, handoffKeepUrl(window.location.origin, contentIds, cart))
     if (!href) return
     track(webEvent.keepPrompt(env, 'open_browser'))
     handoff.open(href)
@@ -206,7 +206,7 @@ function KeepPromptStep() {
         </div>
       )}
 
-      {showSignIn && <SecondaryButton onClick={signIn}>{say('로그인해서 어디서나 보기', 'Sign in to see it anywhere')}</SecondaryButton>}
+      {showSignIn && <SecondaryButton onClick={signIn}>{say('로그인해서 간직하기', 'Sign in to keep it')}</SecondaryButton>}
 
       <TextButton onClick={() => act('skip')}>{say('나중에', 'Later')}</TextButton>
     </VStack>
