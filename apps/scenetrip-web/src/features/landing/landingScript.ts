@@ -25,9 +25,11 @@ export type IntroPace = Readonly<
     | 'heroHoldMs'
     | 'heroFlipMs'
     | 'heroRealMs'
-    | 'restOneMs'
+    | 'restDelayMs'
+    | 'restGapMs'
     | 'restZoomMs'
     | 'restFlipMs'
+    | 'restHoldMs'
     | 'flyMs'
     | 'settleMs',
     number
@@ -36,29 +38,33 @@ export type IntroPace = Readonly<
 
 /** 첫 화면의 모든 시간(ms). */
 export const INTRO_PACE: IntroPace = {
-  /** ① 등장. */
-  dropMs: 1500,
-  /** ② 포스터와 빼꼼 — 말풍선이 약 2초 보이게(2026-11-15 사용자: 「1초 정도 더」). */
-  posterMs: 2700,
+  /** ① 등장 — 해태가 떨어져 웃기까지(2026-11-16 사용자: 「더 빨리」). */
+  dropMs: 1000,
+  /** ② 포스터와 빼꼼 — 말풍선 약 1초(2026-11-16 사용자: 「1초만 줄이자」). */
+  posterMs: 1700,
   /** ③ 의 펼침 — 카드가 포스터 둘레로 펼쳐지는 시간(마지막 카드가 자리를 잡을 때까지 포함). */
   spreadMs: 1300,
   /** 펼침에서 카드 하나가 포스터에서 제자리까지 나는 시간. */
   spreadFlyMs: 620,
   /** 주인공(첫 장)이 가운데로 커지는 시간. */
   heroZoomMs: 320,
-  /** 주인공 — 커진 뒤 일러스트를 그대로 보이는 시간. */
-  heroHoldMs: 1500,
+  /** 주인공 — 커진 뒤 일러스트를 그대로 보이는 시간(2026-11-16 사용자: 1초 줄임). */
+  heroHoldMs: 500,
   /** 주인공 — 일러스트가 실제 사진으로 천천히 뒤집히는 시간. */
   heroFlipMs: 600,
-  /** 주인공 — 뒤집힌 뒤 실제 사진과 이름을 보이는 시간(다음 장이 커질 때 떠난다). */
-  heroRealMs: 1200,
-  /** 나머지 — 한 장의 차례(다음 장이 커지기 시작할 때까지). */
-  restOneMs: 400,
-  /** 나머지 — 가운데로 커지는 시간. */
-  restZoomMs: 150,
+  /** 주인공 — 뒤집힌 뒤 실제 사진과 이름을 보이는 시간(그 뒤 주머니로 떠나고, restDelayMs 뒤 나머지가 온다). */
+  heroRealMs: 1000,
+  /** 나머지 — 주인공이 떠난 뒤 첫 장이 오기까지(주인공 이름을 가리지 않게, 2026-11-16 사용자). */
+  restDelayMs: 220,
+  /** 나머지 — 한 장씩 가운데 더미로 날아오는 간격(파파팍 쌓인다, 2026-11-16 사용자). */
+  restGapMs: 70,
+  /** 나머지 — 가운데 더미로 커지는 시간. */
+  restZoomMs: 220,
   /** 나머지 — 커지는 동안 곧바로 뒤집히는 시간(커지기 시작하고 40ms 뒤부터). */
-  restFlipMs: 170,
-  /** 한 장이 가운데에서 주머니까지 나는 시간 — 다음 장이 커지기 시작할 때 떠난다. */
+  restFlipMs: 200,
+  /** 나머지 — 마지막 장이 더미에 올라간 뒤 다 함께 주머니로 떠나기까지. */
+  restHoldMs: 450,
+  /** 가운데에서 주머니까지 나는 시간 — 주인공은 나머지가 오기 시작할 때, 나머지 더미는 한꺼번에. */
   flyMs: 320,
   /** 마지막 장이 주머니에 들어간 뒤 ④ 까지. */
   settleMs: 220,
@@ -73,8 +79,8 @@ export interface LandingTimeline {
   spreadMs: number
   /** 주인공(첫 장)의 차례 = heroZoomMs + heroHoldMs + heroFlipMs + heroRealMs. */
   heroMs: number
-  /** 나머지 한 장의 차례. */
-  restOneMs: number
+  /** 나머지가 더미로 오는 간격. */
+  restGapMs: number
   /** 하나씩 보이는 카드 수 = min(곳 수, FEATURED_MAX). */
   featured: number
   /** ③ 의 길이 — 펼침 + 주인공 + 나머지 + 마지막 장이 날아 들어가 주머니가 가라앉기까지. 0곳이면 0. */
@@ -87,13 +93,14 @@ export function landingTimeline(placeCount: number, pace: IntroPace = INTRO_PACE
   const n = Math.max(0, Math.floor(placeCount))
   const featured = Math.min(n, FEATURED_MAX)
   const heroMs = pace.heroZoomMs + pace.heroHoldMs + pace.heroFlipMs + pace.heroRealMs
-  const spillMs = featured === 0 ? 0 : pace.spreadMs + heroMs + (featured - 1) * pace.restOneMs + pace.flyMs + pace.settleMs
+  const restMs = featured <= 1 ? 0 : pace.restDelayMs + (featured - 2) * pace.restGapMs + pace.restZoomMs + pace.restHoldMs
+  const spillMs = featured === 0 ? 0 : pace.spreadMs + heroMs + restMs + pace.flyMs + pace.settleMs
   return {
     dropMs: pace.dropMs,
     posterMs: pace.posterMs,
     spreadMs: pace.spreadMs,
     heroMs,
-    restOneMs: pace.restOneMs,
+    restGapMs: pace.restGapMs,
     featured,
     spillMs,
     total: pace.dropMs + pace.posterMs + spillMs,
@@ -117,9 +124,18 @@ export function spreadAt(i: number, t: LandingTimeline): number {
   return spillStart(t) + 60 + i * Math.min(90, gap)
 }
 
-/** i 번째 카드가 가운데로 커지기 시작하는 때(ms) — 0 번째(주인공) 다음은 restOneMs 간격. i = featured 는 마지막 장이 떠나는 때. */
+/** 나머지 더미가 한꺼번에 주머니로 떠나는 때(ms) — 나머지가 없으면 주인공이 떠나는 때. */
+export function stackLeaveAt(t: LandingTimeline): number {
+  const heroLeave = spillStart(t) + t.spreadMs + t.heroMs
+  return t.featured <= 1 ? heroLeave : heroLeave + t.pace.restDelayMs + (t.featured - 2) * t.restGapMs + t.pace.restZoomMs + t.pace.restHoldMs
+}
+
+/**
+ * i 번째 카드가 가운데로 커지기 시작하는 때(ms) — 0 번째(주인공) 다음은 restGapMs 간격으로 더미에 쌓인다.
+ * i = featured 는 마지막 장(더미)이 떠나는 때.
+ */
 export const zoomAt = (i: number, t: LandingTimeline): number =>
-  spillStart(t) + t.spreadMs + (i === 0 ? 0 : t.heroMs + (i - 1) * t.restOneMs)
+  i >= t.featured && i > 0 ? stackLeaveAt(t) : spillStart(t) + t.spreadMs + (i === 0 ? 0 : t.heroMs + t.pace.restDelayMs + (i - 1) * t.restGapMs)
 
 /** i 번째 카드가 가운데로 커지는 데 걸리는 시간. */
 export const zoomMsOf = (i: number, t: LandingTimeline): number => (i === 0 ? t.pace.heroZoomMs : t.pace.restZoomMs)
@@ -130,17 +146,19 @@ export function flipOf(i: number, t: LandingTimeline): { at: number; ms: number 
   return { at: zoomAt(i, t) + 40, ms: t.pace.restFlipMs }
 }
 
-/** i 번째 카드가 가운데를 떠나 주머니로 나는 때(ms) = 다음 카드가 커지기 시작하는 때. */
-export const leaveAt = (i: number, t: LandingTimeline): number => zoomAt(i + 1, t)
+/** i 번째 카드가 가운데를 떠나 주머니로 나는 때(ms) — 주인공은 나머지가 오기 시작할 때, 나머지는 더미째 한꺼번에. */
+export const leaveAt = (i: number, t: LandingTimeline): number =>
+  i === 0 ? spillStart(t) + t.spreadMs + t.heroMs : stackLeaveAt(t)
 
 /** i 번째 카드가 주머니에 들어가는 때(ms). */
 export const pocketAt = (i: number, t: LandingTimeline): number => leaveAt(i, t) + t.pace.flyMs
 
-/** 지금 가운데에 있는 카드(0부터) — 하나씩 박자가 아니면 null. */
+/** 지금 가운데(더미 맨 위)에 있는 카드(0부터) — 가운데에 아무것도 없으면 null. */
 export function centerCard(elapsedMs: number, t: LandingTimeline): number | null {
   if (t.featured === 0 || elapsedMs >= t.total) return null
-  for (let i = 0; i < t.featured; i++) if (elapsedMs >= zoomAt(i, t) && elapsedMs < leaveAt(i, t)) return i
-  return null
+  let top: number | null = null
+  for (let i = 0; i < t.featured; i++) if (elapsedMs >= zoomAt(i, t) && elapsedMs < leaveAt(i, t)) top = i
+  return top
 }
 
 /**

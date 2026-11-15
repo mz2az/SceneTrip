@@ -131,7 +131,7 @@
   text-shadow: 0 3px 14px rgba(30, 10, 70, 0.35);
 }
 .st-film[data-beat='drop'] .st-film__word {
-  animation: st-word-grow 0.36s cubic-bezier(0.34, 1.4, 0.64, 1) 0.64s both;
+  animation: st-word-grow 0.3s cubic-bezier(0.34, 1.4, 0.64, 1) 0.42s both;
 }
 @keyframes st-word-grow {
   from {
@@ -180,7 +180,7 @@
   opacity: 1;
 }
 .st-film[data-beat='drop'] .st-film__hero {
-  animation: st-hero-drop 0.72s linear 0.18s both;
+  animation: st-hero-drop 0.5s linear 0.06s both;
 }
 @keyframes st-hero-drop {
   0% {
@@ -212,13 +212,13 @@
 }
 /* 방긋 — 웃는 얼굴로 바뀌고 1 → 1.08 → 1 */
 .st-film[data-beat='drop'] .st-film__sit {
-  animation: st-swap-out 0.08s linear 0.84s both;
+  animation: st-swap-out 0.08s linear 0.56s both;
 }
 .st-film[data-beat='drop'] .st-film__joy {
-  animation: st-swap-in 0.08s linear 0.84s both;
+  animation: st-swap-in 0.08s linear 0.56s both;
 }
 .st-film[data-beat='drop'] .st-film__hero-in {
-  animation: st-smile-pop 0.3s ease-out 0.84s both;
+  animation: st-smile-pop 0.26s ease-out 0.56s both;
 }
 @keyframes st-swap-out {
   from {

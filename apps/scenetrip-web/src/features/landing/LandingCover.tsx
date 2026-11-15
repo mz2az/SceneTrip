@@ -472,7 +472,8 @@ export function LandingCover({ contentId, onRest, onClose, onBeat, onKeep, onNee
               photo={photo !== null && has(photo) ? photo : null}
               name={p.name}
               nameKo={ko && ko !== p.name ? ko : null}
-              z={center !== null && i === center - 1 ? 35 : i === center ? 34 : 30}
+              // 주인공은 언제나 맨 앞 — 둘레의 카드가 가운데 주인공을 가리지 않는다(2026-11-16 사용자). 나머지는 뒤에 온 장이 위.
+              z={i === 0 ? 50 : 30 + i}
             />
           )
         })}
@@ -665,14 +666,16 @@ function Card({ i, t, g, mountElapsed, art, photo, name, nameKo, z }: {
     const out = spreadAt(i, t)
     const zoom = zoomAt(i, t)
     const leave = leaveAt(i, t)
+    // 나머지는 가운데 더미 — 한 장씩 조금 비껴 기울어 쌓이고(뒤에 온 장이 위), 다 함께 주머니로 간다. 주인공은 정가운데.
+    const pile = i === 0 ? { x: g.w / 2, y: g.zoomCy, s: 1, r: 0 } : { x: g.w / 2 + (((i * 29) % 7) - 3) * 7, y: g.zoomCy + (((i * 17) % 5) - 2) * 6, s: 0.92, r: ((i * 41) % 13) - 6 }
     const frames: Keyframe[] = [
       { offset: 0, transform: pos(g.w / 2, g.posterCy, small * 0.4, 0), opacity: 0 },
       { offset: at(out), transform: pos(g.w / 2, g.posterCy, small * 0.4, 0), opacity: 0, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1.2)' },
       { offset: at(out + 120), opacity: 1 },
       { offset: at(out + t.pace.spreadFlyMs), transform: pos(ring.x, ring.y, small, tilt), opacity: 1 },
       { offset: at(zoom), transform: pos(ring.x, ring.y, small, tilt), opacity: 1, easing: 'cubic-bezier(0.3, 0.8, 0.3, 1.1)' },
-      { offset: at(zoom + zoomMsOf(i, t)), transform: pos(g.w / 2, g.zoomCy, 1, 0), opacity: 1 },
-      { offset: at(leave), transform: pos(g.w / 2, g.zoomCy, 1, 0), opacity: 1, easing: 'cubic-bezier(0.4, 0, 0.8, 0.5)' },
+      { offset: at(zoom + zoomMsOf(i, t)), transform: pos(pile.x, pile.y, pile.s, pile.r), opacity: 1 },
+      { offset: at(leave), transform: pos(pile.x, pile.y, pile.s, pile.r), opacity: 1, easing: 'cubic-bezier(0.4, 0, 0.8, 0.5)' },
       { offset: at(leave + t.pace.flyMs * 0.8), opacity: 1 },
       { offset: 1, transform: pos(pouch.x, pouch.y, 0.12, 14), opacity: 0 },
     ]
