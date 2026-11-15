@@ -181,6 +181,8 @@ export const keepActions: { openAfterSave(contentId: number, title: string): voi
 
 ### 5-6. 홈
 
+> **2026-11-15**: 사용자 — 「마이맵 카드는 좋다. 기존의 「어디로 여행 가세요?」 카드와 「지금 뜨는 작품」 줄도 살리자.」 → ShowHero·PickShows·AddMoreRow 를 빼고 AskCard·지금 뜨는 작품을 되살렸다. 홈 순서: 인사 → 내 지도 카드(담은 것이 있을 때만) → 「어디로 여행 가세요?」 → 「지금 뜨는 작품 · 인기순 · 전체 보기」(→ `/trending`) → 오늘의 성지 → 커뮤니티 → 내 기록(web-ad-landing.md §4 머리).
+
 - **내 지도 카드**(`features/keep/MyMapCard.tsx`): 담은 곳이 1곳 이상이면 인사 머리줄 바로 아래, 「어디로 여행 가세요?」 카드 **위**에 둔다. 제목 「내 지도」, 「N곳」, 작품별 수 칩(`mapGroups`, 최대 3개 + 「+N」), 사진 가로줄(최대 6장), 주 단추 `say('지도에서 보기', 'See on map')` → `/my-map`(`my_map('open_home')`), 보조 `say('계획 짜기', 'Plan my trip')` → §5-5(`plan_start('my_map')`). 담은 곳이 없으면 그리지 않는다.
 
   ```ts
