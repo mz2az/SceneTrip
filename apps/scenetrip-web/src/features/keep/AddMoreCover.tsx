@@ -318,7 +318,7 @@ function PoiTile({ poi, shopping = false }: { poi: PoiSummary; shopping?: boolea
   const busy = useStore(cartPoiBusyStore, (s) => s.has(poi.id))
   const linked = typeof poi.placeId === 'number' ? poi.placeId : null
   const added = cart.poiIds.has(poi.id) || (linked !== null && cart.placeIds.has(linked))
-  const { title, roman } = savedPoiName(poi, lang === 'ko')
+  const { title, sub: original } = savedPoiName(poi, lang === 'ko')
   const group = poiGroupOf(poi.categoryGroup, poi.category)
 
   // 편의시설 칸은 담기만 한다(§10-3-12) — 담긴 칸(촬영지와 같은 곳이면 그 촬영지)을 다시 눌러도 빼지 않는다. 빼기는 내 지도에서.
@@ -335,7 +335,7 @@ function PoiTile({ poi, shopping = false }: { poi: PoiSummary; shopping?: boolea
   return (
     <Tile
       name={title}
-      roman={roman}
+      original={original}
       sub={poi.categoryLabel ?? poi.category}
       imageUrl={poi.imageUrl ?? null}
       glyph={poi.imageUrl ? null : shopping ? 'bag' : poiGlyph(group, poi.category)}
@@ -376,9 +376,9 @@ function LoadFailed({ onRetry }: { onRetry: () => void }) {
  * 모자이크 칸 — 사진(없으면 분류 아이콘) 위 왼쪽 아래 굵은 흰 글씨, 아래쪽 어둡게, 오른쪽 위 원형 ＋(담기면 ✓).
  * 칸 전체가 단추이고 이름은 「{name} 담기」 / 「Add {name}」.
  */
-function Tile({ name, roman, sub, imageUrl, glyph, tone, pressed, busy, badge, note, big, size, onPress }: {
+function Tile({ name, original, sub, imageUrl, glyph, tone, pressed, busy, badge, note, big, size, onPress }: {
   name: string
-  roman?: string | null
+  original?: string | null
   sub?: string | null
   imageUrl: string | null
   glyph?: string | null
@@ -406,7 +406,8 @@ function Tile({ name, roman, sub, imageUrl, glyph, tone, pressed, busy, badge, n
         style={{ ...box, position: 'relative', display: 'block', width: size ?? '100%', padding: 0, textAlign: 'left', background }}
       >
         {imageUrl ? (
-          <img src={imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" draggable={false} />
+          // 큰 가로 카드는 세로 포스터를 16:9 로 자른다 — 가운데를 자르면 얼굴이 잘리므로 위쪽(얼굴·제목이 있는 곳)을 보인다.
+          <img src={imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" draggable={false} style={big ? { objectPosition: 'center 15%' } : undefined} />
         ) : glyph ? (
           <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', paddingBottom: 30 }}>
             <Icon name={glyph} size={40} weight="semibold" color="rgba(255,255,255,0.92)" />
@@ -417,7 +418,7 @@ function Tile({ name, roman, sub, imageUrl, glyph, tone, pressed, busy, badge, n
         <span style={{ position: 'absolute', left: 12, right: 12, bottom: 10, display: 'flex', flexDirection: 'column', gap: 1 }}>
           {badge && <span style={{ fontSize: 15, fontWeight: 900, color: '#fff' }}>{badge}</span>}
           <span style={{ fontSize: big ? 22 : 16, fontWeight: 800, lineHeight: 1.15, color: '#fff', textShadow: '0 1px 6px rgba(0,0,0,0.45)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{name}</span>
-          {roman && <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.9)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{roman}</span>}
+          {original && <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.9)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{original}</span>}
           {sub && <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.82)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</span>}
         </span>
         <span className="st-plus" aria-hidden style={{ position: 'absolute' }} data-pressed={pressed}>

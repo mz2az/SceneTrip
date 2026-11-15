@@ -2,7 +2,8 @@
  * 편의시설 담기 — 검증 뒤 바꾼 것(화면 쪽). 정본: docs/project/plans/keep-poi.md §9.
  *
  *   §9-1  알림은 앱 맨 위 CartToast 한 곳 — role="status", 2.4초, 새 알림은 바꿔 끼우고 시간을 다시 잰다(같은 글자여도).
- *   §9-2  이름 — 제목 displayName ?? name, 그 아래 nameRoman 은 displayName 이 없고 한국어 화면이 아닐 때만(savedPoiName, SavedPoiRow).
+ *   §9-2  이름 — 한국어 화면은 제목 displayName ?? name 한 줄. 아니면 제목 displayName → nameRoman → name, 그 아래 작게
+ *         한글 원본 name(제목과 같은 글자면 생략) — { title, sub } (savedPoiName, SavedPoiRow).
  *   §9-4  빼는 중이면 SavedPoiRow 의 빼기 단추가 눌리지 않는다.
  *   §9-5  N 은 폐업한 편의시설·목록에서 빠진 촬영지를 뺀 수(usableCount, 홈 카드·마이맵).
  *   §9-6  칩은 눌리는 높이 44px 이상.
@@ -141,32 +142,75 @@ describe('§9-1 CartToast', () => {
   })
 })
 
-describe('§9-2 이름', () => {
-  it('displayName 이 있으면 제목이 그것, 로마자 없음', () => {
-    expect(savedPoiName({ name: '을지면옥', displayName: 'Euljimyeonok', nameRoman: 'Euljimyeonok' }, false)).toEqual({ title: 'Euljimyeonok', roman: null })
+describe('§9-2 이름 (11/15 — 영어 화면은 읽을 수 있는 글자가 제목, 한글 원본은 아래 작게)', () => {
+  // 한국어 화면 — 제목 displayName ?? name, 둘째 줄 없음.
+  it('한국어 화면 — displayName 이 있으면 그것, 둘째 줄 없음', () => {
+    expect(savedPoiName({ name: '을지면옥', displayName: 'Euljimyeonok', nameRoman: 'Euljimyeonok' }, true)).toEqual({ title: 'Euljimyeonok', sub: null })
   })
 
-  it('displayName 이 없고 영어 화면이면 name 아래 nameRoman', () => {
-    expect(savedPoiName({ name: '을지면옥', displayName: null, nameRoman: 'Euljimyeonok' }, false)).toEqual({ title: '을지면옥', roman: 'Euljimyeonok' })
+  it('한국어 화면 — displayName 이 없으면 name, nameRoman 은 보이지 않는다', () => {
+    expect(savedPoiName({ name: '을지면옥', displayName: null, nameRoman: 'Euljimyeonok' }, true)).toEqual({ title: '을지면옥', sub: null })
   })
 
-  it('한국어 화면이면 로마자 없음', () => {
-    expect(savedPoiName({ name: '을지면옥', nameRoman: 'Euljimyeonok' }, true)).toEqual({ title: '을지면옥', roman: null })
+  it('한국어 화면 — displayName 이 빈 글자면 name', () => {
+    expect(savedPoiName({ name: '을지면옥', displayName: '  ', nameRoman: 'Euljimyeonok' }, true)).toEqual({ title: '을지면옥', sub: null })
   })
 
-  it('이름이 원래 로마자(같은 글자)면 두 번 적지 않는다', () => {
-    expect(savedPoiName({ name: 'GS25', nameRoman: 'gs25' }, false).roman).toBeNull()
+  // 한국어가 아닌 화면 — 제목 displayName → nameRoman → name, 둘째 줄은 한국어 원본 name.
+  it('영어 화면 — displayName 이 있으면 제목, 아래에 한글 원본 name', () => {
+    expect(savedPoiName({ name: '스타벅스 남산점', displayName: 'Starbucks Namsan', nameRoman: 'Seutabeokseu Namsanjeom' }, false)).toEqual({
+      title: 'Starbucks Namsan',
+      sub: '스타벅스 남산점',
+    })
   })
 
-  it('SavedPoiRow — 영어 화면, displayName 없음 → 로마자 줄이 보인다', () => {
+  it('영어 화면 — displayName 이 없으면 nameRoman 이 제목, 아래에 한글 원본 name', () => {
+    expect(savedPoiName({ name: '핑골프 현대아울렛', displayName: null, nameRoman: 'Pinggolpeu Hyeondae' }, false)).toEqual({
+      title: 'Pinggolpeu Hyeondae',
+      sub: '핑골프 현대아울렛',
+    })
+  })
+
+  it('영어 화면 — displayName 이 빈 글자면 nameRoman 으로 넘어간다', () => {
+    expect(savedPoiName({ name: '을지면옥', displayName: ' ', nameRoman: 'Euljimyeonok' }, false)).toEqual({ title: 'Euljimyeonok', sub: '을지면옥' })
+  })
+
+  it('영어 화면 — displayName·nameRoman 둘 다 없으면 name 이 제목, 둘째 줄 없음', () => {
+    expect(savedPoiName({ name: '을지면옥', displayName: null, nameRoman: null }, false)).toEqual({ title: '을지면옥', sub: null })
+    expect(savedPoiName({ name: '을지면옥' }, false)).toEqual({ title: '을지면옥', sub: null })
+    expect(savedPoiName({ name: '을지면옥', displayName: '', nameRoman: '  ' }, false)).toEqual({ title: '을지면옥', sub: null })
+  })
+
+  it('영어 화면 — 제목이 name 과 같은 글자(대소문자 무시)면 둘째 줄 생략', () => {
+    expect(savedPoiName({ name: 'GS25', nameRoman: 'gs25' }, false)).toEqual({ title: 'gs25', sub: null })
+    expect(savedPoiName({ name: 'GS25 ', displayName: 'gs25', nameRoman: null }, false).sub).toBeNull()
+  })
+
+  it('SavedPoiRow — 영어 화면: 로마자가 큰 제목으로 먼저, 한글 원본이 그 아래', () => {
     chooseLanguage('en')
-    const { container } = render(<SavedPoiRow poi={poi(7, { name: '을지면옥', nameRoman: 'Euljimyeonok' })} onOpen={vi.fn()} onRemove={vi.fn()} />)
-    expect(container.textContent).toContain('을지면옥')
-    expect(container.textContent).toContain('Euljimyeonok')
+    const { container } = render(
+      <SavedPoiRow poi={poi(7, { name: '핑골프 현대아울렛', displayName: null, nameRoman: 'Pinggolpeu Hyeondae' })} onOpen={vi.fn()} onRemove={vi.fn()} />,
+    )
+    const text = container.textContent ?? ''
+    expect(text).toContain('Pinggolpeu Hyeondae')
+    expect(text).toContain('핑골프 현대아울렛')
+    expect(text.indexOf('Pinggolpeu Hyeondae')).toBeLessThan(text.indexOf('핑골프 현대아울렛'))
+  })
+
+  it('SavedPoiRow — 영어 화면, displayName 이 있으면 그것이 제목이고 한글 원본이 그 아래', () => {
+    chooseLanguage('en')
+    const { container } = render(
+      <SavedPoiRow poi={poi(7, { name: '스타벅스 남산점', displayName: 'Starbucks Namsan', nameRoman: 'Seutabeokseu' })} onOpen={vi.fn()} onRemove={vi.fn()} />,
+    )
+    const text = container.textContent ?? ''
+    expect(text).not.toContain('Seutabeokseu')
+    expect(text.indexOf('Starbucks Namsan')).toBeGreaterThanOrEqual(0)
+    expect(text.indexOf('Starbucks Namsan')).toBeLessThan(text.indexOf('스타벅스 남산점'))
   })
 
   it('SavedPoiRow — 한국어 화면이면 로마자 줄이 없다', () => {
     const { container } = render(<SavedPoiRow poi={poi(7, { name: '을지면옥', nameRoman: 'Euljimyeonok' })} onOpen={vi.fn()} onRemove={vi.fn()} />)
+    expect(container.textContent).toContain('을지면옥')
     expect(container.textContent).not.toContain('Euljimyeonok')
   })
 })

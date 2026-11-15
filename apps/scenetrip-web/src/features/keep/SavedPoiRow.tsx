@@ -1,8 +1,8 @@
 /*
  * 담은 편의시설 한 줄 — 내 지도 목록 맨 아래 「주변에서 담은 곳」. 정본: docs/project/plans/keep-poi.md §3-3·§7. 표시 전용.
  *
- *   [갈래 점] 이름(displayName ?? name)            [빼기]
- *            로마자 읽기(nameRoman — displayName 이 없고 한국어 화면이 아닐 때만, §9-2)
+ *   [갈래 점] 이름(§9-2 — 한국어가 아닌 화면은 displayName → nameRoman → name)   [빼기]
+ *            한국어 원본 name(한국어가 아닌 화면에서 제목과 다를 때만, §9-2)
  *            분류(categoryLabel ?? category) · 주소(displayAddress ?? address)
  *
  * 폐업(`closed`)이면 흐리게 + 「문을 닫았어요」 — 눌러도 열리지 않는다. 빼기는 언제나 된다 — 빼는 중(`busy`)만 눌리지 않는다(§9-4).
@@ -32,7 +32,7 @@ export function SavedPoiRow({ poi, onOpen, onRemove, divider = false, busy = fal
   const lang = useLang()
   const closed = poi.closed === true
   const group = poiGroupOf(poi.categoryGroup, poi.category)
-  const { title, roman } = savedPoiName(poi, lang === 'ko')
+  const { title, sub: original } = savedPoiName(poi, lang === 'ko')
   const category = poi.categoryLabel ?? poi.category
   const address = poi.displayAddress ?? poi.address ?? null
 
@@ -41,7 +41,7 @@ export function SavedPoiRow({ poi, onOpen, onRemove, divider = false, busy = fal
       <PoiDot group={group} symbol={poiGlyph(group, poi.category)} size={32} glyph={15} />
       <VStack spacing={2} align="start" style={{ flex: 1, minWidth: 0 }}>
         <Txt size={15} weight="semibold" lines={2}>{title}</Txt>
-        {roman && <Txt size={12} color="secondary" lines={1}>{roman}</Txt>}
+        {original && <Txt size={12} color="secondary" lines={1}>{original}</Txt>}
         <Txt size={12} color="secondary" lines={1}>
           {closed ? say('문을 닫았어요', 'Closed') : [category, address].filter(Boolean).join(' · ')}
         </Txt>

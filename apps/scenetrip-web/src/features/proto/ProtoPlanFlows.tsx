@@ -517,7 +517,7 @@ function SavedPoiPick({ poi, on, divider, onToggle }: { poi: CartPoi; on: boolea
   const lang = useLang()
   const closed = poi.closed === true
   // 이름 — 제목 displayName ?? name, 그 아래 로마자 읽기(displayName 이 없고 한국어 화면이 아닐 때만, keep-poi.md §9-2).
-  const { title, roman } = savedPoiName(poi, lang === 'ko')
+  const { title, sub: original } = savedPoiName(poi, lang === 'ko')
   const group = poiGroupOf(poi.categoryGroup, poi.category)
   const category = poi.categoryLabel ?? poi.category
   return (
@@ -536,7 +536,7 @@ function SavedPoiPick({ poi, on, divider, onToggle }: { poi: CartPoi; on: boolea
         </div>
         <VStack spacing={1} align="start" style={{ flex: 1, minWidth: 0 }}>
           <Txt size={15} lines={1} style={{ maxWidth: '100%' }}>{title}</Txt>
-          {roman && <Txt size={12} color="secondary" lines={1} style={{ maxWidth: '100%' }}>{roman}</Txt>}
+          {original && <Txt size={12} color="secondary" lines={1} style={{ maxWidth: '100%' }}>{original}</Txt>}
           <Txt size={12} color="secondary" lines={1} style={{ maxWidth: '100%' }}>
             {closed ? `${category} · ${say('문을 닫았어요', 'Closed')}` : category}
           </Txt>
