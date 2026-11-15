@@ -404,7 +404,7 @@ describe('네 박자 (§12)', () => {
     placesReply = placesN(3)
     renderLanding()
     await untilBeat('spill')
-    await advance(1300 + 3620 + 320 + 50) // 첫 장(주인공)이 들어간 뒤
+    await advance(1300 + 2420 + 320 + 50) // 첫 장(주인공)이 들어간 뒤, 나머지 더미가 떠나기(+0.96초) 전
     expect(pouchCount()).toBe(1)
     expect(document.querySelectorAll('.st-card')).toHaveLength(2)
     expect(document.querySelector('.st-film')?.getAttribute('data-phase')).toBe('one')
