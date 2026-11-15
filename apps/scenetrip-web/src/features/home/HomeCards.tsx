@@ -3,6 +3,7 @@
  * 숫자·문구는 전부 서버·기기 값이다. 목업이 「카드 속 숫자·글은 배치용 예시」라고 못 박았다.
  */
 import { DeferredImg } from '@/design/DeferredImg'
+import { PosterImg } from '@/design/PosterImg'
 import { smallImage } from '@/shared/smallImage'
 import { Icon } from '@/design/Icon'
 import { HStack, Spacer, Txt, VStack, homeCard, rr, shadow } from '@/design/primitives'
@@ -96,7 +97,7 @@ function Poster({ work }: { work: ContentSummary }) {
           background: 'linear-gradient(to bottom right, color-mix(in srgb, var(--pin-deep) 70%, transparent), var(--pin-deep))',
         }}
       >
-        {work.posterUrl && <DeferredImg src={work.posterUrl} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />}
+        <PosterImg src={work.posterUrl} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.65))' }} />
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 10 }}>
           <Txt size={13} weight="bold" color="white" lines={2}>{work.title}</Txt>
