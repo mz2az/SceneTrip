@@ -677,6 +677,168 @@
   place-items: center;
 }
 
+/* ---------------------------------------------------------------- ⑤ keep(§13-1) — 해태가 주머니를 안고 간직하기를 권한다 */
+
+.st-keep__hero {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 56px;
+  bottom: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 0 20px;
+}
+.st-keep__bubble {
+  position: relative;
+  max-width: 300px;
+  padding: 12px 16px;
+  text-align: center;
+  transform-origin: 50% 100%;
+  animation: st-bubble-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) 0.35s both;
+}
+.st-keep__bubble::after {
+  right: calc(50% - 7px);
+}
+.st-keep__hug {
+  position: relative;
+  width: 210px;
+  height: 240px;
+  flex: none;
+  animation: st-keep-hug 0.5s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+@keyframes st-keep-hug {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.st-keep__haetae {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 210px;
+  height: 233px;
+  object-fit: contain;
+}
+/* 주머니는 해태의 가슴 앞 — 안고 있는 모양 */
+.st-keep__bag {
+  position: absolute;
+  left: 52px;
+  top: 142px;
+  animation: st-bag-bump 0.32s ease-out 0.5s both;
+}
+.st-keep__panel {
+  gap: 8px;
+}
+.st-keep__second {
+  width: 100%;
+  min-height: 50px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+}
+.st-keep__second:disabled {
+  opacity: 0.7;
+}
+.st-keep__hint {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(20, 8, 50, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 아이폰 앱 안 브라우저 — 해태가 오른쪽 위(⋯ 메뉴)를 가리킨다 */
+.st-keep__point {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 200px;
+  animation: st-fade-in-keep 0.3s ease both;
+}
+@keyframes st-fade-in-keep {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.st-keep__arrow {
+  position: absolute;
+  right: 10px;
+  top: 6px;
+  width: 112px;
+  height: 104px;
+  animation: st-keep-nudge 1.2s ease-in-out infinite;
+}
+@keyframes st-keep-nudge {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(5px, -5px);
+  }
+}
+.st-keep__pointer {
+  position: absolute;
+  right: 96px;
+  top: 74px;
+  width: 128px;
+  height: 142px;
+}
+.st-keep__pointer-body {
+  width: 128px;
+  height: 142px;
+  object-fit: contain;
+}
+/* 들어 올린 오른 앞발 — 오른쪽 위를 향한다 */
+.st-keep__pointer-paw {
+  position: absolute;
+  right: -6px;
+  top: 50px;
+  width: 50px;
+  height: 33px;
+  transform: rotate(-42deg);
+  transform-origin: 20% 80%;
+  animation: st-keep-wave 1.2s ease-in-out infinite;
+}
+@keyframes st-keep-wave {
+  0%,
+  100% {
+    transform: rotate(-42deg);
+  }
+  50% {
+    transform: rotate(-30deg) translate(3px, -3px);
+  }
+}
+.st-keep__steps {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 240px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(20, 8, 50, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 /* 움직임 줄이기 — 처음부터 ④, 해태는 서 있다 */
 .st-film[data-instant] *,
 .st-film[data-instant] *::before,

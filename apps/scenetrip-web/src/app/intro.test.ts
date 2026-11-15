@@ -33,6 +33,20 @@ describe('introStart', () => {
     expect(introStart('/', '?show=7', state)).toEqual({ intro: null, replaceTo: null })
   })
 
+  it.each(['?keep=32', '?places=101,102', '?pois=7', '?keep=32&places=5&pois=7&utm_source=x'])(
+    '넘어온 주소(%s)는 처음 온 사람이어도 덮개 없음 + 본 것으로 적는다(§13-3)',
+    (search) => {
+      expect(introDone()).toBe(false)
+      expect(introStart('/my-map', search, fresh)).toEqual({ intro: null, replaceTo: null })
+      expect(localStorage.getItem(INTRO_DONE_KEY)).not.toBeNull()
+    },
+  )
+
+  it.each(['?keep=abc', '?places=', '?pois=0'])('쓸 수 있는 id 가 없으면(%s) 넘어온 것이 아니다 — 지금처럼 덮개', (search) => {
+    expect(introStart('/my-map', search, fresh).intro).toEqual({ contentId: 32, fromGo: false })
+    expect(introDone()).toBe(false)
+  })
+
   it('/go/{id} — 처음 온 사람이면 그 작품의 덮개, 주소는 /?show={id}(꼬리표는 둔다)', () => {
     const start = introStart('/go/7', '?utm_source=meta&utm_content=a', fresh)
     expect(start.intro).toEqual({ contentId: 7, fromGo: true })

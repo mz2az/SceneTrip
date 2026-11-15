@@ -7,6 +7,7 @@
  *
  * `/go/{id}` 는 `/?show={id}` 와 같다. 이미 본 사람(또는 로그인한 사람)이 `/go/{id}` 로 오면 그 작품 상세로 간다.
  */
+import { hasKeepParams } from '@/features/keep/keepRules'
 import { createStore, readStorage, writeStorage } from '@/state/storage'
 import { landingIdOf, paths } from './routes'
 
@@ -62,9 +63,13 @@ export function showIdOf(search: string): number | null {
  * 앱이 뜰 때의 주소와 상태로 첫 화면을 정한다.
  *   - `/go/{id}`: 처음 온 사람이면 덮개(그 작품) + 주소는 `/?show={id}`(나머지 쿼리는 둔다), 아니면 `/search/content/{id}` 로.
  *   - 그 밖: 처음 온 사람이면 덮개(`?show=` 또는 기본 작품), 주소는 그대로. 아니면 덮개 없음.
+ *   - 넘어온 주소(`keep`·`places`·`pois` 중 하나라도, web-ad-landing.md §13-3): 앱 안 브라우저에서 담고 바깥 브라우저로 넘어온 사람이다.
+ *     새 브라우저라 첫 화면을 본 적이 없어도 덮개를 띄우지 않고 본 것으로 적는다 — 덮개가 떠 있으면 KeepArrival(다시 담기)이 돌지 않는다.
  */
 export function introStart(pathname: string, search: string, state: { done: boolean; signedIn: boolean }): IntroStart {
-  const fresh = !state.done && !state.signedIn
+  const arriving = hasKeepParams(search)
+  if (arriving) markIntroDone()
+  const fresh = !arriving && !state.done && !state.signedIn
   const goId = landingIdOf(pathname)
   if (goId !== null) {
     if (!fresh) return { intro: null, replaceTo: `${paths.searchContent(goId)}${search}` }

@@ -104,7 +104,8 @@ export function pinLayout(places: readonly { latitude: number; longitude: number
 | 이벤트 | 함수 | 매개변수 |
 | --- | --- | --- |
 | `landing` | `webEvent.landing(contentId, action)` | `content_id`, `action` = `view`·`skip`·`rest`·`save`·`browse` |
-| `landing` (박자) | `webEvent.landingBeat(contentId, beat)` | `content_id`, `action` = `beat`, `beat` = `drop`·`poster`·`spill`·`rest` (박자마다 한 번, §12 — 2026-11-15 전에는 `scene`·`spread`·`rest`) |
+| `landing` (박자) | `webEvent.landingBeat(contentId, beat)` | `content_id`, `action` = `beat`, `beat` = `drop`·`poster`·`spill`·`rest`·`keep` (박자마다 한 번, §12 — 2026-11-15 전에는 `scene`·`spread`·`rest`. `keep` 은 담은 뒤의 ⑤ 간직하기, §13-1) |
+| `keep_prompt` (있음) | `webEvent.keepPrompt(env, action, 'intro')` | 첫 화면 ⑤ 에서는 `where` = `intro` 를 더 싣는다(담은 뒤 시트는 `where` 없음). `action` = `view`·`sign_in`·`open_browser`·`install`·`install_accepted`·`install_dismissed`·`got_it`·`skip` (§13-1) |
 | `landing` (떠남) | `webEvent.landingLeave(contentId, beat, ms)` | `content_id`, `action` = `leave`, `beat` = 마지막 박자 또는 `loading`, `ms` = 첫 화면을 시작하고 지난 시간. 담기 전에 `pagehide`·가려짐이면 한 번(§10-3-2) |
 | `add_more` | `webEvent.addMore(action)` | `action` = `view`·`poi`·`plan` |
 | `save_all` (있음) | — | `source` 에 `landing` |
@@ -212,3 +213,40 @@ export function pinLayout(places: readonly { latitude: number; longitude: number
 - 구현(2026-11-15): 박자 시간은 `landingScript.ts` 의 `landingTimeline(n)` — ① 1.2초, ② 1.4초, ③ = 640ms(한 장이 나는 시간) + 간격 × (n − 1) + 160ms(주머니가 가라앉음), 간격 = min(300, ⌊1400 / (n − 1)⌋)ms 라 ③ 은 2.2초를 넘지 않는다. 썸네일은 사진이 온 것부터 최대 12장이 난다. 해태 그림은 `features/landing/art/` 의 작은 WebP(합 44KB)로 덮개 덩어리에 실려 와 기다리지 않는다.
 - 도시가 섞여 있으면(주소를 아는 촬영지가 모두 한 시·도가 아니거나 모르는 주소가 있으면) 「전부」 대신 `say('{N}곳, 대부분 {도시}에 있어요!', '{N} places, mostly in {도시}!')`, 1곳이면 `say('1곳, {도시}에 있어요!', '1 place, in {도시}!')`.
 - ④ 의 머리줄 오른쪽은 「내 지도」 단추(§9-3) 그대로이고, 담을 때 날아가는 조각은 주머니로 내려앉는다(주머니가 과녁).
+
+## 13. 담은 직후 「간직하기」 와 홈 첫 카드 (2026-11-15 사용자 결정)
+
+### 13-1. 담은 직후 해태가 바로 권한다
+
+광고 방문자의 99.7% 는 인스타·페이스북 앱 안 브라우저이고, 거기서는 즐겨찾기·홈 화면 추가가 없으며 창을 닫으면 담은 것이 사라진다. 지금은 간직하기 안내가 「더 담기 → 일정 짜기」 뒤에야 나와, 담기만 하고 나가는 사람은 못 본다. 그래서:
+
+- 첫 화면 ④ 에서 담기를 누르고 주머니가 다 차면(담기 끝, `failed === 0`), 덮개 안에서 바로 ⑤ 「간직하기」 박자를 보인다 — 해태가 주머니를 안고(`haetae-pinhold` 또는 `haetae-joy`) 말풍선:
+  - 앱 안 브라우저: `say('이 창을 닫으면 마이맵이 사라져요', 'Close this window and your map is gone')`
+  - 그 밖: `say('마이맵을 간직하세요', 'Keep your map for your trip')`
+- 단추 둘(앱 안 브라우저):
+  - 주 `say('로그인해서 간직하기', 'Sign in to keep it')` → 기존 로그인 창(이유 `keep`). 로그인되면 담은 것이 계정으로 옮겨진다(기존 계정 잇기). 로그인 창이 닫히면(성공·취소 모두) 「더 담기」 로.
+  - 보조 `say('브라우저에서 열기', 'Open in browser')` → 안드로이드는 기존 `handoffHref`(intent), 아이폰은 해태가 오른쪽 위를 가리키는 그림 + 두 줄 안내 `say('오른쪽 위 ⋯ → 「외부 브라우저에서 열기」', 'Tap ⋯ at the top right → "Open in external browser"')`(버튼을 눌러도 이동은 시도하고, 1.5초 뒤에도 그대로면 이 안내를 보인다 — 지금 간직하기 단계와 같은 규칙).
+  - 작은 글자 `say('나중에', 'Later')` → 「더 담기」.
+- 앱 안 브라우저가 아니면: 주 `Sign in to keep it`, 보조 `installable` 이면 `Add to Home Screen`(기존 설치 창), 아니면 즐겨찾기 안내. 이미 로그인했거나 설치된 앱이면 ⑤ 를 건너뛰고 「더 담기」.
+- 분석: 기존 `keep_prompt(env, action)` 를 그대로 쓴다(`view`·`sign_in`·`open_browser`·`install`·`skip`), 화면 자리 구분이 필요하면 `where=intro` 매개변수 하나를 더한다.
+- 「더 담기」 의 일정 짜기 앞 간직하기 단계(지금 것)는 ⑤ 를 이미 본 사람에게는 건너뛴다(같은 권유를 두 번 하지 않는다).
+- 구현(2026-11-15): `features/landing/KeepBeat.tsx`(덮개 `data-beat="keep"`). 건너뛰기 판정은 `hasSession()`·`currentKeepEnv() === 'installed'`. 로그인 창(`SignInSheet`, z 60)은 밑의 앱에 있어 ⑤ 의 로그인 단추가 먼저 앱을 붙이고(`onNeedApp`) 기존 요청 길 `promptSignIn(null, 'keep')` 로 부탁한다(RootSheets 가 `openSignInFor(null, 'keep')`) — 덮개(z 45) 위에 뜬다. 계정 모듈은 첫 화면 덩어리에 넣지 않는다 — 창이 떴다 닫히는 것은 계정이 `state/auth` 의 `signInSheetOpenStore` 에 비춰 둔 값으로 보고, 닫히면 덮개가 걷히며 `/add`. 해태 그림은 `art/index.ts` 한 곳에서 불러 쓴다(파일마다 `?inline` 을 부르면 묶을 때 그림이 복사된다). ⑤ 를 본 표식은 `sessionStorage` `scenetrip.keep.introSeen`(탭 단위, `keepActions.startPlan` 이 읽어 계획부터 연다). 앱 안 브라우저가 아니고 설치 창도 없으면 보조 단추는 「즐겨찾기에 추가하기」(안드로이드 크롬·사파리는 「홈 화면에 추가하기」) → 안내 두 줄 + 「알겠어요」(`got_it`). 아이폰 안내 그림은 앉은 해태 + 들어 올린 앞발 + 오른쪽 위로 가는 점선 화살표(새 그림 없이 `art/` 의 것을 겹친다).
+
+### 13-2. 홈 첫 카드(담은 것이 없는 사람)
+
+지금 홈 첫 카드의 배경은 장면 사진(사람을 해태로 바꿔 그린 그림)이라 케데헌인 줄 알 수 없다(사용자 지적). 원작 장면을 흐리게·필터로 바꿔 쓰는 것도 원작을 바탕으로 한 것이라 저작권 문제는 그대로다 — 쓰지 않는다.
+
+- 배경: 그 작품의 **첫 촬영지의 실제 사진**(우리 사진, `imageThumbnailUrl ?? imageUrl`)을 카드 가득. 아래쪽 어둡게 깐 그라데이션.
+- 왼쪽 위(또는 오른쪽 위)에 **작품 공식 포스터**를 작은 세로 카드(약 72×104)로 살짝 기울여 겹친다 — 흰 테두리·그림자. 포스터는 지금도 앱 곳곳에서 제작사 링크와 함께 쓰는 홍보용 자료다.
+- 글: 작은 칩 `Most popular show` 그대로, 큰 제목 작품명, 그 아래 `say('{도시}의 실제 장소 {N}곳', '{N} real places in {도시}')`(도시는 첫 화면과 같은 규칙), 단추 `See {N} places from this show` 그대로.
+- 장면 사진(해태 그림)은 이 카드에서 쓰지 않는다. 마이맵 줄 모서리의 장면 표시는 그대로 둔다(작은 표시라 「장면이 있던 곳」 을 알리는 용도).
+- 구현(2026-11-15): `features/home/HomeStart.tsx` `ShowHero` — `GET /contents/{id}/places?limit=100` 한 번(사진·도시 둘 다), `/places/{id}` 는 부르지 않는다. 첫 촬영지에 사진이 없으면 사진이 있는 다음 촬영지, 하나도 없으면 포스터를 흐리게 깐 바탕. 포스터 카드는 오른쪽 위(왼쪽 위는 칩), 76×108, 5° 기울임.
+
+### 13-3. 바깥 브라우저로 넘어온 사람(2026-11-15 사용자가 겪은 버그)
+
+사용자: 「인앱에서 마이맵에 담고 『브라우저에서 열기』 로 넘어갔더니 처음부터 똑같이 해야 한다. 실컷 담아 놨는데.」 새 브라우저는 `scenetrip.intro.done` 이 없어 첫 화면 덮개가 다시 떴고, 덮개 동안 밑의 앱이 붙지 않아 다시 담기(`KeepArrival`)가 돌지 않았다. 또 넘기는 주소는 작품(`keep`)·편의시설(`pois`)만 실어 낱개로 담은 촬영지가 빠졌다.
+
+- 주소에 `keep`·`places`·`pois` 중 하나라도(쓸 만한 id) 있으면 첫 화면 덮개를 띄우지 않고 `scenetrip.intro.done` 을 적는다(`app/intro.ts` `introStart`, `index.html` 의 첫 그림도 같은 규칙).
+- 넘기는 주소에 `places=<촬영지 id들>` — 넘기는 작품(`keep`, 6편)으로 다시 담기지 않는 촬영지만(작품을 모르거나 7번째 작품부터의 것), 담은 순서로 최대 40개(`keepRules.ts` `parsePlacesParam`·`loosePlaceIds`·`handoffKeepUrl`). 순서는 `keep` → `places` → `pois`. `KeepArrival` 은 작품 뒤에 `cartActions.addMany(ids, null, …, 'arrive')` 로 다시 담는다.
+- 다시 담기가 끝나면 마이맵(`/my-map`)을 열고, 담긴 것(이미 있던 것 포함)이 하나라도 있으면 알림 `say('넘어왔어요! 마이맵이 그대로 있어요', 'Welcome back — your map came with you')`(편의시설이 일부 실패했으면 `say('넘어왔어요! {N}곳은 담지 못했어요', "Welcome back — couldn't save {N}")`). 그 뒤 곧바로 간직하기 시트 ② — 설치 창이 있으면 「홈 화면에 추가」, 없으면 즐겨찾기·홈 화면 안내, 그리고 「로그인해서 간직하기」(시트의 로그인 단추 이름을 ⑤ 와 같게 바꿨다). 앱 안 브라우저면 시트를 열지 않는 것은 그대로.
+

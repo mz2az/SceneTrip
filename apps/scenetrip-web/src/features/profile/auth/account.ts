@@ -16,7 +16,7 @@ import { ApiFailure, asFailure } from '@/api/failure'
 import { tr } from '@/i18n'
 import {
   accessExpiresAt, authHooks, clearSession, clearSessionIfCurrent, hasSession, isSameSession, pendingWrites, refreshToken, setSession,
-  storeSessionIfCurrent, tokenSnapshot, type TokenSnapshot,
+  signInSheetOpenStore, storeSessionIfCurrent, tokenSnapshot, type TokenSnapshot,
 } from '@/state/auth'
 import { isStale } from '@/state/authRules'
 import { footprintActions } from '@/state/footprints'
@@ -411,6 +411,11 @@ export function createAccount(deps: AccountDeps = defaultAccountDeps) {
 }
 
 export const account = createAccount()
+// 로그인 시트가 떠 있는지를 낮은 층(state/auth)에 비춘다 — 첫 화면 ⑤ 가 계정 모듈 없이 시트가 닫히는 것을 본다(web-ad-landing.md §13-1).
+account.store.subscribe(() => {
+  const open = account.store.get().showingSignIn
+  if (signInSheetOpenStore.get() !== open) signInSheetOpenStore.set(open)
+})
 // 개발 서버에서만 — 스크린샷 스크립트가 로그인한 화면을 재현할 때 쓴다(실제 로그인은 시도하지 않는다).
 if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __scenetripAccount?: typeof account }).__scenetripAccount = account
 export const accountActions = account.actions

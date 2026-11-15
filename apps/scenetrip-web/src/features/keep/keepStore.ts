@@ -40,6 +40,25 @@ export const useKeep = (): KeepState => useStore(keepStore, (s) => s)
  */
 export const addMoreRequestStore: Store<number> = createStore(0)
 
+/** 첫 화면 ⑤ 간직하기를 본 표식 — 탭 단위(sessionStorage). 막힌 저장소에 대비해 메모리에도 둔다. */
+export const INTRO_KEEP_SEEN_KEY = 'scenetrip.keep.introSeen'
+let introKeepSeenInMemory = false
+
+/** 이 탭에서 첫 화면 ⑤ 간직하기를 봤나. */
+export function introKeepSeen(): boolean {
+  if (introKeepSeenInMemory) return true
+  try {
+    return sessionStorage.getItem(INTRO_KEEP_SEEN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/** 시험 전용 — 메모리의 표식을 지운다(sessionStorage 는 시험이 직접 지운다). */
+export function resetIntroKeepSeenForTest(): void {
+  introKeepSeenInMemory = false
+}
+
 export const keepActions = {
   /**
    * 「모두 담기」 가 끝났다 — 시트를 열지 않고 「더 담기」(/add)로 보낸다(web-ad-landing.md §2). 그 작품 하나와 제목은 들고 있다
@@ -49,9 +68,22 @@ export const keepActions = {
     keepStore.set((s) => ({ ...s, open: false, step: 'keep', contentIds: [contentId], title }))
     addMoreRequestStore.set((n) => n + 1)
   },
-  /** 「일정 짜기」 — 간직하기(②)부터, 홈 화면에 설치된 환경이면 계획(③)부터 연다(§2). */
+  /**
+   * 「일정 짜기」 — 간직하기(②)부터, 홈 화면에 설치된 환경이거나 이 탭에서 첫 화면의 ⑤ 간직하기를 이미 봤으면 계획(③)부터 연다
+   * (§2, web-ad-landing.md §13-1 — 같은 권유를 두 번 하지 않는다).
+   */
   startPlan(env: string, contentIds: readonly number[]): void {
-    keepStore.set((s) => ({ ...s, open: true, step: env === 'installed' ? 'plan' : 'keep', contentIds: [...contentIds], title: null }))
+    const skipKeep = env === 'installed' || introKeepSeen()
+    keepStore.set((s) => ({ ...s, open: true, step: skipKeep ? 'plan' : 'keep', contentIds: [...contentIds], title: null }))
+  },
+  /** 첫 화면 ⑤ 간직하기를 보였다 — 이 탭에서는 「더 담기 → 일정 짜기」 의 간직하기 단계를 건너뛴다(web-ad-landing.md §13-1). */
+  markIntroKeepSeen(): void {
+    introKeepSeenInMemory = true
+    try {
+      sessionStorage.setItem(INTRO_KEEP_SEEN_KEY, '1')
+    } catch {
+      // 막힌 저장소(사생활 보호 창 등) — 이 페이지 동안은 메모리의 표식으로 충분하다.
+    }
   },
   /** 그 단계와 작품들로 연다(넘어온 사람은 ② 에서). 제목은 없다. */
   openAt(step: KeepStep, contentIds: number[]): void {

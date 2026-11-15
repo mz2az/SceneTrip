@@ -9,6 +9,11 @@
  * `?pois=7,9`(keep-poi.md §3-6·§8·§9-8) — 작품 뒤에, 장바구니를 먼저 받아(이미 담긴 것은 요청하지 않으려고) 편의시설을 하나씩 차례로
  * `addPoi(…, { quiet })` 로 담는다. 편의시설 몫의 refresh 와 알림은 끝에 **한 번만**.
  * `keep_arrive` 의 `poi_count` 는 `'saved'` 를 돌려준 수. `?pois=` 만 있어도 `?keep=` 과 똑같이 주소를 바꾸고 시트를 연다.
+ *
+ * `?places=101,102`(web-ad-landing.md §13-3) — 작품으로 다시 담기지 않는 낱개 촬영지. 작품 뒤, 편의시설 앞에 `addMany(ids, null, …, 'arrive')`.
+ * 끝나면 마이맵(/my-map)을 열고, 담긴(이미 있던 것 포함) 것이 하나라도 있으면 알림 「넘어왔어요! 마이맵이 그대로 있어요」.
+ * 이제 진짜 브라우저이므로 곧바로 간직하기(시트 ②)를 권한다 — 설치 창이 있으면 「홈 화면에 추가」, 없으면 즐겨찾기·홈 화면 안내, 그리고 「로그인해서 간직하기」.
+ * 이 주소로 들어오면 첫 화면 덮개는 뜨지 않는다(app/intro.ts — 덮개가 떠 있으면 이것이 돌지 않는다).
  */
 import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router'
@@ -19,7 +24,7 @@ import { say } from '@/i18n'
 import { spots } from '@/shared/spots'
 import { cartActions, cartStore } from '@/state/cart'
 import { accountGeneration } from '@/state/shared'
-import { isInAppBrowser, parseKeepParam } from './keepRules'
+import { isInAppBrowser, parseKeepParam, parsePlacesParam } from './keepRules'
 import { parsePoisParam } from './keepPoiRules'
 import { keepActions } from './keepStore'
 
@@ -36,7 +41,8 @@ export function KeepArrival(): null {
     started.current = true
     const ids = parseKeepParam(firstSearch.current)
     const poiIds = parsePoisParam(firstSearch.current)
-    if (ids.length === 0 && poiIds.length === 0) return
+    const loose = parsePlacesParam(firstSearch.current)
+    if (ids.length === 0 && poiIds.length === 0 && loose.length === 0) return
     void (async () => {
       // 담는 동안 내 지도가 「아직 담은 곳이 없어요」 대신 받는 중 표시를 보이게(§9-4). 무슨 일이 있어도 끝에 끈다.
       keepActions.setArriving(true)
@@ -47,6 +53,9 @@ export function KeepArrival(): null {
       /** 편의시설 — 새로 담긴 수(poi_count)와 이미 있던 것까지 친 수(시트를 열지). */
       let poiSaved = 0
       let poiKept = 0
+      /** 낱개 촬영지 — 담긴(이미 있던 것 포함) 수. */
+      let placesKept = 0
+      let poiFailed = 0
       try {
         for (const contentId of ids) {
           if (generation !== accountGeneration()) break
@@ -66,10 +75,17 @@ export function KeepArrival(): null {
           // 한 곳이라도 담겼(또는 이미 담겨 있었)으면 그 작품은 넘어온 것으로 친다 — 시트가 넘기는 주소에도 이것만 싣는다.
           if (result.saved + result.already > 0) arrived.push(contentId)
         }
+        if (loose.length > 0 && generation === accountGeneration()) {
+          try {
+            const r = await cartActions.addMany(loose, null, undefined, 'arrive')
+            placesKept = r.saved + r.already
+          } catch {
+            // 받지 못한 것은 건너뛴다 — 작품·편의시설은 그대로 이어 담는다.
+          }
+        }
         if (poiIds.length > 0 && generation === accountGeneration()) {
           // 이미 담긴 것을 건너뛰려면 지금의 장바구니가 있어야 한다 — 먼저 받는다.
           await cartActions.refresh()
-          let poiFailed = 0
           for (const poiId of poiIds) {
             if (generation !== accountGeneration()) break
             if (cartStore.get().poiIds.has(poiId)) {
@@ -86,22 +102,22 @@ export function KeepArrival(): null {
             if (outcome === 'failed') poiFailed += 1
             else poiKept += 1
           }
-          if (generation === accountGeneration()) {
-            await cartActions.refresh()
-            cartActions.notify(
-              poiFailed === 0
-                ? say(`${poiKept}곳을 마이맵에 담았어요`, `Saved ${spots(poiKept)} to My map`)
-                : say(`${poiFailed}곳은 담지 못했어요`, `Couldn't save ${spots(poiFailed)}`),
-            )
-          }
+          if (generation === accountGeneration()) await cartActions.refresh()
         }
       } finally {
         keepActions.setArriving(false)
       }
       track(webEvent.keepArrive(arrived.length, poiSaved))
       navigate(paths.myMap, { replace: true })
+      const keptAny = arrived.length > 0 || poiKept > 0 || placesKept > 0
+      if (generation === accountGeneration()) {
+        // 넘어온 사람에게 — 담은 것이 따라왔다(§13-3). 하나도 못 담았고 편의시설이 실패했으면 그것만 알린다.
+        if (keptAny && poiFailed > 0) cartActions.notify(say(`넘어왔어요! ${poiFailed}곳은 담지 못했어요`, `Welcome back — couldn't save ${spots(poiFailed)}`))
+        else if (keptAny) cartActions.notify(say('넘어왔어요! 마이맵이 그대로 있어요', 'Welcome back — your map came with you'))
+        else if (poiFailed > 0) cartActions.notify(say(`${poiFailed}곳은 담지 못했어요`, `Couldn't save ${spots(poiFailed)}`))
+      }
       // 한 편도 못 담았거나 도중에 계정이 바뀌었으면 시트를 열지 않는다(§9-4).
-      if ((arrived.length === 0 && poiKept === 0) || generation !== accountGeneration()) return
+      if (!keptAny || generation !== accountGeneration()) return
       if (!isInAppBrowser(navigator.userAgent)) keepActions.openAt('keep', arrived)
     })()
   }, [navigate])

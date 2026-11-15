@@ -258,3 +258,41 @@ describe('KeepArrival — 넘어오는 중(arriving)', () => {
     expect(keepStore.get().contentIds).toEqual([32, 25])
   })
 })
+
+describe('KeepArrival — ?places= 낱개 촬영지(web-ad-landing.md §13-3)', () => {
+  it('작품 뒤에 addMany(ids, null, undefined, arrive) 로 다시 담고, /my-map 을 열고 「넘어왔어요!」 알림 + 시트 ②', async () => {
+    const notify = vi.spyOn(cartActions, 'notify')
+    arrive('/my-map?keep=32&places=500,501')
+    await vi.waitFor(() => expect(keepStore.get().open).toBe(true))
+    expect(location?.pathname).toBe(paths.myMap)
+    expect(addMany).toHaveBeenCalledTimes(2)
+    expect(addMany.mock.calls[0]![1]).toBe(32)
+    expect(addMany.mock.calls[1]).toEqual([[500, 501], null, undefined, 'arrive'])
+    expect(location?.search).toBe('')
+    expect(notify).toHaveBeenCalledWith('넘어왔어요! 마이맵이 그대로 있어요')
+    expect(keepStore.get()).toMatchObject({ open: true, step: 'keep', contentIds: [32] })
+  })
+
+  it('?places= 만 있어도 다시 담고 시트를 연다', async () => {
+    arrive('/my-map?places=500')
+    await vi.waitFor(() => expect(keepStore.get().open).toBe(true))
+    expect(addMany).toHaveBeenCalledWith([500], null, undefined, 'arrive')
+    expect(keepStore.get().step).toBe('keep')
+  })
+
+  it('영어 알림 — Welcome back — your map came with you', async () => {
+    chooseLanguage('en')
+    const notify = vi.spyOn(cartActions, 'notify')
+    arrive('/my-map?places=500')
+    await vi.waitFor(() => expect(notify).toHaveBeenCalledWith('Welcome back — your map came with you'))
+  })
+
+  it('하나도 못 담았으면 알림·시트 없음', async () => {
+    addMany.mockResolvedValue({ saved: 0, already: 0, failed: 1 })
+    const notify = vi.spyOn(cartActions, 'notify')
+    arrive('/?places=500')
+    await vi.waitFor(() => expect(location?.pathname).toBe(paths.myMap))
+    expect(notify).not.toHaveBeenCalled()
+    expect(keepStore.get().open).toBe(false)
+  })
+})

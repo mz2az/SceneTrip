@@ -1,7 +1,7 @@
 /*
  * 담기 중심 흐름의 순수 규칙 — 정본: docs/project/plans/web-keep-flow.md §2·§8.
  *   §2-1 환경       isInAppBrowser · keepEnv
- *   §2-2 넘기는 주소 parseKeepParam · keepUrl · handoffHref
+ *   §2-2 넘기는 주소 parseKeepParam · parsePlacesParam · hasKeepParams · keepUrl · handoffKeepUrl · handoffHref
  *   §2-3 묶음       moreWorks · mapGroups · mapBounds
  * 브라우저 값(UA·standalone·설치 창)은 부르는 쪽(installPrompt.ts 의 currentKeepEnv)이 모아 넘긴다.
  */
@@ -70,17 +70,65 @@ export function parseIdsParam(search: string, name: string, max: number): number
 /** 넘기는 주소에 싣는 편의시설 수의 끝(keep-poi.md §3-2). */
 export const KEEP_POI_MAX = 30
 
+/** 넘기는 주소에 싣는 낱개 촬영지 수의 끝(web-ad-landing.md §13-3). */
+export const KEEP_PLACE_MAX = 40
+
+/** `?places=101,102` → `[101, 102]` — `parseKeepParam` 과 같은 규칙, 앞에서 40개(web-ad-landing.md §13-3). */
+export function parsePlacesParam(search: string): number[] {
+  return parseIdsParam(search, 'places', KEEP_PLACE_MAX)
+}
+
+/** 넘어온 주소인가 — `keep`·`places`·`pois` 중 하나라도 쓸 만한 id 가 있다(첫 화면을 띄우지 않는다, §13-3). */
+export function hasKeepParams(search: string): boolean {
+  return parseKeepParam(search).length > 0 || parsePlacesParam(search).length > 0 || parseIdsParam(search, 'pois', KEEP_POI_MAX).length > 0
+}
+
+/** 넘기는 작품 — 시트가 든 작품 먼저, 그다음 담은 촬영지의 작품(처음 나온 순서), 중복 없이 앞에서 6개. */
+export function keepContentIds(fromSheet: readonly number[], items: readonly { sourceContentId?: number | null }[]): number[] {
+  const ids: number[] = []
+  for (const id of [...fromSheet, ...items.map((i) => i.sourceContentId ?? null)]) {
+    if (typeof id === 'number' && !ids.includes(id)) ids.push(id)
+  }
+  return ids.slice(0, KEEP_MAX)
+}
+
 /**
- * `origin` + `/my-map?keep=…&pois=…`. 작품은 6개, 편의시설은 30개까지. 둘 다 없으면 `/my-map` 만.
- * 세 번째 인자(편의시설)는 keep-poi.md §3-2 — 두 인자 호출의 결과는 그대로다.
+ * 넘기는 낱개 촬영지 — 담은 촬영지 중 넘기는 작품(`keep`)으로 다시 담기지 않는 것만(작품이 없거나 6편 밖의 작품), 담은 순서대로 앞에서 40개.
+ * `items` 가 아직 없으면(장바구니 목록을 받기 전) `placeIds` 중 작품을 모르는 것은 싣지 않는다 — 출처를 모르면 `keep` 이 담는지 알 수 없다.
  */
-export function keepUrl(origin: string, contentIds: readonly number[], poiIds: readonly number[] = []): string {
+export function loosePlaceIds(items: readonly { placeId: number; sourceContentId?: number | null }[], keepIds: readonly number[]): number[] {
+  const out: number[] = []
+  for (const item of items) {
+    const source = item.sourceContentId ?? null
+    if (source !== null && keepIds.includes(source)) continue
+    if (!out.includes(item.placeId)) out.push(item.placeId)
+  }
+  return out.slice(0, KEEP_PLACE_MAX)
+}
+
+/**
+ * `origin` + `/my-map?keep=…&places=…&pois=…`. 작품은 6개, 낱개 촬영지는 40개, 편의시설은 30개까지. 다 없으면 `/my-map` 만.
+ * 세 번째 인자(편의시설)는 keep-poi.md §3-2, 네 번째(낱개 촬영지)는 web-ad-landing.md §13-3 — 앞선 호출의 결과는 그대로다.
+ */
+export function keepUrl(origin: string, contentIds: readonly number[], poiIds: readonly number[] = [], placeIds: readonly number[] = []): string {
   const query: string[] = []
   const ids = contentIds.slice(0, KEEP_MAX)
   if (ids.length > 0) query.push(`keep=${ids.join(',')}`)
+  const places = placeIds.slice(0, KEEP_PLACE_MAX)
+  if (places.length > 0) query.push(`places=${places.join(',')}`)
   const pois = poiIds.slice(0, KEEP_POI_MAX)
   if (pois.length > 0) query.push(`pois=${pois.join(',')}`)
   return query.length === 0 ? `${origin}/my-map` : `${origin}/my-map?${query.join('&')}`
+}
+
+/** 지금 장바구니로 넘기는 주소 — 작품(`keep`) + 그 작품으로 다시 담기지 않는 낱개 촬영지(`places`) + 편의시설(`pois`)(§13-3). */
+export function handoffKeepUrl(
+  origin: string,
+  fromSheet: readonly number[],
+  cart: { items: readonly { placeId: number; sourceContentId?: number | null }[]; poiIds: Iterable<number> },
+): string {
+  const keep = keepContentIds(fromSheet, cart.items)
+  return keepUrl(origin, keep, [...cart.poiIds], loosePlaceIds(cart.items, keep))
 }
 
 /**
