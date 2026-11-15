@@ -95,3 +95,29 @@ describe('NearbyChips — 누름', () => {
     expect(chip('명소').getAttribute('aria-pressed')).toBe('true')
   })
 })
+
+/** 칩의 보이는 캡슐(눌리는 단추 안의 첫 span)과 글자. */
+function capsule(text: string): { box: HTMLElement; label: HTMLElement } {
+  const button = chip(text)
+  return { box: button.querySelector('span') as HTMLElement, label: screen.getByText(text) }
+}
+
+describe('NearbyChips — 지도 위에서 켜진 칩은 확 달라 보인다(§7, 11/15)', () => {
+  it('켜진 칩은 바탕색·글자색이 꺼진 칩과 다르고, 글자는 흰색 굵은 글씨', () => {
+    render(<NearbyChips value="food" onChange={vi.fn()} onMap />)
+    const on = capsule('식당·카페')
+    const off = capsule('쇼핑')
+    expect(on.box.style.background, '켜진 칩 바탕').not.toBe('')
+    expect(on.box.style.background).not.toBe(off.box.style.background)
+    expect(on.label.style.color).not.toBe(off.label.style.color)
+    expect(['#fff', '#ffffff', 'white', 'rgb(255, 255, 255)']).toContain(on.label.style.color.toLowerCase())
+    expect(Number(on.label.style.fontWeight)).toBeGreaterThanOrEqual(700)
+  })
+
+  it.each(ORDER)('%s 가 켜지면 그 칩의 바탕만 다르다', (kind) => {
+    render(<NearbyChips value={kind} onChange={vi.fn()} onMap />)
+    const others = ORDER.filter((k) => k !== kind).map((k) => capsule(NAMES.ko[k]).box.style.background)
+    expect(new Set(others).size, '꺼진 칩 셋은 같은 바탕').toBe(1)
+    expect(others).not.toContain(capsule(NAMES.ko[kind]).box.style.background)
+  })
+})
