@@ -404,7 +404,7 @@ describe('네 박자 (§12)', () => {
     placesReply = placesN(3)
     renderLanding()
     await untilBeat('spill')
-    await advance(1300 + 900 + 340 + 50) // 첫 장이 들어간 뒤
+    await advance(1300 + 3620 + 320 + 50) // 첫 장(주인공)이 들어간 뒤
     expect(pouchCount()).toBe(1)
     expect(document.querySelectorAll('.st-card')).toHaveLength(2)
     expect(document.querySelector('.st-film')?.getAttribute('data-phase')).toBe('one')
@@ -435,6 +435,33 @@ describe('네 박자 (§12)', () => {
     await untilBeat('spill')
     expect(document.querySelector('.st-card__ko')).toBeNull()
     expect(h.GET.mock.calls.filter((c) => c[0] === '/contents/{contentId}/places')).toHaveLength(1)
+  })
+
+  it('작품 32 — 주인공 N서울타워(81)가 목록 가운데 있어도 첫 장, 나머지는 받은 순서', async () => {
+    placesReply = [place(148, 0), place(173, 1), place(81, 2), place(348, 3)]
+    renderLanding()
+    await untilBeat('spill')
+    const names = [...document.querySelectorAll('.st-card .st-card__face--back .st-card__name')].map((e) => e.textContent)
+    expect(names).toEqual(['장소81', '장소148', '장소173', '장소348'])
+    expect(document.querySelector('.st-card .st-card__face:not(.st-card__face--back) img')?.getAttribute('src')).toBe('/intro/kdh/81.webp')
+  })
+
+  it('다른 작품은 주인공을 따로 두지 않는다 — 받은 순서 그대로', async () => {
+    placesReply = [place(148, 0), place(81, 1)]
+    renderLanding(7)
+    await untilBeat('spill')
+    const names = [...document.querySelectorAll('.st-card .st-card__name')].map((e) => e.textContent)
+    expect(names).toEqual(['장소148', '장소81'])
+  })
+
+  it.each<[Lang, string]>([
+    ['ko', '이 장소들, 진짜 서울에 있어요!'],
+    ['en', 'These places are real — in Seoul!'],
+  ])('%s — ② 말풍선은 가로로 넓은 한 덩어리(st-film__bubble--wide)', async (lang, line) => {
+    chooseLanguage(lang)
+    renderLanding()
+    await toPoster()
+    expect(document.querySelector('.st-film__bubble-row .st-film__bubble--wide')?.textContent).toBe(line)
   })
 
   it('작품 32 가 아니면 일러스트 없이 실제 사진만 — 뒤집지 않는다', async () => {

@@ -323,11 +323,11 @@
     animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1);
   }
   72% {
-    transform: translateY(-8px) rotate(2.5deg);
+    transform: translateY(calc(var(--poster-dy, 0px) - 8px)) rotate(2.5deg);
     animation-timing-function: ease-in-out;
   }
   100% {
-    transform: translateY(0) rotate(0);
+    transform: translateY(var(--poster-dy, 0px)) rotate(0);
   }
 }
 
@@ -420,6 +420,26 @@
 }
 .st-film[data-beat='poster'] .st-film__bubble {
   animation: st-bubble-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) 0.62s both;
+}
+.st-film__bubble-row {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  z-index: 32;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+/* ② — 가로로 넓은 말풍선, 꼬리는 가운데 아래(해태 머리) */
+.st-film__bubble--wide {
+  position: relative;
+  max-width: 100%;
+  padding: 10px 16px;
+  text-align: center;
+  transform-origin: 50% 100%;
+}
+.st-film__bubble--wide::after {
+  right: calc(50% - 7px);
 }
 .st-film__bubble--rest {
   animation: st-bubble-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s both;

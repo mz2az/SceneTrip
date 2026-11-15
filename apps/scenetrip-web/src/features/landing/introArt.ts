@@ -18,3 +18,13 @@ export function introArtUrl(contentId: number, placeId: number): string | null {
   if (contentId !== INTRO_ART_CONTENT_ID) return null
   return `/intro/kdh/${ART_FILE_OF[placeId] ?? placeId}.webp`
 }
+
+/** 주인공 촬영지(그림 파일 id) — 첫 화면의 첫 장으로 일러스트를 오래 보이고 천천히 사진으로 뒤집는다(2026-11-15 사용자: N서울타워). */
+const HERO_FILE_OF: Readonly<Record<number, number>> = { [INTRO_ART_CONTENT_ID]: 81 }
+
+/** 이 작품의 주인공 촬영지 id(받은 목록에서) — 없으면 null(첫 장이 주인공). 운영 id 도 그림 파일 id 로 옮겨 맞춘다. */
+export function introHeroId(contentId: number, placeIds: readonly number[]): number | null {
+  const file = HERO_FILE_OF[contentId]
+  if (file === undefined) return null
+  return placeIds.find((id) => (ART_FILE_OF[id] ?? id) === file) ?? null
+}

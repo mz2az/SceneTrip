@@ -7,10 +7,11 @@
  *
  *   받는 중   보라 바탕 + 해태 얼굴 + SceneTrip(IntroSplash — index.html 이 JS 보다 먼저 같은 것을 그려 둔다)
  *   ① drop    그 얼굴이 위로 폴짝 뛰어 사라지고, 온몸 해태가 위에서 떨어져 통통 튄 뒤 방긋
- *   ② poster  포스터가 아래에서 올라와 서고 해태가 윗변에 앞발을 걸고 빼꼼 + 「이 장소들, 진짜 {도시}에 있어요!」,
+ *   ② poster  포스터가 아래에서 올라와 서고 해태가 윗변에 앞발을 걸고 빼꼼 + 머리 위 가로로 넓은 말풍선 「이 장소들, 진짜 {도시}에 있어요!」,
  *             포스터 아래 「{작품}의 장면들」. 포스터가 늦으면 제목을 쓴 보라 카드로 대신하고, 오면 바꿔 끼운다.
  *   ③ spill   (펼침) 포스터가 작아지며 촬영지 카드(앞면은 일러스트, 없으면 사진)가 포스터 둘레로 쫙 펼쳐진다.
- *             (하나씩) 받은 순서로 한 장씩 가운데로 크게 → 일러스트가 실제 사진으로 뒤집힘 → 이름 → 오른쪽 아래 「My map」 주머니로 쏙, 수 +1.
+ *             (주인공) 첫 장(작품 32 는 N서울타워)이 가운데로 크게 → 일러스트를 오래 → 천천히 실제 사진으로 뒤집힘 + 이름 → 주머니로.
+ *             (나머지) 받은 순서로 빠르게 한 장씩 — 커지며 곧바로 사진으로 뒤집혀 → 오른쪽 아래 「My map」 주머니로 쏙, 수 +1.
  *             사진이 늦은 장은 이름 카드로.
  *   ④ rest    핀을 든 해태 + 「{N}곳, 전부 {도시}에 있어요!」 + 담기 + 「먼저 둘러볼게요」.
  *   ⑤ keep    담기가 끝나면(실패 0) 해태가 주머니를 안고 간직하기를 권한다(KeepBeat, §13-1). 이미 로그인했거나 홈 화면에서 연 앱이면 건너뛴다.
@@ -38,13 +39,14 @@ import { useStore } from '@/state/storage'
 import { landingArt } from './art'
 import { INTRO_HAETAE_SRC, IntroSplash } from './IntroSplash'
 import { KeepBeat } from './KeepBeat'
-import { introArtUrl } from './introArt'
+import { introArtUrl, introHeroId } from './introArt'
 import type { IntroClose } from './introClose'
 import {
-  INTRO_PACE,
   type LandingTimeline,
   beatAt,
   centerCard,
+  flipOf,
+  introOrder,
   landingTimeline,
   leaveAt,
   pocketAt,
@@ -53,6 +55,7 @@ import {
   spreadAt,
   topRegion,
   zoomAt,
+  zoomMsOf,
 } from './landingScript'
 import './landing.css'
 
@@ -178,7 +181,14 @@ export function LandingCover({ contentId, onRest, onClose, onBeat, onKeep, onNee
   const poster = ready?.content.posterUrl ?? null
 
   // ---- 그림 받기 순서: 포스터 → 카드 앞면(일러스트, 없으면 사진) → 일러스트 뒤의 사진. 하나씩 보이지 않는 곳의 사진은 받지 않는다.
-  const featured = useMemo(() => (ready ? ready.places.slice(0, timeline.featured) : []), [ready, timeline.featured])
+  // 카드 순서 — 주인공 촬영지(작품 32 는 N서울타워)를 맨 앞으로, 나머지는 받은 순서.
+  const featured = useMemo(() => {
+    if (!ready) return []
+    const ids = ready.places.map((p) => p.id)
+    return introOrder(ids, introHeroId(contentId, ids))
+      .map((i) => ready.places[i]!)
+      .slice(0, timeline.featured)
+  }, [ready, timeline.featured, contentId])
   const preloadGroups = useMemo(() => {
     const fronts = featured.map((p) => introArtUrl(contentId, p.id) ?? thumbOf(p)).filter((u): u is string => !!u)
     const backs = featured.filter((p) => introArtUrl(contentId, p.id) !== null).map(thumbOf).filter((u): u is string => !!u)
@@ -346,7 +356,8 @@ export function LandingCover({ contentId, onRest, onClose, onBeat, onKeep, onNee
   const askLine = say(`이 장소들, 진짜 ${city}에 있어요!`, `These places are real — in ${city}!`)
   const vars = {
     '--stage-h': `${g.h}px`,
-    '--hero-to-poster': `${g.posterTop - 30 - g.heroCy}px`,
+    '--hero-to-poster': `${g.posterTop + g.askDy - 30 - g.heroCy}px`,
+    '--poster-dy': `${g.askDy}px`,
     '--poster-from': `${g.h - g.posterTop + 40}px`,
     '--poster-spread': `translateY(${Math.round((g.posterH * (1 - g.spreadScale)) / 2)}px) scale(${g.spreadScale.toFixed(3)})`,
   } as CSSProperties
@@ -400,7 +411,7 @@ export function LandingCover({ contentId, onRest, onClose, onBeat, onKeep, onNee
 
       {/* ② — 포스터 아래 「{작품}의 장면들」 */}
       {(beat === 'poster' || beat === 'spill') && (
-        <div className="st-film__caption" style={{ top: g.posterTop + g.posterH + 14 }}>
+        <div className="st-film__caption" style={{ top: g.posterTop + g.askDy + g.posterH + 14 }}>
           {say(`${title}의 장면들`, `Scenes from ${title}`)}
         </div>
       )}
@@ -408,13 +419,13 @@ export function LandingCover({ contentId, onRest, onClose, onBeat, onKeep, onNee
       {/* ②·③ — 포스터 윗변 뒤에서 빼꼼(iOS 시작 화면과 같은 동작). 머리는 윗변에서 잘리고, 앞발은 윗변에 걸친다. */}
       {(beat === 'poster' || beat === 'spill') && (
         <>
-          <div className="st-film__peek" aria-hidden style={{ left: g.w / 2 - 100, top: g.posterTop - 122 }}>
+          <div className="st-film__peek" aria-hidden style={{ left: g.w / 2 - 100, top: g.posterTop + g.askDy - 122 }}>
             <div className="st-film__look">
               <img className="st-film__head" src={landingArt.peek} alt="" draggable={false} />
             </div>
           </div>
-          <img className="st-film__paw st-film__paw--l" src={landingArt.pawLeft} alt="" aria-hidden draggable={false} style={{ left: g.w / 2 - 34 - 21, top: g.posterTop - 16 }} />
-          <img className="st-film__paw st-film__paw--r" src={landingArt.pawRight} alt="" aria-hidden draggable={false} style={{ left: g.w / 2 + 34 - 21, top: g.posterTop - 16 }} />
+          <img className="st-film__paw st-film__paw--l" src={landingArt.pawLeft} alt="" aria-hidden draggable={false} style={{ left: g.w / 2 - 34 - 21, top: g.posterTop + g.askDy - 16 }} />
+          <img className="st-film__paw st-film__paw--r" src={landingArt.pawRight} alt="" aria-hidden draggable={false} style={{ left: g.w / 2 + 34 - 21, top: g.posterTop + g.askDy - 16 }} />
         </>
       )}
 
@@ -423,18 +434,22 @@ export function LandingCover({ contentId, onRest, onClose, onBeat, onKeep, onNee
         <img className="st-film__pin" src={landingArt.pin} alt="" aria-hidden draggable={false} style={{ left: g.pinLeft, top: g.posterTop + 26 - g.pinH, width: g.pinW, height: g.pinH }} />
       )}
 
-      {/* 말풍선 — ② 「이 장소들, 진짜 {도시}에 있어요!」, ④ 「{N}곳, 전부 {도시}에 있어요!」 */}
-      {(beat === 'poster' || rest) && (
+      {/* ② 말풍선 — 가로로 넓게 한두 줄, 해태 머리 위(2026-11-15 사용자: 「가로로 보여주는 게 나을 것 같아」). */}
+      {beat === 'poster' && (
+        <div className="st-film__bubble-row" style={{ bottom: g.h - (g.posterTop + g.askDy - ASK_HEAD_UP) }}>
+          <div className="st-film__bubble st-film__bubble--wide">
+            <Txt size={16} weight="heavy" style={{ color: '#2a1856', lineHeight: 1.25 }}>{askLine}</Txt>
+          </div>
+        </div>
+      )}
+      {/* ④ 말풍선 — 「{N}곳, 전부 {도시}에 있어요!」 */}
+      {rest && (
         <div
-          key={rest ? 'rest' : 'ask'}
-          className={rest ? 'st-film__bubble st-film__bubble--rest' : 'st-film__bubble'}
-          style={rest ? { right: g.w - g.pinLeft - 12, bottom: g.h - (g.posterTop - 30), width: 'max-content', maxWidth: g.pinLeft + 12 - 16 } : { right: g.w / 2 + 50, bottom: g.h - (g.posterTop - 18), width: 'max-content', maxWidth: g.w / 2 - 50 - 12 }}
+          key="rest"
+          className="st-film__bubble st-film__bubble--rest"
+          style={{ right: g.w - g.pinLeft - 12, bottom: g.h - (g.posterTop - 30), width: 'max-content', maxWidth: g.pinLeft + 12 - 16 }}
         >
-          {rest ? (
-            <Txt as="h1" size={17} weight="heavy" style={{ margin: 0, color: '#2a1856', lineHeight: 1.25 }}>{restLine}</Txt>
-          ) : (
-            <Txt size={15} weight="heavy" style={{ color: '#2a1856', lineHeight: 1.25 }}>{askLine}</Txt>
-          )}
+          <Txt as="h1" size={17} weight="heavy" style={{ margin: 0, color: '#2a1856', lineHeight: 1.25 }}>{restLine}</Txt>
         </div>
       )}
 
@@ -521,6 +536,8 @@ interface Geometry {
   posterW: number
   posterH: number
   posterTop: number
+  /** ② 에서 말풍선이 해태 머리 위에 들어가도록 포스터·해태를 내리는 거리 — 높은 화면은 0. */
+  askDy: number
   /** 포스터의 가운데(y) — ③ 의 카드 고리의 가운데. */
   posterCy: number
   /** ③ 에서 포스터가 줄어드는 비율(가운데를 축으로). */
@@ -544,6 +561,11 @@ interface Geometry {
   pouchRestLeft: number
   pouchRestTop: number
 }
+
+/** ② 말풍선 — 위 끝(머리줄 아래), 두 줄 높이, 말풍선 아래 끝과 포스터 윗변 사이(해태 머리가 서는 자리). */
+const ASK_TOP = 60
+const ASK_H = 58
+const ASK_HEAD_UP = 102
 
 /** 카드: 폭 W, 높이 1.5W(사진 칸 + 아래 이름 띠). */
 const CARD_RATIO = 1.5
@@ -580,6 +602,7 @@ function geometry(w: number, h: number): Geometry {
     posterW,
     posterH,
     posterTop,
+    askDy: Math.max(0, ASK_TOP + ASK_H + ASK_HEAD_UP - posterTop),
     posterCy,
     spreadScale: Math.max(0.36, spreadScale),
     ringRx,
@@ -646,11 +669,11 @@ function Card({ i, t, g, mountElapsed, art, photo, name, nameKo, z }: {
       { offset: 0, transform: pos(g.w / 2, g.posterCy, small * 0.4, 0), opacity: 0 },
       { offset: at(out), transform: pos(g.w / 2, g.posterCy, small * 0.4, 0), opacity: 0, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1.2)' },
       { offset: at(out + 120), opacity: 1 },
-      { offset: at(out + INTRO_PACE.spreadFlyMs), transform: pos(ring.x, ring.y, small, tilt), opacity: 1 },
+      { offset: at(out + t.pace.spreadFlyMs), transform: pos(ring.x, ring.y, small, tilt), opacity: 1 },
       { offset: at(zoom), transform: pos(ring.x, ring.y, small, tilt), opacity: 1, easing: 'cubic-bezier(0.3, 0.8, 0.3, 1.1)' },
-      { offset: at(zoom + INTRO_PACE.zoomMs), transform: pos(g.w / 2, g.zoomCy, 1, 0), opacity: 1 },
+      { offset: at(zoom + zoomMsOf(i, t)), transform: pos(g.w / 2, g.zoomCy, 1, 0), opacity: 1 },
       { offset: at(leave), transform: pos(g.w / 2, g.zoomCy, 1, 0), opacity: 1, easing: 'cubic-bezier(0.4, 0, 0.8, 0.5)' },
-      { offset: at(leave + INTRO_PACE.flyMs * 0.8), opacity: 1 },
+      { offset: at(leave + t.pace.flyMs * 0.8), opacity: 1 },
       { offset: 1, transform: pos(pouch.x, pouch.y, 0.12, 14), opacity: 0 },
     ]
     const a = el.animate(frames, { duration: total, easing: 'linear', fill: 'both' })
@@ -663,12 +686,13 @@ function Card({ i, t, g, mountElapsed, art, photo, name, nameKo, z }: {
   useEffect(() => {
     const el = inner.current
     if (!el || typeof el.animate !== 'function' || !flip) return
-    const from = zoomAt(i, t) + INTRO_PACE.zoomMs
+    const { at: from, ms: flipMs } = flipOf(i, t)
     const a = el.animate(
       [
         { offset: 0, transform: 'rotateY(0deg)' },
-        { offset: at(from), transform: 'rotateY(0deg)', easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
-        { offset: at(from + INTRO_PACE.flipMs), transform: 'rotateY(180deg)' },
+        // 주인공은 0.6초 동안 고르게(천천히 넘어가는 것이 보이게), 나머지는 빠르게.
+        { offset: at(from), transform: 'rotateY(0deg)', easing: i === 0 ? 'cubic-bezier(0.25, 0.1, 0.75, 0.9)' : 'cubic-bezier(0.4, 0, 0.2, 1)' },
+        { offset: at(from + flipMs), transform: 'rotateY(180deg)' },
         { offset: 1, transform: 'rotateY(180deg)' },
       ],
       { duration: total, easing: 'linear', fill: 'both' },

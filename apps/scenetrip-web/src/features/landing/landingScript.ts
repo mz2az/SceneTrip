@@ -2,38 +2,64 @@
  * 첫 화면 애니메이션의 박자 — 순수 함수. 정본: docs/project/plans/web-ad-landing.md §12-1(느리고 크게, intro-lab).
  *
  *   ① drop    0~1.5초    해태가 위에서 떨어져 통통 튀고 방긋, 그 아래 SceneTrip
- *   ② poster  1.5~3.2초  포스터가 올라와 서고 해태가 빼꼼 + 「이 장소들, 진짜 {도시}에 있어요!」, 포스터 아래 「{작품}의 장면들」
- *   ③ spill   3.2초~     (펼침) 촬영지 카드가 포스터 둘레로 쫙 펼쳐진다(1.3초 — 4.5초에 하나씩이 시작)
- *                        (하나씩) 한 장씩 가운데로 크게 → 그림이 실제 사진으로 뒤집힘 → 이름 → 「My map」 주머니로 쏙
+ *   ② poster  1.5~4.2초  포스터가 올라와 서고 해태가 빼꼼 + 가로로 넓은 말풍선 「이 장소들, 진짜 {도시}에 있어요!」, 포스터 아래 「{작품}의 장면들」
+ *   ③ spill   4.2초~     (펼침) 촬영지 카드가 포스터 둘레로 쫙 펼쳐진다(1.3초)
+ *                        (주인공) 첫 장 — 가운데로 크게 → 일러스트를 1.5초 그대로 → 천천히 뒤집혀 실제 사진 1.2초 + 이름 → 주머니
+ *                        (나머지) 0.4초마다 한 장 — 커지며 곧바로 뒤집혀 사진 + 이름 → 주머니
  *   ④ rest    핀을 든 해태 + 「{N}곳, 전부 {도시}에 있어요!」 + 담기 단추
  *
  * 모든 시간은 아래 INTRO_PACE 한 곳에 있다 — 늦추거나 당길 때는 이 값만 고친다.
- * 분석 박자(`beat`)는 그대로 drop·poster·spill·rest — 펼침과 하나씩은 둘 다 spill 이다.
+ * 분석 박자(`beat`)는 그대로 drop·poster·spill·rest — 펼침·주인공·나머지는 모두 spill 이다.
  */
 
 export type Beat = 'drop' | 'poster' | 'spill' | 'rest'
 
 /** 첫 화면의 모든 시간(ms) — 이름은 INTRO_PACE 의 칸. */
-export type IntroPace = Readonly<Record<'dropMs' | 'posterMs' | 'spreadMs' | 'spreadFlyMs' | 'oneMs' | 'zoomMs' | 'flipMs' | 'flyMs' | 'settleMs', number>>
+export type IntroPace = Readonly<
+  Record<
+    | 'dropMs'
+    | 'posterMs'
+    | 'spreadMs'
+    | 'spreadFlyMs'
+    | 'heroZoomMs'
+    | 'heroHoldMs'
+    | 'heroFlipMs'
+    | 'heroRealMs'
+    | 'restOneMs'
+    | 'restZoomMs'
+    | 'restFlipMs'
+    | 'flyMs'
+    | 'settleMs',
+    number
+  >
+>
 
 /** 첫 화면의 모든 시간(ms). */
 export const INTRO_PACE: IntroPace = {
   /** ① 등장. */
   dropMs: 1500,
-  /** ② 포스터와 빼꼼. */
-  posterMs: 1700,
+  /** ② 포스터와 빼꼼 — 말풍선이 약 2초 보이게(2026-11-15 사용자: 「1초 정도 더」). */
+  posterMs: 2700,
   /** ③ 의 펼침 — 카드가 포스터 둘레로 펼쳐지는 시간(마지막 카드가 자리를 잡을 때까지 포함). */
   spreadMs: 1300,
   /** 펼침에서 카드 하나가 포스터에서 제자리까지 나는 시간. */
   spreadFlyMs: 620,
-  /** 하나씩 — 한 장의 차례(다음 장이 커지기 시작할 때까지). */
-  oneMs: 900,
-  /** 한 장이 제자리에서 가운데로 크게 커지는 시간. */
-  zoomMs: 180,
-  /** 커진 뒤 그림이 사진으로 뒤집히는 시간. */
-  flipMs: 250,
+  /** 주인공(첫 장)이 가운데로 커지는 시간. */
+  heroZoomMs: 320,
+  /** 주인공 — 커진 뒤 일러스트를 그대로 보이는 시간. */
+  heroHoldMs: 1500,
+  /** 주인공 — 일러스트가 실제 사진으로 천천히 뒤집히는 시간. */
+  heroFlipMs: 600,
+  /** 주인공 — 뒤집힌 뒤 실제 사진과 이름을 보이는 시간(다음 장이 커질 때 떠난다). */
+  heroRealMs: 1200,
+  /** 나머지 — 한 장의 차례(다음 장이 커지기 시작할 때까지). */
+  restOneMs: 400,
+  /** 나머지 — 가운데로 커지는 시간. */
+  restZoomMs: 150,
+  /** 나머지 — 커지는 동안 곧바로 뒤집히는 시간(커지기 시작하고 40ms 뒤부터). */
+  restFlipMs: 170,
   /** 한 장이 가운데에서 주머니까지 나는 시간 — 다음 장이 커지기 시작할 때 떠난다. */
-  flyMs: 340,
+  flyMs: 320,
   /** 마지막 장이 주머니에 들어간 뒤 ④ 까지. */
   settleMs: 220,
 }
@@ -45,19 +71,34 @@ export interface LandingTimeline {
   dropMs: number
   posterMs: number
   spreadMs: number
-  oneMs: number
+  /** 주인공(첫 장)의 차례 = heroZoomMs + heroHoldMs + heroFlipMs + heroRealMs. */
+  heroMs: number
+  /** 나머지 한 장의 차례. */
+  restOneMs: number
   /** 하나씩 보이는 카드 수 = min(곳 수, FEATURED_MAX). */
   featured: number
-  /** ③ 의 길이 — 펼침 + 하나씩 + 마지막 장이 날아 들어가 주머니가 가라앉기까지. 0곳이면 0. */
+  /** ③ 의 길이 — 펼침 + 주인공 + 나머지 + 마지막 장이 날아 들어가 주머니가 가라앉기까지. 0곳이면 0. */
   spillMs: number
   total: number
+  pace: IntroPace
 }
 
 export function landingTimeline(placeCount: number, pace: IntroPace = INTRO_PACE): LandingTimeline {
   const n = Math.max(0, Math.floor(placeCount))
   const featured = Math.min(n, FEATURED_MAX)
-  const spillMs = featured === 0 ? 0 : pace.spreadMs + featured * pace.oneMs + pace.flyMs + pace.settleMs
-  return { dropMs: pace.dropMs, posterMs: pace.posterMs, spreadMs: pace.spreadMs, oneMs: pace.oneMs, featured, spillMs, total: pace.dropMs + pace.posterMs + spillMs }
+  const heroMs = pace.heroZoomMs + pace.heroHoldMs + pace.heroFlipMs + pace.heroRealMs
+  const spillMs = featured === 0 ? 0 : pace.spreadMs + heroMs + (featured - 1) * pace.restOneMs + pace.flyMs + pace.settleMs
+  return {
+    dropMs: pace.dropMs,
+    posterMs: pace.posterMs,
+    spreadMs: pace.spreadMs,
+    heroMs,
+    restOneMs: pace.restOneMs,
+    featured,
+    spillMs,
+    total: pace.dropMs + pace.posterMs + spillMs,
+    pace,
+  }
 }
 
 export function beatAt(elapsedMs: number, t: LandingTimeline): Beat {
@@ -71,27 +112,35 @@ export function beatAt(elapsedMs: number, t: LandingTimeline): Beat {
 export const spillStart = (t: LandingTimeline): number => t.dropMs + t.posterMs
 
 /** 펼침에서 i 번째(0부터) 카드가 포스터를 떠나는 때(ms). 마지막 카드도 펼침 안에 자리를 잡는다. */
-export function spreadAt(i: number, t: LandingTimeline, pace: IntroPace = INTRO_PACE): number {
-  const gap = t.featured <= 1 ? 0 : Math.floor((t.spreadMs - pace.spreadFlyMs - 120) / (t.featured - 1))
+export function spreadAt(i: number, t: LandingTimeline): number {
+  const gap = t.featured <= 1 ? 0 : Math.floor((t.spreadMs - t.pace.spreadFlyMs - 120) / (t.featured - 1))
   return spillStart(t) + 60 + i * Math.min(90, gap)
 }
 
-/** i 번째 카드가 가운데로 커지기 시작하는 때(ms). */
-export const zoomAt = (i: number, t: LandingTimeline): number => spillStart(t) + t.spreadMs + i * t.oneMs
+/** i 번째 카드가 가운데로 커지기 시작하는 때(ms) — 0 번째(주인공) 다음은 restOneMs 간격. i = featured 는 마지막 장이 떠나는 때. */
+export const zoomAt = (i: number, t: LandingTimeline): number =>
+  spillStart(t) + t.spreadMs + (i === 0 ? 0 : t.heroMs + (i - 1) * t.restOneMs)
+
+/** i 번째 카드가 가운데로 커지는 데 걸리는 시간. */
+export const zoomMsOf = (i: number, t: LandingTimeline): number => (i === 0 ? t.pace.heroZoomMs : t.pace.restZoomMs)
+
+/** i 번째 카드가 뒤집히기 시작하는 때와 걸리는 시간 — 주인공은 일러스트를 heroHoldMs 보인 뒤 천천히, 나머지는 커지는 동안 곧바로. */
+export function flipOf(i: number, t: LandingTimeline): { at: number; ms: number } {
+  if (i === 0) return { at: zoomAt(0, t) + t.pace.heroZoomMs + t.pace.heroHoldMs, ms: t.pace.heroFlipMs }
+  return { at: zoomAt(i, t) + 40, ms: t.pace.restFlipMs }
+}
 
 /** i 번째 카드가 가운데를 떠나 주머니로 나는 때(ms) = 다음 카드가 커지기 시작하는 때. */
 export const leaveAt = (i: number, t: LandingTimeline): number => zoomAt(i + 1, t)
 
 /** i 번째 카드가 주머니에 들어가는 때(ms). */
-export const pocketAt = (i: number, t: LandingTimeline, pace: IntroPace = INTRO_PACE): number => leaveAt(i, t) + pace.flyMs
+export const pocketAt = (i: number, t: LandingTimeline): number => leaveAt(i, t) + t.pace.flyMs
 
 /** 지금 가운데에 있는 카드(0부터) — 하나씩 박자가 아니면 null. */
 export function centerCard(elapsedMs: number, t: LandingTimeline): number | null {
-  if (t.featured === 0) return null
-  const since = elapsedMs - zoomAt(0, t)
-  if (since < 0 || elapsedMs >= t.total) return null
-  const i = Math.floor(since / t.oneMs)
-  return i < t.featured ? i : null
+  if (t.featured === 0 || elapsedMs >= t.total) return null
+  for (let i = 0; i < t.featured; i++) if (elapsedMs >= zoomAt(i, t) && elapsedMs < leaveAt(i, t)) return i
+  return null
 }
 
 /**
@@ -104,6 +153,16 @@ export function pocketedCount(elapsedMs: number, t: LandingTimeline, placeCount:
   let c = 0
   while (c < t.featured && pocketAt(c, t) <= elapsedMs) c++
   return c === t.featured ? placeCount : c
+}
+
+/**
+ * 카드 순서 — 주인공 촬영지(heroId)가 목록에 있으면 맨 앞으로, 나머지는 받은 순서. 없으면 받은 순서 그대로(첫 장이 주인공).
+ * 돌려주는 것은 원래 목록의 자리(0부터).
+ */
+export function introOrder(ids: readonly number[], heroId: number | null): number[] {
+  const all = ids.map((_, i) => i)
+  const at = heroId === null ? -1 : ids.indexOf(heroId)
+  return at < 0 ? all : [at, ...all.filter((i) => i !== at)]
 }
 
 /** 시·도 — 주소에서 찾는 말(한국어 앞머리·영어 이름)과 화면에 쓰는 이름. */
