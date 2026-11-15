@@ -76,15 +76,16 @@ const filled = (text: string | null | undefined): string | null => {
 }
 
 /**
- * 담은 편의시설의 이름 두 줄(keep-poi.md §9-2) — 제목은 `displayName ?? name`. 그 아래 작은 글자의 로마자 읽기(`nameRoman`)는
- * `displayName` 이 없고 화면 언어가 한국어가 아닐 때만(이름이 원래 로마자라 같은 글자면 두 번 적지 않는다). 정보 카드와 같은 규칙이다.
+ * 담은 편의시설의 이름 두 줄(keep-poi.md §9-2) — 한국어 화면은 제목 `displayName ?? name`, 둘째 줄 없음.
+ * 한국어가 아닌 화면은 읽을 수 있는 글자가 제목(`displayName` → `nameRoman` → `name`), 둘째 줄은 간판과 맞춰 볼 한국어 원본 `name`
+ * (제목과 같은 글자면 생략).
  */
 export function savedPoiName(
   poi: { name: string; displayName?: string | null; nameRoman?: string | null },
   korean: boolean,
-): { title: string; roman: string | null } {
+): { title: string; sub: string | null } {
   const shown = filled(poi.displayName)
-  if (shown !== null) return { title: shown, roman: null }
-  const roman = korean ? null : filled(poi.nameRoman)
-  return { title: poi.name, roman: roman !== null && roman.toLowerCase() !== poi.name.trim().toLowerCase() ? roman : null }
+  if (korean) return { title: shown ?? poi.name, sub: null }
+  const title = shown ?? filled(poi.nameRoman) ?? poi.name
+  return { title, sub: title.trim().toLowerCase() === poi.name.trim().toLowerCase() ? null : poi.name }
 }

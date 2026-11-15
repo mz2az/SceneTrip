@@ -429,13 +429,29 @@ describe('주변 — 줄', () => {
     expect(bodyText()).not.toContain('주변 식당·카페')
   })
 
-  it('편의시설 이름은 displayName ?? name, 영어 화면이고 displayName 이 없으면 nameRoman 을 작게', async () => {
+  // keep-poi.md §9-2 (11/15) — 영어 화면은 읽을 수 있는 글자(displayName → nameRoman → name)가 큰 제목, 한글 원본 name 이 아래 작게.
+  it('영어 화면 — displayName 이 없으면 nameRoman 이 칸의 큰 제목, 한글 원본이 그 아래', async () => {
     chooseLanguage('en')
     withCart(ITEMS)
-    nearby.food = [poi(21, 'food', '명동교자', { displayName: null, nameRoman: 'Myeongdong Gyoja' })]
+    nearby.shopping = [poi(31, 'shopping', '핑골프 현대아울렛', { displayName: null, nameRoman: 'Pinggolpeu Hyeondae' })]
     renderCover()
-    await vi.waitFor(() => expect(bodyText()).toContain('명동교자'))
-    expect(bodyText()).toContain('Myeongdong Gyoja')
+    await vi.waitFor(() => expect(bodyText()).toContain('Pinggolpeu Hyeondae'))
+    // 칸의 단추 이름(aria-label)도 제목을 쓴다.
+    const tile = screen.getByRole('button', { name: 'Add Pinggolpeu Hyeondae' })
+    const text = tile.textContent ?? ''
+    expect(text).toContain('핑골프 현대아울렛')
+    expect(text.indexOf('Pinggolpeu Hyeondae')).toBeLessThan(text.indexOf('핑골프 현대아울렛'))
+  })
+
+  it('영어 화면 — displayName 이 있으면 그것이 제목, 한글 원본이 그 아래, nameRoman 은 없다', async () => {
+    chooseLanguage('en')
+    withCart(ITEMS)
+    nearby.food = [poi(21, 'food', '명동교자', { displayName: 'Myeongdong Kyoja', nameRoman: 'Myeongdong Gyoja' })]
+    renderCover()
+    await vi.waitFor(() => expect(bodyText()).toContain('Myeongdong Kyoja'))
+    const text = screen.getByRole('button', { name: 'Add Myeongdong Kyoja' }).textContent ?? ''
+    expect(text.indexOf('Myeongdong Kyoja')).toBeLessThan(text.indexOf('명동교자'))
+    expect(bodyText()).not.toContain('Myeongdong Gyoja')
   })
 
   it('한국어 화면에서는 nameRoman 을 보이지 않는다', async () => {
