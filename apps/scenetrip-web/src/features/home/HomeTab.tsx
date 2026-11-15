@@ -11,7 +11,7 @@
  */
 import { useCallback, useEffect, useRef } from 'react'
 import { useLocation } from 'react-router'
-import { coverOf, tabOf } from '@/app/routes'
+import { coverOf, paths, tabOf } from '@/app/routes'
 import { track, webEvent } from '@/analytics'
 import { homeScrollDepths } from '../proto/homeScroll'
 import { useTabRouter, pendingStore } from '@/app/tabRouter'
@@ -89,8 +89,6 @@ export function HomeTab() {
     }
   }
 
-  // 담은 것이 있나(§4) — 촬영지든 편의시설이든.
-  const saved = cart.items.length + (cart.pois?.length ?? 0) > 0
   const todayCard = today && (
     // 목적지는 코스 항목으로만 받아 코스 없는 길찾기가 없다(MZ2AZ-313) — 대신 장바구니에 담아 코스로 이어지게 한다.
     <TodayCard
@@ -110,13 +108,15 @@ export function HomeTab() {
   return (
     <div className="scroll-y" onScroll={onScroll} style={{ height: '100%', background: 'var(--grouped-background)', paddingBottom: 'var(--proto-tab-inset, 0px)' }}>
       <VStack spacing={18} align="stretch" style={{ padding: proto !== null ? '8.7px 0 calc(84px + var(--nudge-inset, 0px))' : '8.7px 0 calc(28px + var(--nudge-inset, 0px))' }}>
-        <HomeHeader onProfile={() => router.openProfile()} onMyMap={saved ? () => { track(webEvent.myMap('open_home')); router.openMyMap() } : undefined} />
+        <HomeHeader onProfile={() => router.openProfile()} onMyMap={() => { track(webEvent.myMap('open_home')); router.openMyMap() }} />
         {/* 내 지도 — 담은 곳이 있으면 인사 바로 아래(web-keep-flow.md §5-6). 없으면 카드가 스스로 그리지 않는다. */}
         <MyMapCard
           items={cart.items}
           pois={cart.pois}
           onOpenMap={() => { track(webEvent.myMap('open_home')); router.openMyMap() }}
           onPlan={() => { track(webEvent.planStart('my_map')); router.openPlanFromSaved() }}
+          // 「더 담기」 화면의 두 번째 입구(2026-11-15 사용자 — 「초반 애니 지난 후 나가면 두 번은 못 보는 화면이야?」).
+          onAddMore={() => { track(webEvent.homeTap('add_more')); router.navigate(paths.addMore) }}
         />
         {/* 「어디로 여행 가세요?」 사진 카드 — 도시 칩은 그 도시 촬영지를 지도로(web-city-map-first.md). 옛 홈(시안 꺼짐)은 도시의 성지가 맡는다. */}
         {proto !== null && <AskCard />}

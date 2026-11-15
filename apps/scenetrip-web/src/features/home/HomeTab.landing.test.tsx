@@ -278,3 +278,64 @@ describe('영어', () => {
     expect(screen.queryByRole('region', { name: 'Add more' })).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------- 마이맵 단추 · 「더 담기」 입구 (2026-11-15 사용자)
+// 「0개라도 저 버튼은 계속 떠 있는 게 낫지 않아? 그냥 보면 지도 같아 보이니 My map 인지 알아볼 수 있게」
+// 「이 화면[더 담기]은 초반 애니 지난 후 나가게 되면 두 번은 못 보는 화면이야?」 — web-keep-flow.md §5-6·§12.
+
+const ten = (): CartItem[] =>
+  Array.from({ length: 10 }, (_, i) => ({ placeId: 800 + i, name: `장소${800 + i}`, addedAt: '2026-11-15T00:00:00Z', sourceContentId: 7, sourceContentTitle: TITLES[7] }))
+
+const sentEvents = () => vi.mocked(track).mock.calls.map(([e]) => e as { name: string; params: Record<string, unknown> })
+
+describe('홈 머리줄 「마이맵」 단추', () => {
+  it('담은 것이 0 이어도 있다 — 「마이맵」 글자, 배지 없음, 누르면 /my-map + my_map(open_home)', async () => {
+    withCart([])
+    renderHome()
+    await vi.waitFor(() => textNode('오늘은 어느 장면으로 갈까요?'))
+    const button = screen.getByRole('button', { name: '마이맵' })
+    expect(button.textContent).toContain('마이맵')
+    expect(button.textContent ?? '').not.toMatch(/\d/)
+    fireEvent.click(button)
+    await vi.waitFor(() => expect(location?.pathname).toBe('/my-map'))
+    expect(sentEvents()).toContainEqual({ name: 'my_map', params: { action: 'open_home' } })
+  })
+
+  it('10곳이면 배지 10, 이름 「마이맵 · 10곳」', async () => {
+    withCart(ten())
+    renderHome()
+    const button = await vi.waitFor(() => screen.getByRole('button', { name: '마이맵 · 10곳' }))
+    expect(button.textContent).toContain('마이맵')
+    expect(button.textContent).toContain('10')
+  })
+
+  it('영어 — 「My map」 글자', async () => {
+    chooseLanguage('en')
+    homeCityStore.set((s) => ({ ...s, lang: 'en' }))
+    withCart([])
+    renderHome()
+    const button = await vi.waitFor(() => screen.getByRole('button', { name: 'My map' }))
+    expect(button.textContent).toContain('My map')
+  })
+})
+
+describe('홈 마이맵 카드 「더 담기」', () => {
+  it('카드 안 「더 담기」 → /add + home_tap(add_more)', async () => {
+    withCart(SAVED)
+    renderHome()
+    const card = await vi.waitFor(() => screen.getByRole('region', { name: '마이맵' }))
+    const add = within(card).getByRole('button', { name: /더 담기/ })
+    fireEvent.click(add)
+    await vi.waitFor(() => expect(location?.pathname).toBe('/add'))
+    expect(homeTaps()).toContain('add_more')
+  })
+
+  it('영어 — 「Add more」', async () => {
+    chooseLanguage('en')
+    homeCityStore.set((s) => ({ ...s, lang: 'en' }))
+    withCart(SAVED)
+    renderHome()
+    const card = await vi.waitFor(() => screen.getByRole('region', { name: 'My map' }))
+    expect(within(card).getByRole('button', { name: /Add more/ })).toBeTruthy()
+  })
+})

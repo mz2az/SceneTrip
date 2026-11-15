@@ -35,18 +35,30 @@ const reducedMotion = (): boolean =>
  */
 export function liveMyMapCount(cart: Pick<CartState, 'items' | 'pois' | 'placeIds' | 'poiIds'>): number {
   const delisted = cart.items.filter((i) => i.delisted === true && cart.placeIds.has(i.placeId)).length
-  const closed = cart.pois.filter((p) => p.closed === true && cart.poiIds.has(p.id)).length
-  return cart.placeIds.size - delisted + (cart.poiIds.size - closed)
+  // 편의시설 칸이 생기기 전에 저장된 장바구니에는 pois·poiIds 가 없을 수 있다(홈은 늘 이 단추를 그리므로 여기서 견딘다).
+  const pois = cart.pois ?? []
+  const poiIds = cart.poiIds ?? new Set<number>()
+  const closed = pois.filter((p) => p.closed === true && poiIds.has(p.id)).length
+  return cart.placeIds.size - delisted + (poiIds.size - closed)
 }
 
-/** 지금 화면에 보이는 「내 지도」 단추의 자리. 없으면 단추가 서는 자리(오른쪽 위). */
+/**
+ * 날아갈 「마이맵」 단추의 자리. 없으면 단추가 서는 자리(오른쪽 위).
+ * 홈 머리줄의 단추는 늘 있으므로(web-keep-flow.md §12) 덮개(더 담기·작품 상세) 밑에 깔린 홈 단추나 숨긴 탭(visibility:hidden)의
+ * 단추를 고르지 않는다 — 그 자리에서 맨 위에 실제로 보이는 단추만 후보이고, 여럿이면 예전처럼 문서에서 마지막 것(첫 화면 주머니의 순서를 지킨다).
+ */
 function targetRect(): { x: number; y: number } {
-  const all = Array.from(document.querySelectorAll(`[${MY_MAP_TARGET}]`))
-  for (let i = all.length - 1; i >= 0; i--) {
-    const r = all[i]!.getBoundingClientRect()
-    if (r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < window.innerHeight) return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
-  }
-  return { x: window.innerWidth - 38, y: 34 }
+  const shown = Array.from(document.querySelectorAll(`[${MY_MAP_TARGET}]`))
+    .filter((el) => typeof el.checkVisibility !== 'function' || el.checkVisibility({ visibilityProperty: true }))
+    .map((el) => ({ el, r: el.getBoundingClientRect() }))
+    .filter(({ r }) => r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < window.innerHeight)
+    .map(({ el, r }) => ({ el, x: r.left + r.width / 2, y: r.top + r.height / 2 }))
+  const onTop = shown.filter(({ el, x, y }) => {
+    const hit = typeof document.elementFromPoint === 'function' ? document.elementFromPoint(x, y) : null
+    return hit !== null && (el.closest('button') ?? el).contains(hit)
+  })
+  const pick = (onTop.length > 0 ? onTop : shown).at(-1)
+  return pick ? { x: pick.x, y: pick.y } : { x: window.innerWidth - 38, y: 34 }
 }
 
 /** 날아가기 시작하는 자리(화면 좌표). */
@@ -129,10 +141,19 @@ export async function flyWhenSaved(save: Promise<string>, from: Element | null |
 }
 
 /**
- * 머리줄 오른쪽 「내 지도」 단추 — 지도 기호와 담은 수 배지(§9-3). 랜딩 ③ 뒤 모든 화면에서 같은 자리.
- * `tone="photo"` 는 사진 위(반투명 흰 테두리), 기본은 흰 동그라미.
+ * 머리줄 오른쪽 「마이맵」 단추 — 지도 기호와 담은 수 배지(§9-3). 랜딩 ③ 뒤 모든 화면에서 같은 자리.
+ * 담은 것이 없어도 그린다(배지는 1 이상일 때만) — 2026-11-15 사용자, web-keep-flow.md §12.
+ *
+ *   variant 'icon'(기본)  44 동그라미에 지도 기호만 — 첫 화면 주머니·마이맵 화면 자신(제목이 이미 「마이맵」).
+ *   variant 'pill'        지도 기호 + 「마이맵 / My map」 글자 알약 — 홈·더 담기 머리줄. 「그냥 보면 지도 같아 보인다」(사용자).
+ *   variant 'stacked'     지도 기호 아래 작은 글자 — 자리가 좁은 검색 캡슐·작품 상세 머리줄.
+ *
+ * 날아가는 조각은 지도 기호 자리에 내려앉는다(표식 data-my-map-target 이 기호에 붙는다 — 알약이면 기호, 아이콘이면 단추 전체).
+ * `tone="photo"` 는 사진 위(반투명 흰 테두리), 기본은 흰 바탕.
  */
-export function MyMapButton({ onPress, tone = 'plain', style }: { onPress: () => void; tone?: 'plain' | 'photo'; style?: CSSProperties }): JSX.Element {
+export function MyMapButton({
+  onPress, tone = 'plain', variant = 'icon', style,
+}: { onPress: () => void; tone?: 'plain' | 'photo'; variant?: 'icon' | 'pill' | 'stacked'; style?: CSSProperties }): JSX.Element {
   useLang()
   const cart = useCart()
   const count = Math.max(0, liveMyMapCount(cart))
@@ -146,28 +167,64 @@ export function MyMapButton({ onPress, tone = 'plain', style }: { onPress: () =>
   }, [landed, count])
 
   const photo = tone === 'photo'
+  const ink = photo ? '#fff' : color.primaryText
+  const label = say('마이맵', 'My map')
+  const badgeClass = ['st-badge', variant === 'pill' ? 'st-badge--pill' : variant === 'stacked' ? 'st-badge--stacked' : '', pop > 0 ? 'st-badge--pop' : ''].filter(Boolean).join(' ')
+  const badge = count > 0 && (
+    <span key={pop} className={badgeClass} aria-hidden>
+      {count > 99 ? '99+' : count}
+    </span>
+  )
+  const surface: CSSProperties = {
+    background: photo ? 'rgba(255,255,255,0.18)' : 'var(--system-background)',
+    border: photo ? '1px solid rgba(255,255,255,0.5)' : 'none',
+    boxShadow: photo ? 'none' : '0 2px 10px rgba(0,0,0,0.10)',
+    backdropFilter: photo ? 'blur(10px)' : undefined, WebkitBackdropFilter: photo ? 'blur(10px)' : undefined,
+  }
+  const name = count > 0 ? say(`마이맵 · ${count}곳`, `My map · ${count === 1 ? '1 spot' : `${count} spots`}`) : label
+
+  if (variant === 'icon') {
+    return (
+      <Pressable
+        plain
+        onClick={onPress}
+        data-my-map-target=""
+        aria-label={name}
+        className="proto-press"
+        style={{ position: 'relative', width: 44, height: 44, flex: 'none', borderRadius: 999, display: 'grid', placeItems: 'center', ...surface, ...style }}
+      >
+        <Icon name="map" size={20} weight="semibold" color={ink} />
+        {badge}
+      </Pressable>
+    )
+  }
+
+  const stacked = variant === 'stacked'
   return (
     <Pressable
       plain
       onClick={onPress}
-      data-my-map-target=""
-      aria-label={count > 0 ? say(`마이맵 · ${count}곳`, `My map · ${count === 1 ? '1 spot' : `${count} spots`}`) : say('마이맵', 'My map')}
+      aria-label={name}
       className="proto-press"
       style={{
-        position: 'relative', width: 44, height: 44, flex: 'none', borderRadius: 999, display: 'grid', placeItems: 'center',
-        background: photo ? 'rgba(255,255,255,0.18)' : 'var(--system-background)',
-        border: photo ? '1px solid rgba(255,255,255,0.5)' : 'none',
-        boxShadow: photo ? 'none' : '0 2px 10px rgba(0,0,0,0.10)',
-        backdropFilter: photo ? 'blur(10px)' : undefined, WebkitBackdropFilter: photo ? 'blur(10px)' : undefined,
+        position: 'relative', flex: 'none', borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        ...(stacked
+          ? { flexDirection: 'column', gap: 1, minWidth: 44, height: 40, padding: '0 4px', background: 'transparent' }
+          : { flexDirection: 'row', gap: 4, height: 36, padding: '0 13px 0 10px', ...surface }),
         ...style,
       }}
     >
-      <Icon name="map" size={20} weight="semibold" color={photo ? '#fff' : color.primaryText} />
-      {count > 0 && (
-        <span key={pop} className={pop > 0 ? 'st-badge st-badge--pop' : 'st-badge'} aria-hidden>
-          {count > 99 ? '99+' : count}
-        </span>
-      )}
+      <span data-my-map-target="" style={{ position: 'relative', display: 'grid', placeItems: 'center', flex: 'none' }}>
+        <Icon name="map" size={stacked ? 18 : 16} weight="semibold" color={ink} />
+        {/* 작은 글자 단추는 배지를 기호 오른쪽 위에 — 글자 줄 폭에 걸면 기호를 덮는다. */}
+        {stacked && badge}
+      </span>
+      <span
+        style={{ fontSize: stacked ? 10 : 12.5, lineHeight: stacked ? '12px' : '16px', fontWeight: stacked ? 700 : 800, color: ink, whiteSpace: 'nowrap', letterSpacing: stacked ? -0.1 : -0.2 }}
+      >
+        {label}
+      </span>
+      {!stacked && badge}
     </Pressable>
   )
 }

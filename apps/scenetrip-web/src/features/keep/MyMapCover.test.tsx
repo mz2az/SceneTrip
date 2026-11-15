@@ -202,6 +202,16 @@ describe('MyMapCover — 비었음 · 실패', () => {
     expect(location?.pathname).toBe(paths.trending)
   })
 
+  // 2026-11-15 — 0개여도 마이맵 단추가 있으니, 빈 마이맵에서 바로 더 담기 화면으로 갈 수 있어야 한다(web-keep-flow.md §5-3).
+  it('담은 곳이 없어도 「더 담기」 → /add + my_map(add_more)', async () => {
+    withCart([])
+    renderCover()
+    await vi.waitFor(() => expect(bodyText()).toContain('아직 담은 곳이 없어요'))
+    fireEvent.click(buttonWith('더 담기'))
+    expect(events()).toContainEqual(webEvent.myMap('add_more'))
+    expect(location?.pathname).toBe(paths.addMore)
+  })
+
   it('못 받으면 「못 불러왔어요」 + 다시 시도 → 다시 받는다', async () => {
     cartReply = 'fail'
     cartStore.set({ loadState: 'failed', placeIds: new Set(), items: [], pois: [], poiIds: new Set(), toast: null })

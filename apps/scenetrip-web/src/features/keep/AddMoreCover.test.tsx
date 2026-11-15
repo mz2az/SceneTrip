@@ -274,6 +274,30 @@ describe('머리줄', () => {
     await vi.waitFor(() => expect(bodyText()).toContain('마이맵 · 4곳'))
   })
 
+  // 2026-11-15 사용자 — 「그냥 보면 지도 같아 보이니 My map 인지 알아볼 수 있게」(web-keep-flow.md §12).
+  it('머리줄 단추에 「마이맵」 글자가 보이고, 누르면 /my-map', async () => {
+    withCart(ITEMS)
+    renderCover()
+    const button = await vi.waitFor(() => screen.getByRole('button', { name: '마이맵 · 3곳' }))
+    expect(button.textContent).toContain('마이맵')
+    fireEvent.click(button)
+    await vi.waitFor(() => expect(location?.pathname).toBe('/my-map'))
+  })
+
+  // 0개여도 홈 「마이맵」 단추 → 빈 마이맵 → 「더 담기」 로 여기 온다(web-keep-flow.md §5-3) — 「0곳」 을 내보이지 않는다.
+  it.each<[Lang, string, string]>([
+    ['ko', '마이맵', '여행 일정 짜기'],
+    ['en', 'My map', 'Plan my trip'],
+  ])('%s — 담은 것이 0 이면 제목 「%s」, 아래 단추 「%s」(0곳 없음)', async (lang, head, plan) => {
+    chooseLanguage(lang)
+    withCart([])
+    renderCover()
+    const h1 = await vi.waitFor(() => screen.getByRole('heading', { level: 1 }))
+    expect(h1.textContent).toBe(head)
+    expect(bodyText()).toContain(plan)
+    expect(bodyText()).not.toMatch(/0곳|0 spots/)
+  })
+
   it('뜨면 add_more(view)', async () => {
     renderCover()
     await vi.waitFor(() => expect(has('add_more', { action: 'view' })).toBe(true))

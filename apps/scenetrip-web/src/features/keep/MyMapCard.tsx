@@ -3,11 +3,14 @@
  *
  *   담은 곳이 없으면 그리지 않는다. 제목 「내 지도」 · 「N곳」 · 작품별 수 칩(최대 3개 + 「+N」 = 못 보인 묶음 수)
  *   · 사진 가로줄(최대 6장) · 주 단추 「지도에서 보기」 → onOpenMap · 보조 「계획 짜기」 → onPlan
+ *   · 머리 오른쪽 작은 글자 단추 「+ 더 담기」 → onAddMore(더 담기 화면 /add 의 두 번째 입구, 2026-11-15 사용자)
  *
- * 자리는 홈 인사 머리줄 바로 아래, 「어디로 여행 가세요?」 카드 위. 분석 이벤트(my_map·plan_start)는 부모(홈)가 보낸다.
+ * 자리는 홈 인사 머리줄 바로 아래, 「어디로 여행 가세요?」 카드 위. 분석 이벤트(my_map·plan_start·home_tap(add_more))는 부모(홈)가 보낸다.
  */
 import type { JSX } from 'react'
-import { HStack, Txt, VStack, homeCard } from '@/design/primitives'
+import { Icon } from '@/design/Icon'
+import { HStack, Spacer, Txt, VStack, homeCard } from '@/design/primitives'
+import { Pressable } from '@/features/route/ui/Press'
 import { PrimaryButton, SecondaryButton } from '@/features/proto/protoParts'
 import { color, radius } from '@/features/proto/protoTokens'
 import { say, useLang } from '@/i18n'
@@ -26,9 +29,11 @@ export interface MyMapCardProps {
   pois?: readonly CartPoi[]
   onOpenMap: () => void
   onPlan: () => void
+  /** 「+ 더 담기」 — 없으면 단추를 그리지 않는다. */
+  onAddMore?: () => void
 }
 
-export function MyMapCard({ items, pois = [], onOpenMap, onPlan }: MyMapCardProps): JSX.Element | null {
+export function MyMapCard({ items, pois = [], onOpenMap, onPlan, onAddMore }: MyMapCardProps): JSX.Element | null {
   useLang()
   if (myMapCount(items.length, pois.length) === 0) return null
   // 보이는 수는 목록에서 빠진 촬영지·폐업한 편의시설을 뺀 것(keep-poi.md §9-5). 카드는 무엇이든 담겨 있으면 뜬다.
@@ -48,6 +53,16 @@ export function MyMapCard({ items, pois = [], onOpenMap, onPlan }: MyMapCardProp
         <HStack spacing={8} align="baseline">
           <Txt as="h2" size={19} weight="heavy" style={{ margin: 0 }}>{say('마이맵', 'My map')}</Txt>
           <Txt size={15} weight="bold" style={{ color: color.primaryText }}>{say(`${total}곳`, spots(total))}</Txt>
+          <Spacer />
+          {onAddMore && (
+            // 보이는 글자는 작게, 눌리는 자리는 44 높이 — 위아래로 넘친다(카드 높이는 그대로).
+            <Pressable plain onClick={onAddMore} style={{ flex: 'none', alignSelf: 'center', minHeight: 44, margin: '-12px -6px -12px 0', padding: '0 6px', display: 'grid', placeItems: 'center' }}>
+              <HStack spacing={3}>
+                <Icon name="plus" size={14} weight="bold" color={color.primaryText} />
+                <Txt size={14} weight="bold" style={{ color: color.primaryText }}>{say('더 담기', 'Add more')}</Txt>
+              </HStack>
+            </Pressable>
+          )}
         </HStack>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
