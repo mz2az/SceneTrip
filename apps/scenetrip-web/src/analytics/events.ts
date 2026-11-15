@@ -108,6 +108,8 @@ export type HomeTapSection =
   | 'trending_title' | 'trending_all' | 'today_place' | 'today_save' | 'community' | 'my_record' | 'plan_bar'
   // 다시 온 사람의 홈(web-ad-landing.md §4·§6)
   | 'pick_title' | 'add_title' | 'add_nearby' | 'city_chip'
+  // 홈 마이맵 카드의 「더 담기」(→ /add, web-keep-flow.md §5-6)
+  | 'add_more'
 export type PlanEntry = 'city_chip' | 'city_map' | 'fork_city' | 'fork_works' | 'fork_saved' | 'plan_bar' | 'my_map' | 'keep_sheet'
 export type PlanFlow = 'city' | 'works'
 export type PlanStep = 'city' | 'days' | 'how' | 'plan' | 'picker' | 'trip' | 'works' | 'planning'

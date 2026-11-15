@@ -15,7 +15,7 @@
  * 받는 중 · 비었음 · 실패(다시 시도) · 됨. 덮개는 닫히면 내려간 뒤 빠지므로(Cover 의 usePresence) 숨은 지도가 타일을 받지 않는다.
  * 덮개가 빠지면 주변 칩(keepStore.nearby)을 끈다. 열 때 담은 곳이 있고 칩이 꺼져 있으면 「식당·카페」 를 켠다(keep-poi.md §7, 11/15).
  */
-import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type JSX, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { track, webEvent } from '@/analytics'
 import { api, ok } from '@/api/client'
 import { paths } from '@/app/routes'
@@ -366,7 +366,16 @@ export function MyMapCover({ onClose }: { onClose: () => void }): JSX.Element {
 
       {phase === 'empty' && (
         <Notice text={say('아직 담은 곳이 없어요', 'Nothing saved yet')}>
-          <PrimaryButton onClick={() => router.openTrending()}>{say('작품 둘러보기', 'Browse shows')}</PrimaryButton>
+          {/* 0개여도 머리줄 「마이맵」 단추로 여기 온다 — 더 담기 화면(/add)이 바로 이어진다(web-keep-flow.md §5-3, 2026-11-15). */}
+          <PrimaryButton
+            onClick={() => {
+              track(webEvent.myMap('add_more'))
+              router.navigate(paths.addMore)
+            }}
+          >
+            {say('더 담기', 'Add more')}
+          </PrimaryButton>
+          <SecondaryButton onClick={() => router.openTrending()}>{say('작품 둘러보기', 'Browse shows')}</SecondaryButton>
         </Notice>
       )}
 
@@ -486,12 +495,12 @@ export function MyMapCover({ onClose }: { onClose: () => void }): JSX.Element {
   )
 }
 
-function Notice({ text, children }: { text: string; children: JSX.Element }) {
+function Notice({ text, children }: { text: string; children: ReactNode }) {
   return (
     <VStack spacing={16} align="center" style={{ flex: 1, justifyContent: 'center', padding: '24px 32px calc(24px + var(--safe-bottom))' }}>
       <Icon name="mappin.and.ellipse" size={36} color="secondary" />
       <Txt size={17} weight="semibold" align="center">{text}</Txt>
-      <div style={{ width: '100%', maxWidth: 320 }}>{children}</div>
+      <VStack spacing={8} align="stretch" style={{ width: '100%', maxWidth: 320 }}>{children}</VStack>
     </VStack>
   )
 }

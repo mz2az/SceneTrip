@@ -46,7 +46,7 @@ describe('save_all — source 에 landing', () => {
 })
 
 describe('home_tap — 새 section', () => {
-  it.each(['pick_title', 'add_title', 'add_nearby', 'city_chip'] as const)('homeTap(%s)', (section) => {
+  it.each(['pick_title', 'add_title', 'add_nearby', 'city_chip', 'add_more'] as const)('homeTap(%s)', (section) => {
     expect(webEvent.homeTap(section)).toEqual({ name: 'home_tap', params: { section } })
   })
 })

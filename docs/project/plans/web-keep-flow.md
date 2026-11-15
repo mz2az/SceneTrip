@@ -167,7 +167,7 @@ export const keepActions: { openAfterSave(contentId: number, title: string): voi
 
 - 머리줄 「내 지도 · N곳」 과 뒤로. 위 절반은 지도(담은 곳 핀, 전부 보이게 맞춤), 아래는 작품별 묶음(`mapGroups`) 목록 — 줄마다 사진·이름·주소. 줄이나 핀을 누르면 그 촬영지 상세(`my_map('open_place')`).
 - 아래 고정 주 단추 `say('이 N곳으로 계획 짜기', 'Plan a trip with these N spots')` → §5-5, `my_map('plan')` + `plan_start('my_map')`. 보조 「더 담기」 → 지금 뜨는 작품 전체(`/trending`), `my_map('add_more')`.
-- 받는 중: 가운데 돌아가는 표시. 비었음: 「아직 담은 곳이 없어요」 + 「작품 둘러보기」(→ `/trending`). 실패: 「못 불러왔어요」 + 다시 시도.
+- 받는 중: 가운데 돌아가는 표시. 비었음: 「아직 담은 곳이 없어요」 + 주 단추 「더 담기 / Add more」(→ `/add`, `my_map('add_more')`) + 보조 「작품 둘러보기」(→ `/trending`)(2026-11-15, §12). 실패: 「못 불러왔어요」 + 다시 시도.
 - 좌표 없는 항목은 목록에만 보인다.
 
 ### 5-4. 넘어온 사람 — `?keep=`
@@ -189,6 +189,7 @@ export const keepActions: { openAfterSave(contentId: number, title: string): voi
   export function MyMapCard(props: { items: readonly CartItem[]; onOpenMap: () => void; onPlan: () => void }): JSX.Element | null
   ```
 
+- **카드의 「+ 더 담기」**(2026-11-15, §12): 카드 머리 오른쪽 작은 글자 단추 `say('더 담기', 'Add more')` → `/add`, `home_tap(add_more)`. 두 단추(지도에서 보기·계획 짜기)는 그대로.
 - **앱 이름**: 홈 인사 머리줄의 작은 윗줄 「해태가 기다렸어요」 를 **`SceneTrip`** 글자(강조색, 굵게)로 바꾼다. 아래 큰 줄은 그대로. 한국어·영어 모두 `SceneTrip`.
 
 ## 6. 상태
@@ -257,3 +258,20 @@ export const keepActions: { openAfterSave(contentId: number, title: string): voi
    - iOS 문자열 표(`tr()`)에서 오는 옛 문구는 웹에서 `say()` 로 바꿔 쓴다(iOS 는 건드리지 않는다).
    - 작품 「찜」(하트)은 다른 것이라 그대로 둔다.
 4. **분석 이벤트 이름은 그대로**(`save_place`·`save_poi`·`my_map`…) — 숫자가 끊기지 않게.
+
+## 12. 마이맵 단추는 늘, 이름표를 달고 · 더 담기 입구 하나 더 (2026-11-15 사용자 — 위 절과 다르면 이 절이 이긴다)
+
+사용자: 「[Add more to My map — Spots from other shows 화면] 이 화면은 초반 애니 지난 후 나가게 되면 두 번은 못 보는 화면이야? 아니면 내가 못 찾는 건가?」 · 「이 마이맵[머리줄의 지도 아이콘 + 10 배지 단추] 말이야. 0개라도 저 버튼은 계속 떠 있는 게 낫지 않아? 그리고 그냥 보면 지도 같아 보이니 뭔가 My map 인지 알아볼 수 있는 게 필요할 것 같은데.」
+
+1. **홈 머리줄의 「마이맵」 단추는 담은 것이 0 이어도 늘 있다.** 배지(담은 수)는 1 이상일 때만. 누르면 `/my-map`(`my_map('open_home')`) — 0 이면 빈 마이맵(§5-3)이고, 거기서 「더 담기」 로 `/add` 에 간다.
+2. **이름표**: `MyMapButton` 에 `variant` 를 둔다(`features/keep/flyToMyMap.tsx`).
+   - `pill` — 지도 기호 + 「마이맵 / My map」 글자 알약(높이 36, 흰 바탕), 배지는 알약 오른쪽 위 모서리 밖. **홈 머리줄 · 더 담기(`/add`) 머리줄.**
+   - `stacked` — 지도 기호 아래 10px 글자, 배지는 기호 오른쪽 위에 작게. 자리가 좁은 **검색 캡슐 · 작품 상세 머리줄.**
+   - `icon`(기본) — 지금 그대로(지도 기호만). **첫 화면 주머니(랜딩)·마이맵 화면 자신**(제목이 이미 「마이맵」 이고, 누르면 지도를 다시 맞춘다).
+   - 이름(aria-label)은 0 이면 「마이맵 / My map」, 아니면 「마이맵 · N곳 / My map · N spots」.
+   - 폭 360 에서 홈 인사 큰 줄은 `clamp(17px, 4.75vw, 19px)` — 알약 옆 영어 제목이 세 줄이 되지 않게(402 에서 19 그대로).
+3. **날아가는 조각의 과녁**: 이름표 단추에서는 표식(`data-my-map-target`)이 지도 기호에 붙어 조각이 기호 위로 내려앉는다. 홈 단추가 늘 있으므로 과녁을 고를 때 숨긴 탭(`visibility:hidden`)과 덮개 밑에 깔린 단추는 뺀다 — 그 자리에서 맨 위에 실제로 보이는 단추 가운데 문서에서 마지막 것(첫 화면 주머니 순서는 그대로). 보이는 단추가 없으면 예전처럼 오른쪽 위 자리.
+4. **더 담기 화면 입구 하나 더**: 홈 마이맵 카드 머리 오른쪽 「+ 더 담기 / Add more」 → `/add`, `home_tap(add_more)`(§5-6). 마이맵 화면 아래 「더 담기」·빈 마이맵의 「더 담기」 와 함께 셋이다.
+5. **더 담기 화면이 0 일 때**: 머리줄 제목은 「마이맵 / My map」(「0곳」 을 보이지 않는다), 아래 주 단추는 「여행 일정 짜기 / Plan my trip」.
+
+시험: `features/keep/MyMapButton.test.tsx`, `features/home/HomeTab.landing.test.tsx`(「홈 머리줄 「마이맵」 단추」·「홈 마이맵 카드 「더 담기」」), `features/keep/MyMapCard.test.tsx`, `features/keep/MyMapCover.test.tsx`(빈 상태 「더 담기」), `features/keep/AddMoreCover.test.tsx`(이름표·0 일 때), `analytics/webEventsLanding.test.ts`(`home_tap(add_more)`).

@@ -108,7 +108,7 @@ export function ContentDetail({
   return (
     <VStack style={{ flex: 1, minHeight: 0 }}>
       {/* 머리줄 오른쪽 「내 지도」 — 담긴 것이 날아가 내려앉는 곳(§10-3-9). */}
-      <DetailHeader title={summary.title} subtitle="" onBack={onBack} trailing={<MyMapButton onPress={openMyMap} style={{ width: 36, height: 36 }} />} />
+      <DetailHeader title={summary.title} subtitle="" onBack={onBack} trailing={<MyMapButton onPress={openMyMap} variant="stacked" style={{ margin: '-4px 0' }} />} />
       {/* 떠 있는 탭바(시안)에 마지막 줄이 가리지 않게 바닥을 비운다 — 인기 목록(SearchList)과 같은 값(2026-11-11 사용자 지적: 촬영지 목록 끝이 안 보임). */}
       <div className="scroll-y" data-sheet-scroll style={{ flex: 1, minHeight: 0, touchAction: 'pan-y', paddingBottom: 'var(--proto-tab-inset, 0px)' }}>
         <VStack spacing={16} align="start" pad="4px 0">

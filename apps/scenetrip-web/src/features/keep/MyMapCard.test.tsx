@@ -4,6 +4,7 @@
  *   MyMapCard({ items, onOpenMap, onPlan }): JSX.Element | null
  *   빈 목록 → null · 제목 「마이맵」 · 「N곳」 · 작품별 칩(mapGroups) 최대 3개 + 「+N」
  *   주 단추 지도에서 보기 → onOpenMap · 보조 계획 짜기 → onPlan
+ *   머리 오른쪽 「+ 더 담기」 → onAddMore(2026-11-15 — 더 담기 화면의 두 번째 입구, web-keep-flow.md §5-6)
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -23,8 +24,9 @@ const item = (sourceContentId: number | null, sourceContentTitle: string | null)
 function setup(items: CartItem[]) {
   const onOpenMap = vi.fn()
   const onPlan = vi.fn()
-  const view = render(<MyMapCard items={items} onOpenMap={onOpenMap} onPlan={onPlan} />)
-  return { ...view, onOpenMap, onPlan }
+  const onAddMore = vi.fn()
+  const view = render(<MyMapCard items={items} onOpenMap={onOpenMap} onPlan={onPlan} onAddMore={onAddMore} />)
+  return { ...view, onOpenMap, onPlan, onAddMore }
 }
 
 const buttonWith = (text: string): HTMLElement => {
@@ -113,5 +115,23 @@ describe('MyMapCard — 영어 단수', () => {
     chooseLanguage('en')
     const { container } = setup([item(1, '도깨비'), item(1, '도깨비')])
     expect(container.textContent).toContain('2 spots')
+  })
+})
+
+describe('MyMapCard — 「더 담기」 입구', () => {
+  it('머리 오른쪽 「더 담기」 → onAddMore, 두 단추는 그대로', () => {
+    const { onAddMore, onOpenMap, onPlan } = setup([item(1, '도깨비')])
+    fireEvent.click(screen.getByRole('button', { name: /더 담기/ }))
+    expect(onAddMore).toHaveBeenCalledTimes(1)
+    expect(onOpenMap).not.toHaveBeenCalled()
+    expect(onPlan).not.toHaveBeenCalled()
+    expect(buttonWith('지도에서 보기')).toBeTruthy()
+    expect(buttonWith('계획 짜기')).toBeTruthy()
+  })
+
+  it('영어 — 「Add more」', () => {
+    chooseLanguage('en')
+    setup([item(1, '도깨비')])
+    expect(screen.getByRole('button', { name: /Add more/ })).toBeTruthy()
   })
 })

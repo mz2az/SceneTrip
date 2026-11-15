@@ -76,6 +76,8 @@ export function pinLayout(places: readonly { latitude: number; longitude: number
 ## 4. 다시 온 사람의 홈
 
 > **2026-11-15 되돌림(이 줄이 아래보다 이긴다)**: 사용자 — 「너무 많이 바꾼 거 아냐? 마이맵 카드는 좋다. 근데 기존의 「어디로 여행 가세요?」 카드와 「지금 뜨는 작품」 줄도 살리는 게 좋지 않나. 지금 뜨는 작품을 보여 주고 전체 보기로 작품 전체를 볼 수 있게.」 → ShowHero·PickShows·CityChips·AddMoreRow 를 빼고 AskCard·지금 뜨는 작품을 되살렸다. 홈은 담은 것이 있든 없든 같은 뼈대: 인사 머리줄 → 내 지도 카드(담은 것이 있을 때만) → 「어디로 여행 가세요?」 사진 카드(`AskCard`) → 「지금 뜨는 작품 · 인기순 · 전체 보기」(`WorkShelf`, 전체 작품 인기순·고정 작품 앞·담은 작품도 빼지 않음, 포스터 → 작품 상세 `home_tap(trending_title)`, 전체 보기 → `/trending` `home_tap(trending_all)`) → 오늘의 성지 → 커뮤니티 지금 → 내 기록. 「더 담기」 는 마이맵 화면의 「더 담기」(→ `/add`)가 맡는다. 시험 `features/home/HomeTab.landing.test.tsx`.
+>
+> **2026-11-15 덧붙임**: 사용자 — 「이 화면[더 담기]은 초반 애니 지난 후 나가게 되면 두 번은 못 보는 화면이야?」 · 「0개라도 [마이맵] 버튼은 계속 떠 있는 게 낫지 않아? 그냥 보면 지도 같아 보이니 My map 인지 알아볼 수 있게.」 → 홈 머리줄의 「마이맵」 단추는 담은 것이 0 이어도 늘 있고 「마이맵 / My map」 글자 알약이다(배지는 1 이상일 때만). 홈 마이맵 카드 머리 오른쪽에 「+ 더 담기」(→ `/add`, `home_tap(add_more)`), 빈 마이맵에도 「더 담기」. 자세히는 [web-keep-flow.md §12](web-keep-flow.md).
 
 위에서부터. 지금의 「어디로 여행 가세요?」 사진 카드는 맨 위에서 내린다.
 
@@ -92,7 +94,7 @@ export function pinLayout(places: readonly { latitude: number; longitude: number
 - 떠 있는 「Plan a trip」 줄: 담은 것이 있으면 `say('일정 짜기', 'Plan my trip')`(→ 간직하기를 거치지 않고 바로 「담은 곳으로」 마법사), 없으면 지금 그대로.
 - 홈의 포스터를 누를 때: 담은 것이 **없는** 사람은 랜딩(`/go/{id}`), 있는 사람은 지금처럼 작품 상세.
 - 「지금 뜨는 작품」 줄은 위 2·3번이 대신한다(같은 자료다). 전체 보기는 지금의 `/trending`.
-- 분석: `home_tap` 의 `section` 에 `pick_title`·`add_title`·`add_nearby`·`city_chip` 을 더한다.
+- 분석: `home_tap` 의 `section` 에 `pick_title`·`add_title`·`add_nearby`·`city_chip` 을 더한다. 2026-11-15 `add_more`(홈 마이맵 카드의 「+ 더 담기」)를 더한다.
 
 ## 5. 계약 1.31.0 에 더하는 것 (서버)
 
@@ -111,7 +113,7 @@ export function pinLayout(places: readonly { latitude: number; longitude: number
 | `landing` (떠남) | `webEvent.landingLeave(contentId, beat, ms)` | `content_id`, `action` = `leave`, `beat` = 마지막 박자 또는 `loading`, `ms` = 첫 화면을 시작하고 지난 시간. 담기 전에 `pagehide`·가려짐이면 한 번(§10-3-2) |
 | `add_more` | `webEvent.addMore(action)` | `action` = `view`·`poi`·`plan` |
 | `save_all` (있음) | — | `source` 에 `landing` |
-| `home_tap` (있음) | — | `section` 에 `pick_title`·`add_title`·`add_nearby`·`city_chip` |
+| `home_tap` (있음) | — | `section` 에 `pick_title`·`add_title`·`add_nearby`·`city_chip` · `add_more`(2026-11-15, 홈 마이맵 카드의 「+ 더 담기」) |
 
 `screen_view` 의 화면 이름: `/go/…` 는 `landing`, `/add` 는 `add_more`.
 

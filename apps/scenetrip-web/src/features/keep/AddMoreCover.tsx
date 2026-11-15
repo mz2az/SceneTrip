@@ -3,7 +3,7 @@
  *
  * 담은 뒤 시트 ① 을 대신한다. 작품 상세의 「모두 담기」 뒤, 랜딩의 담기 뒤, 내 지도의 「더 담기」 가 모두 여기로 온다.
  *
- *   머리줄  뒤로 · 「내 지도 · N곳」(N = 촬영지 + 편의시설) · 오른쪽 「내 지도」 단추(배지), 그 아래 「더 담아 볼까요?」
+ *   머리줄  뒤로 · 「마이맵 · N곳」(N = 촬영지 + 편의시설, 0 이면 「마이맵」) · 오른쪽 「마이맵」 이름표 알약(배지), 그 아래 「더 담아 볼까요?」
  *   (앱 안 브라우저면 띠 — InAppBand)
  *   다른 작품의 촬영지  모자이크(Visit Japan 「Trending」): 큰 가로 카드 1장 + 정사각 2열, 최대 9편(moreWorks).
  *                       칸을 누르면(원형 ＋) 그 작품 촬영지를 받아 addMany(…, 'more') + keep_more, 칸에 「✓ +N」.
@@ -97,9 +97,9 @@ export function AddMoreCover({ onClose }: { onClose: () => void }): JSX.Element 
           <Icon name="chevron.left" size={20} weight="semibold" />
         </Pressable>
         <Txt as="h1" size={19} weight="bold" lines={1} style={{ margin: 0, flex: 1, minWidth: 0 }}>
-          {say(`마이맵 · ${count}곳`, `My map · ${spots(count)}`)}
+          {count > 0 ? say(`마이맵 · ${count}곳`, `My map · ${spots(count)}`) : say('마이맵', 'My map')}
         </Txt>
-        <MyMapButton onPress={openMap} />
+        <MyMapButton onPress={openMap} variant="pill" />
       </HStack>
       <InAppBand />
 
@@ -118,7 +118,7 @@ export function AddMoreCover({ onClose }: { onClose: () => void }): JSX.Element 
           <Pressable plain className="proto-press" onClick={plan} style={{ width: '100%', minHeight: 54, borderRadius: 16, background: color.primaryFill, display: 'grid', placeItems: 'center' }}>
             <HStack spacing={8}>
               <Icon name="paperplane.fill" size={16} color="#fff" />
-              <Txt size={17} weight="bold" style={{ color: color.onPrimary }}>{say(`이 ${count}곳으로 여행 일정 짜기`, `Plan my trip with ${spots(count)}`)}</Txt>
+              <Txt size={17} weight="bold" style={{ color: color.onPrimary }}>{count > 0 ? say(`이 ${count}곳으로 여행 일정 짜기`, `Plan my trip with ${spots(count)}`) : say('여행 일정 짜기', 'Plan my trip')}</Txt>
             </HStack>
           </Pressable>
           <Pressable plain onClick={openMap} style={{ width: '100%', minHeight: 44, display: 'grid', placeItems: 'center' }}>

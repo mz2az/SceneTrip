@@ -13,7 +13,7 @@ const SOFT = shadow('rgba(0,0,0,0.33)', 3, 1)
 
 /**
  * 검색어와 마이맵 단추가 한 캡슐이다 — 프로토타입의 검색바와 같다.
- * 마이맵 단추는 머리줄의 「마이맵」 단추(MyMapButton)와 같은 지도 기호·담은 수 배지이고 `/my-map` 을 연다(web-keep-flow.md §11-1).
+ * 마이맵 단추는 머리줄의 「마이맵」 단추(MyMapButton)와 같은 지도 기호·담은 수 배지에 작은 「마이맵」 글자이고 `/my-map` 을 연다(web-keep-flow.md §11-1·§12).
  */
 export function SearchBar({
   draft, onDraft, onSubmit, onClear, onFocus, inputRef, onMyMap,
@@ -57,8 +57,8 @@ export function SearchBar({
           </Pressable>
         )}
         <div style={{ width: 0.5, height: 22, background: 'var(--separator)', flex: 'none' }} />
-        {/* 캡슐 높이(44)는 그대로 두고 단추만 겹쳐 놓는다 — 그림자 없는 투명 동그라미. */}
-        <MyMapButton onPress={onMyMap} style={{ width: 36, height: 36, margin: '-7px -6px -7px -4px', background: 'transparent', boxShadow: 'none' }} />
+        {/* 캡슐 높이(44)는 그대로 두고 단추만 겹쳐 놓는다 — 지도 기호 아래 작은 「마이맵」 글자(자리가 좁다, web-keep-flow.md §12). */}
+        <MyMapButton onPress={onMyMap} variant="stacked" style={{ margin: '-9px -8px -9px -4px' }} />
       </HStack>
     </form>
   )
