@@ -33,6 +33,29 @@
       @keyframes st-splash-breathe { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-6px) scale(1.04); } }
       @media (prefers-reduced-motion: reduce) { html.st-intro .st-splash img { animation: none; } }
     </style>
+    <!--
+      시험용 초기화 링크 ?reset=1 — 첫 화면을 정하는 아래 스크립트·앱 JS 보다 먼저. 시험용 웹·로컬에서만 이 앱의 저장소 키를 지우고,
+      어디서든 주소에서 reset 만 뗀다. 규칙의 정본은 src/app/resetLink.ts, resetLink.test.ts 가 이 스크립트도 함께 본다.
+    -->
+    <script data-scenetrip-reset>
+      try {
+        var stQuery = new URLSearchParams(location.search)
+        if (stQuery.get('reset') === '1') {
+          var stHost = location.hostname.toLowerCase()
+          if (['dev.scenetrip.io', 'dev.scenetrip-app.pages.dev', 'localhost', '127.0.0.1', '[::1]', '::1'].indexOf(stHost) >= 0) {
+            [localStorage, sessionStorage].forEach(function (s) {
+              for (var i = s.length - 1; i >= 0; i--) {
+                var k = s.key(i)
+                if (k && /^(scenetrip\.|proto\.|ph_)/.test(k)) s.removeItem(k)
+              }
+            })
+          }
+          stQuery.delete('reset')
+          var stRest = stQuery.toString()
+          history.replaceState(history.state, '', location.pathname + (stRest ? '?' + stRest : '') + location.hash)
+        }
+      } catch (e) {}
+    </script>
     <script>
       try {
         // 넘어온 주소(?keep=·?places=·?pois=)는 첫 화면을 띄우지 않는다(web-ad-landing.md §13-3, src/app/intro.ts 와 같은 규칙).
