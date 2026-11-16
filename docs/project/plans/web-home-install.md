@@ -19,6 +19,8 @@
 | `in_app_android`, `in_app_ios` | 바깥 브라우저로 넘김(`handoffHref`) |
 | `android_menu`, `ios_safari`, `other` | 안내 시트: 그 브라우저의 메뉴 두 줄(간직하기와 같은 말) + 「알겠어요」 |
 
+크롬은 사이트를 누르고 30초 넘게 머문 뒤에야 설치 창을 준다. 그 전에 누르면 안내 시트가 뜬다. 시트가 떠 있는 동안 설치 창이 오면 주 단추가 「알겠어요」 에서 「지금 설치」 로 바뀌고, 누르면 설치 창(`install_accepted`, `install_dismissed`)을 띄우고 시트를 닫는다(MZ2AZ-590).
+
 넘기는 주소는 지금 장바구니(`handoffKeepUrl`)와 광고 꼬리표, 익명 id 를 싣는다.
 
 ## 3. 서비스 워커
