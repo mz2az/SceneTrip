@@ -8,6 +8,7 @@
 import type { KeepEnvParam } from '@/analytics/events'
 import type { components } from '@/api/generated/schema'
 import type { CartItem } from '@/state/cart'
+import { isWebShellUserAgent } from '@/shared/webShell'
 
 type ContentSummary = components['schemas']['ContentSummary']
 
@@ -31,6 +32,8 @@ const isOtherIOSBrowser = (ua: string) => ua.includes('CriOS') || ua.includes('F
 export function keepEnv(input: { userAgent: string; standalone: boolean; canPromptInstall: boolean }): KeepEnv {
   const ua = input.userAgent
   if (input.standalone) return 'installed'
+  // iOS 웹뷰 껍데기는 설치된 앱이다 — 홈 화면 추가, 브라우저 넘김이 없다(ios-webview-shell.md §6, MZ2AZ-591).
+  if (isWebShellUserAgent(ua)) return 'installed'
   if (isInAppBrowser(ua)) {
     if (isAndroid(ua)) return 'in_app_android'
     if (isIOSDevice(ua)) return 'in_app_ios'
