@@ -29,6 +29,7 @@ import { Icon } from '@/design/Icon'
 import { Spinner, Txt } from '@/design/primitives'
 import { MY_MAP_TARGET, MyMapButton, flyToMyMap, myMapLandStore } from '@/features/keep/flyToMyMap'
 import { currentKeepEnv } from '@/features/keep/installPrompt'
+import { isWebShellUserAgent } from '@/shared/webShell'
 import { keepActions } from '@/features/keep/keepStore'
 import { Pressable } from '@/features/route/ui/Press'
 import { currentLang, say, useLang } from '@/i18n'
@@ -312,7 +313,8 @@ export function LandingCover({ contentId, onRest, onClose, onBeat, onKeep, onNee
       await Promise.all(flights)
       if (!alive.current) return
       // ⑤ 간직하기 — 이미 로그인했거나 홈 화면에서 연 앱이면 건너뛰고 곧바로 「더 담기」(§13-1).
-      if (hasSession() || currentKeepEnv() === 'installed') {
+      // 홈 화면 앱은 건너뛴다. iOS 웹뷰 앱은 installed 여도 로그인을 권한다(MZ2AZ-594).
+      if (hasSession() || (currentKeepEnv() === 'installed' && !isWebShellUserAgent(navigator.userAgent))) {
         closeRef.current('kept')
         return
       }
