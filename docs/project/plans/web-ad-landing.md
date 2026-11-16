@@ -267,14 +267,15 @@ export function pinLayout(places: readonly { latitude: number; longitude: number
 
 광고 방문자의 99.7% 는 인스타·페이스북 앱 안 브라우저이고, 거기서는 즐겨찾기·홈 화면 추가가 없으며 창을 닫으면 담은 것이 사라진다. 지금은 간직하기 안내가 「더 담기 → 일정 짜기」 뒤에야 나와, 담기만 하고 나가는 사람은 못 본다. 그래서:
 
-- 첫 화면 ④ 에서 담기를 누르고 주머니가 다 차면(담기 끝, `failed === 0`), 덮개 안에서 바로 ⑤ 「간직하기」 박자를 보인다 — 해태가 주머니를 안고(`haetae-pinhold` 또는 `haetae-joy`) 말풍선:
-  - 앱 안 브라우저: `say('이 창을 닫으면 마이맵이 사라져요', 'Close this window and your map is gone')`
-  - 그 밖: `say('마이맵을 간직하세요', 'Keep your map for your trip')`
+- 첫 화면 ④ 에서 담기를 누르고 주머니가 다 차면(담기 끝, `failed === 0`), 덮개 안에서 바로 ⑤ 「간직하기」 박자를 보인다. 해태(`haetae-joy`)가 마이맵 그림(접힌 종이 지도, `MapArt`)의 윗변을 입에 물고 말풍선을 띄운다. 무는 모양은 같은 해태 그림에서 윗입술과 송곳니 띠만 잘라 지도 위에 다시 얹어 만든다(`.st-keep__jaw`).
+  - 말풍선(브라우저와 상관없이 하나, 두 줄): `say('이 지도로 코스를 짜 봐요\n길은 내가 안내해 줄게요!', "Plan a route with this map.\nI'll guide you there!")`
+  - 2026-11-16 바꿈(MZ2AZ-584): 전에는 앱 안 브라우저에 「이 창을 닫으면 마이맵이 사라져요」(Close this window and your map is gone), 그 밖에 「마이맵을 간직하세요」 였다. 이미 10곳을 담은 사람에게 겁을 주지 말고 다음 할 일(코스 짜기, 길 안내)로 이끈다(사용자 결정).
+  - 마이맵 그림은 첫 화면 오른쪽 아래 주머니도 같은 접힌 지도다(전에는 덮개 달린 상자, 무엇인지 알아보기 어려웠다).
 - 단추 둘(앱 안 브라우저):
-  - 주 `say('로그인해서 간직하기', 'Sign in to keep it')` → 기존 로그인 창(이유 `keep`). 로그인되면 담은 것이 계정으로 옮겨진다(기존 계정 잇기). 로그인 창이 닫히면(성공·취소 모두) 「더 담기」 로.
+  - 주 `say('로그인하고 코스 짜기', 'Sign in and plan my route')`(2026-11-16 전 「로그인해서 간직하기」, Sign in to keep it) → 기존 로그인 창(이유 `keep`). 로그인되면 담은 것이 계정으로 옮겨진다(기존 계정 잇기). 로그인 창이 닫히면(성공·취소 모두) 「더 담기」 로.
   - 보조 `say('브라우저에서 열기', 'Open in browser')` → 안드로이드는 기존 `handoffHref`(intent), 아이폰은 해태가 오른쪽 위를 가리키는 그림 + 두 줄 안내 `say('오른쪽 위 ⋯ → 「외부 브라우저에서 열기」', 'Tap ⋯ at the top right → "Open in external browser"')`(버튼을 눌러도 이동은 시도하고, 1.5초 뒤에도 그대로면 이 안내를 보인다 — 지금 간직하기 단계와 같은 규칙).
   - 작은 글자 `say('나중에', 'Later')` → 「더 담기」.
-- 앱 안 브라우저가 아니면: 주 `Sign in to keep it`, 보조 `installable` 이면 `Add to Home Screen`(기존 설치 창), 아니면 즐겨찾기 안내. 이미 로그인했거나 설치된 앱이면 ⑤ 를 건너뛰고 「더 담기」.
+- 앱 안 브라우저가 아니면: 주 `Sign in and plan my route`, 보조 `installable` 이면 `Add to Home Screen`(기존 설치 창), 아니면 즐겨찾기 안내. 이미 로그인했거나 설치된 앱이면 ⑤ 를 건너뛰고 「더 담기」.
 - 분석: 기존 `keep_prompt(env, action)` 를 그대로 쓴다(`view`·`sign_in`·`open_browser`·`install`·`skip`), 화면 자리 구분이 필요하면 `where=intro` 매개변수 하나를 더한다.
 - 「더 담기」 의 일정 짜기 앞 간직하기 단계(지금 것)는 ⑤ 를 이미 본 사람에게는 건너뛴다(같은 권유를 두 번 하지 않는다).
 - 구현(2026-11-15): `features/landing/KeepBeat.tsx`(덮개 `data-beat="keep"`). 건너뛰기 판정은 `hasSession()`·`currentKeepEnv() === 'installed'`. 로그인 창(`SignInSheet`, z 60)은 밑의 앱에 있어 ⑤ 의 로그인 단추가 먼저 앱을 붙이고(`onNeedApp`) 기존 요청 길 `promptSignIn(null, 'keep')` 로 부탁한다(RootSheets 가 `openSignInFor(null, 'keep')`) — 덮개(z 45) 위에 뜬다. 계정 모듈은 첫 화면 덩어리에 넣지 않는다 — 창이 떴다 닫히는 것은 계정이 `state/auth` 의 `signInSheetOpenStore` 에 비춰 둔 값으로 보고, 닫히면 덮개가 걷히며 `/add`. 해태 그림은 `art/index.ts` 한 곳에서 불러 쓴다(파일마다 `?inline` 을 부르면 묶을 때 그림이 복사된다). ⑤ 를 본 표식은 `sessionStorage` `scenetrip.keep.introSeen`(탭 단위, `keepActions.startPlan` 이 읽어 계획부터 연다). 앱 안 브라우저가 아니고 설치 창도 없으면 보조 단추는 「즐겨찾기에 추가하기」(안드로이드 크롬·사파리는 「홈 화면에 추가하기」) → 안내 두 줄 + 「알겠어요」(`got_it`). 아이폰 안내 그림은 앉은 해태 + 들어 올린 앞발 + 오른쪽 위로 가는 점선 화살표(새 그림 없이 `art/` 의 것을 겹친다).

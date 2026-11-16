@@ -650,15 +650,12 @@
 }
 .st-film__bag {
   position: relative;
-  width: 92px;
-  height: 70px;
+  width: 100px;
+  height: 80px;
   display: grid;
   place-items: center;
-  padding-top: 20px;
-  border-radius: 18px 18px 30px 30px;
-  border: 3px solid #2a1856;
-  background: #fff4dc;
-  box-shadow: 0 10px 22px rgba(20, 8, 50, 0.35);
+  /* 그림은 MapArt(접힌 종이 지도) — 상자 자체는 그리지 않고 그림자만 그림 모양을 따른다. */
+  filter: drop-shadow(0 8px 12px rgba(20, 8, 50, 0.35));
   transform-origin: 50% 100%;
 }
 .st-film__bag--bump {
@@ -678,21 +675,10 @@
     transform: scale(1);
   }
 }
-.st-film__bag-flap {
-  position: absolute;
-  left: 9px;
-  right: 9px;
-  top: -3px;
-  height: 26px;
-  border: 3px solid #2a1856;
-  border-top: none;
-  border-radius: 0 0 26px 26px;
-  background: #7b69ed;
-}
 .st-film__bag-count {
   position: absolute;
-  top: -12px;
-  right: -14px;
+  top: -10px;
+  left: -12px;
   min-width: 32px;
   height: 32px;
   padding: 0 7px;
@@ -863,12 +849,30 @@
   height: 233px;
   object-fit: contain;
 }
-/* 주머니는 해태의 가슴 앞 — 안고 있는 모양 */
+/* 해태가 지도 윗변을 입에 문 모양. 그림 210×233 에서 입은 가로 68~105, 윗니 아래 끝이 세로 118. */
 .st-keep__bag {
   position: absolute;
-  left: 52px;
-  top: 142px;
+  left: 40px;
+  top: 109px;
+  width: 92px;
+  height: 74px;
+  transform-origin: 50% 0;
   animation: st-bag-bump 0.32s ease-out 0.5s both;
+}
+.st-keep__bag svg {
+  width: 100%;
+  height: 100%;
+}
+.st-keep__bag .st-film__bag-count {
+  top: auto;
+  left: auto;
+  bottom: -8px;
+  right: -16px;
+}
+/* 윗입술과 송곳니 띠 — 아랫변이 지도 윗변(세로 118)과 맞는다. */
+.st-keep__jaw {
+  pointer-events: none;
+  clip-path: polygon(31% 45.5%, 51% 45.5%, 51% 50.7%, 31% 50.7%);
 }
 .st-keep__panel {
   gap: 8px;

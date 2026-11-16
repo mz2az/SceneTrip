@@ -4,8 +4,10 @@
  *   ④ 에서 담기가 끝나면(실패 0) 덮개 안에서 ⑤ (data-beat=keep, onBeat('keep')). 실패가 있으면 ④ 에 남는다.
  *   이미 로그인했거나(hasSession) 홈 화면에서 연 앱(installed)이면 ⑤ 없이 onClose('kept').
  *   ⑤ 를 보이면 keepStore 에 표식 — 「더 담기 → 일정 짜기」 는 간직하기 단계를 건너뛰고 계획부터.
- *   말풍선: 앱 안 브라우저 「이 창을 닫으면 마이맵이 사라져요」, 그 밖 「마이맵을 간직하세요」.
- *   주 「로그인해서 간직하기」 → 앱을 붙이고(onNeedApp) promptSignIn(null, 'keep') — RootSheets 가 openSignInFor(null, 'keep').
+ *   말풍선: 브라우저와 상관없이 하나, 두 줄 「이 지도로 코스를 짜 봐요 / 길은 내가 안내해 줄게요!」
+ *        (en 「Plan a route with this map. / I'll guide you there!」). 2026-11-16 전 문구(「이 창을 닫으면 마이맵이 사라져요」,
+ *        「마이맵을 간직하세요」)는 더 이상 없다(MZ2AZ-584).
+ *   주 「로그인하고 코스 짜기」(en 「Sign in and plan my route」) → 앱을 붙이고(onNeedApp) promptSignIn(null, 'keep') — RootSheets 가 openSignInFor(null, 'keep').
  *        로그인 창이 떴다가(signInSheetOpenStore true) 닫히면(false) onClose('kept'). 계정(account)은 제 상태를 그 비춤에 적는다.
  *   보조(앱 안) 「브라우저에서 열기」 → handoff.open(intent:// 또는 x-safari-…/my-map?keep=32). 1.5초 뒤에도 보이면
  *        안드로이드는 한 줄 안내, 아이폰은 해태가 오른쪽 위를 가리키는 그림 + 두 줄.
@@ -181,30 +183,50 @@ afterEach(() => {
 
 // ---------------------------------------------------------------- 뜨는 조건
 
+/** 2026-11-16 전 말풍선과 주 단추 — 더는 보이지 않는다(MZ2AZ-584). */
+const OLD_KO = ['이 창을 닫으면 마이맵이 사라져요', '마이맵을 간직하세요', '로그인해서 간직하기']
+const OLD_EN = ['Close this window and your map is gone', 'Keep your map for your trip', 'Sign in to keep it']
+
 describe('⑤ 가 뜨는 조건', () => {
-  it.each<[string, string, string]>([
-    ['페이스북 안드로이드 인앱', UA.fbAndroid, '이 창을 닫으면 마이맵이 사라져요'],
-    ['인스타 아이폰 인앱', UA.igIphone, '이 창을 닫으면 마이맵이 사라져요'],
-    ['크롬 데스크톱', UA.chromeDesktop, '마이맵을 간직하세요'],
-  ])('%s — 담기가 끝나면 덮개 안에서 ⑤, 말풍선 「%s」', async (_name, ua, line) => {
+  it.each<[string, string]>([
+    ['페이스북 안드로이드 인앱', UA.fbAndroid],
+    ['인스타 아이폰 인앱', UA.igIphone],
+    ['크롬 데스크톱', UA.chromeDesktop],
+  ])('%s — 담기가 끝나면 덮개 안에서 ⑤, 말풍선은 어느 브라우저든 같은 두 줄', async (_name, ua) => {
     setUA(ua)
     await keepAll()
     expect(closes).toEqual([])
     expect(beatAttr()).toBe('keep')
     expect(beats).toContain('keep')
-    expect(document.body.textContent).toContain(line)
-    expect(buttonWith('로그인해서 간직하기')).toBeTruthy()
+    const text = document.body.textContent ?? ''
+    expect(text).toContain('이 지도로 코스를 짜 봐요')
+    expect(text).toContain('길은 내가 안내해 줄게요!')
+    for (const old of OLD_KO) expect(text).not.toContain(old)
+    expect(buttonWith('로그인하고 코스 짜기')).toBeTruthy()
     expect(buttonWith('나중에')).toBeTruthy()
   })
 
-  it('영어 — 「Close this window and your map is gone」 + 「Sign in to keep it」 · 「Open in browser」 · 「Later」', async () => {
+  it.each<[string, string]>([
+    ['페이스북 안드로이드 인앱', UA.fbAndroid],
+    ['인스타 아이폰 인앱', UA.igIphone],
+    ['크롬 데스크톱', UA.chromeDesktop],
+  ])('영어 %s — 「Plan a route with this map.」 + 「I\'ll guide you there!」 + 「Sign in and plan my route」 · 「Later」', async (_name, ua) => {
+    chooseLanguage('en')
+    setUA(ua)
+    await keepAll('Keep these 3 on My map')
+    const text = document.body.textContent ?? ''
+    expect(text).toContain('Plan a route with this map.')
+    expect(text).toContain("I'll guide you there!")
+    for (const old of OLD_EN) expect(text).not.toContain(old)
+    expect(buttonWith('Sign in and plan my route')).toBeTruthy()
+    expect(buttonWith('Later')).toBeTruthy()
+  })
+
+  it('영어 앱 안 브라우저 — 보조 「Open in browser」', async () => {
     chooseLanguage('en')
     setUA(UA.fbAndroid)
     await keepAll('Keep these 3 on My map')
-    expect(document.body.textContent).toContain('Close this window and your map is gone')
-    expect(buttonWith('Sign in to keep it')).toBeTruthy()
     expect(buttonWith('Open in browser')).toBeTruthy()
-    expect(buttonWith('Later')).toBeTruthy()
   })
 
   it('이미 로그인했으면 ⑤ 없이 곧바로 onClose(kept)', async () => {
@@ -229,7 +251,7 @@ describe('⑤ 가 뜨는 조건', () => {
     vi.mocked(cartActions.addMany).mockResolvedValue({ saved: 2, already: 0, failed: 1 })
     await keepAll()
     expect(beatAttr()).toBe('rest')
-    expect(screen.queryByText('로그인해서 간직하기')).toBeNull()
+    expect(screen.queryByText('로그인하고 코스 짜기')).toBeNull()
   })
 
   it('⑤ 를 보면 keep_prompt(env, view, where=intro) 한 번 + 이 탭에 표식', async () => {
@@ -243,11 +265,11 @@ describe('⑤ 가 뜨는 조건', () => {
 
 // ---------------------------------------------------------------- 단추
 
-describe('로그인해서 간직하기', () => {
+describe('로그인하고 코스 짜기', () => {
   it('앱을 붙이고 로그인 창(이유 keep)을 부탁한다 — 덮개는 그대로, 창이 떴다가 닫히면 onClose(kept)', async () => {
     setUA(UA.fbAndroid)
     await keepAll()
-    fireEvent.click(buttonWith('로그인해서 간직하기'))
+    fireEvent.click(buttonWith('로그인하고 코스 짜기'))
     await advance(0)
     expect(needApp).toBe(1)
     expect(signInPromptStore.get()).toEqual({ requested: true, reason: null, key: 'keep' })
@@ -265,7 +287,7 @@ describe('로그인해서 간직하기', () => {
 
   it('앱 안 브라우저가 아니어도 같은 단추', async () => {
     await keepAll()
-    fireEvent.click(buttonWith('로그인해서 간직하기'))
+    fireEvent.click(buttonWith('로그인하고 코스 짜기'))
     await advance(0)
     expect(signInPromptStore.get().key).toBe('keep')
     expect(prompts()).toContainEqual({ env: 'other', action: 'sign_in', where: 'intro' })
