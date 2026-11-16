@@ -113,6 +113,6 @@ describe('① more — 주변 칩 대신 「더 담기」 로', () => {
     await vi.waitFor(() => expect(location?.pathname).toBe(paths.addMore))
     expect(bodyText()).not.toContain(PROMPT[lang])
     expect(keepStore.get().nearby).toBeNull()
-    expect(events().filter((e) => e.name === 'keep_nearby')).toEqual([])
+    expect(events().filter((e) => (e.name as string) === 'keep_nearby')).toEqual([])
   })
 })

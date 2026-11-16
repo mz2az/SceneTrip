@@ -3,7 +3,7 @@
  *
  *   save_poi       webEvent.savePoi(poiId, group)    poi_id, category_group = food·stay·sight·transit
  *   my_map_nearby  webEvent.myMapNearby(kind)        kind = food·shopping·sight·stay
- *   keep_nearby    webEvent.keepNearby(kind)         같은 kind
+ *   (keep_nearby 는 MZ2AZ-585 에서 걷어 냈다 — webEventsVisit.test.ts)
  *   keep_arrive    webEvent.keepArrive(count, poiCount = 0)   count, poi_count
  */
 import { describe, expect, it } from 'vitest'
@@ -21,12 +21,6 @@ describe('my_map_nearby', () => {
   })
 })
 
-describe('keep_nearby', () => {
-  it.each(['food', 'shopping', 'sight', 'stay'] as const)('keepNearby(%s) → kind', (kind) => {
-    expect(webEvent.keepNearby(kind)).toEqual({ name: 'keep_nearby', params: { kind } })
-  })
-})
-
 describe('keep_arrive — poi_count', () => {
   it('keepArrive(count, poiCount) → count·poi_count', () => {
     expect(webEvent.keepArrive(2, 3)).toEqual({ name: 'keep_arrive', params: { count: 2, poi_count: 3 } })
@@ -40,14 +34,14 @@ describe('keep_arrive — poi_count', () => {
 })
 
 describe('새 이벤트는 웹 전용', () => {
-  const NEW = ['savePoi', 'myMapNearby', 'keepNearby']
+  const NEW = ['savePoi', 'myMapNearby']
   it('webEvent 에 있고 appEvent 에는 없다', () => {
     const w = webEvent as unknown as Record<string, unknown>
     for (const key of NEW) expect(typeof w[key], key).toBe('function')
     for (const key of NEW) expect(Object.keys(appEvent)).not.toContain(key)
   })
   it('매개변수 값은 문자열·정수뿐', () => {
-    const all = [webEvent.savePoi(7, 'food'), webEvent.myMapNearby('shopping'), webEvent.keepNearby('stay'), webEvent.keepArrive(1, 2)]
+    const all = [webEvent.savePoi(7, 'food'), webEvent.myMapNearby('shopping'), webEvent.keepArrive(1, 2)]
     for (const e of all) {
       for (const value of Object.values(e.params)) {
         expect(['string', 'number']).toContain(typeof value)

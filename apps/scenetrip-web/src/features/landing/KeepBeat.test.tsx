@@ -356,6 +356,65 @@ describe('앱 안 브라우저가 아닐 때의 보조 단추', () => {
   })
 })
 
+// MZ2AZ-585 — 안내를 펼치는 보조 단추를 누른 것 자체를 센다(즐겨찾기는 브라우저가 알려 주지 않는다).
+const UA_IPHONE_SAFARI =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1'
+const UA_ANDROID_CHROME = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36'
+const actions = () => prompts().map((p) => p.action)
+
+describe('보조 안내 단추를 누르면 keep_prompt(bookmark 또는 home_screen_guide, intro)', () => {
+  it('크롬 데스크톱(other) — 「즐겨찾기에 추가하기」 → bookmark 한 번, 그다음 「알겠어요」 → got_it', async () => {
+    await keepAll()
+    fireEvent.click(buttonWith('즐겨찾기에 추가하기'))
+    expect(prompts()).toContainEqual({ env: 'other', action: 'bookmark', where: 'intro' })
+    expect(actions().filter((a) => a === 'bookmark')).toHaveLength(1)
+    expect(actions()).not.toContain('home_screen_guide')
+    fireEvent.click(buttonWith('알겠어요'))
+    await advance(0)
+    expect(prompts()).toContainEqual({ env: 'other', action: 'got_it', where: 'intro' })
+    expect(actions()).toEqual(['view', 'bookmark', 'got_it'])
+  })
+
+  it("영어 other — 'Bookmark this page' → bookmark", async () => {
+    chooseLanguage('en')
+    await keepAll('Keep these 3 on My map')
+    fireEvent.click(buttonWith('Bookmark this page'))
+    expect(prompts()).toContainEqual({ env: 'other', action: 'bookmark', where: 'intro' })
+  })
+
+  it.each<[string, string, 'ios_safari' | 'android_menu']>([
+    ['아이폰 사파리', UA_IPHONE_SAFARI, 'ios_safari'],
+    ['안드로이드 크롬(설치 창 없음)', UA_ANDROID_CHROME, 'android_menu'],
+  ])('%s — 「홈 화면에 추가하기」 → home_screen_guide 한 번, 그다음 「알겠어요」 → got_it', async (_name, ua, env) => {
+    setUA(ua)
+    await keepAll()
+    fireEvent.click(buttonWith('홈 화면에 추가하기'))
+    expect(prompts()).toContainEqual({ env, action: 'home_screen_guide', where: 'intro' })
+    expect(actions().filter((a) => a === 'home_screen_guide')).toHaveLength(1)
+    expect(actions()).not.toContain('bookmark')
+    fireEvent.click(buttonWith('알겠어요'))
+    await advance(0)
+    expect(actions()).toEqual(['view', 'home_screen_guide', 'got_it'])
+    expect(closes).toEqual(['kept'])
+  })
+
+  it("영어 아이폰 사파리 — 'Add to Home Screen' → home_screen_guide", async () => {
+    chooseLanguage('en')
+    setUA(UA_IPHONE_SAFARI)
+    await keepAll('Keep these 3 on My map')
+    fireEvent.click(buttonWith('Add to Home Screen'))
+    expect(prompts()).toContainEqual({ env: 'ios_safari', action: 'home_screen_guide', where: 'intro' })
+  })
+
+  it('앱 안 브라우저의 「브라우저에서 열기」 는 bookmark, home_screen_guide 를 남기지 않는다', async () => {
+    setUA(UA.fbAndroid)
+    await keepAll()
+    fireEvent.click(buttonWith('브라우저에서 열기'))
+    expect(actions()).not.toContain('bookmark')
+    expect(actions()).not.toContain('home_screen_guide')
+  })
+})
+
 describe('나중에', () => {
   it('keep_prompt(skip, intro) + onClose(kept) — 「더 담기」 로', async () => {
     setUA(UA.fbAndroid)

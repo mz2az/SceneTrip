@@ -266,7 +266,7 @@ export function MyMapCover({ onClose }: { onClose: () => void }): JSX.Element {
   const [viewing, setViewing] = useState<{ gallery: PhotoGallery; title: string; index: number } | null>(null)
 
   const toggleNearby = (kind: NearbyKind | null) => {
-    // 내 지도에서 사람이 켤 때만 센다 — 시트에서 켜 두고 연 것은 keep_nearby 가 이미 셌다(§8).
+    // 내 지도에서 사람이 켤 때만 센다 — 미리 켜져 있는 칩은 세지 않는다(§8).
     if (kind) track(webEvent.myMapNearby(kind))
     keepActions.setNearby(kind)
   }

@@ -5,13 +5,14 @@
  * 첫 화면 덮개 동안은 라이브러리를 받지 않고 PostHog 로만 직접 보낸다(beacon.ts, web-ad-landing.md §10-3-2).
  */
 import { isStatisticsEnabled, onStatisticsChange } from '@/features/profile/usageStatistics'
-import type { AppEvent } from './events'
+import { type AppEvent, webEvent } from './events'
 import { anonId, bootstrapDistinctId } from './anonId'
 import { browserDoNotTrack, createPostHogBeacon } from './beacon'
 import { type GtagWindow, createGa4 } from './ga4'
 import { createPostHog } from './posthog'
 import { createSentry } from './sentry'
 import { type Utm, storeUtm } from './utm'
+import { type VisitStore, launchModeOf, startVisit } from './visit'
 import { afterDeferred, deferredHeld } from '@/app/deferred'
 import { introOpenStore } from '@/app/intro'
 
@@ -20,17 +21,54 @@ export type { AppEvent, EventName, LandingBeat, LandingLeaveBeat } from './event
 
 /** 이번 실행의 광고 꼬리표 — `captureUtm` 이 채운다. */
 let utm: Utm = {}
+/** 방문 맥락(launch_mode, visit_kind, first_entry, first_utm_*) — `captureVisit` 이 채운다. */
+let visit: Readonly<Record<string, string>> = {}
+/** 모든 이벤트에 싣는 속성 — 이번 방문의 꼬리표 + 방문 맥락. */
+const common = (): Record<string, string> => ({ ...utm, ...visit })
 
 /** 앱이 뜰 때 한 번 — 주소의 utm_* 를 세션에 적고 이후 모든 이벤트에 싣는다(web-ad-landing.md §10-3-8). */
 export function captureUtm(search: string): void {
   utm = storeUtm(search)
 }
 
+function storageOf(kind: 'localStorage' | 'sessionStorage'): VisitStore | null {
+  try {
+    return window[kind]
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 앱이 뜰 때 한 번, 첫 화면 판정 뒤 — 방문 맥락을 정해 이후 모든 이벤트에 싣고, 다시 온 사람의 새 세션이면 `return_visit` 을 보낸다
+ * (analytics-events.md 「방문 맥락과 이벤트 정리」, MZ2AZ-585). 던지지 않는다.
+ */
+export function captureVisit(intro: boolean): void {
+  try {
+    const standalone =
+      window.matchMedia?.('(display-mode: standalone)').matches === true || (navigator as Navigator & { standalone?: boolean }).standalone === true
+    const v = startVisit({
+      now: Date.now(),
+      search: window.location.search,
+      referrer: document.referrer,
+      hostname: window.location.hostname,
+      intro,
+      launchMode: launchModeOf({ standalone, userAgent: navigator.userAgent }),
+      local: storageOf('localStorage'),
+      session: storageOf('sessionStorage'),
+    })
+    visit = v.props
+    if (v.returnVisit) track(webEvent.returnVisit(v.returnVisit.daysSinceFirst, v.returnVisit.via))
+  } catch {
+    /* 분석이 앱을 깨면 안 된다 */
+  }
+}
+
 const ga4 = createGa4({
   measurementId: () => String(import.meta.env.VITE_GA_MEASUREMENT_ID ?? ''),
   statisticsEnabled: () => isStatisticsEnabled(),
   win: window as unknown as GtagWindow,
-  extraParams: () => utm,
+  extraParams: common,
   doc: document,
   debug: import.meta.env.DEV ? (name, params) => console.debug('[ga4]', name, params) : undefined,
 })
@@ -42,7 +80,7 @@ const posthog = createPostHog({
   bootstrapDistinctId: () => bootstrapDistinctId(posthogKey()),
   host: () => String(import.meta.env.VITE_POSTHOG_HOST ?? ''),
   statisticsEnabled: () => isStatisticsEnabled(),
-  superProperties: () => utm,
+  superProperties: common,
   load: async () => {
     const { default: ph } = await import('posthog-js')
     return {
@@ -61,7 +99,7 @@ const beacon = createPostHogBeacon({
   host: () => String(import.meta.env.VITE_POSTHOG_HOST ?? ''),
   statisticsEnabled: () => isStatisticsEnabled(),
   distinctId: () => anonId(posthogKey()),
-  superProperties: () => utm,
+  superProperties: common,
   currentUrl: () => window.location.href,
   doNotTrack: browserDoNotTrack,
   debug: import.meta.env.DEV ? (name, params) => console.debug('[posthog beacon]', name, params) : undefined,

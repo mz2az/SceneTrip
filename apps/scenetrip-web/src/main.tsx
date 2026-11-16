@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './app/App'
 import './design/global.css'
-import { captureUtm, startErrorReporting } from './analytics'
+import { captureUtm, captureVisit, startErrorReporting } from './analytics'
 import { afterDeferred, holdDeferred } from './app/deferred'
 import { introDone, introStart } from './app/intro'
 import { startInstallPromptCapture } from './features/keep/installPrompt'
@@ -17,6 +17,8 @@ startInstallPromptCapture()
 
 // 첫 화면(§11) — 처음 온 사람이면 덮개, `/go/{id}` 는 주소를 고친다. 덮개가 떠 있는 동안 분석·오류 추적·앱 덩어리는 미룬다(§10-3-2).
 const start = introStart(window.location.pathname, window.location.search, { done: introDone(), signedIn: hasSession() })
+// 방문 맥락(여는 방식, 재방문, 첫 화면으로 시작했나, 처음 꼬리표)을 정해 이후 모든 이벤트에 싣는다 — 주소를 고치기 전에(analytics-events.md, MZ2AZ-585).
+captureVisit(start.intro !== null)
 if (start.replaceTo !== null) window.history.replaceState(window.history.state, '', start.replaceTo)
 if (start.intro !== null) holdDeferred()
 afterDeferred(startErrorReporting)
