@@ -16,7 +16,7 @@ import { useLang } from '@/i18n'
 import { cartActions, useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { type Pace, daysLabel, paceLabel, rememberProtoCourse, say } from './protoState'
-import { CITY_COVERS, fixedCoverOf } from './protoCovers'
+import { CITY_COVERS, WATERMARKED_PLACE_IDS, fixedCoverOf } from './protoCovers'
 import { onceWhileBusy } from './onceWhileBusy'
 import { showsPrototypeMarks } from './protoGate'
 import { placesForNewCourse } from './savedPlan'
@@ -432,7 +432,8 @@ export function CityPicker({ city, days, onBack, onCreated }: {
 
 /** 도시를 대표하는 사진 있는 촬영지 — 사진을 고정하지 않은 도시는 인기 1위. */
 export function coverOf(city: HomeCity): PlaceSummary | undefined {
-  return city.places.find(hasPhoto)
+  // 워터마크 사진은 대표로 고르지 않는다(MZ2AZ-595, 596).
+  return city.places.find((p) => hasPhoto(p) && !WATERMARKED_PLACE_IDS.has(p.id))
 }
 
 /** 도시 칸·바로가기에 쓰는 사진 주소 — 고른 대표 사진(웹에 동봉)이 먼저, 없으면 인기 1위 촬영지 사진. */

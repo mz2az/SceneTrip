@@ -4,7 +4,6 @@
  * `placeId` 는 DEV·PRD 같은 촬영지 번호, 이름·작품은 그 촬영지의 목록 응답(ko·en)에서 옮겼다.
  */
 import busan from './covers/busan.jpg'
-import daegu from './covers/daegu.jpg'
 import gyeongju from './covers/gyeongju.jpg'
 import incheon from './covers/incheon.jpg'
 import jeju from './covers/jeju.jpg'
@@ -22,7 +21,7 @@ export interface CityCover {
   src: string
 }
 
-/** 사진 머리에 도는 순서 — 홈 도시 줄의 고정 다섯, 그다음 촬영지 수 순. */
+/** 사진 머리에 도는 순서 — 홈 도시 줄의 고정 다섯, 그다음 촬영지 수 순. 대구(서문시장)는 두산백과 워터마크라 뺐다(MZ2AZ-595). */
 export const CITY_COVERS: readonly CityCover[] = [
   { key: '서울', city: { ko: '서울', en: 'Seoul' }, placeId: 186, place: { ko: '뚝섬한강공원', en: 'Ttukseom Hangang Park' }, work: { ko: '마이데몬', en: 'My Demon' }, src: seoul },
   { key: '부산', city: { ko: '부산', en: 'Busan' }, placeId: 403, place: { ko: '감천문화마을', en: 'Gamcheon Culture Village' }, work: { ko: '유미의 세포들', en: "Yumi's Cells" }, src: busan },
@@ -31,10 +30,17 @@ export const CITY_COVERS: readonly CityCover[] = [
   { key: '인천', city: { ko: '인천', en: 'Incheon' }, placeId: 199, place: { ko: '월미도', en: 'Wolmido' }, work: { ko: '브로커', en: 'Broker' }, src: incheon },
   { key: '수원', city: { ko: '수원', en: 'Suwon' }, placeId: 410, place: { ko: '화성행궁', en: 'Hwaseong Haenggung Palace' }, work: { ko: '왕의 남자', en: 'King and the Clown' }, src: suwon },
   { key: '포항', city: { ko: '포항', en: 'Pohang' }, placeId: 195, place: { ko: '호미곶해맞이광장', en: 'Homigot Sunrise Plaza' }, work: { ko: '스프링 피버', en: 'Spring Fever' }, src: pohang },
-  { key: '대구', city: { ko: '대구', en: 'Daegu' }, placeId: 140, place: { ko: '서문시장', en: 'Seomun Market' }, work: { ko: '김비서가 왜 그럴까', en: "What's Wrong with Secretary Kim" }, src: daegu },
 ]
 
 const byKey = new Map(CITY_COVERS.map((c) => [c.key, c]))
 
 /** 고른 대표 사진이 있는 도시면 그 사진. */
 export const fixedCoverOf = (key: string): CityCover | undefined => byKey.get(key)
+
+/**
+ * 워터마크(두산백과 encyber.com, 블로그), 방송 캡처, 배너가 찍힌 서버 촬영지 사진 — 도시 대표 사진으로 고르지 않는다.
+ * 2026-11-17 운영 사진 411장을 확인해 찾았다. 사진 파이프라인이 바꾸면(MZ2AZ-596) 이 목록을 지운다.
+ */
+export const WATERMARKED_PLACE_IDS: ReadonlySet<number> = new Set([
+  53, 67, 113, 116, 117, 127, 128, 140, 145, 153, 174, 180, 183, 190, 194, 200, 212, 213, 376, 378, 415, 14, 400, 131, 214,
+])
