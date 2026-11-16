@@ -12,6 +12,7 @@
  * (RootSheets 가 `accountActions.openSignInFor(null, 'keep')`). 계정 모듈은 받지 않는다 — 첫 화면 덩어리를 가볍게.
  * 이미 로그인했거나 홈 화면에서 연 앱이면 이 박자는 아예 오지 않는다(LandingCover 가 가른다).
  */
+import { MapArt } from './MapArt'
 import { type JSX, useEffect, useRef, useState } from 'react'
 import { track, webEvent } from '@/analytics'
 import { Icon } from '@/design/Icon'
@@ -133,9 +134,8 @@ export function KeepBeat({ count, contentId, onDone, onNeedApp }: {
     finish()
   }
 
-  const line = inApp
-    ? say('이 창을 닫으면 마이맵이 사라져요', 'Close this window and your map is gone')
-    : say('마이맵을 간직하세요', 'Keep your map for your trip')
+  // 이미 10곳을 담은 사람에게 겁을 주지 않는다 — 다음 할 일(코스 짜기, 길 안내)로 이끈다(2026-11-16 사용자 결정). 브라우저와 상관없이 한 문장.
+  const line = say('이 지도로 코스를 짜 봐요\n길은 내가 안내해 줄게요!', "Plan a route with this map.\nI'll guide you there!")
   const pointing = handoffStuck && env === 'in_app_ios'
 
   return (
@@ -145,15 +145,16 @@ export function KeepBeat({ count, contentId, onDone, onNeedApp }: {
       ) : (
         <div className="st-keep__hero">
           <div className="st-film__bubble st-keep__bubble" role="status">
-            <Txt as="h1" size={18} weight="heavy" style={{ margin: 0, color: '#2a1856', lineHeight: 1.25 }}>{line}</Txt>
+            <Txt as="h1" size={18} weight="heavy" style={{ margin: 0, color: '#2a1856', lineHeight: 1.25, whiteSpace: 'pre-line' }}>{line}</Txt>
           </div>
           <div className="st-keep__hug" aria-hidden>
             <img className="st-keep__haetae" src={landingArt.joy} alt="" draggable={false} />
             <div className="st-film__bag st-keep__bag">
-              <span className="st-film__bag-flap" />
-              <Icon name="map" size={22} weight="bold" color="#5c4ad6" />
+              <MapArt bite />
               <span className="st-film__bag-count">{count}</span>
             </div>
+            {/* 지도를 문 모양 — 같은 그림에서 윗입술과 송곳니만 잘라 지도 위에 다시 얹는다. */}
+            <img className="st-keep__haetae st-keep__jaw" src={landingArt.joy} alt="" draggable={false} />
           </div>
         </div>
       )}
@@ -171,7 +172,7 @@ export function KeepBeat({ count, contentId, onDone, onNeedApp }: {
         <Pressable plain className="proto-press st-landing__keep" disabled={busy} onClick={signIn}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
             <Icon name="person.fill" size={18} weight="bold" color="#2a1856" />
-            <Txt size={17} weight="heavy" style={{ color: '#2a1856' }}>{say('로그인해서 간직하기', 'Sign in to keep it')}</Txt>
+            <Txt size={17} weight="heavy" style={{ color: '#2a1856' }}>{say('로그인하고 코스 짜기', 'Sign in and plan my route')}</Txt>
           </span>
         </Pressable>
 

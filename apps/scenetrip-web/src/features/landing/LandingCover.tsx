@@ -20,6 +20,7 @@
  * 자동으로 담지 않는다. 담기를 끝내면 ⑤ 간직하기를 거쳐 「더 담기」(/add). 담는 중에 덮개를 걷으면 담기는 끝까지 하되 /add 로 보내지 않는다(§10-3-7).
  * 처음 온 사람이 아니면(담은 것·코스가 있다) 아무것도 그리지 않고 곧바로 걷힌다(§11).
  */
+import { MapArt } from './MapArt'
 import { type CSSProperties, type JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type LandingBeat, track, webEvent } from '@/analytics'
 import { api, installHeader, ok } from '@/api/client'
@@ -750,8 +751,7 @@ function Pouch({ count, g, rest }: { count: number; g: Geometry; rest: boolean }
     <div className="st-film__pouch" style={{ left: g.pouchLeft, top: g.pouchTop, transform: rest ? `translate(${dx}px, ${dy}px)` : undefined }} {...{ [MY_MAP_TARGET]: '' }} aria-hidden>
       <div className="st-film__pouch-in">
         <div key={`${count}-${landed}`} className={count > 0 || landed > 0 ? 'st-film__bag st-film__bag--bump' : 'st-film__bag'}>
-          <span className="st-film__bag-flap" />
-          <Icon name="map" size={22} weight="bold" color="#5c4ad6" />
+          <MapArt />
           <span className="st-film__bag-count">{count}</span>
         </div>
         <span className="st-film__bag-label">{say('마이맵', 'My map')}</span>
