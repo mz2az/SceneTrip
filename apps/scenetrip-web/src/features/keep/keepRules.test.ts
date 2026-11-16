@@ -215,8 +215,61 @@ describe('handoffHref — 바깥 브라우저로 넘기는 주소', () => {
   })
 })
 
+// ── 삼성 인터넷(MZ2AZ-588) — 제 설치 창이 만든 WebAPK 를 Play 프로텍트가 막는다. 설치 창 대신 크롬으로 넘긴다.
+const SAMSUNG_ANDROID =
+  'Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/27.0 Chrome/125.0.0.0 Mobile Safari/537.36'
+const SAMSUNG_DESKTOP = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/27.0 Chrome/125.0.0.0 Safari/537.36'
+const SAMSUNG_TIZEN = 'Mozilla/5.0 (SMART-TV; LINUX; Tizen 7.0) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/5.0 Chrome/94.0.4606.31 TV Safari/537.36'
+
+describe('keepEnv — 삼성 인터넷(samsung_android, MZ2AZ-588)', () => {
+  it('Android + SamsungBrowser → samsung_android', () => {
+    expect(env(SAMSUNG_ANDROID)).toBe('samsung_android')
+  })
+
+  it('설치 창을 띄울 수 있어도 installable 이 아니라 samsung_android', () => {
+    expect(env(SAMSUNG_ANDROID, false, true)).toBe('samsung_android')
+  })
+
+  it('standalone 이면 그래도 installed 가 먼저', () => {
+    expect(env(SAMSUNG_ANDROID, true, true)).toBe('installed')
+    expect(env(SAMSUNG_ANDROID, true, false)).toBe('installed')
+  })
+
+  it('앱 안 브라우저 표식이 있으면 SamsungBrowser 가 섞여 있어도 in_app_android', () => {
+    expect(env(`${SAMSUNG_ANDROID} [FB_IAB/FB4A;FBAV/480.0.0.0;]`)).toBe('in_app_android')
+    expect(env(`${SAMSUNG_ANDROID} [FB_IAB/FB4A;FBAV/480.0.0.0;]`, false, true)).toBe('in_app_android')
+    expect(env(SAMSUNG_ANDROID.replace('SM-S918N)', 'SM-S918N; wv)'))).toBe('in_app_android')
+  })
+
+  it('SamsungBrowser 없는 안드로이드 크롬은 그대로 — installable 또는 android_menu', () => {
+    expect(env(CHROME_ANDROID, false, true)).toBe('installable')
+    expect(env(CHROME_ANDROID)).toBe('android_menu')
+  })
+
+  it('Android 가 아닌 SamsungBrowser(데스크톱, 타이젠)는 samsung_android 가 아니다', () => {
+    expect(env(SAMSUNG_DESKTOP)).not.toBe('samsung_android')
+    expect(env(SAMSUNG_DESKTOP, false, true)).toBe('installable')
+    expect(env(SAMSUNG_DESKTOP)).toBe('other')
+    expect(env(SAMSUNG_TIZEN)).toBe('other')
+  })
+})
+
+describe('handoffHref — samsung_android 는 크롬을 지정한 intent://', () => {
+  const url = 'https://app.scenetrip.io/my-map?keep=1'
+
+  it('명세 예시 그대로 — package=com.android.chrome 와 fallback', () => {
+    expect(handoffHref('samsung_android', url)).toBe(
+      `intent://app.scenetrip.io/my-map?keep=1#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url)};end`,
+    )
+  })
+
+  it('in_app_android 는 여전히 package= 없이', () => {
+    expect(handoffHref('in_app_android', url)).toBe(`intent://app.scenetrip.io/my-map?keep=1#Intent;scheme=https;S.browser_fallback_url=${encodeURIComponent(url)};end`)
+  })
+})
+
 // ── §2-3
-const work = (id: number, placeCount: number, delisted?: boolean): ContentSummary => ({
+const work =(id: number, placeCount: number, delisted?: boolean): ContentSummary => ({
   id,
   category: 'drama',
   title: `작품${id}`,

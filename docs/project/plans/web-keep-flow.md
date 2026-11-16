@@ -32,7 +32,7 @@ flowchart LR
 ### 2-1. 환경
 
 ```ts
-export type KeepEnv = 'in_app_android' | 'in_app_ios' | 'installable' | 'android_menu' | 'ios_safari' | 'installed' | 'other'
+export type KeepEnv = 'in_app_android' | 'in_app_ios' | 'samsung_android' | 'installable' | 'android_menu' | 'ios_safari' | 'installed' | 'other'
 export function isInAppBrowser(userAgent: string): boolean
 export function keepEnv(input: { userAgent: string; standalone: boolean; canPromptInstall: boolean }): KeepEnv
 ```
@@ -43,10 +43,12 @@ export function keepEnv(input: { userAgent: string; standalone: boolean; canProm
   2. 앱 안 브라우저이고 UA 에 `Android` → `in_app_android`
   3. 앱 안 브라우저이고 UA 에 `iPhone`·`iPad`·`iPod` 중 하나 → `in_app_ios`
   4. 앱 안 브라우저(그 밖의 기기) → `other`
-  5. `canPromptInstall` 이 참 → `installable`
-  6. UA 에 `Android` 가 있다 → `android_menu` (설치 창을 못 띄우는 안드로이드 브라우저 — 메뉴로 안내한다)
-  7. UA 에 `iPhone`·`iPad`·`iPod` 중 하나가 있고 `Safari` 가 있으며 `CriOS`·`FxiOS`·`EdgiOS` 가 없다 → `ios_safari`
-  8. 그 밖 → `other`
+  5. UA 에 `Android` 와 `SamsungBrowser` 가 둘 다 있다 → `samsung_android` (설치 창이 있어도. 삼성 인터넷이 만든 홈 화면 앱은 Play Protect 가 「안전하지 않은 앱」 으로 막는다, MZ2AZ-588)
+  6. `canPromptInstall` 이 참 → `installable`
+  7. UA 에 `Android` 가 있다 → `android_menu` (설치 창을 못 띄우는 안드로이드 브라우저 — 메뉴로 안내한다)
+  8. UA 에 `iPhone`·`iPad`·`iPod` 중 하나가 있고 `Safari` 가 있으며 `CriOS`·`FxiOS`·`EdgiOS` 가 없다 → `ios_safari`
+  9. 그 밖 → `other`
+- `samsung_android` 의 `handoffHref` 는 크롬을 지정한 `intent://…#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=…;end` 이다. 갤럭시에는 크롬이 기본으로 깔려 있다. 크롬이 없으면 같은 주소를 삼성 인터넷에서 다시 연다.
 
 ### 2-2. 넘기는 주소
 
@@ -152,6 +154,7 @@ export const keepActions: { openAfterSave(contentId: number, title: string): voi
   | --- | --- | --- | --- |
   | `in_app_android` | `say('브라우저에서 열어 내 지도를 간직하세요', 'Open in your browser to keep your map')` | `say('브라우저에서 열기', 'Open in browser')` | `handoffHref` 로 이동, `open_browser`. 1.5초 뒤에도 화면이 보이면 안내 문구(§8)를 보인다 |
   | `in_app_ios` | `say('사파리에서 열어 내 지도를 간직하세요', 'Open in Safari to keep your map')` | `say('사파리에서 열기', 'Open in Safari')` | 위와 같다 |
+  | `samsung_android` | `say('크롬에서 열어 마이맵을 간직하세요', 'Open in Chrome to keep My map')` | `say('크롬에서 열기', 'Open in Chrome')` | 크롬 intent 로 이동, `open_browser`. 1.5초 뒤에도 화면이 보이면 `open_browser_stuck` 과 「아래 ≡ → 현재 페이지 추가 → 북마크」 두 줄 안내. 설치 창은 띄우지 않는다 |
   | `installable` | `say('홈 화면에 SceneTrip 을 추가하세요', 'Add SceneTrip to your Home Screen')` | `say('홈 화면에 추가', 'Add to Home Screen')` | 브라우저 설치 창(`install`), 결과 `install_accepted`·`install_dismissed`, 그다음 ③ |
   | `android_menu` | 같은 제목 | `say('알겠어요', 'Got it')` | 「오른쪽 위 ⋮ → 홈 화면에 추가」 안내를 보여 주고, 누르면 `got_it` → ③ |
   | `ios_safari` | 같은 제목 | `say('알겠어요', 'Got it')` | 「공유 → 홈 화면에 추가」 두 줄 안내를 보여 주고, 누르면 `got_it` → ③ |

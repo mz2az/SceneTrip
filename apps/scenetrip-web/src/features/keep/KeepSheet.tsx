@@ -175,6 +175,8 @@ function KeepPromptStep() {
   const title =
     env === 'in_app_android'
       ? say('브라우저에서 열어 마이맵을 간직하세요', 'Open in your browser to keep My map')
+      : env === 'samsung_android'
+        ? say('크롬에서 열어 마이맵을 간직하세요', 'Open in Chrome to keep My map')
       : env === 'in_app_ios'
         ? say('사파리에서 열어 마이맵을 간직하세요', 'Open in Safari to keep My map')
         : env === 'other'
@@ -197,13 +199,17 @@ function KeepPromptStep() {
 
       {inApp ? (
         <PrimaryButton onClick={openBrowser}>{env === 'in_app_ios' ? say('사파리에서 열기', 'Open in Safari') : say('브라우저에서 열기', 'Open in browser')}</PrimaryButton>
+      ) : env === 'samsung_android' ? (
+        // 삼성 인터넷의 홈 화면 앱은 Play Protect 가 막는다 — 설치 창 대신 크롬으로 넘긴다(MZ2AZ-588).
+        <PrimaryButton onClick={openBrowser}>{say('크롬에서 열기', 'Open in Chrome')}</PrimaryButton>
       ) : env === 'installable' ? (
         <PrimaryButton disabled={installing} onClick={() => void install()}>{say('홈 화면에 추가', 'Add to Home Screen')}</PrimaryButton>
       ) : (
         <PrimaryButton onClick={() => act('got_it')}>{say('알겠어요', 'Got it')}</PrimaryButton>
       )}
 
-      {hint && (
+      {hint && env === 'samsung_android' && <GuideLines env={env} />}
+      {hint && env !== 'samsung_android' && (
         <div role="status" style={{ padding: '10px 12px', borderRadius: radius.s, background: 'var(--system-background)' }}>
           <Txt size={13} color="secondary">{say('안 열리면 오른쪽 위 ⋯ 를 눌러 「외부 브라우저에서 열기」 를 고르세요', "Didn't open? Tap ⋯ at the top right, then “Open in external browser”.")}</Txt>
         </div>
@@ -223,7 +229,9 @@ function GuideLines({ env }: { env: KeepEnv }) {
       ? [say('1. 오른쪽 위 ⋮ 를 누르세요', '1. Tap ⋮ at the top right'), say('2. 「홈 화면에 추가」 를 고르세요', '2. Choose “Add to Home screen”')]
       : env === 'ios_safari'
         ? [say('1. 아래쪽 공유 단추를 누르세요', '1. Tap the Share button below'), say('2. 「홈 화면에 추가」 를 고르세요', '2. Choose “Add to Home Screen”')]
-        : [say('1. 브라우저 메뉴를 여세요', '1. Open your browser menu'), say('2. 「즐겨찾기 추가」 를 고르세요', '2. Choose “Add bookmark”')]
+        : env === 'samsung_android'
+          ? [say('1. 아래 ≡ 를 누르세요', '1. Tap ≡ at the bottom'), say('2. 「현재 페이지 추가」 에서 「북마크」 를 고르세요', '2. Choose “Add page to”, then “Bookmarks”')]
+          : [say('1. 브라우저 메뉴를 여세요', '1. Open your browser menu'), say('2. 「즐겨찾기 추가」 를 고르세요', '2. Choose “Add bookmark”')]
   return (
     <VStack spacing={4} align="start" style={{ padding: '10px 12px', borderRadius: radius.s, background: 'var(--system-background)', alignSelf: 'stretch' }}>
       {lines.map((line, i) => (

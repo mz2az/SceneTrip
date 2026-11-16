@@ -36,6 +36,8 @@ export function keepEnv(input: { userAgent: string; standalone: boolean; canProm
     if (isIOSDevice(ua)) return 'in_app_ios'
     return 'other'
   }
+  // 삼성 인터넷이 만든 홈 화면 앱은 Play Protect 가 막는다 — 설치 창이 있어도 크롬으로 넘긴다(MZ2AZ-588).
+  if (isAndroid(ua) && ua.includes('SamsungBrowser')) return 'samsung_android'
   if (input.canPromptInstall) return 'installable'
   if (isAndroid(ua)) return 'android_menu'
   if (isIOSDevice(ua) && ua.includes('Safari') && !isOtherIOSBrowser(ua)) return 'ios_safari'
@@ -138,12 +140,18 @@ export function handoffKeepUrl(
 
 /**
  * 앱 안 브라우저에서 바깥 브라우저로 넘기는 주소. `url` 은 `https://` 로 시작하는 완전한 주소다.
- * 안드로이드는 `intent://` — 크롬을 지정(`package=`)하지 않는다(지정하면 안 열린다는 보고가 있다). iOS 는 `x-safari-`.
+ * 안드로이드 앱 안 브라우저는 `intent://` — 크롬을 지정(`package=`)하지 않는다(지정하면 안 열린다는 보고가 있다). iOS 는 `x-safari-`.
+ * 삼성 인터넷(`samsung_android`)은 크롬을 지정한 `intent://`(MZ2AZ-588).
  */
 export function handoffHref(env: KeepEnv, url: string): string | null {
   if (env === 'in_app_android') {
     const rest = url.replace(/^https:\/\//, '')
     return `intent://${rest}#Intent;scheme=https;S.browser_fallback_url=${encodeURIComponent(url)};end`
+  }
+  if (env === 'samsung_android') {
+    // 삼성 인터넷이 기본 브라우저라 크롬을 지정해야 크롬으로 간다. 크롬이 없으면 같은 주소를 이 브라우저에서 다시 연다.
+    const rest = url.replace(/^https:\/\//, '')
+    return `intent://${rest}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url)};end`
   }
   if (env === 'in_app_ios') return `x-safari-${url}`
   return null
