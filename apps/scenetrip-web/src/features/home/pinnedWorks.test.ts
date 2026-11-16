@@ -12,10 +12,29 @@ const ids = (list: ReadonlyArray<{ id: number }>) => list.map((x) => x.id)
 
 beforeEach(() => GET.mockReset())
 
-// 한 편만 고정했을 때의 동작은 고정 목록을 [32] 로 넘겨 본다(기본 목록은 11/15 부터 아홉 편).
+// 한 편만 고정했을 때의 동작은 고정 목록을 [32] 로 넘겨 본다(기본 목록은 11/17 부터 열 편).
 describe('withPinned — 고정 작품(케이팝 데몬 헌터스)을 맨 앞에', () => {
-  it('고정 목록 — 케데헌 다음 사용자 11/15 목록(우영우·눈물의 여왕·사내맞선·참교육·응답하라 1988·약한영웅·이태원 클라쓰·무빙)', () => {
-    expect(PINNED_CONTENT_IDS).toEqual([32, 58, 64, 55, 84, 103, 60, 123, 47])
+  it('고정 목록 — 케데헌, 우영우 다음 폭싹 속았수다(68, 11/17), 그 뒤 사용자 11/15 목록(눈물의 여왕, 사내맞선, 참교육, 응답하라 1988, 약한영웅, 이태원 클라쓰, 무빙)', () => {
+    expect(PINNED_CONTENT_IDS).toEqual([32, 58, 68, 64, 55, 84, 103, 60, 123, 47])
+  })
+
+  it('기본 목록 — 받은 목록에 폭싹 속았수다(68)가 있으면 세 번째로 올리고 따로 받지 않는다', async () => {
+    const rest = [32, 58, 64, 55, 84, 103, 60, 123, 47].map(w)
+    const out = await withPinned([w(1), w(68), w(2), ...rest])
+    expect(ids(out).slice(0, 3)).toEqual([32, 58, 68])
+    expect(ids(out)).toEqual([32, 58, 68, 64, 55, 84, 103, 60, 123, 47, 1, 2])
+    expect(ids(out).filter((id) => id === 68)).toHaveLength(1)
+    expect(GET).not.toHaveBeenCalled()
+  })
+
+  it('기본 목록 — 폭싹 속았수다(68)가 받은 목록에 없으면 GET /contents/68 로 받아 세 번째에 넣는다', async () => {
+    GET.mockResolvedValueOnce({ data: { ...w(68), title: '폭싹 속았수다', synopsis: 'x', aliases: [] } })
+    const rest = [32, 58, 64, 55, 84, 103, 60, 123, 47].map(w)
+    const out = await withPinned([w(1), ...rest])
+    expect(GET).toHaveBeenCalledTimes(1)
+    expect(GET.mock.calls[0]).toEqual(['/contents/{contentId}', { params: { path: { contentId: 68 } } }])
+    expect(ids(out)).toEqual([32, 58, 68, 64, 55, 84, 103, 60, 123, 47, 1])
+    expect(out[2].title).toBe('폭싹 속았수다')
   })
 
   it('내리는 목록 — 올드보이(29)·괴물(3)', () => {
