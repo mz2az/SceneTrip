@@ -226,3 +226,62 @@ iOS·Android 에는 아직 없다. 실험이 끝나 두 앱에 옮기면 §3 표
 | `add_more` | 「더 담기」(`/add`)가 떴다·주변 칸으로 담았다·일정 짜기 | `action` = `view`·`poi`·`plan` | `features/keep/AddMoreCover.tsx` |
 
 **덮개 동안의 전송**: 덮개가 떠 있는 동안은 분석 라이브러리를 받지 않는다(느린 폰). 그 사이 PostHog 로는 라이브러리 없이 공개 수집 API(`POST {host}/i/v0/e/`, `navigator.sendBeacon` — 없으면 `fetch` keepalive)로 곧바로 보내고, 라이브러리가 뜬 뒤에는 라이브러리로만 보낸다(같은 이벤트가 두 번 나가지 않는다). 익명 id 는 라이브러리를 켤 때 `bootstrap.distinctID` 로 넘겨 한 사람으로 잇는다(`src/analytics/anonId.ts`). **GA4 는 줄을 섰다가 라이브러리가 뜬 뒤 보낸다 — ③ 전에 떠난 사람은 GA4 에 남지 않는다**(Measurement Protocol 은 비밀 키가 필요해 브라우저에서 쓰지 않는다). 첫 화면 이탈은 PostHog 에서 `landing` `action=leave` 로 본다.
+
+### 방문 맥락과 이벤트 정리 (2026-11-16, MZ2AZ-585)
+
+11/14~16 사이 첫 화면, 마이맵, 더 담기, 홈 되돌림이 들어가며 이벤트가 화면을 따라오지 못했다. 코드의 호출 위치(`apps/scenetrip-web/src`, 시험 제외)와 이 문서를 맞춰 보고 사용자와 정했다(2026-11-16). 케데헌 맞춤 광고를 켜면 그 광고로 온 사람의 첫 방문, 재방문, 코스 생성을 따로 묶어 보는 것이 목적이다. 운영(app.scenetrip.io)에는 광고 영상이 준비되어 dev 를 main 으로 합칠 때 같이 올라간다.
+
+#### 방문 맥락 — 모든 이벤트에 붙는 속성
+
+구현 `src/analytics/visit.ts`. 앱이 뜰 때(`main.tsx`, 첫 화면 판정 `introStart` 뒤) 한 번 계산해 PostHog super property 와 GA4 매개변수로 이후 모든 이벤트에 싣는다(지금의 utm 과 같은 길). 저장소를 읽거나 쓰지 못해도 던지지 않는다.
+
+| 속성 | 값 | 정하는 법 |
+| --- | --- | --- |
+| `launch_mode` | `standalone`, `in_app`, `browser` | 홈 화면 앱으로 열었으면(`display-mode: standalone` 또는 iOS `navigator.standalone`) `standalone`, 아니고 인스타, 페이스북 등 앱 안 브라우저(`isInAppBrowser`)면 `in_app`, 그 밖은 `browser` |
+| `visit_kind` | `first`, `return` | 이 브라우저에 처음 온 때(`localStorage` `scenetrip.analytics.firstSeen`, 밀리초)가 없으면 `first` 이고 지금을 적는다. 있으면 `return` |
+| `first_entry` | `intro`, `app` | 이 세션이 첫 화면 덮개로 시작했으면 `intro`, 아니면 `app` |
+| `first_utm_*` | 처음 온 때의 광고 꼬리표 | 주소에 `utm_*` 가 있고 적어 둔 것이 없으면 `localStorage` `scenetrip.analytics.firstUtm` 에 적는다(처음 한 번, 덮어쓰지 않는다). 이름은 `utm_campaign` → `first_utm_campaign` 처럼 앞에 `first_` 를 붙인다. 이번 방문의 `utm_*`(세션)는 그대로 따로 실린다 |
+
+- 세션은 탭 단위다(`sessionStorage` `scenetrip.analytics.visit` 에 `visit_kind`, `first_entry` 를 적어 둔다). 같은 탭에서 새로 고치거나 주소가 바뀌어도 세션 첫 판정을 다시 쓴다 — `first_entry` 가 덮개를 걷은 뒤 `app` 으로 바뀌지 않고, 재방문을 두 번 세지 않는다.
+- 즐겨찾기 추가 자체는 브라우저가 알려 주지 않는다. 그래서 `return_visit` 의 `via=direct` 와 아래 `keep_prompt` `bookmark` 로 가늠한다.
+
+#### 새 이벤트, 새 값
+
+| 이벤트 | 언제 | 매개변수 | 구현(웹) |
+| --- | --- | --- | --- |
+| `return_visit` | 이 브라우저에 전에 온 적이 있는 사람이 새 세션을 열었다(세션에 한 번) | `days_since_first`(처음 온 때부터 지난 날 수, 내림 정수), `via` = `utm`(주소에 광고 꼬리표), `referrer`(다른 사이트에서 옴), `direct`(둘 다 없음: 즐겨찾기, 주소 입력, 홈 화면 앱) | `src/analytics/visit.ts` → `index.ts` `captureVisit` |
+| `keep_prompt` `action=bookmark` | 첫 화면 ⑤ 에서 「즐겨찾기에 추가하기」 를 눌렀다(일반 브라우저, `env=other`) | 기존 `env`, `where=intro` | `features/landing/KeepBeat.tsx` |
+| `keep_prompt` `action=home_screen_guide` | 첫 화면 ⑤ 에서 「홈 화면에 추가하기」 안내 단추를 눌렀다(`env` = `ios_safari`, `android_menu`) | 기존 `env`, `where=intro` | 같음 |
+
+- 전에는 이 단추가 안내만 펼치고 아무것도 남기지 않았다. 기록은 그다음 「알겠어요」(`got_it`)뿐이라, 누르고 바로 즐겨찾기하러 간 사람이 빠졌다. 누름은 즐겨찾기를 했다는 증거가 아니라 하려고 한 사람의 수다.
+- 담은 뒤 시트(`KeepSheet`)는 안내를 처음부터 펼쳐 보여 단추가 없다. 그쪽은 `view`(`env` 로 즐겨찾기, 홈 화면 안내를 가른다)가 같은 역할이다.
+
+#### 걷어 낸 것
+
+| 대상 | 이유 |
+| --- | --- |
+| `keep_nearby` | 정의만 있고 부르는 곳이 없었다(담은 뒤 시트의 주변 칩이 없어짐) |
+| `home_tap` 의 `pick_title`, `add_title`, `add_nearby`, `city_chip` | 부르는 곳이 없었다(다시 온 사람의 홈 시안을 11/15 걷어 냄) |
+| `plan_start` 의 `city_chip` | 부르는 곳이 없었다 |
+
+#### 문서만 맞춘 것 (코드는 전부터 이렇게 보냄)
+
+- `keep_more`: 「더 담기」 작품 칸에서 고른 작품(`features/keep/AddMoreCover.tsx`). 담은 뒤 시트에서는 이제 나가지 않는다.
+- `save_all` `source` 에 `landing`(첫 화면에서 담음, `state/cart.ts`).
+- `keep_arrive` 에 `poi_count`(넘어오며 새로 담긴 편의시설 수).
+- `save_poi`(편의시설을 담았다, `poi_id`, `category_group` = `food`, `stay`, `sight`, `transit`), `my_map_nearby`(마이맵에서 주변 칩을 켰다, `kind` = `food`, `shopping`, `sight`, `stay`) — 정의는 `keep-poi.md` §4.
+- `landing` 은 한 이름에 행동이 모여 있다. `view`, `rest`, `skip`, `save`, `browse` 는 `content_id`, `action` 만, `beat` 는 `beat` 를 더, `leave` 는 `beat`, `ms` 를 더 싣는다. 광고 지표가 이미 이 이름을 보므로 나누지 않는다.
+
+#### 점검하고 그대로 둔 것
+
+- 「더 담기」 의 「일정 짜기」 는 `add_more(plan)` 뒤 간직하기 시트를 거쳐 `plan_start`(`keep_sheet`)가 나간다. 첫 화면에서 온 사람인지는 `first_entry=intro` 로 나눠 본다.
+- 코스 편집 목록 사진의 ⓘ 는 장소 카드를 열어 `view_place` 가 나간다(`route/poi/PlaceCard.tsx`).
+- 지금 뜨는 작품 줄, 전체 보기는 `home_tap`(`trending_title`, `trending_all`) 뒤에 `view_title`.
+- `coach_tour` 는 코스 편집 화면(`RouteEditor.tsx`)에서 아직 뜬다.
+- 길찾기 단계 목록 누르기(MZ2AZ-566, 567)는 세지 않는다. 안내 시작(`start_trip`), 도착(`visit_stamp`)으로 충분하다.
+
+#### 도구별 할 일
+
+- PostHog: 없음(새 이벤트, 속성이 자동으로 잡힌다). 걷어 낸 값을 쓰던 저장된 화면이 있으면 고친다.
+- GA4: 맞춤 측정기준(이벤트 범위) 등록 — `launch_mode`, `visit_kind`, `first_entry`, `first_utm_campaign`, `first_utm_source`, `first_utm_content`, `via`, `days_since_first`. 등록 전 데이터는 보고서에 소급되지 않으므로 운영 반영 날 같이 한다.
+- Meta, Metabase, Sentry, Cloudflare: 없음(웹에 Meta 픽셀이 없고, Metabase 는 서버 DB 를 읽는다).

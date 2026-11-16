@@ -4,7 +4,7 @@
  *   landing   webEvent.landing(contentId, action)   content_id, action = view·skip·rest·save·browse
  *   add_more  webEvent.addMore(action)              action = view·poi·plan
  *   save_all  (있음)                                 source 에 landing
- *   home_tap  (있음)                                 section 에 pick_title·add_title·add_nearby·city_chip
+ *   home_tap  (있음)                                 section 에 add_more (pick_title, add_title, add_nearby, city_chip 은 MZ2AZ-585 에서 걷어 냄)
  *
  * save_all·home_tap 의 새 값은 실행 때는 문자열이 그대로 실릴 뿐이라 지금도 통과한다 — 지키는 것은 타입(SaveAllSource·HomeTapSection)이다.
  * 타입을 넓히기 전에는 `just check` 의 타입 검사가 이 파일에서 실패한다.
@@ -46,7 +46,7 @@ describe('save_all — source 에 landing', () => {
 })
 
 describe('home_tap — 새 section', () => {
-  it.each(['pick_title', 'add_title', 'add_nearby', 'city_chip', 'add_more'] as const)('homeTap(%s)', (section) => {
+  it.each(['add_more'] as const)('homeTap(%s)', (section) => {
     expect(webEvent.homeTap(section)).toEqual({ name: 'home_tap', params: { section } })
   })
 })

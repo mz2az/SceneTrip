@@ -24,9 +24,11 @@ export type EventName =
   // 웹 전용 — 담기 중심 흐름(docs/project/plans/web-keep-flow.md §4).
   | 'save_all' | 'keep_more' | 'keep_prompt' | 'keep_arrive' | 'my_map'
   // 웹 전용 — 편의시설 담기(docs/project/plans/keep-poi.md §4).
-  | 'save_poi' | 'my_map_nearby' | 'keep_nearby'
+  | 'save_poi' | 'my_map_nearby'
   // 웹 전용 — 광고 랜딩·더 담기(docs/project/plans/web-ad-landing.md §6).
   | 'landing' | 'add_more'
+  // 웹 전용 — 방문 맥락(analytics-events.md 「방문 맥락과 이벤트 정리」, MZ2AZ-585).
+  | 'return_visit'
 
 export type EventParams = Readonly<Record<string, string | number>>
 
@@ -106,11 +108,9 @@ export type HomeCitySource = 'default' | 'chip' | 'near_me' | 'proto_chip' | 'pr
 export type HomeScrollDepth = 25 | 50 | 75 | 100
 export type HomeTapSection =
   | 'trending_title' | 'trending_all' | 'today_place' | 'today_save' | 'community' | 'my_record' | 'plan_bar'
-  // 다시 온 사람의 홈(web-ad-landing.md §4·§6)
-  | 'pick_title' | 'add_title' | 'add_nearby' | 'city_chip'
   // 홈 마이맵 카드의 「더 담기」(→ /add, web-keep-flow.md §5-6)
   | 'add_more'
-export type PlanEntry = 'city_chip' | 'city_map' | 'fork_city' | 'fork_works' | 'fork_saved' | 'plan_bar' | 'my_map' | 'keep_sheet'
+export type PlanEntry = 'city_map' | 'fork_city' | 'fork_works' | 'fork_saved' | 'plan_bar' | 'my_map' | 'keep_sheet'
 export type PlanFlow = 'city' | 'works'
 export type PlanStep = 'city' | 'days' | 'how' | 'plan' | 'picker' | 'trip' | 'works' | 'planning'
 export type PlanFailReason = 'empty' | 'error' | 'save'
@@ -119,7 +119,9 @@ export type SignInPromptKey =
 
 /** 담기 중심 흐름(web-keep-flow.md §4) — 간직하기 권유의 환경은 keepRules 의 KeepEnv 와 같다. */
 export type KeepEnvParam = 'in_app_android' | 'in_app_ios' | 'installable' | 'android_menu' | 'ios_safari' | 'installed' | 'other'
-export type KeepPromptAction = 'view' | 'open_browser' | 'install' | 'install_accepted' | 'install_dismissed' | 'sign_in' | 'got_it' | 'skip'
+/** `bookmark`·`home_screen_guide` = 첫 화면 ⑤ 의 즐겨찾기, 홈 화면 추가 안내 단추를 눌렀다(MZ2AZ-585). */
+export type KeepPromptAction =
+  | 'view' | 'open_browser' | 'install' | 'install_accepted' | 'install_dismissed' | 'sign_in' | 'got_it' | 'skip' | 'bookmark' | 'home_screen_guide'
 /** 간직하기 권유가 뜬 자리 — 없으면 담은 뒤 시트, `intro` 는 첫 화면의 ⑤(web-ad-landing.md §13-1). */
 export type KeepPromptWhere = 'intro'
 export type MyMapAction = 'open_home' | 'open_keep' | 'open_detail' | 'open_place' | 'plan' | 'add_more'
@@ -136,6 +138,8 @@ export type AddMoreAction = 'view' | 'poi' | 'plan'
 /** 편의시설 담기(keep-poi.md §4) — 편의시설 갈래와 주변 칩. keepPoiRules 의 NearbyKind 와 같다. */
 export type PoiGroupParam = 'food' | 'stay' | 'sight' | 'transit'
 export type NearbyKindParam = 'food' | 'shopping' | 'sight' | 'stay'
+/** 다시 온 사람이 어떻게 왔나 — visit.ts 의 ReturnVia 와 같다. */
+export type ReturnVia = 'utm' | 'referrer' | 'direct'
 
 /**
  * 웹에만 있는 실험 이벤트. 위 `appEvent`(세 플랫폼 공통 26개)와 섞지 않는다 — 공통 표의 개수·이름 시험이 그대로 지켜진다.
@@ -187,8 +191,6 @@ export const webEvent = {
   savePoi: (poiId: number, group: PoiGroupParam) => make('save_poi', { poi_id: poiId, category_group: group }),
   /** 내 지도에서 주변 칩을 켰다(사용자가 누른 때만). */
   myMapNearby: (kind: NearbyKindParam) => make('my_map_nearby', { kind }),
-  /** 담은 뒤 시트 ① 에서 주변 칩을 눌렀다. */
-  keepNearby: (kind: NearbyKindParam) => make('keep_nearby', { kind }),
   // ── 광고 랜딩·더 담기 — web-ad-landing.md §6
   /** 광고 랜딩(`/go/{id}`)이 떴다·건너뛰었다·끝 장면에 닿았다·담았다·둘러보러 갔다. */
   landing: (contentId: number, action: LandingAction) => make('landing', { content_id: contentId, action }),
@@ -199,4 +201,7 @@ export const webEvent = {
     make('landing', { content_id: contentId, action: 'leave', beat, ms: Math.max(0, Math.round(ms)) }),
   /** 「더 담기」(`/add`)가 떴다·주변 칸으로 담았다·일정 짜기를 눌렀다. */
   addMore: (action: AddMoreAction) => make('add_more', { action }),
+  // ── 방문 맥락 — analytics-events.md 「방문 맥락과 이벤트 정리」(MZ2AZ-585)
+  /** 전에 온 적이 있는 브라우저가 새 탭 세션을 열었다(세션에 한 번). `via` 는 광고 꼬리표, 다른 사이트, 직접(즐겨찾기, 주소 입력, 홈 화면 앱). */
+  returnVisit: (daysSinceFirst: number, via: ReturnVia) => make('return_visit', { days_since_first: daysSinceFirst, via }),
 } as const

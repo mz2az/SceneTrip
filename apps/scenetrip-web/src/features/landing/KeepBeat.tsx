@@ -129,6 +129,12 @@ export function KeepBeat({ count, contentId, onDone, onNeedApp }: {
     finish()
   }
 
+  // 즐겨찾기, 홈 화면 추가 안내 단추 — 누른 것을 센다. 안내만 보고 「알겠어요」 없이 메뉴로 간 사람도 남게(MZ2AZ-585).
+  const openGuide = () => {
+    track(webEvent.keepPrompt(env, env === 'other' ? 'bookmark' : 'home_screen_guide', 'intro'))
+    setGuide(true)
+  }
+
   const gotIt = () => {
     track(webEvent.keepPrompt(env, 'got_it', 'intro'))
     finish()
@@ -189,7 +195,7 @@ export function KeepBeat({ count, contentId, onDone, onNeedApp }: {
             <Txt size={16} weight="bold" style={{ color: '#fff' }}>{say('알겠어요', 'Got it')}</Txt>
           </Pressable>
         ) : (
-          <Pressable plain className="proto-press st-keep__second" onClick={() => setGuide(true)}>
+          <Pressable plain className="proto-press st-keep__second" onClick={openGuide}>
             <Txt size={16} weight="bold" style={{ color: '#fff' }}>
               {env === 'other' ? say('즐겨찾기에 추가하기', 'Bookmark this page') : say('홈 화면에 추가하기', 'Add to Home Screen')}
             </Txt>
