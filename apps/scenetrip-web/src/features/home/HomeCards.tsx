@@ -3,6 +3,7 @@
  * 숫자·문구는 전부 서버·기기 값이다. 목업이 「카드 속 숫자·글은 배치용 예시」라고 못 박았다.
  */
 import { DeferredImg } from '@/design/DeferredImg'
+import { AddToHomeButton } from '@/features/keep/AddToHome'
 import { PosterImg } from '@/design/PosterImg'
 import { smallImage } from '@/shared/smallImage'
 import { Icon } from '@/design/Icon'
@@ -51,6 +52,8 @@ export function HomeHeader({ onProfile, onMyMap }: { onProfile: () => void; onMy
       {/* 「마이맵」 이름표 단추(배지 = 담은 수, 0 이면 배지 없음) — 담은 것이 없어도 늘 있다(web-keep-flow.md §12, 2026-11-15 사용자).
           어디서 담든 날아가 내려앉는 자리(web-ad-landing.md §9-3). */}
       <MyMapButton onPress={onMyMap} variant="pill" />
+      {/* 홈 화면 추가 — 늘 있는 단추, 홈 화면 앱이면 없다(web-home-install.md §1, MZ2AZ-589). */}
+      <AddToHomeButton />
       <Pressable
         plain
         onClick={onProfile}
