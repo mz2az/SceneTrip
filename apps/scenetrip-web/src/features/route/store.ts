@@ -9,6 +9,7 @@
  */
 import { ApiFailure, api, asFailure, installHeader, ok } from '@/api/client'
 import { appEvent, track, webEvent } from '@/analytics'
+import { installNudge } from '@/features/keep/installNudge'
 import { onLanguageChange, tr } from '@/i18n'
 import { useLikes } from '@/state/likes'
 import { accountGeneration, onAccountReset } from '@/state/shared'
@@ -157,7 +158,11 @@ export const routeActions = {
       }
       patch({ failure: null })
       // 핵심 지표 — 코스가 **새로** 만들어졌다. 고쳐 저장한 것은 세지 않는다 (MZ2AZ-353).
-      if (course.serverId === null) track(appEvent.createCourse(course.madeByAI ? 'ai' : 'self', course.days.length, coursePlaceCount(course)))
+      if (course.serverId === null) {
+        track(appEvent.createCourse(course.madeByAI ? 'ai' : 'self', course.days.length, coursePlaceCount(course)))
+        // 쓸모를 느낀 순간 — 홈 화면 추가를 권한다(web-home-install.md §1, MZ2AZ-589). 띄울지는 installNudge 가 정한다.
+        installNudge.request('course_created')
+      }
       const result = courseFromDetail(saved)
       await routeActions.refresh()
       return result

@@ -69,9 +69,9 @@ function storageOf(kind: 'localStorage' | 'sessionStorage'): VisitStore | null {
 
 /**
  * 앱이 뜰 때 한 번, 첫 화면 판정 뒤 — 방문 맥락을 정해 이후 모든 이벤트에 싣고, 다시 온 사람의 새 세션이면 `return_visit` 을 보낸다
- * (analytics-events.md 「방문 맥락과 이벤트 정리」, MZ2AZ-585). 던지지 않는다.
+ * (analytics-events.md 「방문 맥락과 이벤트 정리」, MZ2AZ-585). 던지지 않는다. `return_visit` 을 보냈으면 참(홈 화면 추가 권유, MZ2AZ-589).
  */
-export function captureVisit(intro: boolean, search: string = window.location.search): void {
+export function captureVisit(intro: boolean, search: string = window.location.search): boolean {
   try {
     const standalone =
       window.matchMedia?.('(display-mode: standalone)').matches === true || (navigator as Navigator & { standalone?: boolean }).standalone === true
@@ -86,9 +86,12 @@ export function captureVisit(intro: boolean, search: string = window.location.se
       session: storageOf('sessionStorage'),
     })
     visit = v.props
-    if (v.returnVisit) track(webEvent.returnVisit(v.returnVisit.daysSinceFirst, v.returnVisit.via))
+    if (!v.returnVisit) return false
+    track(webEvent.returnVisit(v.returnVisit.daysSinceFirst, v.returnVisit.via))
+    return true
   } catch {
     /* 분석이 앱을 깨면 안 된다 */
+    return false
   }
 }
 

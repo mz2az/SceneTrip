@@ -250,6 +250,8 @@ iOS·Android 에는 아직 없다. 실험이 끝나 두 앱에 옮기면 §3 표
 | 이벤트 | 언제 | 매개변수 | 구현(웹) |
 | --- | --- | --- | --- |
 | `return_visit` | 이 브라우저에 전에 온 적이 있는 사람이 새 세션을 열었다(세션에 한 번) | `days_since_first`(처음 온 때부터 지난 날 수, 내림 정수), `via` = `utm`(주소에 광고 꼬리표), `referrer`(다른 사이트에서 옴), `direct`(둘 다 없음: 즐겨찾기, 주소 입력, 홈 화면 앱) | `src/analytics/visit.ts` → `index.ts` `captureVisit` |
+| `add_to_home` | 홈 머리줄의 「홈 화면에 추가」 단추나 권유 띠에서 한 일(MZ2AZ-589, web-home-install.md §4) | `env`(간직하기와 같은 값), `action` = `view`, `tap`, `install_accepted`, `install_dismissed`, `open_browser`, `guide`, `got_it`, `dismiss`, `where` = `header`, `nudge`, `trigger` = `course_created`, `return_visit`(띠일 때만) | `src/features/keep/AddToHome.tsx` |
+| `app_installed` | 브라우저가 홈 화면 설치를 끝냈다(우리 단추, 브라우저 메뉴 모두) | 없음 | `src/features/keep/installPrompt.ts` |
 | `keep_prompt` `action=bookmark` | 첫 화면 ⑤ 에서 「즐겨찾기에 추가하기」 를 눌렀다(일반 브라우저, `env=other`) | 기존 `env`, `where=intro` | `features/landing/KeepBeat.tsx` |
 | `keep_prompt` `action=home_screen_guide` | 첫 화면 ⑤ 에서 「홈 화면에 추가하기」 안내 단추를 눌렀다(`env` = `ios_safari`, `android_menu`) | 기존 `env`, `where=intro` | 같음 |
 

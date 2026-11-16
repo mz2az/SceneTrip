@@ -23,3 +23,7 @@
   Cache-Control: no-cache
 /index.html
   Cache-Control: no-cache
+
+# 서비스 워커 — 바꾸면 바로 새 것을 받게(web-home-install.md §3)
+/sw.js
+  Cache-Control: no-cache
