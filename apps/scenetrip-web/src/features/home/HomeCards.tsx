@@ -42,12 +42,9 @@ export function HomeHeader({ onProfile, onMyMap }: { onProfile: () => void; onMy
   return (
     <HStack spacing={10} style={{ padding: '10px 20px 0' }}>
       <img src="/generated/haetae-face.png" alt="" width={44} height={38} style={{ objectFit: 'contain', flex: 'none' }} draggable={false} />
-      <VStack spacing={1} align="start">
-        {/* 앱 이름 — 광고로 처음 온 사람이 어느 앱인지 알게(web-keep-flow.md §5-6). 한·영 같은 글자, 앱 시그니처 보라. */}
-        <Txt size={13} weight="bold" style={{ color: 'var(--home-purple)' }}>SceneTrip</Txt>
-        {/* 폭 360 에서 「마이맵」 알약 옆 영어 제목이 세 줄이 되지 않게 좁은 화면에서만 조금 줄인다(402 에서 19). */}
-        <Txt size={19} weight="bold" style={{ fontSize: 'clamp(17px, 4.75vw, 19px)' }}>{tr('오늘은 어느 장면으로 갈까요?')}</Txt>
-      </VStack>
+      {/* 앱 이름 — 광고로 처음 온 사람이 어느 앱인지 알게(web-keep-flow.md §5-6). 한·영 같은 글자, 앱 시그니처 보라.
+          제목 「오늘은 어느 장면으로 갈까요?」 는 뺐다 — 단추가 늘어 세 줄로 접히며 맨 윗줄을 차지했다(MZ2AZ-592). */}
+      <Txt size={17} weight="heavy" style={{ color: 'var(--home-purple)' }}>SceneTrip</Txt>
       <Spacer />
       {/* 「마이맵」 이름표 단추(배지 = 담은 수, 0 이면 배지 없음) — 담은 것이 없어도 늘 있다(web-keep-flow.md §12, 2026-11-15 사용자).
           어디서 담든 날아가 내려앉는 자리(web-ad-landing.md §9-3). */}
