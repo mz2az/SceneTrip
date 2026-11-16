@@ -121,7 +121,7 @@ export type SignInPromptKey =
   | 'like' | 'comment' | 'save_course' | 'compose' | 'my_posts' | 'review' | 'block' | 'directions' | 'nudge' | 'profile' | 'session' | 'server' | 'other' | 'keep'
 
 /** 담기 중심 흐름(web-keep-flow.md §4) — 간직하기 권유의 환경은 keepRules 의 KeepEnv 와 같다. */
-export type KeepEnvParam = 'in_app_android' | 'in_app_ios' | 'installable' | 'android_menu' | 'ios_safari' | 'installed' | 'other'
+export type KeepEnvParam = 'in_app_android' | 'in_app_ios' | 'samsung_android' | 'installable' | 'android_menu' | 'ios_safari' | 'installed' | 'other'
 /** `bookmark`·`home_screen_guide` = 첫 화면 ⑤ 의 즐겨찾기, 홈 화면 추가 안내 단추를 눌렀다(MZ2AZ-585). */
 export type KeepPromptAction =
   | 'view' | 'open_browser' | 'install' | 'install_accepted' | 'install_dismissed' | 'sign_in' | 'got_it' | 'skip' | 'bookmark' | 'home_screen_guide' | 'open_browser_stuck'

@@ -173,6 +173,7 @@ describe('① more — 「더 담기」 로 간다', () => {
 const KEEP_TEXT: Record<Exclude<KeepEnv, 'installed'>, { ko: [string, string]; en: [string, string] }> = {
   in_app_android: { ko: ['브라우저에서 열어 마이맵을 간직하세요', '브라우저에서 열기'], en: ['Open in your browser to keep My map', 'Open in browser'] },
   in_app_ios: { ko: ['사파리에서 열어 마이맵을 간직하세요', '사파리에서 열기'], en: ['Open in Safari to keep My map', 'Open in Safari'] },
+  samsung_android: { ko: ['크롬에서 열어 마이맵을 간직하세요', '크롬에서 열기'], en: ['Open in Chrome to keep My map', 'Open in Chrome'] },
   installable: { ko: ['홈 화면에 SceneTrip 을 추가하세요', '홈 화면에 추가'], en: ['Add SceneTrip to your Home Screen', 'Add to Home Screen'] },
   android_menu: { ko: ['홈 화면에 SceneTrip 을 추가하세요', '알겠어요'], en: ['Add SceneTrip to your Home Screen', 'Got it'] },
   ios_safari: { ko: ['홈 화면에 SceneTrip 을 추가하세요', '알겠어요'], en: ['Add SceneTrip to your Home Screen', 'Got it'] },
@@ -340,6 +341,66 @@ describe('② keep — 로그인 보조 단추', () => {
     setSignedIn(true)
     openKeep(env)
     expect(screen.queryByText(SIGN_IN)).toBeNull()
+  })
+})
+
+// MZ2AZ-588 — 삼성 인터넷은 제 설치 창(WebAPK)을 Play 프로텍트가 막는다. 설치 창을 권하지 않고 크롬으로 넘긴다.
+describe('② keep — 삼성 인터넷(samsung_android): 크롬으로 넘기기', () => {
+  const SAMSUNG: KeepEnv = 'samsung_android'
+  const GUIDE = ['1. 아래 ≡ 를 누르세요', '2. 「현재 페이지 추가」 에서 「북마크」 를 고르세요']
+  const chromeHref = (url: string) =>
+    `intent://${url.replace(/^https:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url)};end`
+  const stuck = () => events().filter((e) => e.name === 'keep_prompt' && e.params.action === 'open_browser_stuck')
+
+  it('제목 「크롬에서 열어 마이맵을 간직하세요」, 주 단추 「크롬에서 열기」, 설치 단추 없음', () => {
+    openKeep(SAMSUNG)
+    expect(bodyText()).toContain('크롬에서 열어 마이맵을 간직하세요')
+    expect(buttonWith('크롬에서 열기')).toBeTruthy()
+    expect(screen.queryByText('홈 화면에 추가')).toBeNull()
+    expect(h.promptInstall).not.toHaveBeenCalled()
+  })
+
+  it('「나중에」 와 (가입 안 함) 「로그인해서 간직하기」 는 그대로', () => {
+    openKeep(SAMSUNG)
+    expect(buttonWith('나중에')).toBeTruthy()
+    expect(buttonWith('로그인해서 간직하기')).toBeTruthy()
+  })
+
+  it('누르면 keep_prompt(samsung_android, open_browser) + 크롬 intent 로 handoff.open, 설치 창은 부르지 않는다', () => {
+    openKeep(SAMSUNG)
+    fireEvent.click(buttonWith('크롬에서 열기'))
+    expect(hasEvent(webEvent.keepPrompt(SAMSUNG, 'open_browser'))).toBe(true)
+    expect(h.handoffOpen).toHaveBeenCalledTimes(1)
+    const href = h.handoffOpen.mock.calls[0]![0] as string
+    expect(href.startsWith('intent://')).toBe(true)
+    expect(href).toContain('package=com.android.chrome')
+    expect(href).toBe(chromeHref(keepUrl(window.location.origin, [32, 25])))
+    expect(h.promptInstall).not.toHaveBeenCalled()
+  })
+
+  it('1.5초 뒤에도 보이면 open_browser_stuck 한 번 + 두 줄 안내', () => {
+    vi.useFakeTimers()
+    openKeep(SAMSUNG)
+    fireEvent.click(buttonWith('크롬에서 열기'))
+    for (const line of GUIDE) expect(bodyText()).not.toContain(line)
+    act(() => {
+      vi.advanceTimersByTime(1500)
+    })
+    expect(stuck()).toEqual([webEvent.keepPrompt(SAMSUNG, 'open_browser_stuck')])
+    for (const line of GUIDE) expect(bodyText()).toContain(line)
+  })
+
+  it('넘어가서 화면이 가려졌으면 아무것도 하지 않는다', () => {
+    vi.useFakeTimers()
+    openKeep(SAMSUNG)
+    fireEvent.click(buttonWith('크롬에서 열기'))
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
+    act(() => {
+      vi.advanceTimersByTime(1500)
+    })
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
+    expect(stuck()).toEqual([])
+    for (const line of GUIDE) expect(bodyText()).not.toContain(line)
   })
 })
 

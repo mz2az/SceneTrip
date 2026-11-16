@@ -440,6 +440,85 @@ describe('보조 안내 단추를 누르면 keep_prompt(bookmark 또는 home_scr
   })
 })
 
+// MZ2AZ-588 — 삼성 인터넷은 제 설치 창(WebAPK)을 Play 프로텍트가 막는다. 설치 창 대신 크롬으로 넘긴다.
+const UA_SAMSUNG =
+  'Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/27.0 Chrome/125.0.0.0 Mobile Safari/537.36'
+const SAMSUNG_GUIDE = ['1. 아래 ≡ 를 누르세요', '2. 「현재 페이지 추가」 에서 「북마크」 를 고르세요']
+
+describe('삼성 인터넷(samsung_android) — 크롬에서 열기', () => {
+  /** 브라우저가 설치 창을 주었다(beforeinstallprompt) — 붙잡혀 있어도 쓰지 않아야 한다. */
+  let installPrompt: ReturnType<typeof vi.fn>
+  beforeEach(async () => {
+    const { startInstallPromptCapture } = await import('@/features/keep/installPrompt')
+    startInstallPromptCapture()
+    installPrompt = vi.fn(async () => {})
+    const event = Object.assign(new Event('beforeinstallprompt', { cancelable: true }), {
+      prompt: installPrompt,
+      userChoice: Promise.resolve({ outcome: 'accepted' as const }),
+    })
+    window.dispatchEvent(event)
+  })
+  afterEach(() => {
+    // 붙잡은 설치 창을 버린다 — 다른 시험에 새지 않게.
+    window.dispatchEvent(new Event('appinstalled'))
+  })
+
+  it('보조 단추는 「크롬에서 열기」 — 「홈 화면에 추가」 는 없고, 설치 창을 부르지 않는다', async () => {
+    const { canPromptInstall } = await import('@/features/keep/installPrompt')
+    expect(canPromptInstall()).toBe(true)
+    setUA(UA_SAMSUNG)
+    await keepAll()
+    expect(buttonWith('크롬에서 열기')).toBeTruthy()
+    expect(screen.queryByText('홈 화면에 추가')).toBeNull()
+    expect(screen.queryByText('홈 화면에 추가하기')).toBeNull()
+    expect(prompts()).toEqual([{ env: 'samsung_android', action: 'view', where: 'intro' }])
+    expect(installPrompt).not.toHaveBeenCalled()
+  })
+
+  it("영어 — 'Open in Chrome'", async () => {
+    chooseLanguage('en')
+    setUA(UA_SAMSUNG)
+    await keepAll('Keep these 3 on My map')
+    expect(buttonWith('Open in Chrome')).toBeTruthy()
+  })
+
+  it('누르면 open_browser(intro) + 크롬 intent 로 handoff.open, 설치 창은 부르지 않는다', async () => {
+    setUA(UA_SAMSUNG)
+    await keepAll()
+    fireEvent.click(buttonWith('크롬에서 열기'))
+    expect(prompts()).toContainEqual({ env: 'samsung_android', action: 'open_browser', where: 'intro' })
+    expect(openSpy).toHaveBeenCalledTimes(1)
+    const href = openSpy.mock.calls[0]![0] as string
+    expect(href.startsWith('intent://')).toBe(true)
+    expect(href).toContain('package=com.android.chrome')
+    expect(href).toContain('/my-map?keep=32')
+    expect(installPrompt).not.toHaveBeenCalled()
+    expect(actions()).not.toContain('install')
+  })
+
+  it('1.5초 뒤에도 보이면 open_browser_stuck(intro) 한 번 + 두 줄 안내', async () => {
+    setUA(UA_SAMSUNG)
+    await keepAll()
+    fireEvent.click(buttonWith('크롬에서 열기'))
+    for (const line of SAMSUNG_GUIDE) expect(document.body.textContent).not.toContain(line)
+    await advance(1500)
+    expect(prompts().filter((p) => p.action === 'open_browser_stuck')).toEqual([{ env: 'samsung_android', action: 'open_browser_stuck', where: 'intro' }])
+    for (const line of SAMSUNG_GUIDE) expect(document.body.textContent).toContain(line)
+    expect(closes).toEqual([])
+  })
+
+  it('넘어가서 화면이 가려졌으면 안내도 이벤트도 없다', async () => {
+    setUA(UA_SAMSUNG)
+    await keepAll()
+    fireEvent.click(buttonWith('크롬에서 열기'))
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
+    await advance(1500)
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
+    expect(prompts().filter((p) => p.action === 'open_browser_stuck')).toEqual([])
+    for (const line of SAMSUNG_GUIDE) expect(document.body.textContent).not.toContain(line)
+  })
+})
+
 describe('나중에', () => {
   it('keep_prompt(skip, intro) + onClose(kept) — 「더 담기」 로', async () => {
     setUA(UA.fbAndroid)
