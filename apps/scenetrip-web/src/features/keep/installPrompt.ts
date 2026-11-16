@@ -11,6 +11,7 @@
  * 설치 창은 한 번 쓰면 다시 쓸 수 없다(브라우저 규칙). 쓰고 나면 버리고 다음 `beforeinstallprompt` 를 기다린다.
  */
 import { useSyncExternalStore } from 'react'
+import { track, webEvent } from '@/analytics'
 import { type KeepEnv, keepEnv } from './keepRules'
 
 /** 표준 DOM 타입에 아직 없다(크로미움 전용). */
@@ -38,7 +39,11 @@ export function startInstallPromptCapture(): void {
     event.preventDefault()
     setDeferred(event as BeforeInstallPromptEvent)
   })
-  window.addEventListener('appinstalled', () => setDeferred(null))
+  window.addEventListener('appinstalled', () => {
+    setDeferred(null)
+    // 우리 단추든 브라우저 메뉴든 설치가 끝났다(web-home-install.md §4, MZ2AZ-589).
+    track(webEvent.appInstalled())
+  })
 }
 
 export function canPromptInstall(): boolean {

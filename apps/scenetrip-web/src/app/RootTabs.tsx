@@ -12,6 +12,7 @@ import { Cover } from '@/design/overlay'
 import { CommunityTab } from '@/features/community/CommunityTab'
 import { HomeTab } from '@/features/home/HomeTab'
 import { AddMoreCover, CartToast, KeepArrival, KeepSheet, MyMapCover } from '@/features/keep'
+import { AddToHomeNudge } from '@/features/keep/AddToHome'
 import { TrendingCover } from '@/features/home/TrendingWorks'
 import { ProfileCover } from '@/features/profile/ProfileCover'
 import { RootSheets } from '@/features/profile/RootSheets'
@@ -102,6 +103,8 @@ export function RootTabs() {
       {/* 담은 뒤 시트(§5-2)와 `?keep=` 으로 넘어온 사람 처리(§5-4). */}
       <KeepSheet />
       <KeepArrival />
+      {/* 홈 화면 추가 권유 띠 — 처음 코스 저장 직후, 다시 온 새 세션(web-home-install.md §1). */}
+      <AddToHomeNudge />
       {/* 「어디로 가세요?」 시안 — 로컬 개발 서버에서만(docs/project/plans/web-trip-first-prototypes.md). */}
       {protoAvailable && <ProtoHomeBar onHome={tab === 'home' && cover === null} />}
       {protoAvailable && <ProtoLayer />}

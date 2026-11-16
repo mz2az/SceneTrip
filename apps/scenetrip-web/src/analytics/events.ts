@@ -29,6 +29,8 @@ export type EventName =
   | 'landing' | 'add_more'
   // 웹 전용 — 방문 맥락(analytics-events.md 「방문 맥락과 이벤트 정리」, MZ2AZ-585).
   | 'return_visit'
+  | 'add_to_home'
+  | 'app_installed'
   // 웹 전용 — 로그인이 끝나지 않았다(MZ2AZ-586).
   | 'sign_in_failed'
 
@@ -127,6 +129,12 @@ export type KeepPromptAction =
   | 'view' | 'open_browser' | 'install' | 'install_accepted' | 'install_dismissed' | 'sign_in' | 'got_it' | 'skip' | 'bookmark' | 'home_screen_guide' | 'open_browser_stuck'
 /** 간직하기 권유가 뜬 자리 — 없으면 담은 뒤 시트, `intro` 는 첫 화면의 ⑤(web-ad-landing.md §13-1). */
 export type KeepPromptWhere = 'intro'
+/** 홈 화면 추가 단추와 권유 띠에서 한 일(web-home-install.md §4, MZ2AZ-589). `view` 는 띠가 보임, `guide` 는 메뉴 안내 시트가 뜸, `dismiss` 는 띠를 닫음. */
+export type AddToHomeAction = 'view' | 'tap' | 'install_accepted' | 'install_dismissed' | 'open_browser' | 'guide' | 'got_it' | 'dismiss'
+/** `header` = 홈 머리줄 단추, `nudge` = 권유 띠. */
+export type AddToHomeWhere = 'header' | 'nudge'
+/** 권유 띠를 띄운 때 — keep/installNudgeRules 의 NudgeTrigger 와 같다. */
+export type AddToHomeTrigger = 'course_created' | 'return_visit'
 export type MyMapAction = 'open_home' | 'open_keep' | 'open_detail' | 'open_place' | 'plan' | 'add_more'
 /** 「모두 담기」 가 일어난 자리(§9-3) — 작품 상세 · 담은 뒤 시트 ① 의 포스터 · `?keep=` 으로 넘어옴. */
 export type SaveAllSource = 'detail' | 'more' | 'arrive' | 'landing'
@@ -211,4 +219,9 @@ export const webEvent = {
   returnVisit: (daysSinceFirst: number, via: ReturnVia) => make('return_visit', { days_since_first: daysSinceFirst, via }),
   /** 로그인을 시작했는데 끝나지 않았다 — 앱 안 브라우저에서 창이 막히는지, 사람이 닫는지(MZ2AZ-586). */
   signInFailed: (method: 'google' | 'apple', reason: SignInFailReason) => make('sign_in_failed', { method, reason }),
+  /** 홈 화면 추가 단추, 권유 띠 — 띠일 때만 `trigger` 가 붙는다(web-home-install.md §4, MZ2AZ-589). */
+  addToHome: (env: KeepEnvParam, action: AddToHomeAction, where: AddToHomeWhere, trigger?: AddToHomeTrigger) =>
+    make('add_to_home', trigger ? { env, action, where, trigger } : { env, action, where }),
+  /** 브라우저가 홈 화면 설치를 끝냈다(`appinstalled`, 브라우저 메뉴로 설치한 것도 포함). */
+  appInstalled: () => make('app_installed'),
 } as const
