@@ -1,6 +1,6 @@
 /*
  * 홈 탭 아래 떠 있는 가입 권유 알약(MZ2AZ-564, docs/project/plans/web-signup-nudge.md §1).
- * 규칙·저장은 signUpNudgeRules.ts. 누르면 기존 로그인 시트, ✕ 면 3 일 숨긴다.
+ * 규칙·저장은 signUpNudgeRules.ts. 누르면 기존 로그인 시트, ✕ 면 하루 숨긴다(MZ2AZ-593).
  */
 import { useEffect, useState } from 'react'
 import { track, webEvent } from '@/analytics'
@@ -9,6 +9,7 @@ import { say, useLang } from '@/i18n'
 import { useStore } from '@/state/storage'
 import { cartStore } from '@/state/cart'
 import { likeStore } from '@/state/likes'
+import { useInstallNudge } from '@/features/keep/installNudge'
 import { accountActions, useAccount } from './account'
 import { dismiss, markShown, nudgeCompact, nudgeMessage, nudgeShownThisSession, nudgeTrigger, nudgeVisible, readNudgeState } from './signUpNudgeRules'
 
@@ -19,8 +20,10 @@ export function SignUpNudge({ onHome, protoOn = false }: { onHome: boolean; prot
   const savedSpots = useStore(cartStore, (s) => s.placeIds.size + s.poiIds.size)
   const likedWorks = useStore(likeStore, (s) => s.contentIds.size)
   const [closed, setClosed] = useState(false)
+  // 홈 화면 추가 띠가 떠 있으면 비켜 준다 — 한 번에 권유 하나(MZ2AZ-593).
+  const installNudgeOn = useInstallNudge() !== null
 
-  const visible = !closed && nudgeVisible(readNudgeState(), {
+  const visible = !closed && !installNudgeOn && nudgeVisible(readNudgeState(), {
     signedIn, onHome, protoOn, savedPlaces, likedWorks, now: Date.now(), shownThisSession: nudgeShownThisSession(),
   })
   const trigger = nudgeTrigger(savedPlaces, likedWorks)

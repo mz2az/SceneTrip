@@ -364,3 +364,31 @@ describe('mapBounds — 담은 곳을 다 보이게', () => {
     expect(mapBounds([])).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------- iOS 웹뷰 껍데기(MZ2AZ-591)
+
+describe('keepEnv — iOS 웹뷰 껍데기(SceneTripShell/) 는 설치된 앱이다(MZ2AZ-591)', () => {
+  const SHELL_IPHONE =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SceneTripShell/1'
+
+  it('껍데기 UA → installed', () => {
+    expect(env(SHELL_IPHONE)).toBe('installed')
+  })
+
+  it('설치 창이 있어도 installed(installable 보다 먼저)', () => {
+    expect(env(SHELL_IPHONE, false, true)).toBe('installed')
+  })
+
+  it('앱 안 브라우저 표식이 섞여 있어도 installed(in_app 보다 먼저)', () => {
+    expect(env(`${IG_IPHONE} SceneTripShell/1`)).toBe('installed')
+    expect(env(`${FB_IPHONE} SceneTripShell/1`)).toBe('installed')
+  })
+
+  it('standalone 은 그대로 installed', () => {
+    expect(env(SHELL_IPHONE, true, false)).toBe('installed')
+  })
+
+  it('보통 아이폰 사파리는 그대로 ios_safari', () => {
+    expect(env(SAFARI_IPHONE)).toBe('ios_safari')
+  })
+})

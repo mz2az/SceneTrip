@@ -203,7 +203,7 @@ describe.each<[string, CartItem[]]>([
   it('머리줄 → (마이맵) → 「어디로 여행 가세요?」 → 「지금 뜨는 작품」·「전체 보기」 → 오늘의 성지', async () => {
     renderHome()
     const ask = await vi.waitFor(() => textNode('어디로 여행 가세요?'))
-    const head = textNode('오늘은 어느 장면으로 갈까요?')
+    const head = textNode('SceneTrip')
     const shelf = textNode('지금 뜨는 작품')
     const all = screen.getByRole('button', { name: '전체 보기' })
     const today = textNode('오늘의 성지')
@@ -292,7 +292,7 @@ describe('홈 머리줄 「마이맵」 단추', () => {
   it('담은 것이 0 이어도 있다 — 「마이맵」 글자, 배지 없음, 누르면 /my-map + my_map(open_home)', async () => {
     withCart([])
     renderHome()
-    await vi.waitFor(() => textNode('오늘은 어느 장면으로 갈까요?'))
+    await vi.waitFor(() => textNode('SceneTrip'))
     const button = screen.getByRole('button', { name: '마이맵' })
     expect(button.textContent).toContain('마이맵')
     expect(button.textContent ?? '').not.toMatch(/\d/)

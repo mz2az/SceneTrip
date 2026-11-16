@@ -103,7 +103,7 @@ export const appEvent = {
 } as const
 
 /** 가입 권유 알약이 뜬 이유(MZ2AZ-564) — signUpNudgeRules.ts 의 NudgeTrigger 와 같다. */
-export type NudgeTriggerParam = 'saved' | 'views'
+export type NudgeTriggerParam = 'saved' | 'views' | 'home'
 
 /** 홈 「도시의 성지」에서 도시가 정해진 계기 — 처음 고른 것·칩을 누름·「내 위치」. */
 export type HomeCitySource = 'default' | 'chip' | 'near_me' | 'proto_chip' | 'proto_grid'

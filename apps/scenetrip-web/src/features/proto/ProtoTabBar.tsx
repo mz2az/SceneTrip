@@ -32,11 +32,10 @@ export function ProtoTabBar({ selected, onSelect }: { selected: TabId; onSelect:
       <div
         style={{
           position: 'absolute', left: 16, right: 16, bottom: 'calc(var(--safe-bottom) + 8px)', height: 58, borderRadius: radius.pill,
-          // 유리 — 바탕은 아주 얇게(15%)만 깔고 흐림을 둬 뒤가 비친다. 88% 를 깔았더니 흰 카드 위에서 불투명한 판으로 보였다
-          // (iOS 가 같은 이유로 리퀴드 글라스로 바꿨다, 2026-11-10 사용자 지적). 40% 도 휴대폰에서 불투명해 보였다(11-11). 가장자리의 얇은 빛 줄이 유리 테두리 몫이다.
-          background: 'color-mix(in srgb, var(--system-background) 15%, transparent)', backdropFilter: 'blur(14px) saturate(1.8)', WebkitBackdropFilter: 'blur(14px) saturate(1.8)',
-          border: '0.5px solid color-mix(in srgb, var(--system-background) 70%, transparent)',
-          boxShadow: `0 4px 14px rgba(0, 0, 0, 0.08), inset 0 1px 0 color-mix(in srgb, var(--system-background) 60%, transparent)`, display: 'flex', padding: 5, pointerEvents: 'auto',
+          // 불투명 — 유리(15% 바탕 + 흐림)는 뒤의 포스터가 비쳐 탭 글자가 잘 안 보였다(2026-11-17 사용자, MZ2AZ-592).
+          background: 'var(--system-background)',
+          border: '0.5px solid var(--separator, rgba(60,60,67,0.18))',
+          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.12)', display: 'flex', padding: 5, pointerEvents: 'auto',
         }}
       >
         {/* 고른 탭 뒤의 알약 — 탭을 바꾸면 미끄러져 옮겨 간다 */}

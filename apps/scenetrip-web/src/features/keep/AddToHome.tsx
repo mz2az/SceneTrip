@@ -22,7 +22,7 @@ import { cartStore } from '@/state/cart'
 import { handoff } from './handoff'
 import { installNudge, useInstallNudge } from './installNudge'
 import type { NudgeTrigger } from './installNudgeRules'
-import { currentKeepEnv, promptInstall } from './installPrompt'
+import { currentKeepEnv, promptInstall, useCanPromptInstall } from './installPrompt'
 import { type KeepEnv, handoffHref, handoffKeepUrl } from './keepRules'
 
 /** 바깥 브라우저로 넘긴 뒤 이만큼 지나도 화면이 보이면 넘어가지 못한 것으로 본다(간직하기와 같은 규칙). */
@@ -34,6 +34,8 @@ type GuideEnv = Exclude<KeepEnv, 'installable' | 'installed'>
 /** 단추와 띠가 같이 쓰는 누름 흐름. 안내 시트는 띠가 내려간 뒤에도 남아야 해서 이 훅을 쓰는 쪽이 그린다. */
 function useAddToHome(where: AddToHomeWhere) {
   const [guide, setGuide] = useState<GuideEnv | null>(null)
+  /** 안내 시트를 열 때의 환경 — 시트 안에서 한 일의 이벤트는 이 값으로 센다. */
+  const [guideFrom, setGuideFrom] = useState<KeepEnv>('other')
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current)
@@ -41,6 +43,7 @@ function useAddToHome(where: AddToHomeWhere) {
 
   const showGuide = (env: KeepEnv, guideEnv: GuideEnv, trigger?: NudgeTrigger) => {
     track(webEvent.addToHome(env, 'guide', where, trigger))
+    setGuideFrom(env)
     setGuide(guideEnv)
   }
 
@@ -69,11 +72,18 @@ function useAddToHome(where: AddToHomeWhere) {
   }
 
   const gotIt = (trigger?: NudgeTrigger) => {
-    track(webEvent.addToHome(currentKeepEnv(), 'got_it', where, trigger))
+    track(webEvent.addToHome(guideFrom, 'got_it', where, trigger))
     setGuide(null)
   }
 
-  return { guide, press, gotIt, closeGuide: () => setGuide(null) }
+  // 크롬은 사이트를 누르고 30초쯤 머문 뒤에야 설치 창을 준다 — 안내 시트가 떠 있는 동안 오면 「지금 설치」 로 바로 설치한다(MZ2AZ-590).
+  const installNow = async (trigger?: NudgeTrigger) => {
+    const outcome = await promptInstall()
+    if (outcome !== 'unavailable') track(webEvent.addToHome(guideFrom, outcome === 'accepted' ? 'install_accepted' : 'install_dismissed', where, trigger))
+    setGuide(null)
+  }
+
+  return { guide, press, gotIt, installNow, closeGuide: () => setGuide(null) }
 }
 
 const HOME_ADD = () => say('홈 화면에 추가', 'Add to Home Screen')
@@ -81,7 +91,7 @@ const HOME_ADD = () => say('홈 화면에 추가', 'Add to Home Screen')
 export function AddToHomeButton(): JSX.Element | null {
   useLang()
   const [env] = useState<KeepEnv>(currentKeepEnv)
-  const { guide, press, gotIt, closeGuide } = useAddToHome('header')
+  const { guide, press, gotIt, installNow, closeGuide } = useAddToHome('header')
   if (env === 'installed') return null
   return (
     <>
@@ -93,7 +103,7 @@ export function AddToHomeButton(): JSX.Element | null {
       >
         <Icon name="arrow.down.to.line" size={17} weight="medium" />
       </Pressable>
-      <GuideSheet env={guide} onGotIt={() => gotIt()} onClose={closeGuide} />
+      <GuideSheet env={guide} onGotIt={() => gotIt()} onInstall={() => void installNow()} onClose={closeGuide} />
     </>
   )
 }
@@ -103,7 +113,7 @@ export function AddToHomeNudge(): JSX.Element | null {
   const trigger = useInstallNudge()
   // 띠가 내려간 뒤 안내 시트가 뜰 수 있다 — 그때 쓸 이유를 붙잡아 둔다.
   const [lastTrigger, setLastTrigger] = useState<NudgeTrigger | null>(trigger)
-  const { guide, press, gotIt, closeGuide } = useAddToHome('nudge')
+  const { guide, press, gotIt, installNow, closeGuide } = useAddToHome('nudge')
   const viewed = useRef<NudgeTrigger | null>(null)
 
   useEffect(() => {
@@ -150,7 +160,7 @@ export function AddToHomeNudge(): JSX.Element | null {
           </Pressable>
         </div>
       )}
-      <GuideSheet env={guide} onGotIt={() => gotIt(lastTrigger ?? undefined)} onClose={closeGuide} />
+      <GuideSheet env={guide} onGotIt={() => gotIt(lastTrigger ?? undefined)} onInstall={() => void installNow(lastTrigger ?? undefined)} onClose={closeGuide} />
     </>
   )
 }
@@ -173,7 +183,8 @@ function guideLines(env: GuideEnv): [string, string] {
   }
 }
 
-function GuideSheet({ env, onGotIt, onClose }: { env: GuideEnv | null; onGotIt: () => void; onClose: () => void }) {
+function GuideSheet({ env, onGotIt, onInstall, onClose }: { env: GuideEnv | null; onGotIt: () => void; onInstall: () => void; onClose: () => void }) {
+  const canInstall = useCanPromptInstall()
   const title = say('홈 화면에 SceneTrip 을 추가하세요', 'Add SceneTrip to your Home Screen')
   return (
     <Sheet open={env !== null} onClose={onClose} floating detent={300} radius={30} label={title}>
@@ -188,7 +199,11 @@ function GuideSheet({ env, onGotIt, onClose }: { env: GuideEnv | null; onGotIt: 
               </HStack>
             ))}
           </VStack>
-          <PrimaryButton onClick={onGotIt}>{say('알겠어요', 'Got it')}</PrimaryButton>
+          {canInstall ? (
+            <PrimaryButton onClick={onInstall}>{say('지금 설치', 'Install now')}</PrimaryButton>
+          ) : (
+            <PrimaryButton onClick={onGotIt}>{say('알겠어요', 'Got it')}</PrimaryButton>
+          )}
         </VStack>
       )}
     </Sheet>

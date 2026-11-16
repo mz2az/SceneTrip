@@ -32,6 +32,13 @@ const h = vi.hoisted(() => ({
   dismiss: vi.fn(),
   accept: vi.fn(),
   request: vi.fn(),
+  // 설치 창이 붙잡혀 있나(installPrompt 의 canPromptInstall / useCanPromptInstall). 기본은 없다.
+  canPrompt: false,
+  canPromptListeners: new Set<() => void>(),
+  setCanPrompt(next: boolean) {
+    this.canPrompt = next
+    this.canPromptListeners.forEach((l) => l())
+  },
 }))
 
 vi.mock('@/analytics', async (importOriginal) => ({
@@ -39,11 +46,20 @@ vi.mock('@/analytics', async (importOriginal) => ({
   track: vi.fn(),
   handoffParams: () => ({ utm_source: 'meta', aid: 'anon-1' }),
 }))
-vi.mock('@/features/keep/installPrompt', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/features/keep/installPrompt')>()),
-  currentKeepEnv: () => h.env,
-  promptInstall: () => h.promptInstall(),
-}))
+vi.mock('@/features/keep/installPrompt', async (importOriginal) => {
+  const { useSyncExternalStore } = await import('react')
+  const subscribe = (l: () => void) => {
+    h.canPromptListeners.add(l)
+    return () => h.canPromptListeners.delete(l)
+  }
+  return {
+    ...(await importOriginal<typeof import('@/features/keep/installPrompt')>()),
+    currentKeepEnv: () => h.env,
+    promptInstall: () => h.promptInstall(),
+    canPromptInstall: () => h.canPrompt,
+    useCanPromptInstall: () => useSyncExternalStore(subscribe, () => h.canPrompt, () => false),
+  }
+})
 vi.mock('@/features/keep/handoff', () => ({ handoff: { open: (href: string) => h.handoffOpen(href) } }))
 vi.mock('@/features/keep/installNudge', async () => {
   const { useSyncExternalStore } = await import('react')
@@ -138,6 +154,8 @@ beforeEach(() => {
   h.dismiss.mockReset()
   h.accept.mockReset()
   h.request.mockReset()
+  h.canPrompt = false
+  h.canPromptListeners.clear()
   setVisibility('visible')
   cartStore.set({ loadState: 'loaded', placeIds: new Set([101]), items: [UA_SAMPLE_CART_ITEM] as never, pois: [], poiIds: new Set(), toast: null })
   vi.mocked(track).mockClear()
@@ -437,5 +455,168 @@ describe('AddToHomeNudge — 누르기', () => {
     const href = h.handoffOpen.mock.calls[0]?.[0] as string | undefined
     expect(href).toContain('package=com.android.chrome')
     expect(addToHome()).toContainEqual({ env: 'samsung_android', action: 'open_browser', where: 'nudge', trigger: 'course_created' })
+  })
+})
+
+// ---------------------------------------------------------------- 안내 시트가 떠 있는 동안 설치 창이 오면(MZ2AZ-590)
+//
+//   크롬은 30초쯤 머문 뒤에야 beforeinstallprompt 를 준다. 그 전에 누르면 안내 시트가 뜬다.
+//   시트가 떠 있는 동안 useCanPromptInstall() 이 true 가 되면 주 단추가 「알겠어요」 → 「지금 설치」.
+//   「지금 설치」 → promptInstall() → install_accepted / install_dismissed('unavailable' 이면 설치 이벤트 없음), 시트가 닫힌다, got_it 없음.
+//   이벤트의 env 는 시트를 열 때의 env.
+
+/** 설치 창을 띄우면 붙잡은 것을 버린다(진짜 promptInstall 과 같게). */
+function promptResolves(outcome: 'accepted' | 'dismissed' | 'unavailable') {
+  h.promptInstall.mockImplementation(async () => {
+    h.setCanPrompt(false)
+    return outcome
+  })
+}
+
+async function openGuideFromHeader(env: string) {
+  h.env = env
+  renderIn(<AddToHomeButton />)
+  fireEvent.click(headerButton())
+  await advance(0)
+  expect(bodyText()).toContain(GUIDE_TITLE)
+}
+
+/** 설치 창이 붙잡힌다. 진짜 브라우저에서는 이때 currentKeepEnv() 도 installable 로 바뀐다. */
+async function promptArrives() {
+  act(() => {
+    h.env = 'installable'
+    h.setCanPrompt(true)
+  })
+  await advance(0)
+}
+
+describe('안내 시트 + 늦게 온 설치 창 — 머리줄 단추(MZ2AZ-590)', () => {
+  it('설치 창이 없으면 그대로 「알겠어요」, 「지금 설치」 는 없다', async () => {
+    await openGuideFromHeader('android_menu')
+    expect(buttonWith('알겠어요')).toBeTruthy()
+    expect(screen.queryByText('지금 설치')).toBeNull()
+  })
+
+  it('시트가 떠 있는 동안 설치 창이 오면 주 단추가 「알겠어요」 → 「지금 설치」', async () => {
+    await openGuideFromHeader('android_menu')
+    expect(buttonWith('알겠어요')).toBeTruthy()
+    await promptArrives()
+    expect(buttonWith('지금 설치')).toBeTruthy()
+    expect(screen.queryByText('알겠어요')).toBeNull()
+    expect(bodyText()).toContain(GUIDE_TITLE)
+  })
+
+  it('「지금 설치」 → 설치 창, 수락하면 install_accepted(env 는 시트를 열 때의 android_menu), 시트가 닫히고 got_it 은 없다', async () => {
+    promptResolves('accepted')
+    await openGuideFromHeader('android_menu')
+    await promptArrives()
+    fireEvent.click(buttonWith('지금 설치'))
+    await advance(1000)
+    expect(h.promptInstall).toHaveBeenCalledTimes(1)
+    expect(addToHome()).toEqual([
+      { env: 'android_menu', action: 'tap', where: 'header' },
+      { env: 'android_menu', action: 'guide', where: 'header' },
+      { env: 'android_menu', action: 'install_accepted', where: 'header' },
+    ])
+    expect(bodyText()).not.toContain(GUIDE_TITLE)
+  })
+
+  it('「지금 설치」 → 설치 창을 닫으면 install_dismissed, 시트가 닫힌다', async () => {
+    promptResolves('dismissed')
+    await openGuideFromHeader('android_menu')
+    await promptArrives()
+    fireEvent.click(buttonWith('지금 설치'))
+    await advance(1000)
+    expect(h.promptInstall).toHaveBeenCalledTimes(1)
+    expect(actions()).toEqual(['tap', 'guide', 'install_dismissed'])
+    expect(addToHome()[2]).toEqual({ env: 'android_menu', action: 'install_dismissed', where: 'header' })
+    expect(bodyText()).not.toContain(GUIDE_TITLE)
+  })
+
+  it("「지금 설치」 → 'unavailable' 이면 설치 이벤트도 got_it 도 없이 시트가 닫힌다", async () => {
+    promptResolves('unavailable')
+    await openGuideFromHeader('android_menu')
+    await promptArrives()
+    fireEvent.click(buttonWith('지금 설치'))
+    await advance(1000)
+    expect(h.promptInstall).toHaveBeenCalledTimes(1)
+    expect(actions()).toEqual(['tap', 'guide'])
+    expect(bodyText()).not.toContain(GUIDE_TITLE)
+  })
+
+  it('installable 인데 설치 창이 사라져 안내가 떴다가(unavailable) 다시 오면 「지금 설치」 → install_accepted', async () => {
+    h.env = 'installable'
+    h.promptInstall.mockResolvedValueOnce('unavailable')
+    renderIn(<AddToHomeButton />)
+    fireEvent.click(headerButton())
+    await advance(0)
+    expect(bodyText()).toContain(GUIDE_TITLE)
+    promptResolves('accepted')
+    await promptArrives()
+    fireEvent.click(buttonWith('지금 설치'))
+    await advance(1000)
+    expect(h.promptInstall).toHaveBeenCalledTimes(2)
+    expect(actions()).toEqual(['tap', 'guide', 'install_accepted'])
+    expect(addToHome()[2]).toEqual({ env: 'installable', action: 'install_accepted', where: 'header' })
+    expect(bodyText()).not.toContain(GUIDE_TITLE)
+  })
+
+  it("영어 — 'Got it' → 'Install now'", async () => {
+    chooseLanguage('en')
+    h.env = 'android_menu'
+    renderIn(<AddToHomeButton />)
+    fireEvent.click(headerButton('Add to Home Screen'))
+    await advance(0)
+    expect(buttonWith('Got it')).toBeTruthy()
+    await promptArrives()
+    expect(buttonWith('Install now')).toBeTruthy()
+    expect(screen.queryByText('Got it')).toBeNull()
+  })
+})
+
+describe('안내 시트 + 늦게 온 설치 창 — 권유 띠(MZ2AZ-590)', () => {
+  async function openGuideFromNudge(env: string, trigger: 'course_created' | 'return_visit') {
+    h.env = env
+    h.nudge = trigger
+    renderIn(<AddToHomeNudge />)
+    await advance(0)
+    fireEvent.click(buttonWith('추가'))
+    await advance(0)
+    expect(bodyText()).toContain(GUIDE_TITLE)
+  }
+
+  it('띠가 내려간 뒤 떠 있는 시트에서도 설치 창이 오면 「지금 설치」', async () => {
+    await openGuideFromNudge('android_menu', 'return_visit')
+    expect(buttonWith('알겠어요')).toBeTruthy()
+    await promptArrives()
+    expect(buttonWith('지금 설치')).toBeTruthy()
+    expect(screen.queryByText('알겠어요')).toBeNull()
+  })
+
+  it('「지금 설치」 → 수락하면 install_accepted 에 where=nudge + trigger + 시트를 열 때의 env, got_it 없이 닫힌다', async () => {
+    promptResolves('accepted')
+    await openGuideFromNudge('android_menu', 'course_created')
+    await promptArrives()
+    fireEvent.click(buttonWith('지금 설치'))
+    await advance(1000)
+    expect(h.promptInstall).toHaveBeenCalledTimes(1)
+    expect(addToHome()).toEqual([
+      { env: 'android_menu', action: 'view', where: 'nudge', trigger: 'course_created' },
+      { env: 'android_menu', action: 'tap', where: 'nudge', trigger: 'course_created' },
+      { env: 'android_menu', action: 'guide', where: 'nudge', trigger: 'course_created' },
+      { env: 'android_menu', action: 'install_accepted', where: 'nudge', trigger: 'course_created' },
+    ])
+    expect(bodyText()).not.toContain(GUIDE_TITLE)
+  })
+
+  it('「지금 설치」 → 닫으면 install_dismissed(nudge + trigger), 시트가 닫힌다', async () => {
+    promptResolves('dismissed')
+    await openGuideFromNudge('android_menu', 'return_visit')
+    await promptArrives()
+    fireEvent.click(buttonWith('지금 설치'))
+    await advance(1000)
+    expect(actions()).toEqual(['view', 'tap', 'guide', 'install_dismissed'])
+    expect(addToHome()[3]).toEqual({ env: 'android_menu', action: 'install_dismissed', where: 'nudge', trigger: 'return_visit' })
+    expect(bodyText()).not.toContain(GUIDE_TITLE)
   })
 })

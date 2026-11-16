@@ -9,6 +9,7 @@ import { installNudge } from './features/keep/installNudge'
 import { startInstallPromptCapture } from './features/keep/installPrompt'
 import { registerServiceWorker } from './app/serviceWorker'
 import { hasSession } from './state/auth'
+import { isWebShellUserAgent } from './shared/webShell'
 
 // 광고 꼬리표(utm_*)는 주소가 바뀌기 전에 세션에 적는다 — 첫 `screen_view` 보다 먼저(web-ad-landing.md §10-3-8).
 captureUtm(window.location.search)
@@ -20,7 +21,7 @@ if (import.meta.env.DEV) (await import('./devFlags')).applyDevFlags()
 startInstallPromptCapture()
 
 // 첫 화면(§11) — 처음 온 사람이면 덮개, `/go/{id}` 는 주소를 고친다. 덮개가 떠 있는 동안 분석·오류 추적·앱 덩어리는 미룬다(§10-3-2).
-const start = introStart(window.location.pathname, window.location.search, { done: introDone(), signedIn: hasSession() })
+const start = introStart(window.location.pathname, window.location.search, { done: introDone(), signedIn: hasSession(), shell: isWebShellUserAgent(navigator.userAgent) })
 const search = window.location.search
 if (start.replaceTo !== null) window.history.replaceState(window.history.state, '', start.replaceTo)
 if (start.intro !== null) holdDeferred()

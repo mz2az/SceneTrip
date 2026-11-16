@@ -303,3 +303,28 @@ describe('저장소를 쓰지 못할 때', () => {
     expect(() => startVisit(input({ local, session }))).not.toThrow()
   })
 })
+
+// ---------------------------------------------------------------- launch_mode — iOS 웹뷰 껍데기(MZ2AZ-591)
+
+describe('launchModeOf — iOS 웹뷰 껍데기', () => {
+  const SHELL_IPHONE =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SceneTripShell/1'
+
+  it('껍데기 UA → ios_app', () => {
+    expect(launchModeOf({ standalone: false, userAgent: SHELL_IPHONE })).toBe('ios_app')
+  })
+
+  it('standalone 보다 먼저 ios_app', () => {
+    expect(launchModeOf({ standalone: true, userAgent: SHELL_IPHONE })).toBe('ios_app')
+  })
+
+  it('앱 안 브라우저 표식이 섞여 있어도 in_app 보다 먼저 ios_app', () => {
+    expect(launchModeOf({ standalone: false, userAgent: `${UA.igIphone} SceneTripShell/1` })).toBe('ios_app')
+  })
+
+  it('껍데기가 아니면 지금 그대로', () => {
+    expect(launchModeOf({ standalone: false, userAgent: UA.iphoneSafari })).toBe('browser')
+    expect(launchModeOf({ standalone: true, userAgent: UA.iphoneSafari })).toBe('standalone')
+    expect(launchModeOf({ standalone: false, userAgent: UA.fbIphone })).toBe('in_app')
+  })
+})
