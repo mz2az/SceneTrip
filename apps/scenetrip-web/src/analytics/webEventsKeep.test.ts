@@ -11,7 +11,7 @@ import { appEvent, webEvent } from './events'
 describe('save_all', () => {
   // §9-3 — 출처 source = detail(작품 상세) · more(시트 ① 포스터) · arrive(?keep= 로 넘어옴)
   it.each(['detail', 'more', 'arrive'] as const)('saveAll(contentId, placeCount, savedCount, %s) → content_id·place_count·saved_count·source', (source) => {
-    expect(webEvent.saveAll(32, 10, 7, source)).toEqual({ name: 'save_all', params: { content_id: 32, place_count: 10, saved_count: 7, source } })
+    expect(webEvent.saveAll(32, 10, 7, source, 0)).toEqual({ name: 'save_all', params: { content_id: 32, place_count: 10, saved_count: 7, source, failed_count: 0 } })
   })
 })
 
@@ -62,7 +62,7 @@ describe('새 이벤트는 웹 전용 — webEvent 에만 있다', () => {
   })
   it('매개변수 값은 문자열·정수뿐', () => {
     const all = [
-      webEvent.saveAll(32, 10, 7, 'detail'),
+      webEvent.saveAll(32, 10, 7, 'detail', 0),
       webEvent.keepMore(25),
       webEvent.keepPrompt('ios_safari', 'got_it'),
       webEvent.keepArrive(1),

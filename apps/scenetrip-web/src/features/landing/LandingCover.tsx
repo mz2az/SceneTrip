@@ -160,11 +160,15 @@ export function LandingCover({ contentId, onRest, onClose, onBeat, onKeep, onNee
         detail = c
         places = l.items
       } catch {
-        if (live) closeRef.current('failed')
+        if (live) {
+          track(webEvent.landing(contentId, 'failed'))
+          closeRef.current('failed')
+        }
         return
       }
       if (!live) return
       if (detail.delisted === true || places.length === 0) {
+        track(webEvent.landing(contentId, 'failed'))
         closeRef.current('failed')
         return
       }
@@ -249,7 +253,7 @@ export function LandingCover({ contentId, onRest, onClose, onBeat, onKeep, onNee
   /** 화면을 누르면 ④ 로. */
   const jumpToRest = () => {
     if (!ready || beat === null || beat === 'rest') return
-    track(webEvent.landing(contentId, 'skip'))
+    track(webEvent.landing(contentId, 'fast_forward'))
     startClock(timeline.total)
   }
 

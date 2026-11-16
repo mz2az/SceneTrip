@@ -245,6 +245,34 @@ describe('② keep — 앱 안 브라우저: 밖으로 넘기기', () => {
     })
     expect(bodyText()).toContain(hint)
   })
+
+  // analytics-events.md 「이벤트 보강 (MZ2AZ-586)」 — 1.5초 뒤에도 그대로라 안내를 띄우면 keep_prompt(open_browser_stuck) 한 번, where 없이.
+  it.each(IN_APP)('%s — 1.5초 뒤에도 보이면 keep_prompt(env, open_browser_stuck) 한 번', (env) => {
+    vi.useFakeTimers()
+    openKeep(env)
+    fireEvent.click(buttonWith(KEEP_TEXT[env].ko[1]))
+    act(() => {
+      vi.advanceTimersByTime(1400)
+    })
+    const stuck = () => events().filter((e) => e.name === 'keep_prompt' && e.params.action === 'open_browser_stuck')
+    expect(stuck()).toEqual([])
+    act(() => {
+      vi.advanceTimersByTime(3100)
+    })
+    expect(stuck()).toEqual([webEvent.keepPrompt(env, 'open_browser_stuck')])
+  })
+
+  it('넘어가서 화면이 가려졌으면 open_browser_stuck 을 보내지 않는다', () => {
+    vi.useFakeTimers()
+    openKeep('in_app_ios')
+    fireEvent.click(buttonWith(KEEP_TEXT.in_app_ios.ko[1]))
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
+    act(() => {
+      vi.advanceTimersByTime(1500)
+    })
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
+    expect(events().filter((e) => e.name === 'keep_prompt' && e.params.action === 'open_browser_stuck')).toEqual([])
+  })
 })
 
 describe('② keep — 설치 창(installable)', () => {

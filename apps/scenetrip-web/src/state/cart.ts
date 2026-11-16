@@ -198,7 +198,7 @@ export const cartActions = {
           ? say(`${counts.saved + counts.already}곳을 마이맵에 담았어요`, `Saved ${spots(counts.saved + counts.already)} to My map`)
           : say(`${counts.failed}곳은 담지 못했어요. 다시 눌러 주세요`, `Couldn't save ${spots(counts.failed)}. Tap again.`),
     })
-    track(webEvent.saveAll(sourceContentId ?? 0, total, counts.saved, source))
+    track(webEvent.saveAll(sourceContentId ?? 0, total, counts.saved, source, counts.failed))
     await cartActions.refresh()
     return counts
   },

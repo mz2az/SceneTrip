@@ -37,10 +37,10 @@ describe('add_more', () => {
 })
 
 describe('save_all — source 에 landing', () => {
-  it('saveAll(32, 10, 9, landing)', () => {
-    expect(webEvent.saveAll(32, 10, 9, 'landing')).toEqual({
+  it('saveAll(32, 10, 9, landing, 1)', () => {
+    expect(webEvent.saveAll(32, 10, 9, 'landing', 1)).toEqual({
       name: 'save_all',
-      params: { content_id: 32, place_count: 10, saved_count: 9, source: 'landing' },
+      params: { content_id: 32, place_count: 10, saved_count: 9, source: 'landing', failed_count: 1 },
     })
   })
 })

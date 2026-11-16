@@ -4,7 +4,7 @@
  * 앱 안 브라우저(in_app_android·in_app_ios)가 아니면 그리지 않는다.
  */
 import { type JSX, useState } from 'react'
-import { track, webEvent } from '@/analytics'
+import { handoffParams, track, webEvent } from '@/analytics'
 import { Icon } from '@/design/Icon'
 import { Txt } from '@/design/primitives'
 import { color } from '@/features/proto/protoTokens'
@@ -27,7 +27,7 @@ export function InAppBand(): JSX.Element | null {
   if (env !== 'in_app_android' && env !== 'in_app_ios') return null
 
   const open = () => {
-    const href = handoffHref(env, handoffKeepUrl(window.location.origin, contentIds, cart))
+    const href = handoffHref(env, handoffKeepUrl(window.location.origin, contentIds, cart, handoffParams()))
     if (!href) return
     track(webEvent.keepPrompt(env, 'open_browser'))
     handoff.open(href)

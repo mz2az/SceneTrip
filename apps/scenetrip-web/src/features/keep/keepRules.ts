@@ -126,9 +126,14 @@ export function handoffKeepUrl(
   origin: string,
   fromSheet: readonly number[],
   cart: { items: readonly { placeId: number; sourceContentId?: number | null }[]; poiIds: Iterable<number> },
+  /** 광고 꼬리표와 익명 id — 넘어간 브라우저에서도 같은 사람, 같은 광고로 잇는다(analytics `handoffParams`, MZ2AZ-586). */
+  extra: Readonly<Record<string, string>> = {},
 ): string {
   const keep = keepContentIds(fromSheet, cart.items)
-  return keepUrl(origin, keep, [...cart.poiIds], loosePlaceIds(cart.items, keep))
+  const base = keepUrl(origin, keep, [...cart.poiIds], loosePlaceIds(cart.items, keep))
+  const pairs = Object.entries(extra).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+  if (pairs.length === 0) return base
+  return `${base}${base.includes('?') ? '&' : '?'}${pairs.join('&')}`
 }
 
 /**

@@ -6,13 +6,13 @@
  */
 import { isStatisticsEnabled, onStatisticsChange } from '@/features/profile/usageStatistics'
 import { type AppEvent, webEvent } from './events'
-import { anonId, bootstrapDistinctId } from './anonId'
+import { adoptAnonId, anonId, bootstrapDistinctId } from './anonId'
 import { browserDoNotTrack, createPostHogBeacon } from './beacon'
 import { type GtagWindow, createGa4 } from './ga4'
 import { createPostHog } from './posthog'
 import { createSentry } from './sentry'
 import { type Utm, storeUtm } from './utm'
-import { type VisitStore, launchModeOf, startVisit } from './visit'
+import { type VisitStore, handoffParamsOf, launchModeOf, startVisit } from './visit'
 import { afterDeferred, deferredHeld } from '@/app/deferred'
 import { introOpenStore } from '@/app/intro'
 
@@ -31,6 +31,34 @@ export function captureUtm(search: string): void {
   utm = storeUtm(search)
 }
 
+/**
+ * 앱 안 브라우저에서 넘어온 주소의 익명 id(`aid`)를 이 브라우저의 id 로 삼고 주소에서 지운다 — 넘어간 뒤의 이벤트가 같은 사람으로 이어진다
+ * (analytics-events.md 「이벤트 보강」, MZ2AZ-586). 꼬리표(`utm_*`)는 `captureUtm` 이 받는다. 앱이 뜰 때 한 번, 던지지 않는다.
+ */
+export function captureHandoff(): void {
+  try {
+    const url = new URL(window.location.href)
+    const aid = url.searchParams.get('aid')
+    if (aid === null) return
+    const key = posthogKey()
+    if (key) adoptAnonId(aid, key)
+    url.searchParams.delete('aid')
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+  } catch {
+    /* 분석이 앱을 깨면 안 된다 */
+  }
+}
+
+/** 외부 브라우저로 넘길 주소에 붙일 꼬리표와 익명 id. 분석 키가 없으면 익명 id 는 싣지 않는다. */
+export function handoffParams(): Record<string, string> {
+  try {
+    const key = posthogKey()
+    return handoffParamsOf({ utm, props: visit, anonId: key ? anonId(key) : null })
+  } catch {
+    return {}
+  }
+}
+
 function storageOf(kind: 'localStorage' | 'sessionStorage'): VisitStore | null {
   try {
     return window[kind]
@@ -43,13 +71,13 @@ function storageOf(kind: 'localStorage' | 'sessionStorage'): VisitStore | null {
  * 앱이 뜰 때 한 번, 첫 화면 판정 뒤 — 방문 맥락을 정해 이후 모든 이벤트에 싣고, 다시 온 사람의 새 세션이면 `return_visit` 을 보낸다
  * (analytics-events.md 「방문 맥락과 이벤트 정리」, MZ2AZ-585). 던지지 않는다.
  */
-export function captureVisit(intro: boolean): void {
+export function captureVisit(intro: boolean, search: string = window.location.search): void {
   try {
     const standalone =
       window.matchMedia?.('(display-mode: standalone)').matches === true || (navigator as Navigator & { standalone?: boolean }).standalone === true
     const v = startVisit({
       now: Date.now(),
-      search: window.location.search,
+      search,
       referrer: document.referrer,
       hostname: window.location.hostname,
       intro,
@@ -89,6 +117,9 @@ const posthog = createPostHog({
       opt_in_capturing: () => ph.opt_in_capturing(),
       opt_out_capturing: () => ph.opt_out_capturing(),
       register: (props) => ph.register(props),
+      // 옛 판이나 가짜 라이브러리에 없을 수 있다 — 없으면 건너뛴다(켜기가 멈추면 안 된다).
+      register_for_session: (props) => ph.register_for_session?.(props),
+      unregister: (key) => ph.unregister?.(key),
     }
   },
   debug: import.meta.env.DEV ? (name, params) => console.debug('[posthog]', name, params) : undefined,

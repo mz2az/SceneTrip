@@ -10,7 +10,7 @@
  * 모양은 새 홈의 떠 있는 시트(proto/ProtoFork.tsx)와 같다. 맨 위에 해태 얼굴과 SceneTrip 글자 — 광고로 처음 온 사람이 앱 이름을 알게.
  */
 import { type JSX, useCallback, useEffect, useRef, useState } from 'react'
-import { track, webEvent } from '@/analytics'
+import { handoffParams, track, webEvent } from '@/analytics'
 import { useTabRouter } from '@/app/tabRouter'
 import { Icon } from '@/design/Icon'
 import { Sheet } from '@/design/overlay'
@@ -142,13 +142,16 @@ function KeepPromptStep() {
   }
 
   const openBrowser = () => {
-    const href = handoffHref(env, handoffKeepUrl(window.location.origin, contentIds, cart))
+    const href = handoffHref(env, handoffKeepUrl(window.location.origin, contentIds, cart, handoffParams()))
     if (!href) return
     track(webEvent.keepPrompt(env, 'open_browser'))
     handoff.open(href)
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => {
-      if (document.visibilityState === 'visible') setHint(true)
+      if (document.visibilityState === 'visible') {
+        track(webEvent.keepPrompt(env, 'open_browser_stuck'))
+        setHint(true)
+      }
     }, HANDOFF_CHECK_MS)
   }
 

@@ -341,6 +341,31 @@ describe('브라우저에서 열기(앱 안 브라우저)', () => {
     expect(document.querySelector('.st-keep__point')).toBeNull()
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
   })
+
+  // analytics-events.md 「이벤트 보강 (MZ2AZ-586)」 — 1.5초 뒤에도 그대로라 안내를 띄우면 keep_prompt(open_browser_stuck, intro) 한 번.
+  it.each([
+    ['안드로이드', UA.fbAndroid, 'in_app_android'],
+    ['아이폰', UA.igIphone, 'in_app_ios'],
+  ] as const)('%s — 1.5초 뒤에도 보이면 keep_prompt(open_browser_stuck, intro) 한 번', async (_l, ua, env) => {
+    setUA(ua)
+    await keepAll()
+    fireEvent.click(buttonWith('브라우저에서 열기'))
+    await advance(1400)
+    expect(prompts().filter((p) => p.action === 'open_browser_stuck')).toEqual([])
+    await advance(100)
+    await advance(3000)
+    expect(prompts().filter((p) => p.action === 'open_browser_stuck')).toEqual([{ env, action: 'open_browser_stuck', where: 'intro' }])
+  })
+
+  it('넘어가서 화면이 가려졌으면 open_browser_stuck 을 보내지 않는다', async () => {
+    setUA(UA.igIphone)
+    await keepAll()
+    fireEvent.click(buttonWith('브라우저에서 열기'))
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
+    await advance(1500)
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
+    expect(prompts().filter((p) => p.action === 'open_browser_stuck')).toEqual([])
+  })
 })
 
 describe('앱 안 브라우저가 아닐 때의 보조 단추', () => {

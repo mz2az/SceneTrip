@@ -19,9 +19,15 @@ export interface PostHogLike {
   capture(name: string, params: Record<string, string | number>, options?: { transport?: 'sendBeacon' }): void
   opt_in_capturing(): void
   opt_out_capturing(): void
-  /** super property — 이 뒤의 모든 이벤트에 실린다(광고 꼬리표). */
+  /** super property — 이 뒤의 모든 이벤트에 실린다. 브라우저에 영구로 남는다 — 공통 속성에는 쓰지 않는다. */
   register?(properties: Record<string, string>): void
+  /** 이 세션 동안만 실리는 super property — 광고 꼬리표, 방문 맥락(MZ2AZ-586). */
+  register_for_session?(properties: Record<string, string>): void
+  unregister?(property: string): void
 }
+
+/** 예전에 `register` 로 영구히 걸린 광고 꼬리표 — 켤 때 걷어 낸다. 남아 있으면 꼬리표 없이 다시 온 방문에도 옛 광고가 실린다(MZ2AZ-586). */
+export const STALE_UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'utm_id'] as const
 
 export interface PostHogDeps {
   key: () => string
@@ -106,8 +112,9 @@ export function createPostHog(deps: PostHogDeps): { track(event: AppEvent, optio
           persistence: 'localStorage',
           before_send: scrubCapture,
         })
+        for (const k of STALE_UTM_KEYS) ph.unregister?.(k)
         const props = deps.superProperties?.() ?? {}
-        if (Object.keys(props).length > 0) ph.register?.(props)
+        if (Object.keys(props).length > 0) ph.register_for_session?.(props)
         sdk = ph
         // 줄 선 이벤트는 지금도 켜져 있을 때만 보낸다.
         for (const e of queue.splice(0)) if (deps.statisticsEnabled()) send(ph, e)
