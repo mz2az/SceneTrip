@@ -29,9 +29,8 @@ export interface NudgeContext {
 }
 
 const KEY = 'scenetrip.signupNudge'
-const DETAIL_VIEWS_NEEDED = 3
-const HIDE_AFTER_DISMISS_MS = 3 * 86_400_000
-const MAX_SESSIONS = 3
+/** ✕ 로 닫으면 하루만 숨긴다(MZ2AZ-593 — 전에는 3일). */
+const HIDE_AFTER_DISMISS_MS = 86_400_000
 
 const count = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0)
 
@@ -55,21 +54,22 @@ function save(state: NudgeState): void {
 export function nudgeVisible(state: NudgeState, ctx: NudgeContext): boolean {
   if (ctx.signedIn) return false
   if (!ctx.onHome) return false // 새 홈 화면(protoOn)에서도 보인다 — 자리만 다르다
-  if (ctx.savedPlaces + ctx.likedWorks <= 0 && state.detailViews < DETAIL_VIEWS_NEEDED) return false
   if (state.dismissedAt !== null && ctx.now - state.dismissedAt < HIDE_AFTER_DISMISS_MS) return false
-  return state.sessionsShown < MAX_SESSIONS || ctx.shownThisSession
+  // 적극적으로 권한다 — 담기, 상세 3번 조건과 세션 3번 제한은 없앴다(2026-11-17 사용자, MZ2AZ-593).
+  return true
 }
 
 /**
  * 작은 원으로 그리는가 — 새 홈(protoOn)에서 담은 것이 있는 사람은 「Plan my trip」 줄이 탭바 위에 떠 있다.
  * 알약까지 그 위에 쌓으면 바닥에 세 겹이 되므로, 알약 대신 「Plan my trip」 옆(왼쪽) 작은 원으로 같은 높이에 둔다(web-ad-landing.md §10-3-11).
  */
-export function nudgeCompact(protoOn: boolean, savedSpots: number): boolean {
-  return protoOn && savedSpots > 0
+export function nudgeCompact(_protoOn: boolean, _savedSpots: number): boolean {
+  // 늘 큰 알약 — 작은 원은 눈에 띄지 않았다(MZ2AZ-593).
+  return false
 }
 
 export function nudgeTrigger(savedPlaces: number, likedWorks: number): NudgeTrigger {
-  return savedPlaces + likedWorks > 0 ? 'saved' : 'views'
+  return savedPlaces + likedWorks > 0 ? 'saved' : 'home'
 }
 
 export function nudgeMessage(savedPlaces: number, likedWorks: number, lang: Lang): string {
@@ -83,7 +83,7 @@ export function nudgeMessage(savedPlaces: number, likedWorks: number, lang: Lang
       ? `찜한 작품 ${likedWorks}개, 로그인하면 어느 기기서든 이어져요`
       : `Sign in to keep your ${likedWorks} liked ${likedWorks === 1 ? 'title' : 'titles'} on any device`
   }
-  return lang === 'ko' ? '로그인하면 길찾기·후기까지 다 돼요' : 'Sign in for directions and reviews'
+  return lang === 'ko' ? '로그인하고 마이맵을 어디서든 이어 보세요' : 'Sign in to keep your My map on any device'
 }
 
 let shownThisSession = false

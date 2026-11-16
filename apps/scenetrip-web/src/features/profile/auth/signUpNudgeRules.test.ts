@@ -3,7 +3,7 @@
  *
  * 구현이 따라야 할 모양(계획서가 열어 둔 자리는 가장 단순하게 정했다):
  *
- *   export type NudgeTrigger = 'saved' | 'views'
+ *   export type NudgeTrigger = 'saved' | 'home'   // MZ2AZ-593: 'views' 는 더 나오지 않는다
  *   export interface NudgeState { detailViews: number; dismissedAt: number | null; sessionsShown: number }
  *   export interface NudgeContext {
  *     signedIn: boolean; onHome: boolean; protoOn: boolean
@@ -28,11 +28,10 @@ vi.mock('@/analytics', async (importOriginal) => {
 })
 
 import type { NudgeContext, NudgeState } from './signUpNudgeRules'
-import { nudgeCompact } from './signUpNudgeRules'
+import { nudgeCompact, nudgeTrigger } from './signUpNudgeRules'
 
 const KEY = 'scenetrip.signupNudge'
 const DAY = 86_400_000
-const THREE_DAYS = 259_200_000
 
 /** 새 세션 — 모듈을 다시 읽어 「이번 세션에 보였나」 를 비운다. 저장소(localStorage)는 그대로다. */
 async function newSession() {
@@ -83,15 +82,15 @@ describe('nudgeVisible — §2 보이는 조건(모두 참이어야 한다)', ()
     expect(nudge.nudgeVisible(baseState, { ...baseCtx, protoOn: true })).toBe(true)
   })
 
-  describe('3. 담은 게 있거나 상세를 3 번 이상 열었다', () => {
-    it('담은 장소·찜 둘 다 0, 상세 2 번 → 안 보인다', async () => {
+  describe('3. (MZ2AZ-593) 담은 것·상세 열람과 상관없이 보인다', () => {
+    it('담은 장소·찜 둘 다 0, 상세 0 번 → 보인다', async () => {
       const { nudge } = await newSession()
-      expect(nudge.nudgeVisible({ ...baseState, detailViews: 2 }, { ...baseCtx, savedPlaces: 0, likedWorks: 0 })).toBe(false)
+      expect(nudge.nudgeVisible({ ...baseState, detailViews: 0 }, { ...baseCtx, savedPlaces: 0, likedWorks: 0 })).toBe(true)
     })
 
-    it('담은 것 0, 상세 정확히 3 번 → 보인다', async () => {
+    it('담은 장소·찜 둘 다 0, 상세 2 번 → 보인다', async () => {
       const { nudge } = await newSession()
-      expect(nudge.nudgeVisible({ ...baseState, detailViews: 3 }, { ...baseCtx, savedPlaces: 0, likedWorks: 0 })).toBe(true)
+      expect(nudge.nudgeVisible({ ...baseState, detailViews: 2 }, { ...baseCtx, savedPlaces: 0, likedWorks: 0 })).toBe(true)
     })
 
     it('찜한 작품만 1 개 → 보인다', async () => {
@@ -105,22 +104,28 @@ describe('nudgeVisible — §2 보이는 조건(모두 참이어야 한다)', ()
     })
   })
 
-  describe('4. 닫은 지 3 일(259_200_000 ms)이 지났다', () => {
+  describe('4. (MZ2AZ-593) 닫은 지 하루(86_400_000 ms)가 지났다', () => {
     it('닫은 적 없음(null) → 보인다', async () => {
       const { nudge } = await newSession()
       expect(nudge.nudgeVisible({ ...baseState, dismissedAt: null }, baseCtx)).toBe(true)
     })
 
-    it('정확히 3 일 뒤 → 보인다', async () => {
+    it('정확히 24 시간 뒤 → 보인다', async () => {
       const { nudge } = await newSession()
       const now = baseCtx.now
-      expect(nudge.nudgeVisible({ ...baseState, dismissedAt: now - THREE_DAYS }, { ...baseCtx, now })).toBe(true)
+      expect(nudge.nudgeVisible({ ...baseState, dismissedAt: now - DAY }, { ...baseCtx, now })).toBe(true)
     })
 
-    it('3 일에서 1 ms 모자라면 → 안 보인다', async () => {
+    it('24 시간에서 1 ms 모자라면 → 안 보인다', async () => {
       const { nudge } = await newSession()
       const now = baseCtx.now
-      expect(nudge.nudgeVisible({ ...baseState, dismissedAt: now - THREE_DAYS + 1 }, { ...baseCtx, now })).toBe(false)
+      expect(nudge.nudgeVisible({ ...baseState, dismissedAt: now - DAY + 1 }, { ...baseCtx, now })).toBe(false)
+    })
+
+    it('이틀 뒤 → 보인다', async () => {
+      const { nudge } = await newSession()
+      const now = baseCtx.now
+      expect(nudge.nudgeVisible({ ...baseState, dismissedAt: now - 2 * DAY }, { ...baseCtx, now })).toBe(true)
     })
 
     it('방금 닫았으면 → 안 보인다', async () => {
@@ -129,15 +134,20 @@ describe('nudgeVisible — §2 보이는 조건(모두 참이어야 한다)', ()
     })
   })
 
-  describe('5. 보인 세션이 3 번 미만이거나, 이번 세션에 이미 보이기 시작했다', () => {
+  describe('5. (MZ2AZ-593) 보인 세션 수 상한이 없다', () => {
     it('sessionsShown 2 → 보인다', async () => {
       const { nudge } = await newSession()
       expect(nudge.nudgeVisible({ ...baseState, sessionsShown: 2 }, baseCtx)).toBe(true)
     })
 
-    it('sessionsShown 3, 이번 세션에 아직 안 보임 → 안 보인다', async () => {
+    it('sessionsShown 3, 이번 세션에 아직 안 보임 → 보인다', async () => {
       const { nudge } = await newSession()
-      expect(nudge.nudgeVisible({ ...baseState, sessionsShown: 3 }, { ...baseCtx, shownThisSession: false })).toBe(false)
+      expect(nudge.nudgeVisible({ ...baseState, sessionsShown: 3 }, { ...baseCtx, shownThisSession: false })).toBe(true)
+    })
+
+    it('sessionsShown 99, 이번 세션에 아직 안 보임 → 보인다', async () => {
+      const { nudge } = await newSession()
+      expect(nudge.nudgeVisible({ ...baseState, sessionsShown: 99 }, { ...baseCtx, shownThisSession: false })).toBe(true)
     })
 
     it('sessionsShown 3, 이번 세션에 이미 보였음 → 계속 보인다', async () => {
@@ -196,9 +206,9 @@ describe('nudgeMessage — §3 문구', () => {
     expect(nudge.nudgeMessage(0, 2, 'ko')).toBe('찜한 작품 2개, 로그인하면 어느 기기서든 이어져요')
   })
 
-  it('ko: 둘 다 0', async () => {
+  it('ko: 둘 다 0 (MZ2AZ-593)', async () => {
     const { nudge } = await newSession()
-    expect(nudge.nudgeMessage(0, 0, 'ko')).toBe('로그인하면 길찾기·후기까지 다 돼요')
+    expect(nudge.nudgeMessage(0, 0, 'ko')).toBe('로그인하고 마이맵을 어디서든 이어 보세요')
   })
 
   it('en: 장소 — 1 이면 spot, 아니면 spots', async () => {
@@ -214,9 +224,9 @@ describe('nudgeMessage — §3 문구', () => {
     expect(nudge.nudgeMessage(0, 4, 'en')).toBe('Sign in to keep your 4 liked titles on any device')
   })
 
-  it('en: 둘 다 0', async () => {
+  it('en: 둘 다 0 (MZ2AZ-593)', async () => {
     const { nudge } = await newSession()
-    expect(nudge.nudgeMessage(0, 0, 'en')).toBe('Sign in for directions and reviews')
+    expect(nudge.nudgeMessage(0, 0, 'en')).toBe('Sign in to keep your My map on any device')
   })
 })
 
@@ -256,12 +266,12 @@ describe('markShown — §4 처음 보임(세션당 한 번)', () => {
 
   it('같은 세션에서 다시 불러도 세지 않고 보내지 않는다', async () => {
     const { nudge, track } = await newSession()
-    nudge.markShown('views')
-    nudge.markShown('views')
+    nudge.markShown('home')
+    nudge.markShown('home')
     nudge.markShown('saved')
     expect(nudge.readNudgeState().sessionsShown).toBe(1)
     expect(track).toHaveBeenCalledTimes(1)
-    expect(track).toHaveBeenCalledWith({ name: 'signup_nudge_view', params: { trigger: 'views' } })
+    expect(track).toHaveBeenCalledWith({ name: 'signup_nudge_view', params: { trigger: 'home' } })
   })
 
   it('새 세션이면 다시 한 번 센다', async () => {
@@ -277,7 +287,7 @@ describe('markShown — §4 처음 보임(세션당 한 번)', () => {
   it('다른 저장 값(detailViews·dismissedAt)은 건드리지 않는다', async () => {
     localStorage.setItem(KEY, JSON.stringify({ detailViews: 5, sessionsShown: 1, dismissedAt: 77 }))
     const { nudge } = await newSession()
-    nudge.markShown('views')
+    nudge.markShown('home')
     expect(nudge.readNudgeState()).toEqual({ detailViews: 5, dismissedAt: 77, sessionsShown: 2 })
   })
 })
@@ -295,29 +305,42 @@ describe('dismiss — §4 닫기', () => {
     vi.useFakeTimers()
     try {
       vi.setSystemTime(new Date(2026, 10, 13, 12, 0, 0))
-      nudge.dismiss('views')
+      nudge.dismiss('home')
       expect(nudge.readNudgeState().dismissedAt).toBe(new Date(2026, 10, 13, 12, 0, 0).getTime())
     } finally {
       vi.useRealTimers()
     }
   })
 
-  it('닫은 뒤 3 일 안에는 nudgeVisible 이 거짓이다', async () => {
+  it('(MZ2AZ-593) 닫은 뒤 하루 안에는 nudgeVisible 이 거짓, 하루가 지나면 참이다', async () => {
     const { nudge } = await newSession()
     const now = 20 * DAY
     nudge.dismiss('saved', now)
     const state = nudge.readNudgeState()
-    expect(nudge.nudgeVisible(state, { ...baseCtx, now: now + DAY })).toBe(false)
-    expect(nudge.nudgeVisible(state, { ...baseCtx, now: now + THREE_DAYS })).toBe(true)
+    expect(nudge.nudgeVisible(state, { ...baseCtx, now: now + DAY - 1 })).toBe(false)
+    expect(nudge.nudgeVisible(state, { ...baseCtx, now: now + DAY })).toBe(true)
   })
 })
 
-describe('nudgeCompact — 담은 사람의 새 홈에서는 작은 원(web-ad-landing.md §10-3-11)', () => {
-  it.each<[boolean, number, boolean]>([
-    [true, 1, true],
-    [true, 0, false],
-    [false, 3, false],
-  ])('protoOn=%s 담은 수=%d → %s', (protoOn, saved, want) => {
-    expect(nudgeCompact(protoOn, saved)).toBe(want)
+describe('nudgeCompact — (MZ2AZ-593) 작은 원은 없다, 언제나 큰 알약', () => {
+  it.each<[boolean, number]>([
+    [true, 1],
+    [true, 5],
+    [true, 0],
+    [false, 3],
+    [false, 0],
+  ])('protoOn=%s 담은 수=%d → false', (protoOn, saved) => {
+    expect(nudgeCompact(protoOn, saved)).toBe(false)
+  })
+})
+
+describe('nudgeTrigger — (MZ2AZ-593) 담은 것이 있으면 saved, 없으면 home', () => {
+  it.each<[number, number, 'saved' | 'home']>([
+    [1, 0, 'saved'],
+    [0, 1, 'saved'],
+    [3, 2, 'saved'],
+    [0, 0, 'home'],
+  ])('장소 %d, 찜 %d → %s', (places, liked, want) => {
+    expect(nudgeTrigger(places, liked)).toBe(want)
   })
 })
