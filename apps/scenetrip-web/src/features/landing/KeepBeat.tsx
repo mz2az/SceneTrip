@@ -187,7 +187,7 @@ export function KeepBeat({ count, contentId, onDone, onNeedApp }: {
 
         {handoffStuck && env === 'samsung_android' && <GuideLines env={env} />}
 
-        {inApp ? (
+        {env === 'installed' ? null /* iOS 웹뷰 앱 — 이미 앱이라 브라우저용 단추가 없다. 로그인과 나중에만(MZ2AZ-594). */ : inApp ? (
           <Pressable plain className="proto-press st-keep__second" onClick={openBrowser}>
             <Txt size={16} weight="bold" style={{ color: '#fff' }}>{say('브라우저에서 열기', 'Open in browser')}</Txt>
           </Pressable>
