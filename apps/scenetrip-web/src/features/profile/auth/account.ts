@@ -11,6 +11,7 @@
  * 다른 화면에서 로그인이 필요하면 `promptSignIn()` (state/auth.ts) — RootSheets 가 시트를 올린다.
  */
 import { appEvent, track, webEvent } from '@/analytics'
+import type { SignInFailReason } from '@/analytics/events'
 import type { SignInPromptKey } from '@/analytics/events'
 import { ApiFailure, asFailure } from '@/api/failure'
 import { tr } from '@/i18n'
@@ -93,6 +94,16 @@ export function nicknameOutcomeOf(error: unknown): NicknameOutcome {
 
 class StillRunning extends Error {}
 
+/** 로그인이 끝나지 않은 까닭 — 이벤트 `sign_in_failed` 의 `reason`(analytics-events.md 「이벤트 보강」, MZ2AZ-586). */
+function signInFailReason(error: unknown): SignInFailReason {
+  if (error instanceof Cancelled) return 'cancel'
+  if (error instanceof NotConfigured) return 'not_configured'
+  if (error instanceof StillRunning) return 'busy'
+  if (error instanceof OAuthFailed) return error.message === 'popup blocked' ? 'popup_blocked' : 'oauth'
+  if (error instanceof ApiFailure && error.statusCode !== null) return 'server'
+  return 'network'
+}
+
 export function createAccount(deps: AccountDeps = defaultAccountDeps) {
   const store = createStore<AccountState>({
     me: null, signedIn: hasSession(), showingSignIn: false, signInReason: null, epoch: 0, busy: false, appleSignInEnabled: true, message: null, askingNickname: false,
@@ -137,6 +148,7 @@ export function createAccount(deps: AccountDeps = defaultAccountDeps) {
   }
 
   function signInFailure(error: unknown, provider: 'google' | 'apple') {
+    track(webEvent.signInFailed(provider, signInFailReason(error)))
     if (error instanceof Cancelled) return // 사람이 창을 닫았다. 알릴 것이 없다.
     if (error instanceof NotConfigured) {
       patch({ message: provider === 'apple' ? tr('Apple 로그인이 아직 준비되지 않았어요') : tr('Google 로그인이 아직 준비되지 않았어요') })

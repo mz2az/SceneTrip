@@ -426,6 +426,13 @@ export function ProtoSavedPlan({ onClose, pickAll = false }: { onClose: () => vo
   // null = 「전부」(아직 아무것도 누르지 않았다).
   const [pickedOrAll, setPicked] = useState<ReadonlySet<number> | null>(() => (pickAll ? null : new Set()))
   const picked: ReadonlySet<number> = pickedOrAll ?? new Set(items.map((i) => i.placeId))
+  // 담은 곳으로 계획 짜기의 단계 — 고르기 화면에 들어왔다(한 번). 편집 화면은 「코스 만들기」 에서 센다(MZ2AZ-586).
+  const stepped = useRef(false)
+  useEffect(() => {
+    if (stepped.current) return
+    stepped.current = true
+    track(webEvent.planStep('saved', 'picker'))
+  }, [])
 
   if (course) return <RouteEditor course={course} isNew onClose={onClose} />
 
@@ -443,6 +450,7 @@ export function ProtoSavedPlan({ onClose, pickAll = false }: { onClose: () => vo
     }
     // 날 나누기는 좌표로 가까운 곳끼리(keep-poi.md §9-3, dayGroups) — 좌표가 없는 곳은 마지막 날 끝에.
     const days = groupByDays([...stopOf.keys()], spanDays(nights), (p) => p)
+    track(webEvent.planStep('saved', 'editor'))
     setCourse(makeCourse({ title: trAt('내 코스', '코스 제목'), startDate: date, days: days.map((ps) => makeDay(ps.map((p) => stopOf.get(p)!))) }))
   }
   const toggle = (id: number) => {

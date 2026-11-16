@@ -2,7 +2,7 @@
  * 광고 꼬리표 지키기 — 정본: docs/project/plans/web-ad-landing.md §10-3-8.
  *   utmFrom(search): utm_* 만, 빈 값 빼고, 값 100자까지.
  *   storeUtm(search, store): 주소에 꼬리표가 있으면 세션에 적고 그것을, 없으면 적어 둔 것을.
- *   GA4 는 이후 이벤트 매개변수에(extraParams), PostHog 는 super property 로(register) 싣는다.
+ *   GA4 는 이후 이벤트 매개변수에(extraParams), PostHog 는 세션 한정 super property 로(register_for_session) 싣는다(MZ2AZ-586).
  *   첫 화면 덮개가 떠 있는 동안(holdDeferred) track 은 줄을 서고, 풀리면 차례대로 나간다(§10-3-2).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -60,24 +60,47 @@ describe('GA4 — 이후 이벤트의 매개변수에 꼬리표', () => {
   })
 })
 
-describe('PostHog — super property', () => {
-  const fakePh = () => ({ init: vi.fn(), capture: vi.fn(), opt_in_capturing: vi.fn(), opt_out_capturing: vi.fn(), register: vi.fn() }) satisfies PostHogLike
+describe('PostHog — super property(세션 한정, MZ2AZ-586 귀속 2)', () => {
+  const fakePh = () =>
+    ({
+      init: vi.fn(),
+      capture: vi.fn(),
+      opt_in_capturing: vi.fn(),
+      opt_out_capturing: vi.fn(),
+      register: vi.fn(),
+      register_for_session: vi.fn(),
+      unregister: vi.fn(),
+    }) satisfies PostHogLike
   const flush = () => new Promise((r) => setTimeout(r, 0))
+  const OLD_UTM = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'utm_id']
 
-  it('SDK 가 뜨면 꼬리표를 register 한 뒤 줄 선 이벤트를 보낸다', async () => {
+  it('SDK 가 뜨면 꼬리표를 register_for_session 한 뒤 줄 선 이벤트를 보낸다 — 영구 register 는 쓰지 않는다', async () => {
     const ph = fakePh()
     const p = createPostHog({ key: () => 'k', host: () => '', statisticsEnabled: () => true, load: async () => ph, superProperties: () => ({ utm_source: 'meta' }) })
     p.track(appEvent.screenView('intro'))
     await flush()
-    expect(ph.register).toHaveBeenCalledWith({ utm_source: 'meta' })
-    expect(ph.register.mock.invocationCallOrder[0]!).toBeLessThan(ph.capture.mock.invocationCallOrder[0]!)
+    expect(ph.register_for_session).toHaveBeenCalledWith({ utm_source: 'meta' })
+    expect(ph.register).not.toHaveBeenCalled()
+    expect(ph.register_for_session.mock.invocationCallOrder[0]!).toBeLessThan(ph.capture.mock.invocationCallOrder[0]!)
   })
 
-  it('꼬리표가 없으면 register 하지 않는다', async () => {
+  it('켤 때 예전에 영구로 걸린 utm_* 여섯 개를 unregister 한다 — 세션 꼬리표를 걸기 전에', async () => {
+    const ph = fakePh()
+    const p = createPostHog({ key: () => 'k', host: () => '', statisticsEnabled: () => true, load: async () => ph, superProperties: () => ({ utm_source: 'meta' }) })
+    p.track(appEvent.logout())
+    await flush()
+    expect(ph.unregister.mock.calls.map(([k]) => k).sort()).toEqual([...OLD_UTM].sort())
+    const lastUnregister = Math.max(...ph.unregister.mock.invocationCallOrder)
+    expect(lastUnregister).toBeLessThan(ph.register_for_session.mock.invocationCallOrder[0]!)
+  })
+
+  it('꼬리표가 없어도 옛 utm_* 는 unregister 하고, 아무것도 걸지 않는다', async () => {
     const ph = fakePh()
     const p = createPostHog({ key: () => 'k', host: () => '', statisticsEnabled: () => true, load: async () => ph, superProperties: () => ({}) })
     p.track(appEvent.logout())
     await flush()
+    expect(ph.unregister.mock.calls.map(([k]) => k).sort()).toEqual([...OLD_UTM].sort())
+    expect(ph.register_for_session).not.toHaveBeenCalled()
     expect(ph.register).not.toHaveBeenCalled()
   })
 })

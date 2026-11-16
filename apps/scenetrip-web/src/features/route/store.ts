@@ -8,7 +8,7 @@
  * (`courses` 는 계약의 CourseSummary). 경로여정 화면용 사본은 `routeCourses`(RouteCourse) 에 있다.
  */
 import { ApiFailure, api, asFailure, installHeader, ok } from '@/api/client'
-import { appEvent, track } from '@/analytics'
+import { appEvent, track, webEvent } from '@/analytics'
 import { onLanguageChange, tr } from '@/i18n'
 import { useLikes } from '@/state/likes'
 import { accountGeneration, onAccountReset } from '@/state/shared'
@@ -164,6 +164,8 @@ export const routeActions = {
     } catch (error) {
       const failure = asFailure(error)
       patch({ failure, saveFailure: failure })
+      // 새 코스를 저장하지 못했다 — 코스 만들기의 마지막 걸음에서 떠난 것과 가른다(MZ2AZ-586). 고쳐 저장은 세지 않는다.
+      if (course.serverId === null) track(webEvent.planFailed('editor', 'save'))
       return null
     }
   },

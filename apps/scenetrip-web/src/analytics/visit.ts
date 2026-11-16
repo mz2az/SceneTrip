@@ -143,3 +143,18 @@ export function startVisit(input: VisitInput): Visit {
   if (firstUtm) for (const [k, v] of Object.entries(firstUtm)) props[`first_${k}`] = v
   return { props, returnVisit }
 }
+
+const AID = /^[A-Za-z0-9-]{8,64}$/
+
+/**
+ * 외부 브라우저로 넘길 주소에 붙일 것 — 광고 꼬리표와 익명 id(analytics-events.md 「이벤트 보강」, MZ2AZ-586).
+ * 이번 세션의 `utm_*` 가 있으면 그것, 없으면 처음 꼬리표(`first_utm_*`)를 `utm_*` 이름으로. 방문 맥락(visit_kind 등)은 싣지 않는다.
+ */
+export function handoffParamsOf(a: { utm: Readonly<Record<string, string>>; props: Readonly<Record<string, string>>; anonId: string | null }): Record<string, string> {
+  const out: Record<string, string> = {}
+  const current = Object.entries(a.utm).filter(([k]) => k.startsWith('utm_'))
+  if (current.length > 0) for (const [k, v] of current) out[k] = v
+  else for (const [k, v] of Object.entries(a.props)) if (k.startsWith('first_utm_')) out[k.slice('first_'.length)] = v
+  if (a.anonId !== null && AID.test(a.anonId)) out.aid = a.anonId
+  return out
+}

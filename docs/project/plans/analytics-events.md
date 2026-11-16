@@ -186,7 +186,7 @@ iOS·Android 에는 아직 없다. 실험이 끝나 두 앱에 옮기면 §3 표
 | --- | --- | --- | --- |
 | `home_scroll` | 홈을 그 깊이까지 내려 봤다(세션에 깊이마다 한 번, 홈이 보일 때만) | `depth` 25·50·75·100 | `features/home/HomeTab.tsx`, `features/proto/homeScroll.ts` |
 | `home_tap` | 홈의 칸을 눌렀다 | `section` = `trending_title`·`trending_all`·`today_place`·`today_save`·`community`·`my_record`·`plan_bar` · `add_more`(마이맵 카드의 「+ 더 담기」 → `/add`, 2026-11-15, [web-keep-flow.md §12](web-keep-flow.md)) | `HomeTab.tsx`·`ProtoScreens.tsx` |
-| `plan_start` | 코스 만들기를 시작했다 | `entry` = `city_map`(지도 위 도시 카드, 11/14 부터)·`fork_city`·`fork_works`·`fork_saved` — `city_chip`·`plan_bar` 는 이제 보내지 않는다 | `ProtoScreens.tsx`·`ProtoFork.tsx` |
+| `plan_start` | 코스 만들기를 시작했다 | `entry` = `city_map`(지도 위 도시 카드, 11/14 부터)·`fork_city`·`fork_works`·`fork_saved`·`plan_bar`(시안 홈 「여행 계획」 줄)·`my_map`·`keep_sheet` — `city_chip` 은 2026-11-16 뺐다 | `ProtoScreens.tsx`·`ProtoFork.tsx` |
 | `plan_step` | 코스 만들기 단계에 들어왔다 | `flow` = `city`·`works`, `step` = `city`·`days`·`how`·`plan`·`picker`·`trip`·`works`·`planning` | `ProtoScreens.tsx`·`ProtoPlanFlows.tsx` |
 | `plan_failed` | 코스를 못 짰거나 못 저장했다 | `flow`, `reason` = `empty`·`error`·`save` | 같음 |
 | `view_post` | 커뮤니티 글을 열었다(목록·주소 모두) | `post_id` | `features/community/PostView.tsx` |
@@ -283,5 +283,40 @@ iOS·Android 에는 아직 없다. 실험이 끝나 두 앱에 옮기면 §3 표
 #### 도구별 할 일
 
 - PostHog: 없음(새 이벤트, 속성이 자동으로 잡힌다). 걷어 낸 값을 쓰던 저장된 화면이 있으면 고친다.
-- GA4: 맞춤 측정기준(이벤트 범위) 등록 — `launch_mode`, `visit_kind`, `first_entry`, `first_utm_campaign`, `first_utm_source`, `first_utm_content`, `via`, `days_since_first`. 등록 전 데이터는 보고서에 소급되지 않으므로 운영 반영 날 같이 한다.
+- GA4: 맞춤 측정기준(이벤트 범위) 등록 — `launch_mode`, `visit_kind`, `first_entry`, `first_utm_campaign`, `first_utm_source`, `first_utm_content`, `via`, `days_since_first`, 그리고 이번 방문의 `utm_campaign`, `utm_content`(MZ2AZ-586), `reason`, `failed_count`. 등록 전 데이터는 보고서에 소급되지 않으므로 운영 반영 날 같이 한다.
 - Meta, Metabase, Sentry, Cloudflare: 없음(웹에 Meta 픽셀이 없고, Metabase 는 서버 DB 를 읽는다).
+
+### 이벤트 보강 (2026-11-16, MZ2AZ-586)
+
+MZ2AZ-585 뒤 서브에이전트 검수에서 나온 것. 광고 분석(소재별로 첫 화면부터 첫 지도 저장, 로그인, 코스 생성, 재방문까지)에 걸리는 순서로 고쳤다.
+
+#### 귀속
+
+1. **외부 브라우저로 넘길 때 꼬리표와 익명 id 를 같이 넘긴다.** 앱 안 브라우저의 「브라우저에서 열기」(첫 화면 ⑤, 담은 뒤 시트, 앱 안 띠)가 여는 주소(`handoffKeepUrl`)에 지금 세션의 `utm_*`(없으면 처음 꼬리표 `first_utm_*` 를 `utm_*` 이름으로)와 `aid=<익명 id>` 를 붙인다(`analytics` 의 `handoffParams()`). 받는 쪽은 앱이 뜰 때(`main.tsx`) `aid` 를 읽어, 이 브라우저에 PostHog id 도 우리 익명 id 도 없을 때만 우리 익명 id 로 적고(`adoptAnonId`, 형식 `[A-Za-z0-9-]{8,64}` 만), 주소에서 `aid` 를 지운다. 꼬리표는 기존 `captureUtm` 이 받아 적는다. 그래서 넘어간 뒤의 `keep_arrive`, `sign_up`, `create_course` 가 같은 사람, 같은 광고로 이어진다. 익명 id 는 우리가 만든 무작위 값이라 개인정보가 아니며 계정, 메일과 잇지 않는다.
+2. **PostHog 공통 속성은 세션 한정이다.** 전에는 `register`(브라우저에 영구 저장)로 걸어, 광고로 한 번 온 사람이 나중에 꼬리표 없이 와도 옛 `utm_*` 가 실렸다. 이제 `register_for_session` 으로 걸고, 라이브러리를 켤 때 예전에 영구로 걸린 `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term`, `utm_id` 를 `unregister` 한다. 처음 꼬리표는 `first_utm_*` 로 따로 남으므로 잃는 것이 없다.
+
+#### 새 이벤트, 새 값
+
+| 이벤트 | 언제 | 매개변수 | 구현(웹) |
+| --- | --- | --- | --- |
+| `sign_in_failed` | 로그인을 시작했는데 끝나지 않았다 | `method` = `google`, `apple`, `reason` = `cancel`(창을 닫음), `popup_blocked`(창이 막힘), `not_configured`, `busy`(저장 중이라 막음), `oauth`(제공자 오류), `server`(우리 서버 오류), `network` | `features/profile/auth/account.ts` `signInFailure` |
+| `plan_step` `flow=saved` | 담은 곳으로 계획 짜기(첫 화면, 더 담기, 담은 뒤 시트, 마이맵의 「일정 짜기」)에서 단계에 들어왔다 | `step` = `picker`(고르기 화면), `editor`(코스 편집 화면) | `features/proto/ProtoPlanFlows.tsx` `ProtoSavedPlan` |
+| `plan_failed` `flow=editor` | 새 코스 저장이 실패했다(고쳐 저장은 세지 않는다) | `reason=save` | `features/route/store.ts` `save` |
+| `landing` `action=fast_forward` | 첫 화면을 눌러 끝 장면으로 넘겼다 | `content_id` | `features/landing/LandingCover.tsx` |
+| `landing` `action=failed` | 첫 화면 재료(작품, 장소)를 받지 못하거나 장소가 없어 덮개가 닫혔다 | `content_id` | 같음 |
+| `keep_prompt` `action=open_browser_stuck` | 「브라우저에서 열기」 뒤 1.5초가 지나도 그대로라 안내를 띄웠다 | 기존 `env`, `where` | `KeepBeat.tsx`, `KeepSheet.tsx` |
+
+- `landing` `action=skip` 은 이제 「건너뛰기」 로 덮개를 닫은 것만 뜻한다. 전에는 화면을 눌러 넘긴 것도 `skip` 이었다.
+- `save_all` 에 `failed_count`(이번에 담지 못한 수)를 더한다. 「첫 지도 저장」 은 `saved_count > 0` 으로 본다.
+- `return_visit` 는 첫 화면 미루기(`holdDeferred`) 뒤에 보낸다. 전에는 먼저 보내 다시 온 사람에게 덮개 동안 분석 라이브러리를 받게 했다(§10-3-2 위반, MZ2AZ-585 의 실수).
+- 첫 화면의 분모는 `screen_view intro` 가 아니라 `landing view` 로 본다(덮개가 붙자마자 곧바로 닫히는 경우가 앞엣것에 섞인다).
+
+#### 문서 정정
+
+- `plan_start` `plan_bar` 는 시안 홈의 「여행 계획」 줄에서 아직 나간다(위 표의 「이제 보내지 않는다」 는 `city_chip` 만 맞다).
+- GA4 맞춤 측정기준에 이번 방문의 `utm_campaign`, `utm_content` 도 등록한다(소재 비교). 새로 더한 `reason`, `failed_count` 도 등록 대상이다.
+
+#### 남긴 것 (검수에서 낮음)
+
+- `start_trip` 은 안내를 시작할 때마다(장소마다) 나간다. 「여행을 시작한 사람」 은 사람 단위로 센다.
+- `landing leave` 는 잠깐 가려졌다 돌아온 것도 센다. 뒤에 `save` 가 오면 떠난 것이 아니다.

@@ -9,7 +9,8 @@
  *   ③ 카드(최대 10장)가 포스터 둘레로 펼쳐졌다가 한 장씩 크게 → 주머니로, 수가 오른다. 작품 32 는 앞면이 일러스트(/intro/kdh/{id}.webp),
  *      뒷면이 실제 사진(뒤집힘). 일러스트가 없으면 사진만, 사진도 없으면 이름 카드. 영어 화면이면 이름 아래 한국어 이름(한 번 더 받는다).
  *   ④ 「{N}곳, 전부 {도시}에 있어요!」 + 담기 + 「먼저 둘러볼게요」.
- *   화면을 누르면 rest + landing(id,'skip'). 「건너뛰기」 → onClose('skip') + landing(id,'skip')(§11).
+ *   화면을 누르면 rest + landing(id,'fast_forward'). 「건너뛰기」 → onClose('skip') + landing(id,'skip')(§11, MZ2AZ-586).
+ *   받지 못해 onClose('failed') 로 걷히면 landing(id,'failed') 한 번(MZ2AZ-586). notNew 는 보내지 않는다.
  *   rest: onRest(). 「이 N곳 마이맵에 담기」 → addMany(전부, id, onProgress, 'landing'), 「담는 중… d/t」,
  *         끝나면 ⑤ 간직하기(§13-1 — 자세한 시험은 KeepBeat.test.tsx), 거기서 「나중에」 → onClose('kept').
  *         실패가 있으면 남고 「남은 N곳도 담기」. 「먼저 둘러볼게요」 → onClose('browse') + browse. 담는 중에 걷히면 kept 를 부르지 않는다(§10-3-7).
@@ -301,6 +302,8 @@ describe('받지 못하면 덮개를 걷는다 — onClose(failed)', () => {
     expect(closes).toEqual(['failed'])
     expect(addMany).not.toHaveBeenCalled()
     expect(hasLanding('view')).toBe(false)
+    // analytics-events.md 「이벤트 보강 (MZ2AZ-586)」 — landing(id, failed) 한 번.
+    expect(landingActions().filter((p) => p.action === 'failed')).toEqual([{ content_id: 32, action: 'failed' }])
   })
 })
 
@@ -311,6 +314,7 @@ describe('처음 온 사람이 아니면 덮개 없음 — onClose(notNew)(§11)
     await toRest()
     expect(closes).toEqual(['notNew'])
     expect(hasLanding('view')).toBe(false)
+    expect(hasLanding('failed')).toBe(false)
     expect(document.querySelector('.st-film')).toBeNull()
   })
 
@@ -515,14 +519,16 @@ describe('네 박자 (§12)', () => {
 })
 
 describe('화면 누르기·건너뛰기', () => {
-  it('화면을 누르면 바로 rest 로, landing(id, skip) — 덮개는 그대로', async () => {
+  // MZ2AZ-586 — 화면을 눌러 넘긴 것은 fast_forward, skip 은 「건너뛰기」 로 덮개를 닫은 것만.
+  it('화면을 누르면 바로 rest 로, landing(id, fast_forward) — skip 이 아니다, 덮개는 그대로', async () => {
     renderLanding()
     await toDrop()
     expect(queryButtonWith('이 3곳 마이맵에 담기')).toBeNull()
     fireEvent.click(document.querySelector('.st-landing')!)
     await advance(0)
     expect(buttonWith('이 3곳 마이맵에 담기')).toBeTruthy()
-    expect(hasLanding('skip')).toBe(true)
+    expect(hasLanding('fast_forward')).toBe(true)
+    expect(hasLanding('skip')).toBe(false)
     expect(closes).toEqual([])
   })
 
@@ -538,6 +544,7 @@ describe('화면 누르기·건너뛰기', () => {
     await advance(0)
     expect(closes).toEqual(['skip'])
     expect(hasLanding('skip')).toBe(true)
+    expect(hasLanding('fast_forward')).toBe(false)
   })
 
   it('건너뛰기는 담지 않는다 — 저장은 사용자가 누를 때만', async () => {

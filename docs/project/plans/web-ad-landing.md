@@ -94,7 +94,7 @@ export function pinLayout(places: readonly { latitude: number; longitude: number
 - 떠 있는 「Plan a trip」 줄: 담은 것이 있으면 `say('일정 짜기', 'Plan my trip')`(→ 간직하기를 거치지 않고 바로 「담은 곳으로」 마법사), 없으면 지금 그대로.
 - 홈의 포스터를 누를 때: 담은 것이 **없는** 사람은 랜딩(`/go/{id}`), 있는 사람은 지금처럼 작품 상세.
 - 「지금 뜨는 작품」 줄은 위 2·3번이 대신한다(같은 자료다). 전체 보기는 지금의 `/trending`.
-- 분석: `home_tap` 의 `section` 에 `pick_title`·`add_title`·`add_nearby`·`city_chip` 을 더한다. 2026-11-15 `add_more`(홈 마이맵 카드의 「+ 더 담기」)를 더한다.
+- 분석: `home_tap` 의 `section` 에 `pick_title`·`add_title`·`add_nearby`·`city_chip` 을 더한다(2026-11-16 이 홈과 함께 뺐다, MZ2AZ-585). 2026-11-15 `add_more`(홈 마이맵 카드의 「+ 더 담기」)를 더한다.
 
 ## 5. 계약 1.31.0 에 더하는 것 (서버)
 
@@ -113,9 +113,9 @@ export function pinLayout(places: readonly { latitude: number; longitude: number
 | `landing` (떠남) | `webEvent.landingLeave(contentId, beat, ms)` | `content_id`, `action` = `leave`, `beat` = 마지막 박자 또는 `loading`, `ms` = 첫 화면을 시작하고 지난 시간. 담기 전에 `pagehide`·가려짐이면 한 번(§10-3-2) |
 | `add_more` | `webEvent.addMore(action)` | `action` = `view`·`poi`·`plan` |
 | `save_all` (있음) | — | `source` 에 `landing` |
-| `home_tap` (있음) | — | `section` 에 `pick_title`·`add_title`·`add_nearby`·`city_chip` · `add_more`(2026-11-15, 홈 마이맵 카드의 「+ 더 담기」) |
+| `home_tap` (있음) | — | `section` 에 `add_more`(2026-11-15, 홈 마이맵 카드의 「+ 더 담기」). `pick_title`, `add_title`, `add_nearby`, `city_chip` 은 그 홈을 걷어 내며 2026-11-16 뺐다(MZ2AZ-585) |
 
-`screen_view` 의 화면 이름: `/go/…` 는 `landing`, `/add` 는 `add_more`.
+`screen_view` 의 화면 이름: 첫 화면 덮개(`/go/…` 포함)는 `intro`(§11, 옛 `landing`), `/add` 는 `add_more`. 이벤트 전체 정리는 [analytics-events.md](analytics-events.md) 「방문 맥락과 이벤트 정리」, 「이벤트 보강」.
 
 ## 7. 상태
 

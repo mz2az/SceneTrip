@@ -56,3 +56,18 @@ export function anonId(token: string, read: Read = readStorage, write: Write = w
 export function bootstrapDistinctId(token: string, read: Read = readStorage, write: Write = writeStorage): string | undefined {
   return storedPostHogId(token, read) === null ? anonId(token, read, write) : undefined
 }
+
+/** 외부 브라우저로 넘어올 때 주소에 실려 온 익명 id(`aid`)의 모양 — 우리가 만든 무작위 값만 받는다. */
+const ADOPTABLE = /^[A-Za-z0-9-]{8,64}$/
+
+/**
+ * 앱 안 브라우저에서 넘겨받은 익명 id 를 이 브라우저의 id 로 삼는다(analytics-events.md 「이벤트 보강」, MZ2AZ-586).
+ * 이 브라우저에 PostHog id 도 우리 id 도 없을 때만 — 이미 있는 사람을 바꿔 끼우지 않는다. 받았으면 true.
+ */
+export function adoptAnonId(candidate: string | null, token: string, read: Read = readStorage, write: Write = writeStorage): boolean {
+  if (candidate === null || !ADOPTABLE.test(candidate)) return false
+  if (storedPostHogId(token, read) !== null) return false
+  if (read(ANON_ID_KEY)) return false
+  write(ANON_ID_KEY, candidate)
+  return true
+}

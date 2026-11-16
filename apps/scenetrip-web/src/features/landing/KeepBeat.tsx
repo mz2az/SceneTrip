@@ -14,7 +14,7 @@
  */
 import { MapArt } from './MapArt'
 import { type JSX, useEffect, useRef, useState } from 'react'
-import { track, webEvent } from '@/analytics'
+import { handoffParams, track, webEvent } from '@/analytics'
 import { Icon } from '@/design/Icon'
 import { Txt } from '@/design/primitives'
 import { handoff } from '@/features/keep/handoff'
@@ -108,13 +108,16 @@ export function KeepBeat({ count, contentId, onDone, onNeedApp }: {
   }
 
   const openBrowser = () => {
-    const href = handoffHref(env, handoffKeepUrl(window.location.origin, [contentId], cartStore.get()))
+    const href = handoffHref(env, handoffKeepUrl(window.location.origin, [contentId], cartStore.get(), handoffParams()))
     if (!href) return
     track(webEvent.keepPrompt(env, 'open_browser', 'intro'))
     handoff.open(href)
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => {
-      if (document.visibilityState === 'visible') setHandoffStuck(true)
+      if (document.visibilityState === 'visible') {
+        track(webEvent.keepPrompt(env, 'open_browser_stuck', 'intro'))
+        setHandoffStuck(true)
+      }
     }, KEEP_HANDOFF_CHECK_MS)
   }
 

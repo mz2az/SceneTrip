@@ -63,4 +63,30 @@ describe('keepUrl · handoffKeepUrl', () => {
     const items = Array.from({ length: 7 }, (_, i) => ({ placeId: 100 + i, sourceContentId: i + 1 }))
     expect(handoffKeepUrl(o, [], { items, poiIds: [] })).toBe(`${o}/my-map?keep=1,2,3,4,5,6&places=106`)
   })
+
+  // analytics-events.md 「이벤트 보강 (MZ2AZ-586)」 귀속 1 — 꼬리표와 익명 id 를 keep, places, pois 뒤에 붙인다.
+  describe('extra(꼬리표, aid)', () => {
+    const cart = { items: [{ placeId: 101, sourceContentId: 32 }, { placeId: 500, sourceContentId: null }], poiIds: new Set([7]) }
+    it('extra 를 주지 않거나 비면 주소가 그대로', () => {
+      expect(handoffKeepUrl(o, [], cart, undefined)).toBe(`${o}/my-map?keep=32&places=500&pois=7`)
+      expect(handoffKeepUrl(o, [], cart, {})).toBe(`${o}/my-map?keep=32&places=500&pois=7`)
+    })
+    it('keep, places, pois 뒤에 준 차례대로 붙인다', () => {
+      expect(handoffKeepUrl(o, [], cart, { utm_source: 'meta', utm_campaign: 'kdh', aid: 'abcd-1234' })).toBe(
+        `${o}/my-map?keep=32&places=500&pois=7&utm_source=meta&utm_campaign=kdh&aid=abcd-1234`,
+      )
+    })
+    it('장바구니가 비어도 extra 만 싣는다', () => {
+      expect(handoffKeepUrl(o, [], { items: [], poiIds: [] }, { aid: 'abcd-1234' })).toBe(`${o}/my-map?aid=abcd-1234`)
+    })
+    it('값은 주소에 맞게 인코딩한다 — 읽어 내면 원래 값', () => {
+      const url = handoffKeepUrl(o, [], cart, { utm_campaign: 'k&d h=1', utm_content: '케데헌' })
+      expect(url).not.toContain('k&d h=1')
+      const q = new URL(url).searchParams
+      expect(q.get('utm_campaign')).toBe('k&d h=1')
+      expect(q.get('utm_content')).toBe('케데헌')
+      expect(q.get('keep')).toBe('32')
+      expect(q.get('pois')).toBe('7')
+    })
+  })
 })

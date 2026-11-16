@@ -270,30 +270,44 @@ describe('addMany — 알림은 한 번', () => {
 })
 
 describe('addMany — 분석', () => {
-  it('끝에 save_all 한 번 — content_id·전체 수·saved, 출처를 안 주면 source=detail', async () => {
+  it('끝에 save_all 한 번 — content_id, 전체 수, saved, failed_count(중복은 실패가 아니다), 출처를 안 주면 source=detail', async () => {
     outcome.set(2, duplicate)
     outcome.set(3, serverError)
     await cartActions.addMany([1, 2, 3, 4], 32)
     const saveAll = events().filter((e) => e.name === 'save_all')
-    expect(saveAll).toEqual([{ name: 'save_all', params: { content_id: 32, place_count: 4, saved_count: 2, source: 'detail' } }])
+    expect(saveAll).toEqual([{ name: 'save_all', params: { content_id: 32, place_count: 4, saved_count: 2, source: 'detail', failed_count: 1 } }])
   })
 
   it('sourceContentId 가 null 이면 content_id 0', async () => {
     await cartActions.addMany([1, 2], null)
-    expect(events().filter((e) => e.name === 'save_all')).toEqual([{ name: 'save_all', params: { content_id: 0, place_count: 2, saved_count: 2, source: 'detail' } }])
+    expect(events().filter((e) => e.name === 'save_all')).toEqual([{ name: 'save_all', params: { content_id: 0, place_count: 2, saved_count: 2, source: 'detail', failed_count: 0 } }])
   })
 
   // §9-3 — addMany(placeIds, sourceContentId, onProgress?, source = 'detail') 가 그 출처를 save_all 에 싣는다.
   it.each(['detail', 'more', 'arrive'] as const)('넘긴 출처 %s 가 save_all 의 source 로 실린다', async (source) => {
     const onProgress = vi.fn()
     await cartActions.addMany([1, 2], 7, onProgress, source)
-    expect(events().filter((e) => e.name === 'save_all')).toEqual([{ name: 'save_all', params: { content_id: 7, place_count: 2, saved_count: 2, source } }])
+    expect(events().filter((e) => e.name === 'save_all')).toEqual([{ name: 'save_all', params: { content_id: 7, place_count: 2, saved_count: 2, source, failed_count: 0 } }])
     expect(onProgress).toHaveBeenCalledTimes(2)
   })
 
   it('onProgress 없이 출처만 넘겨도 된다', async () => {
     await cartActions.addMany([1], 7, undefined, 'arrive')
-    expect(events().filter((e) => e.name === 'save_all')).toEqual([{ name: 'save_all', params: { content_id: 7, place_count: 1, saved_count: 1, source: 'arrive' } }])
+    expect(events().filter((e) => e.name === 'save_all')).toEqual([{ name: 'save_all', params: { content_id: 7, place_count: 1, saved_count: 1, source: 'arrive', failed_count: 0 } }])
+  })
+
+  // analytics-events.md 「이벤트 보강 (MZ2AZ-586)」 — failed_count 는 이번에 담지 못한 수(서버 오류, 네트워크, 내려간 장소).
+  it('save_all 의 failed_count — 서버 오류, 네트워크, 내려간 장소를 모두 센다', async () => {
+    outcome.set(1, () => {
+      throw new TypeError('network')
+    })
+    outcome.set(2, serverError)
+    outcome.set(3, delisted)
+    outcome.set(4, duplicate)
+    await cartActions.addMany([1, 2, 3, 4, 5], 9, undefined, 'landing')
+    expect(events().filter((e) => e.name === 'save_all')).toEqual([
+      { name: 'save_all', params: { content_id: 9, place_count: 5, saved_count: 1, source: 'landing', failed_count: 3 } },
+    ])
   })
 
   it('장소마다 save_place 는 보내지 않는다', async () => {
