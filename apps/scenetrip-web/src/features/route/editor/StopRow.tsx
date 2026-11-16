@@ -92,7 +92,8 @@ export function StopRow(p: StopRowProps) {
             >
               <Txt size={11} weight="heavy" color="white">{number(p.number)}</Txt>
             </span>
-            <VStack spacing={2} align="start" style={{ minWidth: 0 }}>
+            {/* 작품 줄은 안 줄바꿈이라, 폭을 막지 않으면 오른쪽 사진 밑으로 파고든다(2026-11-16 사용자 지적). */}
+            <VStack spacing={2} align="start" style={{ minWidth: 0, flex: 1 }}>
               <HStack spacing={5} wrap>
                 <Txt size={p.photo ? 16 : 15} weight="semibold" style={{ opacity: usable ? 1 : 0.65 }}>{label.title}</Txt>
                 {isPinned(stop) && <Chip tint="gray">{tr('내가 찍은 곳')}</Chip>}
@@ -104,9 +105,9 @@ export function StopRow(p: StopRowProps) {
               {p.photo ? (
                 <>
                   {p.works && (
-                    <HStack spacing={4} style={{ color: 'var(--pin-deep)' }}>
+                    <HStack spacing={4} style={{ color: 'var(--pin-deep)', maxWidth: '100%', minWidth: 0 }}>
                       <Icon name="film" size={11} color="deep" />
-                      <Txt size={13} weight="medium" color="deep" lines={1}>{p.works}</Txt>
+                      <Txt size={13} weight="medium" color="deep" lines={1} style={{ minWidth: 0 }}>{p.works}</Txt>
                     </HStack>
                   )}
                   {label.category && <Txt size={12} color="secondary" lines={1}>{label.category}</Txt>}
@@ -116,9 +117,9 @@ export function StopRow(p: StopRowProps) {
                 <>
                   <Txt size={11} color="secondary" lines={1}>{typeAddress}</Txt>
                   {p.works && (
-                    <HStack spacing={4} style={{ color: 'var(--pin-deep)' }}>
+                    <HStack spacing={4} style={{ color: 'var(--pin-deep)', maxWidth: '100%', minWidth: 0 }}>
                       <Icon name="film" size={9} color="deep" />
-                      <Txt size={11} weight="medium" color="deep" lines={1}>{p.works}</Txt>
+                      <Txt size={11} weight="medium" color="deep" lines={1} style={{ minWidth: 0 }}>{p.works}</Txt>
                     </HStack>
                   )}
                 </>
