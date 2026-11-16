@@ -346,3 +346,9 @@ ios-release-check +args:
 [positional-arguments]
 ios-package profile mode version build:
     ./tools/scripts/ios-package.sh "$@"
+
+# 운영 웹앱(app.scenetrip.io)을 띄우는 웹뷰 껍데기 IPA. ios-package 와 같고 웹뷰 주소만 넣는다(MZ2AZ-591). 업로드는 별도.
+[group('build')]
+[positional-arguments]
+ios-package-webshell profile mode version build:
+    SCENETRIP_WEB_SHELL_URL=https://app.scenetrip.io ./tools/scripts/ios-package.sh "$@"

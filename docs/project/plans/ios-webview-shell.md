@@ -93,3 +93,29 @@ Android, 스토어 제출, dev/main 머지, 실제 계정으로 로그인(사용
 - 스위치 끈 빌드(`just ios-run`)는 기존 앱 그대로.
 - 스위치 켠 빌드가 시뮬레이터에서 `dev.scenetrip.io` 를 열고 지도가 그려진다.
 - 로컬 웹(`just web-dev`)을 연 껍데기에서 로그인 시트의 구글·Apple 단추가 네이티브 창(계정 선택 직전)을 띄운다.
+
+## 6. 1.0.1 출시 준비 (MZ2AZ-591)
+
+2026-11-17 사용자 결정: iOS 1.0.1 을 웹뷰 껍데기로 낸다. 코드는 웹 하나로 두고, 웹뷰 안에서만 브라우저용 기능을 끈다.
+
+### 6-1. 웹뷰 안에서 바뀌는 것
+
+UA 에 `SceneTripShell/` 이 있으면(`shared/webShell.ts`):
+
+- `keepEnv` = `installed` — 홈 화면 추가 단추와 권유 띠, 간직하기의 브라우저 넘김, 설치, 즐겨찾기 안내가 모두 빠진다.
+- 첫 화면 덮개(애니메이션)를 띄우지 않는다(`introStart` 의 `shell`).
+- 분석 `launch_mode` = `ios_app`.
+
+일반 브라우저는 그대로다.
+
+### 6-2. IPA 만들기
+
+`just ios-package-webshell <프로파일> app-store <버전> <빌드>` — `just ios-package` 와 같고 `scenetrip_web_shell_url=https://app.scenetrip.io` 만 넣는다.
+인증서, 프로파일, `.env` 값은 `ios-package` 와 같다. 업로드(Transporter 또는 Xcode Organizer)와 심사 제출은 사람이 한다.
+
+### 6-3. 제출 전 확인
+
+- 버전과 빌드: App Store 에 1.0.0 (4) 가 있다. 1.0.1 을 아직 올린 적이 없으면 1.0.1 (5), 이미 올렸으면 다음 번호.
+- 심사 위험 4.2(최소 기능): 웹사이트를 감싼 앱은 거절될 수 있다. 심사 메모에 네이티브 로그인(Apple, 구글), 위치 기반 길 안내를 적는다.
+- 개인정보 라벨: 웹이 GA4, PostHog, Sentry 를 쓴다. 라벨에 사용 데이터와 진단 데이터가 들어 있어야 한다.
+- 실기기 확인: 로그인(Apple, 구글), 위치, 지도, 홈 화면 추가 단추가 안 보이는지.

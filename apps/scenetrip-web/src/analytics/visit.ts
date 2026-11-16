@@ -10,10 +10,11 @@
  * 판정은 탭 세션에 적어 두어 새로 고침, 주소 바뀜에 흔들리지 않는다. 저장소를 쓰지 못해도 던지지 않는다.
  */
 import { isInAppBrowser } from '@/features/keep/keepRules'
+import { isWebShellUserAgent } from '@/shared/webShell'
 import type { ReturnVia } from './events'
 import { type Utm, utmFrom } from './utm'
 
-export type LaunchMode = 'standalone' | 'in_app' | 'browser'
+export type LaunchMode = 'standalone' | 'in_app' | 'browser' | 'ios_app'
 export type { ReturnVia }
 
 export interface VisitStore {
@@ -28,6 +29,8 @@ export const VISIT_SESSION_KEY = 'scenetrip.analytics.visit'
 const DAY_MS = 86_400_000
 
 export function launchModeOf(a: { standalone: boolean; userAgent: string }): LaunchMode {
+  // iOS 웹뷰 껍데기(App Store 앱) — 다른 판정보다 먼저(MZ2AZ-591).
+  if (isWebShellUserAgent(a.userAgent)) return 'ios_app'
   if (a.standalone) return 'standalone'
   return isInAppBrowser(a.userAgent) ? 'in_app' : 'browser'
 }

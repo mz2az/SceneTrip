@@ -18,6 +18,12 @@ build="${4:?빌드 번호가 필요합니다}"
 # 비어도 빌드는 계속한다 — 그 SDK 만 꺼진 채로 나간다 (MZ2AZ-527).
 [ -n "${SENTRY_DSN_IOS:-}" ] || log "경고: SENTRY_DSN_IOS 가 비었습니다 — 이 IPA 는 Sentry 오류 추적 없이 지어집니다"
 [ -n "${POSTHOG_KEY:-}" ] || log "경고: POSTHOG_KEY 가 비었습니다 — 이 IPA 는 PostHog 사용 분석 없이 지어집니다"
+# 웹뷰 껍데기(MZ2AZ-557, 591) — 값이 있으면 앱이 그 웹앱을 띄운다. 운영 IPA 는 운영 웹앱만 받는다.
+web_shell_url="${SCENETRIP_WEB_SHELL_URL:-}"
+case "$web_shell_url" in
+  "" | https://app.scenetrip.io) ;;
+  *) die "SCENETRIP_WEB_SHELL_URL 은 비우거나 https://app.scenetrip.io 여야 합니다" ;;
+esac
 args=("$profile" "$mode" --team "$SCENETRIP_APPLE_TEAM_ID")
 if [ -n "${SCENETRIP_IOS_DEVICE_UDID:-}" ]; then
   args+=(--device "$SCENETRIP_IOS_DEVICE_UDID")
@@ -37,7 +43,11 @@ trap cleanup EXIT
 (umask 077; set -o noclobber; : > "$local_profile")
 created=1
 cat "$profile" > "$local_profile"
-log "운영 서버용 iPhone IPA 빌드 — 실제 인증서 서명, 업로드 없음"
+if [ -n "$web_shell_url" ]; then
+  log "운영 서버용 iPhone IPA 빌드(웹뷰 껍데기: $web_shell_url) — 실제 인증서 서명, 업로드 없음"
+else
+  log "운영 서버용 iPhone IPA 빌드 — 실제 인증서 서명, 업로드 없음"
+fi
 "${BAZEL:-bazel}" build //apps/scenetrip-ios:ipa -c opt \
   --ios_multi_cpus=arm64 \
   --define=scenetrip_api_base_url=https://api.scenetrip.io/v1 \
@@ -46,5 +56,6 @@ log "운영 서버용 iPhone IPA 빌드 — 실제 인증서 서명, 업로드 �
   --define=naver_client_id="$NAVER_MAP_CLIENT_ID" \
   --define=sentry_dsn_ios="${SENTRY_DSN_IOS:-}" \
   --define=posthog_key="${POSTHOG_KEY:-}" \
+  --define=scenetrip_web_shell_url="$web_shell_url" \
   --ios_signing_cert_name="$SCENETRIP_IOS_SIGNING_IDENTITY"
 log "산출물: bazel-bin/apps/scenetrip-ios/ipa.ipa — 설치·TestFlight 확인은 별도입니다"

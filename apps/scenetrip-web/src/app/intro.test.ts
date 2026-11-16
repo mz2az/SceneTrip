@@ -93,3 +93,21 @@ describe('afterIntro — 덮개가 걷힌 뒤 한 번', () => {
     expect(done).toEqual(['now', 'later'])
   })
 })
+
+describe('introStart — iOS 웹뷰 껍데기(shell) 는 덮개 없음(MZ2AZ-591)', () => {
+  const shell = { done: false, signedIn: false, shell: true }
+
+  it.each(['/', '/search', '/my-map'])('처음 온 사람이어도 껍데기면 %s 에 덮개 없음, 주소 그대로', (path) => {
+    expect(introStart(path, '?show=7&utm_source=meta', shell)).toEqual({ intro: null, replaceTo: null })
+  })
+
+  it('/go/{id} — 껍데기면 이미 본 사람처럼 그 작품 상세로', () => {
+    expect(introStart('/go/7', '?utm_source=meta', shell)).toEqual({ intro: null, replaceTo: '/search/content/7?utm_source=meta' })
+  })
+
+  it('shell: false 는 지금 그대로 — 처음 온 사람은 덮개', () => {
+    const notShell = { done: false, signedIn: false, shell: false }
+    expect(introStart('/', '', notShell)).toEqual({ intro: { contentId: 32, fromGo: false }, replaceTo: null })
+    expect(introStart('/go/7', '', notShell).intro).toEqual({ contentId: 7, fromGo: true })
+  })
+})
