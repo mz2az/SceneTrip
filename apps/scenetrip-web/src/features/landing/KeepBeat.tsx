@@ -185,9 +185,16 @@ export function KeepBeat({ count, contentId, onDone, onNeedApp }: {
           </span>
         </Pressable>
 
+        {handoffStuck && env === 'samsung_android' && <GuideLines env={env} />}
+
         {inApp ? (
           <Pressable plain className="proto-press st-keep__second" onClick={openBrowser}>
             <Txt size={16} weight="bold" style={{ color: '#fff' }}>{say('브라우저에서 열기', 'Open in browser')}</Txt>
+          </Pressable>
+        ) : env === 'samsung_android' ? (
+          // 삼성 인터넷의 홈 화면 앱은 Play Protect 가 막는다 — 설치 창 대신 크롬으로 넘긴다(MZ2AZ-588).
+          <Pressable plain className="proto-press st-keep__second" onClick={openBrowser}>
+            <Txt size={16} weight="bold" style={{ color: '#fff' }}>{say('크롬에서 열기', 'Open in Chrome')}</Txt>
           </Pressable>
         ) : env === 'installable' ? (
           <Pressable plain className="proto-press st-keep__second" disabled={busy} onClick={() => void install()}>
@@ -240,7 +247,9 @@ function GuideLines({ env }: { env: KeepEnv }) {
       ? [say('1. 오른쪽 위 ⋮ 를 누르세요', '1. Tap ⋮ at the top right'), say('2. 「홈 화면에 추가」 를 고르세요', '2. Choose “Add to Home screen”')]
       : env === 'ios_safari'
         ? [say('1. 아래쪽 공유 단추를 누르세요', '1. Tap the Share button below'), say('2. 「홈 화면에 추가」 를 고르세요', '2. Choose “Add to Home Screen”')]
-        : [say('1. 브라우저 메뉴를 여세요', '1. Open your browser menu'), say('2. 「즐겨찾기 추가」 를 고르세요', '2. Choose “Add bookmark”')]
+        : env === 'samsung_android'
+          ? [say('1. 아래 ≡ 를 누르세요', '1. Tap ≡ at the bottom'), say('2. 「현재 페이지 추가」 에서 「북마크」 를 고르세요', '2. Choose “Add page to”, then “Bookmarks”')]
+          : [say('1. 브라우저 메뉴를 여세요', '1. Open your browser menu'), say('2. 「즐겨찾기 추가」 를 고르세요', '2. Choose “Add bookmark”')]
   return (
     <div role="status" className="st-keep__hint">
       {lines.map((l) => (
