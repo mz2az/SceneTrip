@@ -593,7 +593,7 @@ export function RouteEditor({ course: initial, isNew, onClose }: { course: Route
         steps={[
           { target: '[data-coach="editor-map"]', title: say('지도', 'Map'), text: say('지도에서 동선을 보다가 이 단추로 목록만 볼 수 있어요. 다시 누르면 지도로 돌아와요.', 'Check the path on the map, or switch to the list only with this button. Tap again to bring the map back.') },
           { target: '.gd-chip:not(.gd-chip-hidden)', title: say('해태 AI', 'Haetae AI'), text: say('「하루 줄여 줘」 「카페 하나 넣어 줘」처럼 말로 부탁하면 코스를 고쳐 줘요.', 'Ask in plain words — "make it one day shorter", "add a café" — and it edits the route.') },
-          { target: '[data-coach="editor-add"]', title: say('장소 검색해서 담기', 'Search and add places'), text: say('지금은 편집 중이라 장소를 검색해서 더 넣을 수 있어요. 보관함에 담아 둔 곳도 여기서 넣어요.', "You're editing, so you can search for places and add them. Saved places are here too.") },
+          { target: '[data-coach="editor-add"]', title: say('장소 검색해서 담기', 'Search and add places'), text: say('지금은 편집 중이라 장소를 검색해서 더 넣을 수 있어요. 마이맵에 담아 둔 곳도 여기서 넣어요.', "You're editing, so you can search for places and add them. Places on My map are here too.") },
           { target: '[data-coach="editor-save"]', title: say('다 고쳤으면 저장', 'Save when done'), text: say('저장해야 코스가 남아요. 저장하지 않고 나가면 한 번 더 물어봐요.', "Save to keep the course. If you leave without saving, we'll ask first.") },
         ]}
       />

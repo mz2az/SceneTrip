@@ -22,7 +22,9 @@ import type { paths } from './generated/schema'
 import { RETRY_TUNING, decide, laneFor } from './retry'
 
 /** 브라우저가 부르는 기준 주소. 비어 있으면 같은 출처의 /v1 (개발 서버 프록시 / 배포 역프록시). */
-const BASE = `${import.meta.env.VITE_API_BASE ?? ''}/v1`
+// 첫 화면 실험 브랜치(intro-lab) 미리보기 주소는 DEV 서버의 허용 출처에 없다 — 같은 출처 프록시(functions/v1, Preview 의 API_UPSTREAM)로 간다.
+const SAME_ORIGIN_HOSTS = new Set(['intro-lab.scenetrip-app.pages.dev'])
+const BASE = `${typeof location !== 'undefined' && SAME_ORIGIN_HOSTS.has(location.hostname) ? '' : (import.meta.env.VITE_API_BASE ?? '')}/v1`
 
 // ---------------------------------------------------------------- 개발 안전장치
 // 값은 .env.local(커밋 금지)에서만 켠다. 제품 동작에는 영향이 없다(켜지 않으면 아무 일도 하지 않는다).

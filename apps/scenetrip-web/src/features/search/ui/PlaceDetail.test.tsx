@@ -96,7 +96,7 @@ describe('PlaceDetail — 조회 기록', () => {
 })
 
 // ---------------------------------------------------------------- 길찾기 (MZ2AZ-532)
-// 「길찾기」가 큰 주 버튼, 「장바구니에 담기」는 보조. 비회원이 누르면 로그인 시트(이유 문구)를 띄우고 코스를 만들지 않는다.
+// 「길찾기」가 큰 주 버튼, 「마이맵에 담기」는 보조. 비회원이 누르면 로그인 시트(이유 문구)를 띄우고 코스를 만들지 않는다.
 
 describe('PlaceDetail — 길찾기', () => {
   const writes = () =>
@@ -109,12 +109,12 @@ describe('PlaceDetail — 길찾기', () => {
     account.actions.closeSignIn()
   })
 
-  it('「길찾기」가 주 버튼이고 「장바구니에 담기」도 남아 있다', async () => {
+  it('「길찾기」가 주 버튼이고 「마이맵에 담기」도 남아 있다', async () => {
     const load = vi.fn(async (id: number) => detailOf(id))
     const { getByRole } = render(<PlaceDetail summary={summary(7)} load={load} onBack={() => {}} onOpenTrip={() => {}} />)
     await settle()
     const directions = getByRole('button', { name: /길찾기/ })
-    const cart = getByRole('button', { name: /장바구니에 담기/ })
+    const cart = getByRole('button', { name: /마이맵에 담기/ })
     expect(directions.getAttribute('data-variant')).toBe('prominent')
     expect(cart.getAttribute('data-variant')).toBe('bordered')
     // 문서 순서상 길찾기가 먼저다.

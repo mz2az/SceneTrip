@@ -3,11 +3,13 @@
  * 숫자·문구는 전부 서버·기기 값이다. 목업이 「카드 속 숫자·글은 배치용 예시」라고 못 박았다.
  */
 import { DeferredImg } from '@/design/DeferredImg'
+import { PosterImg } from '@/design/PosterImg'
 import { smallImage } from '@/shared/smallImage'
 import { Icon } from '@/design/Icon'
 import { HStack, Spacer, Txt, VStack, homeCard, rr, shadow } from '@/design/primitives'
 import { Pressable } from '../route/ui/Press'
-import { tr } from '@/i18n'
+import { MyMapButton } from '../keep/flyToMyMap'
+import { say, tr } from '@/i18n'
 import { CoverPhoto } from '../community/CoverPhoto'
 import { type PostSummary, postFromSummary } from '../community/store'
 import { ModerationMenu, type ModerationController, canBlock, postTarget, showsMenu } from '../moderation'
@@ -35,15 +37,20 @@ export function SectionHeader({ title, subtitle, action, onAction }: { title: st
 }
 
 /** 인사 — 해태 얼굴, 두 줄, 오른쪽 프로필 단추(마이페이지의 입구). */
-export function HomeHeader({ onProfile }: { onProfile: () => void }) {
+export function HomeHeader({ onProfile, onMyMap }: { onProfile: () => void; onMyMap: () => void }) {
   return (
     <HStack spacing={10} style={{ padding: '10px 20px 0' }}>
       <img src="/generated/haetae-face.png" alt="" width={44} height={38} style={{ objectFit: 'contain', flex: 'none' }} draggable={false} />
       <VStack spacing={1} align="start">
-        <Txt size={13} color="secondary">{tr('해태가 기다렸어요')}</Txt>
-        <Txt size={19} weight="bold">{tr('오늘은 어느 장면으로 갈까요?')}</Txt>
+        {/* 앱 이름 — 광고로 처음 온 사람이 어느 앱인지 알게(web-keep-flow.md §5-6). 한·영 같은 글자, 앱 시그니처 보라. */}
+        <Txt size={13} weight="bold" style={{ color: 'var(--home-purple)' }}>SceneTrip</Txt>
+        {/* 폭 360 에서 「마이맵」 알약 옆 영어 제목이 세 줄이 되지 않게 좁은 화면에서만 조금 줄인다(402 에서 19). */}
+        <Txt size={19} weight="bold" style={{ fontSize: 'clamp(17px, 4.75vw, 19px)' }}>{tr('오늘은 어느 장면으로 갈까요?')}</Txt>
       </VStack>
       <Spacer />
+      {/* 「마이맵」 이름표 단추(배지 = 담은 수, 0 이면 배지 없음) — 담은 것이 없어도 늘 있다(web-keep-flow.md §12, 2026-11-15 사용자).
+          어디서 담든 날아가 내려앉는 자리(web-ad-landing.md §9-3). */}
+      <MyMapButton onPress={onMyMap} variant="pill" />
       <Pressable
         plain
         onClick={onProfile}
@@ -90,7 +97,7 @@ function Poster({ work }: { work: ContentSummary }) {
           background: 'linear-gradient(to bottom right, color-mix(in srgb, var(--pin-deep) 70%, transparent), var(--pin-deep))',
         }}
       >
-        {work.posterUrl && <DeferredImg src={work.posterUrl} alt="" loading="lazy" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />}
+        <PosterImg src={work.posterUrl} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.65))' }} />
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 10 }}>
           <Txt size={13} weight="bold" color="white" lines={2}>{work.title}</Txt>
@@ -102,7 +109,7 @@ function Poster({ work }: { work: ContentSummary }) {
 }
 
 /** 오늘의 성지 — 하루 한 곳. 작품 배지 · 장소명과 장면 · 주소 · 담기. */
-export function TodayCard({ place, saved, onOpen, onSave }: { place: PlaceSummary; saved: boolean; onOpen: () => void; onSave: () => void }) {
+export function TodayCard({ place, saved, onOpen, onSave }: { place: PlaceSummary; saved: boolean; onOpen: () => void; onSave: (from: Element) => void }) {
   const scene = place.sceneDescription?.trim()
   const title = scene ? `${place.name} — ${scene}` : place.name
   const work = place.contents?.[0]?.title
@@ -135,10 +142,10 @@ export function TodayCard({ place, saved, onOpen, onSave }: { place: PlaceSummar
             <Icon name="mappin.and.ellipse" size={12} color="deep" />
             <Txt size={12} color="secondary" lines={1}>{place.address ?? tr('주소 없음')}</Txt>
             <Spacer />
-            <Pressable plain onClick={onSave} style={{ flex: 'none' }}>
+            <Pressable plain onClick={(e) => onSave(e.currentTarget)} style={{ flex: 'none' }}>
               <HStack spacing={5}>
                 <Icon name={saved ? 'checkmark.circle.fill' : 'plus.circle'} size={14} weight="bold" color={saved ? 'deep' : 'accent'} />
-                <Txt size={13} weight="bold" color={saved ? 'deep' : 'accent'}>{saved ? tr('담김') : tr('담기')}</Txt>
+                <Txt size={13} weight="bold" color={saved ? 'deep' : 'accent'}>{saved ? say('마이맵에 있음', 'On My map') : tr('담기')}</Txt>
               </HStack>
             </Pressable>
           </HStack>

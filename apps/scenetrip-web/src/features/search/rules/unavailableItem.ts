@@ -18,10 +18,6 @@ export function unavailableMessage(kind: UnavailableKind): string {
   }
 }
 
-export function noticeForCartItem(item: { delisted?: boolean | null }): UnavailableKind | null {
-  return item.delisted === true ? 'place' : null
-}
-
 export function noticeForContent(item: { delisted?: boolean | null }): UnavailableKind | null {
   return item.delisted === true ? 'content' : null
 }

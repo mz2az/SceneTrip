@@ -1,10 +1,11 @@
 /*
  * 마이페이지 — 홈의 프로필 단추가 여는 덮개 (iOS ProfileTab/ProfileTabView.swift). 단일 스크롤 목록 + 시트 여럿.
  *
- * 「이 설치본에 쌓인 것」 — 찜한 작품·내 코스·장바구니·스탬프와 설정을 보여 준다. 로그인하면 머리만 계정으로 바뀌고 아래 목록은 그대로 간다.
+ * 「이 설치본에 쌓인 것」 — 찜한 작품·내 코스·마이맵·스탬프와 설정을 보여 준다. 로그인하면 머리만 계정으로 바뀌고 아래 목록은 그대로 간다.
  * 아직 못 하는 것(알림)은 흐리게 두고 「준비 중」 이라고 적는다 — 눌리는데 아무 일도 없는 것이 제일 나쁘다.
  *
- * 시트 열림은 URL 이 든다: `/profile/courses|likes|cart|stamps|posts|reviews|blocked|reels|nickname|replay` (routes.profileSection).
+ * 시트 열림은 URL 이 든다: `/profile/courses|likes|stamps|posts|reviews|blocked|reels|nickname|replay` (routes.profileSection).
+ * 「마이맵」 줄은 시트 없이 `/my-map` 을 연다 — 옛 `/profile/cart` 주소도 그리로 보낸다(web-keep-flow.md §11-1).
  * 로그인·닉네임(첫 질문)·동의 시트는 RootSheets 가 올린다.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -17,6 +18,8 @@ import { OnboardingView } from '@/features/onboarding/OnboardingView'
 import { useCommunityStore } from '@/features/community/store'
 import { tr } from '@/i18n'
 import { useCart } from '@/state/cart'
+import { useTabRouter } from '@/app/tabRouter'
+import { liveMyMapCount } from '@/features/keep/flyToMyMap'
 import { useLikes } from '@/state/likes'
 import { NicknameEditSheet } from './auth/NicknameSheet'
 import { useAccount } from './auth/account'
@@ -27,7 +30,6 @@ import {
 } from './ProfileSettings'
 import { useProfileData } from './profileData'
 import { BlockedUsersSheet } from './sheets/BlockedUsersSheet'
-import { CartSheet } from './sheets/CartSheet'
 import { LikedWorksSheet } from './sheets/LikedWorksSheet'
 import { MyCoursesSheet } from './sheets/MyCoursesSheet'
 import { MyPostsSheet } from './sheets/MyPostsSheet'
@@ -45,7 +47,7 @@ const NAV_HEIGHT = 44
 const LIST_TOP_INSET = 44
 
 type Section = SectionName | 'nickname' | 'replay'
-const SECTIONS: readonly Section[] = ['courses', 'likes', 'cart', 'stamps', 'posts', 'reviews', 'blocked', 'reels', 'nickname', 'replay']
+const SECTIONS: readonly Section[] = ['courses', 'likes', 'stamps', 'posts', 'reviews', 'blocked', 'reels', 'nickname', 'replay']
 
 function useSection(): Section | null {
   const { pathname } = useLocation()
@@ -86,6 +88,12 @@ function TopBar({ onClose, scrolled }: { onClose: () => void; scrolled: boolean 
 export function ProfileCover({ onClose }: { onClose: () => void }) {
   const section = useSection()
   const navigate = useNavigate()
+  const router = useTabRouter()
+  const { pathname } = useLocation()
+  // 옛 장바구니 시트 주소 — 마이맵으로 바꿔 보낸다(돌아오면 마이페이지).
+  useEffect(() => {
+    if (pathname === paths.profileSection('cart')) navigate(paths.myMap, { replace: true, state: { returnTo: paths.profile } })
+  }, [pathname, navigate])
   const { signedIn, me } = useAccount()
   const likes = useLikes()
   const cart = useCart()
@@ -112,10 +120,11 @@ export function ProfileCover({ onClose }: { onClose: () => void }) {
             signedIn={signedIn}
             courseCount={data.courseCount}
             likeCount={likes.contentIds.size}
-            cartCount={cart.items.length}
+            myMapCount={Math.max(0, liveMyMapCount(cart))}
             stamps={data.stamps}
             postCount={community.mineTotal}
             open={openSection}
+            onMyMap={() => router.openMyMap(paths.profile)}
           />
           <FootprintSection />
           <HelpSection onReplay={() => openSection('replay')} onLanguageChosen={() => navigate(paths.home)} />
@@ -131,7 +140,6 @@ export function ProfileCover({ onClose }: { onClose: () => void }) {
 
       <MyCoursesSheet open={section === 'courses'} onClose={closeSection} courses={data.courses} />
       <LikedWorksSheet open={section === 'likes'} onClose={closeSection} loading={data.likesLoading} failure={data.likesFailure} />
-      <CartSheet open={section === 'cart'} onClose={closeSection} />
       <StampsSheet open={section === 'stamps'} onClose={closeSection} stamps={data.stamps} />
       <MyPostsSheet open={section === 'posts'} onClose={closeSection} />
       <MyReviewsSheet open={section === 'reviews'} onClose={closeSection} />

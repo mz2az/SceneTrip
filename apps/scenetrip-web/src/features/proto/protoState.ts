@@ -12,6 +12,7 @@ import { installHeader } from '@/state/install'
 import { createStore, readJSON, writeJSON } from '@/state/storage'
 import { say } from '@/i18n'
 import { pickProto, protoEnabled } from './protoGate'
+import { afterIntro } from '@/app/intro'
 
 export type Proto = 'a' | 'b'
 export type Pace = 'relaxed' | 'normal' | 'packed'
@@ -71,7 +72,8 @@ export const protoOn = (): boolean => protoAvailable && protoStore.get().proto !
 const patch = (p: Partial<ProtoState>) => protoStore.set((s) => ({ ...s, ...p }))
 // 새 화면이 켜진 곳에서만 서버와 맞춘다(시험 환경에서는 부르지 않는다).
 if (protoAvailable && proto !== null && typeof window !== 'undefined' && import.meta.env.MODE !== 'test') {
-  queueMicrotask(() => void syncTrip())
+  // 첫 화면 덮개가 떠 있으면(지도 덩어리를 미리 받아 이 모듈이 실행됐다) 걷힌 뒤에 맞춘다(web-ad-landing.md §11).
+  queueMicrotask(() => afterIntro(() => void syncTrip()))
 }
 
 /** 서버의 정한 여행. 없거나(404) 못 받으면 null — 못 받았을 때는 {@code failed}. */

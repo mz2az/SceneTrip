@@ -9,7 +9,7 @@ import { countDetailView } from '@/features/profile/auth/signUpNudgeRules'
 import { hasSession } from '@/state/auth'
 import { Icon } from '@/design/Icon'
 import { HStack, Spinner, Txt, VStack } from '@/design/primitives'
-import { tr } from '@/i18n'
+import { say, tr } from '@/i18n'
 import { useModerationChange } from '@/features/moderation'
 import { usePlaceDirections } from '@/features/route/placeDirections'
 import { PhotoGallery } from '@/features/reviews/photoGallery'
@@ -29,6 +29,8 @@ import { BorderedButton, DetailHeader, FONT, ProminentButton, UnavailableNotice 
 import { SceneCard } from './SceneCard'
 import { CourseAddBar } from '@/features/proto/protoCourseAdd'
 import { ScenePhotoViewer, ScenePopup } from './SceneViewer'
+import { flyWhenSaved } from '@/features/keep/flyToMyMap'
+import { smallImage } from '@/shared/smallImage'
 
 export function PlaceDetail({ summary, sourceContentId, load, onBack, onOpenTrip = noop }: {
   summary: PlaceSummary
@@ -121,11 +123,15 @@ export function PlaceDetail({ summary, sourceContentId, load, onBack, onOpenTrip
             <HStack spacing={8} style={{ width: '100%' }}>
               <BorderedButton
                 disabled={!canToggle(detail?.delisted, saved)}
-                onClick={() => void (saved ? cartActions.remove(summary.id) : cartActions.add(summary.id, sourceContentId))}
+                onClick={(e) => {
+                  // 담기면 「내 지도」 로 날아간다 — 저장 결과를 받은 뒤(web-ad-landing.md §10-3-9).
+                  if (saved) void cartActions.remove(summary.id)
+                  else void flyWhenSaved(cartActions.add(summary.id, sourceContentId), e.currentTarget, { imageUrl: smallImage(summary.imageThumbnailUrl, summary.imageUrl) })
+                }}
                 style={{ flex: 1, minHeight: 34 }}
               >
                 <Icon name={saved ? 'checkmark' : 'bag.badge.plus'} size={FONT.body} color="accent" />
-                <Txt size={FONT.body} color="accent">{saved ? tr('담김 · 누르면 빼기') : tr('장바구니에 담기')}</Txt>
+                <Txt size={FONT.body} color="accent">{saved ? say('마이맵에 있음 · 누르면 빼기', 'On My map · Tap to remove') : say('마이맵에 담기', 'Save to My map')}</Txt>
               </BorderedButton>
               {naver && (
                 <a href={naver} target="_blank" rel="noopener noreferrer" style={{ flex: 'none' }}>

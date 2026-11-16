@@ -230,7 +230,7 @@ export function AccountSection({ onDeleted }: { onDeleted: () => void }) {
         open={confirmingDelete}
         title={tr('정말 탈퇴할까요?')}
         // 서버는 탈퇴 시 작성한 리뷰·여행후기와 사진도 삭제한다(MZ2AZ-466, MZ2AZ-452).
-        message={tr('장바구니·코스·찜과 이 기기의 발자취, 작성한 리뷰·여행후기와 사진이 모두 지워지고 되돌릴 수 없어요.')}
+        message={say('마이맵·코스·찜과 이 기기의 발자취, 작성한 리뷰·여행후기와 사진이 모두 지워지고 되돌릴 수 없어요.', "Your My map, courses, favorites, this device's trail, and the reviews and travel stories you wrote with their photos will all be deleted. This can't be undone.")}
         buttons={[
           { label: tr('탈퇴'), role: 'destructive', onPress: () => void accountActions.deleteAccount().then((ok) => (ok ? onDeleted() : setDeleteFailed(true))) },
           { label: tr('취소'), role: 'cancel' },
@@ -261,7 +261,7 @@ export function DeviceDataSection() {
       <Alert
         open={confirming}
         title={tr('이 기기의 기록을 지울까요?')}
-        message={tr('이 기기의 장바구니·코스·찜이 모두 지워지고 되돌릴 수 없어요.')}
+        message={say('이 기기의 마이맵·코스·찜이 모두 지워지고 되돌릴 수 없어요.', 'My map, courses, and favorites on this device will all be deleted. This cannot be undone.')}
         buttons={[
           { label: tr('지우기'), role: 'destructive', onPress: () => void accountActions.deleteDeviceData().then((o) => setMessage(deviceDeleteMessage(o))) },
           { label: tr('취소'), role: 'cancel' },

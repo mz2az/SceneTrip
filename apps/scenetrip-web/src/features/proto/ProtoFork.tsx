@@ -111,7 +111,7 @@ export function ProtoForkSheet({ open, onClose, onAI, onManual }: { open: boolea
             photo={savedPhoto}
             icon="bag"
             title={say('담은 곳으로', 'From saved')}
-            caption={saved.length > 0 ? say(`담아 둔 ${saved.length}곳을 날마다 나눠 넣어요`, `Split your ${saved.length} saved places by day`) : say('빈 코스에서 하나씩 넣어요', 'Start empty and add places')}
+            caption={saved.length > 0 ? say(`마이맵의 ${saved.length}곳을 날마다 나눠 넣어요`, `Split the ${saved.length} places on My map by day`) : say('빈 코스에서 하나씩 넣어요', 'Start empty and add places')}
             onPress={go(() => { track(webEvent.planStart('fork_saved')); onManual() })}
           />
         </div>
@@ -134,7 +134,7 @@ export function ProtoForkSheet({ open, onClose, onAI, onManual }: { open: boolea
           {
             target: '[data-coach="fork-saved"]',
             title: say('담은 곳으로', 'From saved'),
-            text: say('보관함에 담아 둔 곳을 날마다 나눠 넣어요. 담은 곳이 없으면 빈 코스에서 하나씩 직접 넣어요.', 'Your saved places are split by day. With none saved, you start empty and add spots yourself.'),
+            text: say('마이맵에 담아 둔 곳을 날마다 나눠 넣어요. 담은 곳이 없으면 빈 코스에서 하나씩 직접 넣어요.', 'Places on My map are split by day. With none, you start empty and add spots yourself.'),
           },
         ]}
       />

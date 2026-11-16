@@ -74,7 +74,6 @@ export function useSearchTab(active = true, embedded = false) {
   const [focusToken, setFocusToken] = useState(0)
   const [panToken, setPanToken] = useState(0)
   const [panTarget, setPanTarget] = useState<PlaceSummary | null>(null)
-  const [showCart, setShowCart] = useState(false)
   const [nearby, setNearby] = useState(false)
   const [koreaToken, setKoreaToken] = useState(0)
   const [locateToken, setLocateToken] = useState(0)
@@ -248,9 +247,10 @@ export function useSearchTab(active = true, embedded = false) {
     else if (step.kind === 'replace') navigate(step.to, { replace: true, state: step.state })
   }
   const closePlace = () => {
+    const closing = selectedPlace?.id ?? null
     setSelectedPlace(null)
     setFitToken((n) => n + 1)
-    applyBack(placeBack({ pathname, state: navState, contentId: selectedContentId.current }))
+    applyBack(placeBack({ pathname, state: navState, contentId: selectedContentId.current, placeId: closing, canGoBack: canGoBack() }))
   }
   const closeContent = () => {
     const closing = selectedContentId.current
@@ -473,13 +473,6 @@ export function useSearchTab(active = true, embedded = false) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 주소가 바뀔 때만.
   }, [pathname])
 
-  // 담기 알림은 2초 뒤 사라진다.
-  useEffect(() => {
-    if (!cart.toast) return
-    const t = setTimeout(() => cartActions.clearToast(), 2000)
-    return () => clearTimeout(t)
-  }, [cart.toast])
-
   // 자동완성 — 글자마다 부르되 응답이 오는 사이 검색어가 바뀌었으면 버린다(늦게 온 응답이 최신을 덮는다).
   useEffect(() => {
     const query = draft.trim()
@@ -517,7 +510,7 @@ export function useSearchTab(active = true, embedded = false) {
     draft, setDraft, committed, tab, setTab, chip, setChip, detent, setDetent,
     selectedPlace, selectedContent, contentPlaces, contentLoading, suggestions, topWork,
     fitToken, focusToken, panToken, panTarget, koreaToken, locateToken, setLocateToken,
-    showCart, setShowCart, nearby, locateFailure, setLocateFailure, outsideKorea, sheetHeight, setSheetHeight,
+    nearby, locateFailure, setLocateFailure, outsideKorea, sheetHeight, setSheetHeight,
     searchFocused, setSearchFocused, chipFillRetry, bumpChipFill: () => setChipFillRetry((n) => n + 1),
     camera, inputRef, initial, visiblePlaces, mapPlaces, numbered, location,
     commit, openContent, openPlace, save, toggleLike, selectPlaceSuggestion, closePlace, closeContent, clearSearch,

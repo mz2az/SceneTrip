@@ -9,7 +9,7 @@
 import { shiftedCenter } from './mercator'
 import type { NaverLatLng, NaverMap, NaverMapOptions, NaverMaps, NaverMarker, NaverOverlay } from './naver'
 import type {
-  FitOptions, LatLng, MapBounds, MapEventName, MapHandle, MapLayer, MarkerHandle, MarkerSpec, PolylineHandle, PolylineSpec, SetViewOptions,
+  FitOptions, LatLng, MapBounds, MapEventName, MapHandle, MapLayer, MarkerHandle, MarkerSpec, PolygonSpec, PolylineHandle, PolylineSpec, SetViewOptions,
 } from './types'
 
 const KOREA_CENTER: LatLng = { lat: 36.3, lng: 127.8 }
@@ -116,6 +116,20 @@ export function createNaverMap(maps: NaverMaps, el: HTMLElement): MapHandle {
         })
         overlays.add(line)
         return { remove: () => detach(line) }
+      },
+      addPolygon(spec: PolygonSpec): PolylineHandle {
+        const shape = new maps.Polygon({
+          map,
+          paths: [spec.path.map(ll)],
+          fillColor: spec.fillColor,
+          fillOpacity: spec.fillOpacity,
+          strokeColor: spec.strokeColor,
+          strokeWeight: spec.strokeWeight,
+          strokeOpacity: spec.strokeOpacity ?? 1,
+          clickable: false,
+        })
+        overlays.add(shape)
+        return { remove: () => detach(shape) }
       },
       clear() {
         for (const o of [...overlays]) detach(o)

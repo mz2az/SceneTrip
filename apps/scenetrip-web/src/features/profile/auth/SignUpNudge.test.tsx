@@ -29,7 +29,7 @@ import { cartStore } from '@/state/cart'
 import { likeStore } from '@/state/likes'
 import { SignUpNudge } from './SignUpNudge'
 
-const SAVED_ONE_KO = '담아 둔 1곳, 로그인하면 어느 기기서든 이어져요'
+const SAVED_ONE_KO = '마이맵의 1곳, 로그인하면 어느 기기서든 이어져요'
 
 function guestWithSavedPlace() {
   clearSession()
@@ -58,9 +58,17 @@ describe('SignUpNudge — 홈의 가입 권유 알약', () => {
     expect(screen.getByText(SAVED_ONE_KO)).toBeTruthy()
   })
 
-  it('새 홈 화면(protoOn)에서도 보인다', () => {
-    render(<SignUpNudge onHome protoOn />)
-    expect(screen.getByText(SAVED_ONE_KO)).toBeTruthy()
+  // §10-3-11 — 담은 사람의 새 홈에서는 알약 대신 「Plan my trip」 옆 작은 원(옛 시험은 알약 글자를 찾았다).
+  it('새 홈 화면(protoOn)에서도 보인다 — 담은 사람에게는 작은 원(이름에 같은 문구), 누르면 로그인', () => {
+    const { container } = render(<SignUpNudge onHome protoOn />)
+    expect(screen.queryByText(SAVED_ONE_KO)).toBeNull()
+    const circle = screen.getByRole('button', { name: new RegExp(SAVED_ONE_KO) })
+    expect((circle as HTMLElement).style.width).toBe('44px')
+    expect(container.querySelectorAll('button')).toHaveLength(1)
+    act(() => {
+      fireEvent.click(circle)
+    })
+    expect(account.store.get().showingSignIn).toBe(true)
   })
 
   it('홈이 아니면 보이지 않는다', () => {
@@ -97,7 +105,7 @@ describe('SignUpNudge — 홈의 가입 권유 알약', () => {
   it('영어일 때 ✕ 의 접근성 이름은 Dismiss', () => {
     chooseLanguage('en')
     render(<SignUpNudge onHome />)
-    expect(screen.getByText('Sign in to keep your 1 saved spot on any device')).toBeTruthy()
+    expect(screen.getByText('Sign in to keep the 1 spot on your My map on any device')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Dismiss' })).toBeTruthy()
   })
 })

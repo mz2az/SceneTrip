@@ -32,6 +32,28 @@ export function pickSceneImage(
   return null
 }
 
+/** 계약 1.32.0 의 장면 작은 판 칸(web-ad-landing.md §10-2) — 옛 서버에는 없다. 생성 타입에 기대지 않고 좁게 읽는다. */
+type SceneThumbs = { contentId?: number; sceneImageUrls?: string[] | null; sceneImageThumbnailUrl?: string | null; sceneImageThumbnailUrls?: string[] | null }
+
+/**
+ * `pickSceneImage` 와 같은 장면을 고르되 작은 판(긴 변 720px)을 준다 — 홈 장면 카드·내 지도 모서리처럼 작게 그리는 곳(§10-3-3).
+ * 그 장면에 작은 판이 없으면(옛 서버, 또는 작은 판이 없는 장) 원본 첫 장.
+ */
+export function pickSceneThumb(detail: { scenes?: SceneThumbs[] | null } | null | undefined, workId: number | null | undefined): string | null {
+  const scenes = detail?.scenes ?? []
+  const of = (s: SceneThumbs): string | null => s.sceneImageThumbnailUrls?.[0] || s.sceneImageThumbnailUrl || s.sceneImageUrls?.[0] || null
+  if (workId != null) {
+    const own = scenes.find((s) => s.contentId === workId)
+    const url = own ? of(own) : null
+    if (url) return url
+  }
+  for (const s of scenes) {
+    const url = of(s)
+    if (url) return url
+  }
+  return null
+}
+
 /**
  * 화면이 처음 뜰 때 한 번 살짝(약 25°) 돌 카드의 자리(0부터).
  *

@@ -26,7 +26,7 @@ describe('home_scroll · home_tap', () => {
 })
 
 describe('plan_start · plan_step · plan_failed', () => {
-  it.each(['city_chip', 'fork_city', 'fork_works', 'fork_saved', 'plan_bar'])('planStart(%s)', (entry) => {
+  it.each(['city_chip', 'city_map', 'fork_city', 'fork_works', 'fork_saved', 'plan_bar'])('planStart(%s)', (entry) => {
     expect(w.planStart(entry)).toEqual({ name: 'plan_start', params: { entry } })
   })
   it.each([
@@ -95,7 +95,7 @@ describe('새 이벤트는 웹 전용 — 공통 appEvent 에 섞이지 않는�
 // 검증 뒤 추가 — 코치 투어는 웹 전용 coach_tour 로 센다(web-proto-events.md §1).
 describe('coachTour', () => {
   it('안내 id 와 begin·complete', () => {
-    expect(webEvent.coachTour('home-plan-trip', 'begin')).toEqual({ name: 'coach_tour', params: { tour: 'home-plan-trip', action: 'begin' } })
+    expect(webEvent.coachTour('editor-first', 'begin')).toEqual({ name: 'coach_tour', params: { tour: 'editor-first', action: 'begin' } })
     expect(webEvent.coachTour('fork-options', 'complete')).toEqual({ name: 'coach_tour', params: { tour: 'fork-options', action: 'complete' } })
   })
 })

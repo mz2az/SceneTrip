@@ -4,7 +4,8 @@
  * 항상 마운트돼 있고 보일 때만 `active` 가 true 다. 상태와 동작은 `useSearchTab`, 지도는 `map/MapView`(공급자 교체 지점),
  * 시트 안은 목록(SearchList)·작품 상세·촬영지 상세 가운데 하나다.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation } from 'react-router'
 import { pendingStore, useTabRouter } from '@/app/tabRouter'
 import { Alert } from '@/design/overlay'
 import { HStack, Pressable, Spinner, Txt, VStack } from '@/design/primitives'
@@ -15,7 +16,6 @@ import './icons'
 import { MapView } from './map/MapView'
 import { CAMERA_TOP_INSET } from './map/mapRules'
 import './search.css'
-import { CartSheet } from './ui/CartSheet'
 import { useStore } from '@/state/storage'
 import { protoAvailable, protoStore } from '@/features/proto/protoState'
 import { ContentDetail } from './ui/ContentDetail'
@@ -26,6 +26,9 @@ import { MapControl, NearbyButton, SearchBar } from './ui/SearchTopBar'
 import { SearchList } from './ui/SearchList'
 import { SuggestionPanel } from './ui/SuggestionPanel'
 import { useSearchTab } from './useSearchTab'
+import { CityFocusCard } from './ui/CityFocusCard'
+import { clearCityFocus, cityFocusStore, focusShade } from '@/features/home/cityFocus'
+import { homeCityStore } from '@/features/home/homeCityModel'
 import { shownTotal } from '@/state/shared'
 
 /** 탭바 높이 — 시트는 탭바 밑으로 깔린다(tokens.css 의 --tabbar-height). */
@@ -44,12 +47,25 @@ export function SearchTab({ active, embedded = false }: { active: boolean; embed
   const TAB_BAR = embedded || proto ? 0 : TAB_BAR_HEIGHT
   const likes = useLikes()
   const router = useTabRouter()
+  const here = useLocation()
   // 촬영지 상세 「길찾기」(MZ2AZ-532) — 홈 「이어서 길찾기」와 같은 길: 코스를 열며 안내를 켠다.
   const openTrip = (courseId: number) => {
     pendingStore.set((s) => ({ ...s, tripStart: true }))
     router.openCourse(courseId)
   }
   const root = useRef<HTMLDivElement>(null)
+  // 첫 화면 도시 칩 → 지도: 그 도시 영역 음영과 카드. 탭을 떠나면 지운다.
+  const focusKey = useStore(cityFocusStore, (f) => f.key)
+  const cities = useStore(homeCityStore, (h) => h.cities)
+  const cityFocus = useMemo(() => (focusKey === null ? null : (cities.find((c) => c.key === focusKey) ?? null)), [focusKey, cities])
+  const shade = useMemo(() => focusShade(cityFocus), [cityFocus])
+  useEffect(() => {
+    if (!active && !embedded) clearCityFocus()
+  }, [active, embedded])
+  // 검색어를 넣으면 그 도시 보기는 끝난다 — 다른 결과 위에 도시 카드·음영이 남지 않게(검증 지적).
+  useEffect(() => {
+    if (t.committed !== '') clearCityFocus()
+  }, [t.committed])
   const [height, setHeight] = useState(0)
   const [visibleSheet, setVisibleSheet] = useState(0)
 
@@ -150,6 +166,7 @@ export function SearchTab({ active, embedded = false }: { active: boolean; embed
         focus={t.selectedPlace}
         panToken={t.panToken}
         pan={t.panTarget}
+        shade={embedded ? null : shade}
         sheetHeight={visibleSheet}
         onTapPin={t.onTapPin}
         onLocateFailure={t.setLocateFailure}
@@ -183,11 +200,11 @@ export function SearchTab({ active, embedded = false }: { active: boolean; embed
           onClear={t.clearSearch}
           onFocus={() => t.setSearchFocused(true)}
           inputRef={t.inputRef}
-          cartCount={t.cart.items.length}
-          onCart={() => t.setShowCart(true)}
+          onMyMap={() => router.openMyMap(`${here.pathname}${here.search}`)}
         />
         {!t.searchFocused ? (
-          // 「현 지도 내 성지 검색」은 가운데, 조작 버튼은 오른쪽 — 위 검색창의 장바구니와 같은 세로선에 놓아 지도를 덜 가린다.
+          <>
+          {/* 「현 지도 내 성지 검색」은 가운데, 조작 버튼은 오른쪽 — 위 검색창의 마이맵 단추와 같은 세로선에 놓아 지도를 덜 가린다. */}
           <div className="st-controls">
             <span />
             <NearbyButton active={t.nearby} label={nearbyLabel} onClick={t.toggleNearby} />
@@ -196,6 +213,9 @@ export function SearchTab({ active, embedded = false }: { active: boolean; embed
               <MapControl label={tr('내 위치')} symbol="dot.scope" onClick={() => t.setLocateToken((n) => n + 1)} />
             </HStack>
           </div>
+          {/* 첫 화면 도시 칩으로 왔으면 그 도시 카드(web-city-map-first.md). */}
+          {cityFocus && !embedded && <CityFocusCard city={cityFocus} />}
+          </>
         ) : (
           <SuggestionPanel
             draft={t.draft}
@@ -208,12 +228,7 @@ export function SearchTab({ active, embedded = false }: { active: boolean; embed
         )}
       </VStack>
 
-      {/* 계약이 409 에 「이미 저장된 장소입니다」 를 띄우라고 적어 뒀다. 담기는 화면을 옮기지 않으므로 알림이 그 자리에 떠야 한다. */}
-      {t.cart.toast && (
-        <div className="st-toast" role="status">
-          <Txt size={FONT.subheadline}>{t.cart.toast}</Txt>
-        </div>
-      )}
+      {/* 담기 알림(「이미 마이맵에 있어요」 등)은 앱 맨 위 한 곳(features/keep/CartToast, RootTabs)이 그린다(keep-poi.md §9-1). */}
       {likes.failure && (
         <HStack spacing={12} align="start" className="st-notice" role="alert">
           <VStack spacing={4} align="start" style={{ flex: 1, minWidth: 0 }}>
@@ -226,7 +241,6 @@ export function SearchTab({ active, embedded = false }: { active: boolean; embed
         </HStack>
       )}
 
-      <CartSheet open={t.showCart} onClose={() => t.setShowCart(false)} />
       <LocationConsentSheet gate={t.location.gate} />
       <LocateAlert outcome={t.locateFailure} onClose={() => t.setLocateFailure(null)} />
     </div>

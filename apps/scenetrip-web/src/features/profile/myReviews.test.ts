@@ -5,7 +5,6 @@ import { poiLabel } from '@/features/route/poiLabel'
 import { deleteGuestData, deviceDeleteMessage, isGuestDeleteVisible } from './auth/guestDataDeletion'
 import { abbreviatedDate, dateWithMinutes, relativeTime } from './dates'
 import { headingOf, kindName, nameOf, needsLookup, subjectOf, symbolOf } from './myReviews'
-import { cartSubtitle } from './sheets/CartSheet'
 import { courseSubtitle } from './sheets/MyCoursesSheet'
 import { workSubtitle } from './sheets/LikedWorksSheet'
 import { firstSentence, trCount } from './wording'
@@ -69,12 +68,6 @@ describe('마이페이지 문구 규칙', () => {
     expect(workSubtitle({ broadcaster: 'tvN', releaseYear: 2020 })).toBe('tvN · 2020')
     expect(workSubtitle({ broadcaster: null, releaseYear: 2020 })).toBe('2020')
     expect(workSubtitle({ broadcaster: null, releaseYear: null })).toBe('')
-  })
-
-  it('장바구니 줄의 부제는 작품 제목 먼저, 없으면 주소(한 줄)', () => {
-    expect(cartSubtitle({ sourceContentTitle: '이태원 클라쓰', address: '서울' })).toEqual({ text: '이태원 클라쓰', oneLine: false })
-    expect(cartSubtitle({ sourceContentTitle: null, address: '서울 용산구' })).toEqual({ text: '서울 용산구', oneLine: true })
-    expect(cartSubtitle({ sourceContentTitle: null, address: null })).toBeNull()
   })
 
   it('코스 줄의 부제는 N일 · 떠나는 날', () => {

@@ -1,0 +1,996 @@
+/*
+ * 첫 화면 덮개(web-ad-landing.md §12) — 해태가 나오는 짧은 애니메이션. 움직임은 transform·opacity 만.
+ * 흐림(filter·backdrop-filter)·모서리 전환은 쓰지 않는다(§10-3-10).
+ *
+ * 박자(data-beat)마다 그 박자에 들어오는 것만 animation 을 건다. 각 부품의 기본 모양이 「다 들어온 뒤」 모양이라,
+ * 다음 박자로 넘어가 animation 이 떨어져도 튀지 않는다. 시간은 박자가 시작한 때부터(③·④ 의 시작은 landingScript).
+ */
+
+.st-landing {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.st-landing img {
+  -webkit-user-drag: none;
+}
+
+/* 받는 중 — index.html 의 첫 화면과 같은 모양 */
+.st-landing--loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: radial-gradient(120% 80% at 50% 30%, #7a52d6 0%, var(--home-purple) 45%, #2a1856 100%);
+}
+.st-landing--loading img {
+  animation: st-landing-breathe 1.1s ease-in-out infinite;
+}
+@keyframes st-landing-breathe {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-6px) scale(1.04);
+  }
+}
+
+/* 무대 — 첫 화면과 같은 보라 */
+.st-film {
+  color: #fff;
+  background: radial-gradient(120% 80% at 50% 30%, #7a52d6 0%, var(--home-purple, #5c4ad6) 45%, #2a1856 100%);
+}
+.st-film img {
+  display: block;
+}
+
+/* 머리줄 */
+.st-landing__head {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(var(--safe-top, 0px) + 8px) 16px 0;
+  min-height: 52px;
+}
+.st-film__brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  transition: opacity 0.35s ease;
+}
+.st-film__brand img {
+  object-fit: contain;
+}
+.st-landing__skip {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.38);
+}
+
+/* ---------------------------------------------------------------- ① drop */
+
+.st-film__face0 {
+  position: absolute;
+  z-index: 21;
+  width: 72px;
+  height: 62px;
+  object-fit: contain;
+  opacity: 0;
+}
+.st-film[data-beat='drop'] .st-film__face0 {
+  animation: st-face-hop 0.34s cubic-bezier(0.5, 0, 0.9, 0.5) both;
+}
+@keyframes st-face-hop {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(5px) scale(1.14, 0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(calc(var(--stage-h) * -0.5 - 120px)) scale(0.9, 1.1);
+  }
+}
+
+.st-film__word {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 19;
+  text-align: center;
+  font:
+    800 22px/28px -apple-system,
+    BlinkMacSystemFont,
+    'Apple SD Gothic Neo',
+    'Noto Sans KR',
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  letter-spacing: -0.2px;
+  color: #fff;
+  transform: translateY(6px) scale(1.5);
+  text-shadow: 0 3px 14px rgba(30, 10, 70, 0.35);
+}
+.st-film[data-beat='drop'] .st-film__word {
+  animation: st-word-grow 0.3s cubic-bezier(0.34, 1.4, 0.64, 1) 0.42s both;
+}
+@keyframes st-word-grow {
+  from {
+    transform: translateY(0) scale(1);
+  }
+  to {
+    transform: translateY(6px) scale(1.5);
+  }
+}
+.st-film[data-beat='poster'] .st-film__word {
+  animation: st-word-out 0.3s ease-in both;
+}
+@keyframes st-word-out {
+  from {
+    opacity: 1;
+    transform: translateY(6px) scale(1.5);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(30px) scale(1.3);
+  }
+}
+
+/* 온몸 해태 — 떨어져 통통 튀고(아래를 축으로 찌그러졌다 펴진다) 방긋 */
+.st-film__hero {
+  position: absolute;
+  z-index: 20;
+  transform-origin: 50% 100%;
+}
+.st-film__hero-in {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 85%;
+}
+.st-film__hero-in img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.st-film__sit {
+  opacity: 0;
+}
+.st-film__joy {
+  opacity: 1;
+}
+.st-film[data-beat='drop'] .st-film__hero {
+  animation: st-hero-drop 0.5s linear 0.06s both;
+}
+@keyframes st-hero-drop {
+  0% {
+    transform: translateY(calc(var(--stage-h) * -0.5 - 180px));
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.5);
+  }
+  40% {
+    transform: translateY(0) scale(1.1, 0.86);
+    animation-timing-function: cubic-bezier(0, 0.5, 0.45, 1);
+  }
+  58% {
+    transform: translateY(-40px) scale(0.96, 1.05);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.5);
+  }
+  73% {
+    transform: translateY(0) scale(1.06, 0.92);
+    animation-timing-function: cubic-bezier(0, 0.5, 0.45, 1);
+  }
+  86% {
+    transform: translateY(-12px) scale(1);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.5);
+  }
+  95% {
+    transform: translateY(0) scale(1.02, 0.98);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+/* 방긋 — 웃는 얼굴로 바뀌고 1 → 1.08 → 1 */
+.st-film[data-beat='drop'] .st-film__sit {
+  animation: st-swap-out 0.08s linear 0.56s both;
+}
+.st-film[data-beat='drop'] .st-film__joy {
+  animation: st-swap-in 0.08s linear 0.56s both;
+}
+.st-film[data-beat='drop'] .st-film__hero-in {
+  animation: st-smile-pop 0.26s ease-out 0.56s both;
+}
+@keyframes st-swap-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes st-swap-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes st-smile-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ---------------------------------------------------------------- ② poster */
+
+/* 해태가 포스터 윗변 위로 폴짝 — 그 뒤로 쏙 들어간다(포스터가 앞에 있다) */
+.st-film[data-beat='poster'] .st-film__hero {
+  animation: st-hero-hop 0.72s linear both;
+}
+@keyframes st-hero-hop {
+  0% {
+    transform: translateY(0) scale(1);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1);
+  }
+  42% {
+    transform: translateY(var(--hero-to-poster)) scale(0.72);
+  }
+  58% {
+    transform: translateY(var(--hero-to-poster)) scale(0.72);
+    animation-timing-function: cubic-bezier(0.6, 0, 1, 0.6);
+  }
+  100% {
+    transform: translateY(calc(var(--hero-to-poster) + 170px)) scale(0.72);
+  }
+}
+
+.st-film__poster {
+  position: absolute;
+  z-index: 24;
+  transform-origin: 50% 0;
+}
+.st-film__poster-in {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 4px solid #fff;
+  background: #3b2a7a;
+  box-shadow: 0 18px 40px rgba(20, 8, 50, 0.45);
+}
+.st-film__poster-in img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.st-film__poster-card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 18px;
+  text-align: center;
+  background: linear-gradient(160deg, #8b6cf0 0%, #5c4ad6 55%, #3a2590 100%);
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #fff;
+}
+.st-film__poster-card img {
+  position: static;
+  width: 44px;
+  height: 38px;
+  object-fit: contain;
+}
+.st-film[data-beat='poster'] .st-film__poster {
+  animation: st-poster-rise 0.56s linear 0.1s both;
+}
+@keyframes st-poster-rise {
+  0% {
+    transform: translateY(var(--poster-from)) rotate(-9deg);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1);
+  }
+  72% {
+    transform: translateY(calc(var(--poster-dy, 0px) - 8px)) rotate(2.5deg);
+    animation-timing-function: ease-in-out;
+  }
+  100% {
+    transform: translateY(var(--poster-dy, 0px)) rotate(0);
+  }
+}
+
+/* 빼꼼 — 머리는 포스터 윗변에서 잘리는 칸 안에서 올라오고, 앞발은 윗변에 걸친다 */
+.st-film__peek {
+  position: absolute;
+  z-index: 23;
+  width: 200px;
+  height: 122px;
+  overflow: hidden;
+}
+.st-film__look {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 100%;
+  transition: transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+.st-film__head {
+  position: absolute;
+  left: 30px;
+  bottom: 0;
+  width: 140px;
+  height: auto;
+  transform: translateY(10px);
+}
+.st-film__paw {
+  position: absolute;
+  z-index: 26;
+  width: 42px;
+  height: auto;
+}
+.st-film[data-beat='poster'] .st-film__head {
+  animation: st-head-pop 0.38s linear 0.5s both;
+}
+@keyframes st-head-pop {
+  0% {
+    transform: translateY(140px);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1);
+  }
+  65% {
+    transform: translateY(0);
+    animation-timing-function: ease-in-out;
+  }
+  100% {
+    transform: translateY(10px);
+  }
+}
+.st-film[data-beat='poster'] .st-film__paw--l {
+  animation: st-paw-in 0.3s linear 0.36s both;
+}
+.st-film[data-beat='poster'] .st-film__paw--r {
+  animation: st-paw-in 0.3s linear 0.42s both;
+}
+@keyframes st-paw-in {
+  0% {
+    opacity: 0;
+    transform: translateY(26px) scale(0.9);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 말풍선 — 톡 튀어나온다. 꼬리는 오른쪽 아래(해태 쪽) */
+.st-film__bubble {
+  position: absolute;
+  z-index: 32;
+  padding: 9px 14px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(20, 8, 50, 0.3);
+  transform-origin: 100% 100%;
+}
+.st-film__bubble::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  transform: rotate(45deg);
+  border-radius: 2px;
+}
+.st-film[data-beat='poster'] .st-film__bubble {
+  animation: st-bubble-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) 0.62s both;
+}
+.st-film__bubble-row {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  z-index: 32;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+/* ② — 가로로 넓은 말풍선, 꼬리는 가운데 아래(해태 머리) */
+.st-film__bubble--wide {
+  position: relative;
+  max-width: 100%;
+  padding: 10px 16px;
+  text-align: center;
+  transform-origin: 50% 100%;
+}
+.st-film__bubble--wide::after {
+  right: calc(50% - 7px);
+}
+.st-film__bubble--rest {
+  animation: st-bubble-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s both;
+}
+@keyframes st-bubble-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 포스터 아래 「{작품}의 장면들」 */
+.st-film__caption {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  z-index: 25;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.3;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(20, 8, 50, 0.55);
+}
+.st-film[data-beat='poster'] .st-film__caption {
+  animation: st-caption-in 0.4s ease-out 0.75s both;
+}
+@keyframes st-caption-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.st-film[data-beat='spill'] .st-film__caption {
+  opacity: 0;
+  animation: st-fade-out 0.3s ease-in both;
+}
+@keyframes st-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* ---------------------------------------------------------------- ③ spill — 펼침 · 하나씩 */
+
+/* 포스터는 가운데를 축으로 줄어 카드 고리의 가운데가 되고, 하나씩 동안은 뒤로 물러난다(흐리게). */
+.st-film__poster {
+  transition:
+    transform 0.6s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.4s ease;
+}
+.st-film[data-beat='spill'] .st-film__poster {
+  transform: var(--poster-spread);
+}
+.st-film[data-phase='one'] .st-film__poster {
+  opacity: 0.35;
+}
+/* 해태는 포스터 뒤로 쏙 */
+.st-film[data-beat='spill'] .st-film__head {
+  transform: translateY(140px);
+  animation: st-head-duck 0.24s ease-in both;
+}
+.st-film[data-beat='spill'] .st-film__paw {
+  opacity: 0;
+  animation: st-paw-out 0.2s ease-in both;
+}
+
+/* 카드 — 흰 테두리 사진 + 아래 이름 띠. 큰 크기로 그리고 줄여 세운다(Web Animations). */
+.st-card {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.st-card__in {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+.st-card[data-flip] .st-card__in {
+  transform: perspective(1200px);
+}
+.st-card__face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(20, 8, 50, 0.45);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.st-card__face--back {
+  transform: rotateY(180deg);
+}
+.st-card__photo {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 8px;
+  bottom: 66px;
+  width: calc(100% - 16px);
+  height: calc(100% - 74px);
+  object-fit: cover;
+  border-radius: 12px;
+  background: #7b69ed;
+}
+.st-card__label {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  height: 66px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-align: center;
+  color: #2a1856;
+}
+.st-card__label--blank img {
+  opacity: 0.55;
+  object-fit: contain;
+}
+.st-card__name {
+  max-width: 100%;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.15;
+  letter-spacing: -0.2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.st-card__ko {
+  max-width: 100%;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #6a5aa8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 사진이 아직 없는 장 — 이름 카드 */
+.st-card__namecard {
+  position: absolute;
+  inset: 8px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  background: linear-gradient(160deg, #8b6cf0 0%, #5c4ad6 55%, #3a2590 100%);
+  color: #fff;
+}
+.st-card__namecard img {
+  object-fit: contain;
+}
+.st-card__namecard .st-card__name {
+  white-space: normal;
+  font-size: 24px;
+}
+.st-card__namecard .st-card__ko {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* 「내 지도」 주머니 — ③ 은 오른쪽 아래, ④ 는 가운데 단추 위로 옮겨 선다. */
+.st-film__pouch {
+  position: absolute;
+  z-index: 29;
+  width: 110px;
+  /* ④ 에서 단추 위로 올라선다 — 포스터가 먼저 줄어든 뒤(낮은 화면에서 겹치지 않게). */
+  transition: transform 0.45s cubic-bezier(0.32, 0.72, 0, 1) 0.18s;
+}
+.st-film__pouch-in {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.st-film[data-beat='spill'] .st-film__pouch-in {
+  animation: st-pouch-in 0.36s cubic-bezier(0.34, 1.3, 0.64, 1) 0.9s both;
+}
+@keyframes st-pouch-in {
+  from {
+    opacity: 0;
+    transform: translateY(80px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.st-film__bag {
+  position: relative;
+  width: 100px;
+  height: 80px;
+  display: grid;
+  place-items: center;
+  /* 그림은 MapArt(접힌 종이 지도) — 상자 자체는 그리지 않고 그림자만 그림 모양을 따른다. */
+  filter: drop-shadow(0 8px 12px rgba(20, 8, 50, 0.35));
+  transform-origin: 50% 100%;
+}
+.st-film__bag--bump {
+  animation: st-bag-bump 0.32s ease-out both;
+}
+@keyframes st-bag-bump {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.14, 0.86);
+  }
+  70% {
+    transform: scale(0.96, 1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.st-film__bag-count {
+  position: absolute;
+  top: -10px;
+  left: -12px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 3px solid #fff;
+  background: #ff5d8f;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 26px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.st-film__bag-label {
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(20, 8, 50, 0.5);
+}
+
+/* ---------------------------------------------------------------- ④ rest */
+
+.st-film[data-beat='rest'] .st-film__poster {
+  transform: scale(0.82);
+}
+@keyframes st-head-duck {
+  from {
+    transform: translateY(10px);
+  }
+  to {
+    transform: translateY(140px);
+  }
+}
+@keyframes st-paw-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+.st-film__pin {
+  position: absolute;
+  z-index: 27;
+  object-fit: contain;
+  transform-origin: 50% 100%;
+  animation:
+    st-pin-up 0.5s linear 0.2s both,
+    st-pin-bob 2.4s ease-in-out 1.1s infinite;
+}
+@keyframes st-pin-up {
+  0% {
+    opacity: 0;
+    transform: translateY(70px) scale(0.5);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-10px) scale(1.06);
+    animation-timing-function: ease-in-out;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes st-pin-bob {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -5px;
+  }
+}
+
+.st-landing__panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 20px calc(var(--safe-bottom, 0px) + 12px);
+  animation: st-landing-panel 0.42s cubic-bezier(0.32, 0.72, 0, 1) 0.3s both;
+}
+@keyframes st-landing-panel {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.st-landing__keep {
+  width: 100%;
+  min-height: 54px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(20, 8, 50, 0.35);
+  display: grid;
+  place-items: center;
+}
+.st-landing__keep:disabled {
+  opacity: 0.85;
+}
+.st-landing__browse {
+  width: 100%;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+}
+
+/* ---------------------------------------------------------------- ⑤ keep(§13-1) — 해태가 주머니를 안고 간직하기를 권한다 */
+
+.st-keep__hero {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 56px;
+  bottom: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 0 20px;
+}
+.st-keep__bubble {
+  position: relative;
+  max-width: 300px;
+  padding: 12px 16px;
+  text-align: center;
+  transform-origin: 50% 100%;
+  animation: st-bubble-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) 0.35s both;
+}
+.st-keep__bubble::after {
+  right: calc(50% - 7px);
+}
+.st-keep__hug {
+  position: relative;
+  width: 210px;
+  height: 240px;
+  flex: none;
+  animation: st-keep-hug 0.5s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+@keyframes st-keep-hug {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.st-keep__haetae {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 210px;
+  height: 233px;
+  object-fit: contain;
+}
+/* 해태가 지도 윗변을 입에 문 모양. 그림 210×233 에서 입은 가로 68~105, 윗니 아래 끝이 세로 118. */
+.st-keep__bag {
+  position: absolute;
+  left: 40px;
+  top: 109px;
+  width: 92px;
+  height: 74px;
+  transform-origin: 50% 0;
+  animation: st-bag-bump 0.32s ease-out 0.5s both;
+}
+.st-keep__bag svg {
+  width: 100%;
+  height: 100%;
+}
+.st-keep__bag .st-film__bag-count {
+  top: auto;
+  left: auto;
+  bottom: -8px;
+  right: -16px;
+}
+/* 윗입술과 송곳니 띠 — 아랫변이 지도 윗변(세로 118)과 맞는다. */
+.st-keep__jaw {
+  pointer-events: none;
+  clip-path: polygon(31% 45.5%, 51% 45.5%, 51% 50.7%, 31% 50.7%);
+}
+.st-keep__panel {
+  gap: 8px;
+}
+.st-keep__second {
+  width: 100%;
+  min-height: 50px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+}
+.st-keep__second:disabled {
+  opacity: 0.7;
+}
+.st-keep__hint {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(20, 8, 50, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 아이폰 앱 안 브라우저 — 해태가 오른쪽 위(⋯ 메뉴)를 가리킨다 */
+.st-keep__point {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 200px;
+  animation: st-fade-in-keep 0.3s ease both;
+}
+@keyframes st-fade-in-keep {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.st-keep__arrow {
+  position: absolute;
+  right: 10px;
+  top: 6px;
+  width: 112px;
+  height: 104px;
+  animation: st-keep-nudge 1.2s ease-in-out infinite;
+}
+@keyframes st-keep-nudge {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(5px, -5px);
+  }
+}
+.st-keep__pointer {
+  position: absolute;
+  right: 96px;
+  top: 74px;
+  width: 128px;
+  height: 142px;
+}
+.st-keep__pointer-body {
+  width: 128px;
+  height: 142px;
+  object-fit: contain;
+}
+/* 들어 올린 오른 앞발 — 오른쪽 위를 향한다 */
+.st-keep__pointer-paw {
+  position: absolute;
+  right: -6px;
+  top: 50px;
+  width: 50px;
+  height: 33px;
+  transform: rotate(-42deg);
+  transform-origin: 20% 80%;
+  animation: st-keep-wave 1.2s ease-in-out infinite;
+}
+@keyframes st-keep-wave {
+  0%,
+  100% {
+    transform: rotate(-42deg);
+  }
+  50% {
+    transform: rotate(-30deg) translate(3px, -3px);
+  }
+}
+.st-keep__steps {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 240px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(20, 8, 50, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 움직임 줄이기 — 처음부터 ④, 해태는 서 있다 */
+.st-film[data-instant] *,
+.st-film[data-instant] *::before,
+.st-film[data-instant] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-landing *,
+  .st-landing *::before,
+  .st-landing *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

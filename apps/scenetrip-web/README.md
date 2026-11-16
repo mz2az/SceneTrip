@@ -87,7 +87,7 @@ Bazel 빌드(`just web-build`)는 호스트 환경 변수를 받지 않아 `VITE
 
 촬영지 상세의 주 버튼은 「길찾기」다(MZ2AZ-532, DEV 실험 — [계획](../../docs/project/plans/web-place-directions.md)). 누르면 그 장소 하나로 된 코스(「{장소} 가는 길」)를 만들고
 여행 중으로 바꾼 뒤 홈 「이어서 길찾기」와 같은 길(`pendingStore.tripStart` + `openCourse`)로 안내를 켠다. 비회원이면 로그인 시트를 이유 한 줄과 함께 띄우고
-로그인되면 이어 간다. 「장바구니에 담기」는 보조 버튼이다. 웹에만 있는 문구의 영어는 `src/i18n/en.web.ts` 에 둔다(정본은 iOS 문구표).
+로그인되면 이어 간다. 「마이맵에 담기」는 보조 버튼이다. 웹에만 있는 문구의 영어는 `src/i18n/en.web.ts` 에 둔다(정본은 iOS 문구표).
 
 코스 지도의 「내 위치」는 켤 때 받은 첫 자리가 시트 위 화면 밖이면 코스·미리보기(장소 선택 중이면 그곳)와 함께 담는다. 이후 위치 갱신은 점만 옮기며,
 시트 높이만 바뀌면 350ms 동안 조용해진 뒤 마지막 높이로 한 번 맞추며, 켜진 내 위치도 함께 담아 첫 위치 맞추기를 유지한다.
@@ -102,7 +102,7 @@ IntersectionObserver 가 없는 환경(jsdom 포함)에서는 탭이 보이면 �
 
 목록·카드의 우리 S3 사진은 서버가 주는 작은 판(긴 변 720px JPEG, 계약 1.29.0)을 `src/shared/smallImage.ts` 의 `smallImage(thumb, full)`
 (= `webUrl(thumb) ?? full`)로 고른다(MZ2AZ-561, [계획](../../docs/project/plans/photo-thumbnails.md) §2-5). 칸이 없거나 쓸 수 없는 주소면 원본이다.
-작은 것을 쓰는 곳: 홈 「도시의 성지」 카드, 검색 촬영지 줄, 장바구니 줄(검색·마이페이지·코스 편집), 코스 편집·장소 찾기 줄, 시안의 촬영지 줄·담기·코스 카드
+작은 것을 쓰는 곳: 홈 「도시의 성지」 카드, 검색 촬영지 줄, 마이맵 목록 줄·코스 편집의 「마이맵에서 추가」 줄, 코스 편집·장소 찾기 줄, 시안의 촬영지 줄·담기·코스 카드
 (`imageThumbnailUrl` — 코스·초안·가이드 일정 모델이 사진과 짝으로 실어 나른다), 후기 대표 사진(`coverThumbnailUrl`, 서명 만료로 상세를 다시 받으면
 `photoThumbnailUrls[0]`), 리뷰 사진 칸(`ReviewPhoto.thumbnailUrl`, 사진첩 칸은 원래대로 `Photo.thumbnailUrl`). 원본 그대로인 곳: 홈 「오늘의 성지」 큰 카드
 (사용자 결정 §8-2), 확대 보기(`PhotoViewers.tsx`), 후기 본문 사진(`PostView.tsx`), 촬영지 상세 머리·장면 사진, 시안 도시 머리.

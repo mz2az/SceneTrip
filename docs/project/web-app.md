@@ -89,7 +89,7 @@ iOS 출처는 `apps/scenetrip-ios/src/` 아래 경로다. 비교한 기준은 `/
 | S4 | 작품 상세 | SearchTab/ContentDetailView | ✅ | 87 | S2: 위쪽에 보이는 지도 |
 | S5 | 촬영지 상세 + 장면 카드 | SearchTab/PlaceDetailView, SceneCard | ✅ | 87 | S2: 지도 |
 | S6 | 사진 전체 화면(확대) | SearchTab/ScenePhotoViewer, SceneZoomView | ✅ | 97 | |
-| S7 | 장바구니 시트 | SearchTab/CartSheet | ✅ | 97 | |
+| S7 | 검색창 옆 마이맵 단추 | SearchTab/CartSheet | ✅ | 비교 안 함 | 웹은 iOS 와 다르다: 옛 장바구니 시트를 없애고 지도 기호 + 담은 수 배지 단추가 `/my-map`(마이맵)을 연다(web-keep-flow.md §11) |
 | S8 | 주변 편의시설 점·칩·정보 카드 | RouteTab/RoutePoi*, PoiInfoSection | 🟨 | 비교 안 함 | 칩·점은 iOS 편집 화면 스크린샷과 같게 나온다. 정보 카드(`PlaceCard`)는 iOS 기준 스크린샷이 없어 비교 못 함 |
 | S9 | 리뷰 시트·작성·내 리뷰·사진첩 | Reviews/* | 🟨 | 97 (시트) | 리뷰 시트만 비교. 작성·고치기·지우기는 계정·쓰기가 필요해 실행 못 함 |
 
@@ -110,7 +110,7 @@ iOS 출처는 `apps/scenetrip-ios/src/` 아래 경로다. 비교한 기준은 `/
 | P1 | 마이페이지 본문(프로필·설정·언어·약관) | ProfileTab/ProfileTabView | ✅ | 97 | 「광고 추적 허용」 줄은 웹에 없다(ATT 해당 없음, §5) — 차이에서 제외 |
 | P2 | 내 코스 시트 | ProfileTab/ProfileSheets | ✅ | 97 | |
 | P3 | 찜한 작품 | ProfileTab/ProfileSheets | ✅ | 97 | |
-| P4 | 장바구니 | ProfileTab/ProfileSheets | ✅ | 97 | |
+| P4 | 마이맵 줄 | ProfileTab/ProfileSheets | ✅ | 비교 안 함 | 웹은 iOS 와 다르다: 시트 없이 `/my-map` 을 연다, 옛 `/profile/cart` 도 그리로(web-keep-flow.md §11) |
 | P5 | 스탬프 | ProfileTab/ProfileStamps | 🟨 | 비교 안 함 | 빈 상태(본문의 스탬프 줄)만 P1 에서 비교 |
 | P6 | 내 글 | ProfileTab/ProfileSheets | ✅ | 97 | |
 | P7 | 내 후기 | Reviews/MyReviewsView | 🟨 | 비교 안 함 | 계정이 있어야 한다 |
@@ -234,12 +234,14 @@ cd apps/scenetrip-web && npm ci && npm run check
 
 `.env.local` 의 안전장치(`VITE_BLOCK_WRITES`·`VITE_BLOCK_PATHS=/guide,/navigation`)는 그대로 둔다. 화면 확인용 쿼리: `?dev-lang=ko|en`, `?dev-trip-dwell=10`(머무름 초). 첫 실행 덮개가 없어져 `dev-seen`·`dev-nosplash` 는 2026-11-03 제거했다.
 
+시험용 초기화 링크: `?reset=1`(예: `https://dev.scenetrip.io/?reset=1`). 시험용 웹(`isDevSite`)·로컬(`localhost`)에서만, 앱이 뜨기 전에 `index.html` 의 첫 인라인 스크립트가 localStorage·sessionStorage 의 `scenetrip.`·`proto.`·`ph_` 키(첫 화면 기록·설치 id·PostHog 익명 id 포함)를 지우고 주소에서 `reset` 만 뗀다(나머지 쿼리는 남는다) — 앱 안 브라우저에서도 처음 온 사람으로 다시 볼 수 있다. 운영 주소에서는 지우지 않고 떼기만 한다. 서버의 비회원 데이터는 지우지 않는다(새 설치 id 라 비어 보인다). 규칙은 `src/app/resetLink.ts`.
+
 2026-10-30 확인 결과: typecheck 통과, lint 통과(오류 0·경고 0), vitest 34 파일 464 시험 통과, `vite build` 통과. 모든 탭·덮개·시트 라우트(`/`, `/search`, `/search/content/:id`, `/search/place/:id`, `/community`, `/community/new`, `/courses`, `/courses/new`, `/courses/:id`, `/profile`, `/profile/*`)를 열어 페이지 오류 0 을 확인했다.
 
 ### 이번 마무리에서 고친 것
 
 - 중단 시점에 비어 있던 이음새: `editorExtensions` 에 아무도 등록하지 않아 **가이드 챗봇·여행 안내·주변 편의시설이 편집 화면에 안 붙어 있었다** → `route/editor/tripExtensions.tsx` 로 이었다(해태 동그라미, 가이드 서랍, 안내 띠·도착 알림·스탬프·아래 단추 줄, 갈래 칩, 지도 위 점·AI 장소·경로선, 정보 카드의 리뷰 시트·사진첩, 홈 「이어서 길찾기」). 챗봇이 코스를 읽고 고치는 데 필요한 코스 ↔ 초안 변환(`guide/guidePlan.ts`)도 새로 썼다.
-- 중복: 후기·커뮤니티의 사진 올리기를 `shared/photoUpload.ts` 하나로, 글쓰기의 「내가 쓴 글」 시트를 마이페이지와 같은 시트로(iOS 도 같은 `MyPostsSheet`), 공용 경고창을 iOS 26 유리 모양 하나로. 남은 중복: 밀어서 삭제 줄이 둘(`community/SwipeRow`·`route/ui/SwipeRow` — 모양이 다르다), 장바구니 시트가 셋(iOS 도 `CartSheet`·`ProfileCartSheet`·`RouteCartSheet` 세 벌이라 그대로 둠), 지도 래퍼 셋(`LeafletMap`·`RouteMap`·`NavMap`).
+- 중복: 후기·커뮤니티의 사진 올리기를 `shared/photoUpload.ts` 하나로, 글쓰기의 「내가 쓴 글」 시트를 마이페이지와 같은 시트로(iOS 도 같은 `MyPostsSheet`), 공용 경고창을 iOS 26 유리 모양 하나로. 남은 중복: 밀어서 삭제 줄이 둘(`community/SwipeRow`·`route/ui/SwipeRow` — 모양이 다르다), 담은 곳 목록은 마이맵(`/my-map`) 하나와 코스 편집의 「마이맵에서 추가」 시트(`route/editor/CartSheet`)뿐이다(검색·마이페이지의 옛 장바구니 시트는 web-keep-flow.md §11 로 없앴다 — iOS 는 세 벌 그대로), 지도 래퍼 셋(`LeafletMap`·`RouteMap`·`NavMap`).
 - 문구: `tr('… %d')` 로 적은 열쇠가 iOS 의 `%lld` 영어 문구를 못 찾던 것(코스 장소 검색의 「추가 0」), 영어 달력 요일 줄임말(SUN…SAT).
 - 린트 오류 1건·경고 1건.
 - 알려진 남은 차이: 지도 타일(OSM), SF Symbols 대신 lucide 아이콘, 상태바 높이, 웹에서 숨긴 「광고 추적 허용」, 코드 분할 없이 번들 하나(약 1.2 MB, gzip 386 KB — 출시 전에 라우트별로 나눌 수 있다).
@@ -392,3 +394,14 @@ iOS·Android 와 **같은 이름·같은 매개변수**의 이벤트 26개를 �
 - **첫 실행 언어** — 2026-11-03 언어 고르기 첫 화면을 없앴다(MZ2AZ-523). 저장값이 없거나 지원하지 않는 값이면 기기 언어와 무관하게 영어로 시작하고, 저장된 ko/en 은 유지한다. 언어는 마이페이지 설정에서 바꾼다. iOS 도 2026-11-07 같다(MZ2AZ-526).
 - **작품 목록 속도** — 서버 응답은 0.06 초인데 Cloudflare Pages 중계(`/v1`)를 거치면 0.3~0.5 초가 더 걸린다(2026-11-01 실측, 같은 주소 3회). 작품을 한 번 누르면 상세와 촬영지 두 호출이 나간다. 중계가 **공개 목록**(`/v1/contents`·`/v1/places` 와 그 상세, 작품의 촬영지)을 가까운 곳 캐시에 2분(브라우저 30초) 담아 둔다. 로그인·설치 식별 헤더가 붙은 요청, 검색어(`q`)가 있는 요청, 쓰기는 담지 않는다. 응답 언어(`Accept-Language`)가 열쇠에 들어간다. 포스터는 외부 CDN 의 큰 원본(150~640 KB, 느린 곳은 2 초 이상)이라 웹에서 줄일 방법이 없다 — 크기를 줄인 썸네일은 서버(파이프라인)가 줘야 한다.
 
+
+## 15. 가로 배너 포스터를 세로 카드에 (2026-11-16, 사용자 지적 MZ2AZ-582)
+
+DEV 작품 128편 중 37편의 `posterUrl` 이 세로 포스터가 아니라 가로 배너다(16:9 가 대부분, 1.9:1·3.6:1·4:3·1:1 도 있다 — 2026-11-16 실측). 세로 카드(지금 뜨는 작품 줄 108×144, 전체 보기 격자, 「더 담기」 칸)에 `object-fit: cover` 로 넣으면 가운데만 남아 「무빙」 이 「빙」, 「조작된 도시」 는 얼굴 반쪽이 된다. 원본을 세로로 바꾸는 것은 데이터 몫이고, 화면은 어떤 비율이 와도 작품을 알아볼 수 있게 한다.
+
+- 부품 `design/PosterImg.tsx` `PosterImg` — 카드 상자를 가득 채우는 겹(absolute, inset 0). 그림을 받은 뒤 그림 비율(가로/세로)과 상자 비율을 비교한다.
+  - **그림이 상자보다 1.3배 넘게 넓으면(가로 배너)**: 자르지 않는다. 앞에 그림 전체(`object-fit: contain`, 세로 위치 38% — 아래 제목 글자와 덜 겹치게), 뒤에 같은 그림을 상자 가득(`cover`) 흐리게(`blur(14px)`)·어둡게(밝기 0.6)·조금 크게(1.2배, 흐린 가장자리가 안 보이게) 깐다. 뒤 그림은 앞 그림을 받은 뒤에만 단다(같은 주소라 다시 받지 않는다).
+  - **그 밖(세로 포스터, 약간 넓은 것)**: 지금처럼 `cover`. 자르는 자리(`object-position`)는 부르는 쪽이 줄 수 있다(기본 가운데, 「더 담기」 큰 가로 칸은 `center 15%`).
+- 보이지 않는 그림을 받지 않는 규칙(`DeferredImg`, MZ2AZ-558)은 그대로 — `PosterImg` 의 앞 그림이 `DeferredImg` 다.
+- 쓰는 곳: `HomeCards` 의 작품 줄 카드, `TrendingWorks` 격자, `AddMoreCover` 의 작품 칸. 검색 목록의 46×62 작은 썸네일·작품 상세 머리 그림은 이번에 바꾸지 않는다.
+- 흐림(filter)은 첫 화면 덮개(landing.css)에서만 쓰지 않는 규칙이다 — 목록 카드는 한 화면에 열 장 안팎이라 쓴다.

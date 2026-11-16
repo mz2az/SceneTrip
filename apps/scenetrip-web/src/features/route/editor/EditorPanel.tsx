@@ -6,7 +6,7 @@ import { type ReactNode, useRef, useState } from 'react'
 import { Icon } from '@/design/Icon'
 import { HStack, Spacer, Txt, VStack } from '@/design/primitives'
 import { Pressable } from '../ui/Press'
-import { tr } from '@/i18n'
+import { say, tr } from '@/i18n'
 import { nextKilometers } from '../availability'
 import { totalKilometers } from '../geometry'
 import { type RouteCourse, type RouteStop, dayDurationLabel, formatKm } from '../models'
@@ -110,7 +110,7 @@ export function EditorPanel(p: PanelProps) {
       })}
       {p.stops.length === 0 && (
         <div style={{ padding: '24px 0', textAlign: 'center' }}>
-          <Txt size={13} color="secondary" align="center">{tr('아직 담은 장소가 없습니다\n장바구니에서 담거나 지도에 핀을 찍어 보세요')}</Txt>
+          <Txt size={13} color="secondary" align="center">{say('아직 담은 장소가 없습니다\n마이맵에서 담거나 지도에 핀을 찍어 보세요', 'No places yet\nAdd from My map or drop a pin on the map')}</Txt>
         </div>
       )}
       {/* 시안의 떠 있는 「지도」 알약(44 + 아래 16)에 마지막 줄이 가리지 않게 더 띄운다. */}
@@ -195,7 +195,7 @@ function Actions(p: PanelProps) {
       <ActionButton label={tr('동선 최적화')} symbol="arrow.triangle.swap" highlight={p.optimizeNudge} onPress={p.onOptimize} />
       {/* 시안(장소 사진이 켜진 화면)에서는 검색·장바구니가 떠 있는 ＋ 로 옮겨 갔다 — 남는 것은 최적화와 핀 찍기. */}
       {!p.photos && <ActionButton label={tr('검색')} symbol="magnifyingglass" onPress={p.onSearch} />}
-      {!p.photos && <ActionButton label={tr('장바구니')} symbol="bag" ring={p.cartHint.highlighted} onPress={() => { p.cartHint.dismiss(); p.onCart() }} />}
+      {!p.photos && <ActionButton label={say('마이맵', 'My map')} symbol="bag" ring={p.cartHint.highlighted} onPress={() => { p.cartHint.dismiss(); p.onCart() }} />}
       <ActionButton label={p.pinning ? tr('취소') : tr('핀 찍기')} symbol="mappin.and.ellipse" onPress={p.onPin} />
     </HStack>
   )

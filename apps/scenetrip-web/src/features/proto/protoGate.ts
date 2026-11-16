@@ -8,8 +8,8 @@
  */
 import type { Proto } from './protoState'
 
-/** 새 화면을 기본으로 켜는 시험용 웹 주소. */
-export const DEV_SITE_HOSTS: readonly string[] = ['dev.scenetrip.io', 'dev.scenetrip-app.pages.dev']
+/** 새 화면을 기본으로 켜는 시험용 웹 주소 — 첫 화면 실험 브랜치(intro-lab)의 Pages 미리보기 주소도 시험용이다(`?reset=1`). */
+export const DEV_SITE_HOSTS: readonly string[] = ['dev.scenetrip.io', 'dev.scenetrip-app.pages.dev', 'intro-lab.scenetrip-app.pages.dev']
 
 export function isDevSite(hostname: string): boolean {
   return DEV_SITE_HOSTS.includes(hostname.toLowerCase())

@@ -70,7 +70,7 @@ function makeMap() {
       remove: vi.fn(() => { layer.removed = true; layer.live.clear() }),
     }
     layers.push(layer)
-    return { addMarker: layer.addMarker, clear: layer.clear, remove: layer.remove, addPolyline: vi.fn(() => ({ remove: vi.fn() })) }
+    return { addMarker: layer.addMarker, clear: layer.clear, remove: layer.remove, addPolyline: vi.fn(() => ({ remove: vi.fn() })), addPolygon: vi.fn(() => ({ remove: vi.fn() })) }
   })
   return {
     provider: 'naver', container: document.createElement('div'),

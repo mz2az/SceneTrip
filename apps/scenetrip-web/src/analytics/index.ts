@@ -2,38 +2,138 @@
  * 화면 코드는 `track(appEvent.createCourse(...))` 한 줄만 쓴다. iOS `AppAnalytics.log` 와 같은 자리다.
  * 같은 이벤트를 GA4(ga4.ts)와 PostHog(posthog.ts)로 보낸다. 오류 추적 Sentry(sentry.ts)는 `startErrorReporting()` 이 켠다.
  * 키·ID 가 없거나 이용 통계가 꺼져 있으면 아무 일도 없다 — 셋 다 같은 스위치를 따른다.
+ * 첫 화면 덮개 동안은 라이브러리를 받지 않고 PostHog 로만 직접 보낸다(beacon.ts, web-ad-landing.md §10-3-2).
  */
 import { isStatisticsEnabled, onStatisticsChange } from '@/features/profile/usageStatistics'
-import type { AppEvent } from './events'
+import { type AppEvent, webEvent } from './events'
+import { adoptAnonId, anonId, bootstrapDistinctId } from './anonId'
+import { browserDoNotTrack, createPostHogBeacon } from './beacon'
 import { type GtagWindow, createGa4 } from './ga4'
 import { createPostHog } from './posthog'
 import { createSentry } from './sentry'
+import { type Utm, storeUtm } from './utm'
+import { type VisitStore, handoffParamsOf, launchModeOf, startVisit } from './visit'
+import { afterDeferred, deferredHeld } from '@/app/deferred'
+import { introOpenStore } from '@/app/intro'
 
 export { appEvent, webEvent } from './events'
-export type { AppEvent, EventName } from './events'
+export type { AppEvent, EventName, LandingBeat, LandingLeaveBeat } from './events'
+
+/** 이번 실행의 광고 꼬리표 — `captureUtm` 이 채운다. */
+let utm: Utm = {}
+/** 방문 맥락(launch_mode, visit_kind, first_entry, first_utm_*) — `captureVisit` 이 채운다. */
+let visit: Readonly<Record<string, string>> = {}
+/** 모든 이벤트에 싣는 속성 — 이번 방문의 꼬리표 + 방문 맥락. */
+const common = (): Record<string, string> => ({ ...utm, ...visit })
+
+/** 앱이 뜰 때 한 번 — 주소의 utm_* 를 세션에 적고 이후 모든 이벤트에 싣는다(web-ad-landing.md §10-3-8). */
+export function captureUtm(search: string): void {
+  utm = storeUtm(search)
+}
+
+/**
+ * 앱 안 브라우저에서 넘어온 주소의 익명 id(`aid`)를 이 브라우저의 id 로 삼고 주소에서 지운다 — 넘어간 뒤의 이벤트가 같은 사람으로 이어진다
+ * (analytics-events.md 「이벤트 보강」, MZ2AZ-586). 꼬리표(`utm_*`)는 `captureUtm` 이 받는다. 앱이 뜰 때 한 번, 던지지 않는다.
+ */
+export function captureHandoff(): void {
+  try {
+    const url = new URL(window.location.href)
+    const aid = url.searchParams.get('aid')
+    if (aid === null) return
+    const key = posthogKey()
+    if (key) adoptAnonId(aid, key)
+    url.searchParams.delete('aid')
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+  } catch {
+    /* 분석이 앱을 깨면 안 된다 */
+  }
+}
+
+/** 외부 브라우저로 넘길 주소에 붙일 꼬리표와 익명 id. 분석 키가 없으면 익명 id 는 싣지 않는다. */
+export function handoffParams(): Record<string, string> {
+  try {
+    const key = posthogKey()
+    return handoffParamsOf({ utm, props: visit, anonId: key ? anonId(key) : null })
+  } catch {
+    return {}
+  }
+}
+
+function storageOf(kind: 'localStorage' | 'sessionStorage'): VisitStore | null {
+  try {
+    return window[kind]
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 앱이 뜰 때 한 번, 첫 화면 판정 뒤 — 방문 맥락을 정해 이후 모든 이벤트에 싣고, 다시 온 사람의 새 세션이면 `return_visit` 을 보낸다
+ * (analytics-events.md 「방문 맥락과 이벤트 정리」, MZ2AZ-585). 던지지 않는다.
+ */
+export function captureVisit(intro: boolean, search: string = window.location.search): void {
+  try {
+    const standalone =
+      window.matchMedia?.('(display-mode: standalone)').matches === true || (navigator as Navigator & { standalone?: boolean }).standalone === true
+    const v = startVisit({
+      now: Date.now(),
+      search,
+      referrer: document.referrer,
+      hostname: window.location.hostname,
+      intro,
+      launchMode: launchModeOf({ standalone, userAgent: navigator.userAgent }),
+      local: storageOf('localStorage'),
+      session: storageOf('sessionStorage'),
+    })
+    visit = v.props
+    if (v.returnVisit) track(webEvent.returnVisit(v.returnVisit.daysSinceFirst, v.returnVisit.via))
+  } catch {
+    /* 분석이 앱을 깨면 안 된다 */
+  }
+}
 
 const ga4 = createGa4({
   measurementId: () => String(import.meta.env.VITE_GA_MEASUREMENT_ID ?? ''),
   statisticsEnabled: () => isStatisticsEnabled(),
   win: window as unknown as GtagWindow,
+  extraParams: common,
   doc: document,
   debug: import.meta.env.DEV ? (name, params) => console.debug('[ga4]', name, params) : undefined,
 })
 
+const posthogKey = (): string => String(import.meta.env.VITE_POSTHOG_KEY ?? '').trim()
+
 const posthog = createPostHog({
-  key: () => String(import.meta.env.VITE_POSTHOG_KEY ?? ''),
+  key: posthogKey,
+  bootstrapDistinctId: () => bootstrapDistinctId(posthogKey()),
   host: () => String(import.meta.env.VITE_POSTHOG_HOST ?? ''),
   statisticsEnabled: () => isStatisticsEnabled(),
+  superProperties: common,
   load: async () => {
     const { default: ph } = await import('posthog-js')
     return {
       init: (key, options) => void ph.init(key, options as Parameters<typeof ph.init>[1]),
-      capture: (name, params) => void ph.capture(name, params),
+      capture: (name, params, options) => void (options ? ph.capture(name, params, options) : ph.capture(name, params)),
       opt_in_capturing: () => ph.opt_in_capturing(),
       opt_out_capturing: () => ph.opt_out_capturing(),
+      register: (props) => ph.register(props),
+      // 옛 판이나 가짜 라이브러리에 없을 수 있다 — 없으면 건너뛴다(켜기가 멈추면 안 된다).
+      register_for_session: (props) => ph.register_for_session?.(props),
+      unregister: (key) => ph.unregister?.(key),
     }
   },
   debug: import.meta.env.DEV ? (name, params) => console.debug('[posthog]', name, params) : undefined,
+})
+
+const beacon = createPostHogBeacon({
+  key: posthogKey,
+  host: () => String(import.meta.env.VITE_POSTHOG_HOST ?? ''),
+  statisticsEnabled: () => isStatisticsEnabled(),
+  distinctId: () => anonId(posthogKey()),
+  superProperties: common,
+  currentUrl: () => window.location.href,
+  doNotTrack: browserDoNotTrack,
+  debug: import.meta.env.DEV ? (name, params) => console.debug('[posthog beacon]', name, params) : undefined,
 })
 
 const sentry = createSentry({
@@ -49,15 +149,40 @@ const sentry = createSentry({
   },
 })
 
-/** 이벤트를 하나 기록한다. 던지지 않는다 — 분석이 화면 동작을 깨면 안 된다. */
-export function track(event: AppEvent): void {
-  for (const sink of [ga4, posthog]) {
+/**
+ * 이벤트를 하나 기록한다. 던지지 않는다 — 분석이 화면 동작을 깨면 안 된다.
+ * 첫 화면 덮개가 떠 있는 동안은 분석 라이브러리(gtag·PostHog)를 받지 않으려고 줄을 세웠다가 풀릴 때 보낸다(§10-3-2).
+ * 그 동안 PostHog 로는 라이브러리 없이 곧바로 보낸다(beacon.ts) — GA4 에는 풀리기 전에 떠난 사람이 남지 않는다.
+ */
+export interface TrackOptions {
+  /** 페이지가 닫히는 중에 보낸다(pagehide·가려짐) — 기다리지 않고 곧바로 나가게. */
+  leaving?: boolean
+}
+
+export function track(event: AppEvent, options: TrackOptions = {}): void {
+  // 첫 화면 덮개 동안(그리고 덮개가 풀린 뒤 PostHog 라이브러리가 뜨기 전까지) PostHog 로는 곧바로 보낸다 —
+  // 아무것도 누르지 않고 떠난 사람도 남게(§10-3-2). 보낸 것은 라이브러리 줄에 넣지 않는다.
+  let direct = false
+  if (!posthog.ready() && (deferredHeld() || introOpenStore.get())) {
     try {
-      sink.track(event)
+      direct = beacon.send(event)
+    } catch {
+      direct = false
+    }
+  }
+  // GA4 는 지금처럼 풀릴 때까지 줄을 선다(Measurement Protocol 은 비밀 키가 있어야 해 브라우저에서 쓰지 않는다).
+  afterDeferred(() => {
+    try {
+      ga4.track(event)
     } catch {
       /* 분석 실패는 버린다 */
     }
-  }
+    try {
+      posthog.track(event, { alreadySent: direct, leaving: options.leaving })
+    } catch {
+      /* 분석 실패는 버린다 */
+    }
+  })
 }
 
 /** 오류 추적을 시작한다. 앱이 뜰 때 한 번 부르고, 이용 통계 설정이 바뀌면 스스로 켜고 끈다. DSN 이 없으면 아무 일도 없다. */

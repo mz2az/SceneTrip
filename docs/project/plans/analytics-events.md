@@ -185,8 +185,8 @@ iOS·Android 에는 아직 없다. 실험이 끝나 두 앱에 옮기면 §3 표
 | 이벤트 | 언제 | 매개변수 | 구현(웹) |
 | --- | --- | --- | --- |
 | `home_scroll` | 홈을 그 깊이까지 내려 봤다(세션에 깊이마다 한 번, 홈이 보일 때만) | `depth` 25·50·75·100 | `features/home/HomeTab.tsx`, `features/proto/homeScroll.ts` |
-| `home_tap` | 홈의 칸을 눌렀다 | `section` = `trending_title`·`trending_all`·`today_place`·`today_save`·`community`·`my_record`·`plan_bar` | `HomeTab.tsx`·`ProtoScreens.tsx` |
-| `plan_start` | 코스 만들기를 시작했다 | `entry` = `city_chip`·`fork_city`·`fork_works`·`fork_saved`·`plan_bar` | `ProtoScreens.tsx`·`ProtoFork.tsx` |
+| `home_tap` | 홈의 칸을 눌렀다 | `section` = `trending_title`·`trending_all`·`today_place`·`today_save`·`community`·`my_record`·`plan_bar` · `add_more`(마이맵 카드의 「+ 더 담기」 → `/add`, 2026-11-15, [web-keep-flow.md §12](web-keep-flow.md)) | `HomeTab.tsx`·`ProtoScreens.tsx` |
+| `plan_start` | 코스 만들기를 시작했다 | `entry` = `city_map`(지도 위 도시 카드, 11/14 부터)·`fork_city`·`fork_works`·`fork_saved`·`plan_bar`(시안 홈 「여행 계획」 줄)·`my_map`·`keep_sheet` — `city_chip` 은 2026-11-16 뺐다 | `ProtoScreens.tsx`·`ProtoFork.tsx` |
 | `plan_step` | 코스 만들기 단계에 들어왔다 | `flow` = `city`·`works`, `step` = `city`·`days`·`how`·`plan`·`picker`·`trip`·`works`·`planning` | `ProtoScreens.tsx`·`ProtoPlanFlows.tsx` |
 | `plan_failed` | 코스를 못 짰거나 못 저장했다 | `flow`, `reason` = `empty`·`error`·`save` | 같음 |
 | `view_post` | 커뮤니티 글을 열었다(목록·주소 모두) | `post_id` | `features/community/PostView.tsx` |
@@ -198,3 +198,125 @@ iOS·Android 에는 아직 없다. 실험이 끝나 두 앱에 옮기면 §3 표
 
 공통 이벤트를 새로 부르는 곳: 도시 AI 코스가 성공하면 `generate_plan`(`title_count` 0). 「여행 계획」 줄은 `home_tap` 만 세고 시작은 갈래 시트의 `plan_start` 가 센다. `plan_step` 은 `entry` 로 나눠 본다(도시 칩 경로엔 `city` 단계가 없다).
 
+
+### 담기 중심 흐름 이벤트 (2026-11-14 — [계획](web-keep-flow.md))
+
+작품 상세의 「모두 담기」 → 담은 뒤 시트 → 내 지도. 웹 전용이다.
+
+| 이벤트 | 언제 | 매개변수 | 구현(웹) |
+| --- | --- | --- | --- |
+| `save_all` | 한 작품의 촬영지를 한꺼번에 담는 일이 끝났다(장소마다 `save_place` 는 보내지 않는다) | `content_id`, `place_count`(담으려던 곳 수), `saved_count`(새로 담긴 수), `source` = `detail`(작품 상세의 단추)·`more`(담은 뒤 시트의 다른 작품)·`arrive`(`?keep=` 로 넘어옴) | `state/cart.ts` `addMany` |
+| `keep_more` | 담은 뒤 시트에서 다른 작품을 골라 담았다 | `content_id` | `features/keep/KeepSheet.tsx` |
+| `keep_prompt` | 「간직하기」 단계가 보였다 / 그 단계에서 누른 것 | `env` = `in_app_android`·`in_app_ios`·`installable`·`android_menu`·`ios_safari`·`installed`·`other`, `action` = `view`·`open_browser`·`install`·`install_accepted`·`install_dismissed`·`sign_in`·`got_it`·`skip` | 같음 |
+| `keep_arrive` | 앱 안 브라우저에서 넘긴 주소(`?keep=`)로 들어와 다시 담았다 | `count`(한 곳이라도 담긴 작품 수) | `features/keep/KeepArrival.tsx` |
+| `my_map` | 내 지도를 열었다 / 내 지도에서 누른 것 | `action` = `open_home`(홈 카드)·`open_keep`(시트)·`open_detail`(작품 상세)·`open_place`·`plan`·`add_more` | `features/home/HomeTab.tsx`·`features/keep/*`·`features/search/ui/ContentDetail.tsx` |
+
+`keep_prompt` 는 첫 화면 덮개의 ⑤ 간직하기에서도 나간다 — 그때만 `where` = `intro` 를 더 싣는다(2026-11-15, [계획](web-ad-landing.md) §13-1, 구현 `features/landing/KeepBeat.tsx`). 담은 뒤 시트의 것은 `where` 가 없다.
+
+`plan_start` 의 `entry` 에 `my_map`·`keep_sheet`, `sign_in_prompt` 의 `reason` 에 `keep`, `screen_view` 의 화면 이름에 `my_map` 이 더해졌다. 광고 깔때기는 `screen_view` → `save_all`(`source=detail`) → `keep_prompt`(`view` → `open_browser`) → `keep_arrive` → `plan_start` 로 본다.
+
+### 앱 첫 화면(덮개) 이벤트 (2026-11-15 — [계획](web-ad-landing.md) §6·§10-3-2·§11)
+
+처음 온 사람에게 앱 위에 뜨는 첫 화면이다. 웹 전용이다.
+
+| 이벤트 | 언제 | 매개변수 | 구현(웹) |
+| --- | --- | --- | --- |
+| `screen_view` | 덮개가 떴다 | `screen_name` = `intro` | `app/IntroShell.tsx` |
+| `landing` | 덮개에서 일어난 일 | `content_id`, `action` = `view`(박자 시작)·`beat`(박자가 바뀜, `beat` = `drop`·`poster`·`spill`·`rest`·`keep`(담은 뒤의 ⑤ 간직하기, §13-1), 박자마다 한 번 — 2026-11-15 전에는 `scene`·`spread`·`rest`)·`rest`·`skip`·`save`·`browse`·`leave`(담기 전에 페이지를 떠남 — `pagehide`·가려짐, 한 번. `beat` = 마지막 박자 또는 `loading`(박자 전 보라 화면), `ms` = 첫 화면을 시작하고 지난 시간) | `app/IntroShell.tsx`(`beat`·`leave`)·`features/landing/LandingCover.tsx` |
+| `add_more` | 「더 담기」(`/add`)가 떴다·주변 칸으로 담았다·일정 짜기 | `action` = `view`·`poi`·`plan` | `features/keep/AddMoreCover.tsx` |
+
+**덮개 동안의 전송**: 덮개가 떠 있는 동안은 분석 라이브러리를 받지 않는다(느린 폰). 그 사이 PostHog 로는 라이브러리 없이 공개 수집 API(`POST {host}/i/v0/e/`, `navigator.sendBeacon` — 없으면 `fetch` keepalive)로 곧바로 보내고, 라이브러리가 뜬 뒤에는 라이브러리로만 보낸다(같은 이벤트가 두 번 나가지 않는다). 익명 id 는 라이브러리를 켤 때 `bootstrap.distinctID` 로 넘겨 한 사람으로 잇는다(`src/analytics/anonId.ts`). **GA4 는 줄을 섰다가 라이브러리가 뜬 뒤 보낸다 — ③ 전에 떠난 사람은 GA4 에 남지 않는다**(Measurement Protocol 은 비밀 키가 필요해 브라우저에서 쓰지 않는다). 첫 화면 이탈은 PostHog 에서 `landing` `action=leave` 로 본다.
+
+### 방문 맥락과 이벤트 정리 (2026-11-16, MZ2AZ-585)
+
+11/14~16 사이 첫 화면, 마이맵, 더 담기, 홈 되돌림이 들어가며 이벤트가 화면을 따라오지 못했다. 코드의 호출 위치(`apps/scenetrip-web/src`, 시험 제외)와 이 문서를 맞춰 보고 사용자와 정했다(2026-11-16). 케데헌 맞춤 광고를 켜면 그 광고로 온 사람의 첫 방문, 재방문, 코스 생성을 따로 묶어 보는 것이 목적이다. 운영(app.scenetrip.io)에는 광고 영상이 준비되어 dev 를 main 으로 합칠 때 같이 올라간다.
+
+#### 방문 맥락 — 모든 이벤트에 붙는 속성
+
+구현 `src/analytics/visit.ts`. 앱이 뜰 때(`main.tsx`, 첫 화면 판정 `introStart` 뒤) 한 번 계산해 PostHog super property 와 GA4 매개변수로 이후 모든 이벤트에 싣는다(지금의 utm 과 같은 길). 저장소를 읽거나 쓰지 못해도 던지지 않는다.
+
+| 속성 | 값 | 정하는 법 |
+| --- | --- | --- |
+| `launch_mode` | `standalone`, `in_app`, `browser` | 홈 화면 앱으로 열었으면(`display-mode: standalone` 또는 iOS `navigator.standalone`) `standalone`, 아니고 인스타, 페이스북 등 앱 안 브라우저(`isInAppBrowser`)면 `in_app`, 그 밖은 `browser` |
+| `visit_kind` | `first`, `return` | 이 브라우저에 처음 온 때(`localStorage` `scenetrip.analytics.firstSeen`, 밀리초)가 없으면 `first` 이고 지금을 적는다. 있으면 `return` |
+| `first_entry` | `intro`, `app` | 이 세션이 첫 화면 덮개로 시작했으면 `intro`, 아니면 `app` |
+| `first_utm_*` | 처음 온 때의 광고 꼬리표 | 주소에 `utm_*` 가 있고 적어 둔 것이 없으면 `localStorage` `scenetrip.analytics.firstUtm` 에 적는다(처음 한 번, 덮어쓰지 않는다). 이름은 `utm_campaign` → `first_utm_campaign` 처럼 앞에 `first_` 를 붙인다. 이번 방문의 `utm_*`(세션)는 그대로 따로 실린다 |
+
+- 세션은 탭 단위다(`sessionStorage` `scenetrip.analytics.visit` 에 `visit_kind`, `first_entry` 를 적어 둔다). 같은 탭에서 새로 고치거나 주소가 바뀌어도 세션 첫 판정을 다시 쓴다 — `first_entry` 가 덮개를 걷은 뒤 `app` 으로 바뀌지 않고, 재방문을 두 번 세지 않는다.
+- 즐겨찾기 추가 자체는 브라우저가 알려 주지 않는다. 그래서 `return_visit` 의 `via=direct` 와 아래 `keep_prompt` `bookmark` 로 가늠한다.
+
+#### 새 이벤트, 새 값
+
+| 이벤트 | 언제 | 매개변수 | 구현(웹) |
+| --- | --- | --- | --- |
+| `return_visit` | 이 브라우저에 전에 온 적이 있는 사람이 새 세션을 열었다(세션에 한 번) | `days_since_first`(처음 온 때부터 지난 날 수, 내림 정수), `via` = `utm`(주소에 광고 꼬리표), `referrer`(다른 사이트에서 옴), `direct`(둘 다 없음: 즐겨찾기, 주소 입력, 홈 화면 앱) | `src/analytics/visit.ts` → `index.ts` `captureVisit` |
+| `keep_prompt` `action=bookmark` | 첫 화면 ⑤ 에서 「즐겨찾기에 추가하기」 를 눌렀다(일반 브라우저, `env=other`) | 기존 `env`, `where=intro` | `features/landing/KeepBeat.tsx` |
+| `keep_prompt` `action=home_screen_guide` | 첫 화면 ⑤ 에서 「홈 화면에 추가하기」 안내 단추를 눌렀다(`env` = `ios_safari`, `android_menu`) | 기존 `env`, `where=intro` | 같음 |
+
+- 전에는 이 단추가 안내만 펼치고 아무것도 남기지 않았다. 기록은 그다음 「알겠어요」(`got_it`)뿐이라, 누르고 바로 즐겨찾기하러 간 사람이 빠졌다. 누름은 즐겨찾기를 했다는 증거가 아니라 하려고 한 사람의 수다.
+- 담은 뒤 시트(`KeepSheet`)는 안내를 처음부터 펼쳐 보여 단추가 없다. 그쪽은 `view`(`env` 로 즐겨찾기, 홈 화면 안내를 가른다)가 같은 역할이다.
+
+#### 걷어 낸 것
+
+| 대상 | 이유 |
+| --- | --- |
+| `keep_nearby` | 정의만 있고 부르는 곳이 없었다(담은 뒤 시트의 주변 칩이 없어짐) |
+| `home_tap` 의 `pick_title`, `add_title`, `add_nearby`, `city_chip` | 부르는 곳이 없었다(다시 온 사람의 홈 시안을 11/15 걷어 냄) |
+| `plan_start` 의 `city_chip` | 부르는 곳이 없었다 |
+
+#### 문서만 맞춘 것 (코드는 전부터 이렇게 보냄)
+
+- `keep_more`: 「더 담기」 작품 칸에서 고른 작품(`features/keep/AddMoreCover.tsx`). 담은 뒤 시트에서는 이제 나가지 않는다.
+- `save_all` `source` 에 `landing`(첫 화면에서 담음, `state/cart.ts`).
+- `keep_arrive` 에 `poi_count`(넘어오며 새로 담긴 편의시설 수).
+- `save_poi`(편의시설을 담았다, `poi_id`, `category_group` = `food`, `stay`, `sight`, `transit`), `my_map_nearby`(마이맵에서 주변 칩을 켰다, `kind` = `food`, `shopping`, `sight`, `stay`) — 정의는 `keep-poi.md` §4.
+- `landing` 은 한 이름에 행동이 모여 있다. `view`, `rest`, `skip`, `save`, `browse` 는 `content_id`, `action` 만, `beat` 는 `beat` 를 더, `leave` 는 `beat`, `ms` 를 더 싣는다. 광고 지표가 이미 이 이름을 보므로 나누지 않는다.
+
+#### 점검하고 그대로 둔 것
+
+- 「더 담기」 의 「일정 짜기」 는 `add_more(plan)` 뒤 간직하기 시트를 거쳐 `plan_start`(`keep_sheet`)가 나간다. 첫 화면에서 온 사람인지는 `first_entry=intro` 로 나눠 본다.
+- 코스 편집 목록 사진의 ⓘ 는 장소 카드를 열어 `view_place` 가 나간다(`route/poi/PlaceCard.tsx`).
+- 지금 뜨는 작품 줄, 전체 보기는 `home_tap`(`trending_title`, `trending_all`) 뒤에 `view_title`.
+- `coach_tour` 는 코스 편집 화면(`RouteEditor.tsx`)에서 아직 뜬다.
+- 길찾기 단계 목록 누르기(MZ2AZ-566, 567)는 세지 않는다. 안내 시작(`start_trip`), 도착(`visit_stamp`)으로 충분하다.
+
+#### 도구별 할 일
+
+- PostHog: 없음(새 이벤트, 속성이 자동으로 잡힌다). 걷어 낸 값을 쓰던 저장된 화면이 있으면 고친다.
+- GA4: 맞춤 측정기준(이벤트 범위) 등록 — `launch_mode`, `visit_kind`, `first_entry`, `first_utm_campaign`, `first_utm_source`, `first_utm_content`, `via`, `days_since_first`, 그리고 이번 방문의 `utm_campaign`, `utm_content`(MZ2AZ-586), `reason`, `failed_count`. 등록 전 데이터는 보고서에 소급되지 않으므로 운영 반영 날 같이 한다.
+- Meta, Metabase, Sentry, Cloudflare: 없음(웹에 Meta 픽셀이 없고, Metabase 는 서버 DB 를 읽는다).
+
+### 이벤트 보강 (2026-11-16, MZ2AZ-586)
+
+MZ2AZ-585 뒤 서브에이전트 검수에서 나온 것. 광고 분석(소재별로 첫 화면부터 첫 지도 저장, 로그인, 코스 생성, 재방문까지)에 걸리는 순서로 고쳤다.
+
+#### 귀속
+
+1. **외부 브라우저로 넘길 때 꼬리표와 익명 id 를 같이 넘긴다.** 앱 안 브라우저의 「브라우저에서 열기」(첫 화면 ⑤, 담은 뒤 시트, 앱 안 띠)가 여는 주소(`handoffKeepUrl`)에 지금 세션의 `utm_*`(없으면 처음 꼬리표 `first_utm_*` 를 `utm_*` 이름으로)와 `aid=<익명 id>` 를 붙인다(`analytics` 의 `handoffParams()`). 받는 쪽은 앱이 뜰 때(`main.tsx`) `aid` 를 읽어, 이 브라우저에 PostHog id 도 우리 익명 id 도 없을 때만 우리 익명 id 로 적고(`adoptAnonId`, 형식 `[A-Za-z0-9-]{8,64}` 만), 주소에서 `aid` 를 지운다. 꼬리표는 기존 `captureUtm` 이 받아 적는다. 그래서 넘어간 뒤의 `keep_arrive`, `sign_up`, `create_course` 가 같은 사람, 같은 광고로 이어진다. 익명 id 는 우리가 만든 무작위 값이라 개인정보가 아니며 계정, 메일과 잇지 않는다.
+2. **PostHog 공통 속성은 세션 한정이다.** 전에는 `register`(브라우저에 영구 저장)로 걸어, 광고로 한 번 온 사람이 나중에 꼬리표 없이 와도 옛 `utm_*` 가 실렸다. 이제 `register_for_session` 으로 걸고, 라이브러리를 켤 때 예전에 영구로 걸린 `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term`, `utm_id` 를 `unregister` 한다. 처음 꼬리표는 `first_utm_*` 로 따로 남으므로 잃는 것이 없다.
+
+#### 새 이벤트, 새 값
+
+| 이벤트 | 언제 | 매개변수 | 구현(웹) |
+| --- | --- | --- | --- |
+| `sign_in_failed` | 로그인을 시작했는데 끝나지 않았다 | `method` = `google`, `apple`, `reason` = `cancel`(창을 닫음), `popup_blocked`(창이 막힘), `not_configured`, `busy`(저장 중이라 막음), `oauth`(제공자 오류), `server`(우리 서버 오류), `network` | `features/profile/auth/account.ts` `signInFailure` |
+| `plan_step` `flow=saved` | 담은 곳으로 계획 짜기(첫 화면, 더 담기, 담은 뒤 시트, 마이맵의 「일정 짜기」)에서 단계에 들어왔다 | `step` = `picker`(고르기 화면), `editor`(코스 편집 화면) | `features/proto/ProtoPlanFlows.tsx` `ProtoSavedPlan` |
+| `plan_failed` `flow=editor` | 새 코스 저장이 실패했다(고쳐 저장은 세지 않는다) | `reason=save` | `features/route/store.ts` `save` |
+| `landing` `action=fast_forward` | 첫 화면을 눌러 끝 장면으로 넘겼다 | `content_id` | `features/landing/LandingCover.tsx` |
+| `landing` `action=failed` | 첫 화면 재료(작품, 장소)를 받지 못하거나 장소가 없어 덮개가 닫혔다 | `content_id` | 같음 |
+| `keep_prompt` `action=open_browser_stuck` | 「브라우저에서 열기」 뒤 1.5초가 지나도 그대로라 안내를 띄웠다 | 기존 `env`, `where` | `KeepBeat.tsx`, `KeepSheet.tsx` |
+
+- `landing` `action=skip` 은 이제 「건너뛰기」 로 덮개를 닫은 것만 뜻한다. 전에는 화면을 눌러 넘긴 것도 `skip` 이었다.
+- `save_all` 에 `failed_count`(이번에 담지 못한 수)를 더한다. 「첫 지도 저장」 은 `saved_count > 0` 으로 본다.
+- `return_visit` 는 첫 화면 미루기(`holdDeferred`) 뒤에 보낸다. 전에는 먼저 보내 다시 온 사람에게 덮개 동안 분석 라이브러리를 받게 했다(§10-3-2 위반, MZ2AZ-585 의 실수).
+- 첫 화면의 분모는 `screen_view intro` 가 아니라 `landing view` 로 본다(덮개가 붙자마자 곧바로 닫히는 경우가 앞엣것에 섞인다).
+
+#### 문서 정정
+
+- `plan_start` `plan_bar` 는 시안 홈의 「여행 계획」 줄에서 아직 나간다(위 표의 「이제 보내지 않는다」 는 `city_chip` 만 맞다).
+- GA4 맞춤 측정기준에 이번 방문의 `utm_campaign`, `utm_content` 도 등록한다(소재 비교). 새로 더한 `reason`, `failed_count` 도 등록 대상이다.
+
+#### 남긴 것 (검수에서 낮음)
+
+- `start_trip` 은 안내를 시작할 때마다(장소마다) 나간다. 「여행을 시작한 사람」 은 사람 단위로 센다.
+- `landing leave` 는 잠깐 가려졌다 돌아온 것도 센다. 뒤에 `save` 가 오면 떠난 것이 아니다.

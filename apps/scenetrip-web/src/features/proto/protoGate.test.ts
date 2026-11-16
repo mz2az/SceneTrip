@@ -8,8 +8,8 @@ import {
 } from './protoGate'
 
 describe('DEV_SITE_HOSTS', () => {
-  it('dev 사이트 주소 두 개만 담는다', () => {
-    expect([...DEV_SITE_HOSTS]).toEqual(['dev.scenetrip.io', 'dev.scenetrip-app.pages.dev'])
+  it('dev 사이트 주소 둘과 첫 화면 실험 브랜치(intro-lab) 미리보기 주소만 담는다', () => {
+    expect([...DEV_SITE_HOSTS]).toEqual(['dev.scenetrip.io', 'dev.scenetrip-app.pages.dev', 'intro-lab.scenetrip-app.pages.dev'])
   })
 })
 
@@ -19,6 +19,8 @@ describe('isDevSite', () => {
     ['dev.scenetrip-app.pages.dev', true],
     ['DEV.SceneTrip.IO', true],
     ['Dev.Scenetrip-App.Pages.Dev', true],
+    ['intro-lab.scenetrip-app.pages.dev', true],
+    ['other-lab.scenetrip-app.pages.dev', false],
     ['scenetrip.io', false],
     ['app.scenetrip.io', false],
     ['localhost', false],

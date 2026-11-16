@@ -21,6 +21,16 @@ export type EventName =
   // 웹 전용 — 새 홈(시안 A)의 빈 곳(docs/project/plans/web-proto-events.md).
   | 'home_scroll' | 'home_tap' | 'plan_start' | 'plan_step' | 'plan_failed'
   | 'view_post' | 'like_post' | 'comment_post' | 'save_post_course' | 'sign_in_prompt' | 'coach_tour'
+  // 웹 전용 — 담기 중심 흐름(docs/project/plans/web-keep-flow.md §4).
+  | 'save_all' | 'keep_more' | 'keep_prompt' | 'keep_arrive' | 'my_map'
+  // 웹 전용 — 편의시설 담기(docs/project/plans/keep-poi.md §4).
+  | 'save_poi' | 'my_map_nearby'
+  // 웹 전용 — 광고 랜딩·더 담기(docs/project/plans/web-ad-landing.md §6).
+  | 'landing' | 'add_more'
+  // 웹 전용 — 방문 맥락(analytics-events.md 「방문 맥락과 이벤트 정리」, MZ2AZ-585).
+  | 'return_visit'
+  // 웹 전용 — 로그인이 끝나지 않았다(MZ2AZ-586).
+  | 'sign_in_failed'
 
 export type EventParams = Readonly<Record<string, string | number>>
 
@@ -40,7 +50,8 @@ export type CourseOrigin = 'ai' | 'self' | 'review'
 /** 「길찾기」를 누른 자리(MZ2AZ-532). */
 export type DirectionsSource = 'place_detail'
 /** 화면 이름 — 탭과 덮개 단위. */
-export type ScreenName = 'search' | 'home' | 'community' | 'courses' | 'profile'
+/** `intro` = 앱의 첫 화면 덮개(web-ad-landing.md §11 — 옛 `landing`). */
+export type ScreenName = 'search' | 'home' | 'community' | 'courses' | 'profile' | 'my_map' | 'intro' | 'add_more'
 
 const make = (name: EventName, params: EventParams = {}): AppEvent => ({ name, params })
 const flag = (on: boolean): number => (on ? 1 : 0)
@@ -97,13 +108,43 @@ export type HomeCitySource = 'default' | 'chip' | 'near_me' | 'proto_chip' | 'pr
 
 /** 새 홈(시안 A)의 이벤트 값 — web-proto-events.md §1. */
 export type HomeScrollDepth = 25 | 50 | 75 | 100
-export type HomeTapSection = 'trending_title' | 'trending_all' | 'today_place' | 'today_save' | 'community' | 'my_record' | 'plan_bar'
-export type PlanEntry = 'city_chip' | 'fork_city' | 'fork_works' | 'fork_saved' | 'plan_bar'
-export type PlanFlow = 'city' | 'works'
-export type PlanStep = 'city' | 'days' | 'how' | 'plan' | 'picker' | 'trip' | 'works' | 'planning'
+export type HomeTapSection =
+  | 'trending_title' | 'trending_all' | 'today_place' | 'today_save' | 'community' | 'my_record' | 'plan_bar'
+  // 홈 마이맵 카드의 「더 담기」(→ /add, web-keep-flow.md §5-6)
+  | 'add_more'
+export type PlanEntry = 'city_map' | 'fork_city' | 'fork_works' | 'fork_saved' | 'plan_bar' | 'my_map' | 'keep_sheet'
+/** `saved` = 담은 곳으로 계획 짜기, `editor` = 새 코스 저장(MZ2AZ-586). */
+export type PlanFlow = 'city' | 'works' | 'saved' | 'editor'
+export type PlanStep = 'city' | 'days' | 'how' | 'plan' | 'picker' | 'trip' | 'works' | 'planning' | 'editor'
 export type PlanFailReason = 'empty' | 'error' | 'save'
 export type SignInPromptKey =
-  | 'like' | 'comment' | 'save_course' | 'compose' | 'my_posts' | 'review' | 'block' | 'directions' | 'nudge' | 'profile' | 'session' | 'server' | 'other'
+  | 'like' | 'comment' | 'save_course' | 'compose' | 'my_posts' | 'review' | 'block' | 'directions' | 'nudge' | 'profile' | 'session' | 'server' | 'other' | 'keep'
+
+/** 담기 중심 흐름(web-keep-flow.md §4) — 간직하기 권유의 환경은 keepRules 의 KeepEnv 와 같다. */
+export type KeepEnvParam = 'in_app_android' | 'in_app_ios' | 'installable' | 'android_menu' | 'ios_safari' | 'installed' | 'other'
+/** `bookmark`·`home_screen_guide` = 첫 화면 ⑤ 의 즐겨찾기, 홈 화면 추가 안내 단추를 눌렀다(MZ2AZ-585). */
+export type KeepPromptAction =
+  | 'view' | 'open_browser' | 'install' | 'install_accepted' | 'install_dismissed' | 'sign_in' | 'got_it' | 'skip' | 'bookmark' | 'home_screen_guide' | 'open_browser_stuck'
+/** 간직하기 권유가 뜬 자리 — 없으면 담은 뒤 시트, `intro` 는 첫 화면의 ⑤(web-ad-landing.md §13-1). */
+export type KeepPromptWhere = 'intro'
+export type MyMapAction = 'open_home' | 'open_keep' | 'open_detail' | 'open_place' | 'plan' | 'add_more'
+/** 「모두 담기」 가 일어난 자리(§9-3) — 작품 상세 · 담은 뒤 시트 ① 의 포스터 · `?keep=` 으로 넘어옴. */
+export type SaveAllSource = 'detail' | 'more' | 'arrive' | 'landing'
+/** 광고 랜딩에서 한 일(web-ad-landing.md §1-3). `beat`·`leave` 는 아래 함수가 따로 만든다(§6). */
+/** `skip` = 건너뛰기로 덮개를 닫음, `fast_forward` = 화면을 눌러 끝 장면으로, `failed` = 재료를 못 받아 닫힘(MZ2AZ-586). */
+export type LandingAction = 'view' | 'skip' | 'rest' | 'save' | 'browse' | 'fast_forward' | 'failed'
+/** 첫 화면의 박자 — landingScript 의 Beat 네 박자 + 담은 뒤의 ⑤ `keep`(간직하기, web-ad-landing.md §13-1). */
+export type LandingBeat = 'drop' | 'poster' | 'spill' | 'rest' | 'keep'
+/** 떠날 때의 마지막 박자 — `loading` = 아직 보라 대기 화면(박자가 시작되기 전). */
+export type LandingLeaveBeat = LandingBeat | 'loading'
+/** 「더 담기」 에서 한 일(web-ad-landing.md §2). */
+export type AddMoreAction = 'view' | 'poi' | 'plan'
+/** 편의시설 담기(keep-poi.md §4) — 편의시설 갈래와 주변 칩. keepPoiRules 의 NearbyKind 와 같다. */
+export type PoiGroupParam = 'food' | 'stay' | 'sight' | 'transit'
+export type NearbyKindParam = 'food' | 'shopping' | 'sight' | 'stay'
+export type SignInFailReason = 'cancel' | 'popup_blocked' | 'not_configured' | 'busy' | 'oauth' | 'server' | 'network'
+/** 다시 온 사람이 어떻게 왔나 — visit.ts 의 ReturnVia 와 같다. */
+export type ReturnVia = 'utm' | 'referrer' | 'direct'
 
 /**
  * 웹에만 있는 실험 이벤트. 위 `appEvent`(세 플랫폼 공통 26개)와 섞지 않는다 — 공통 표의 개수·이름 시험이 그대로 지켜진다.
@@ -137,4 +178,37 @@ export const webEvent = {
   signInPrompt: (reason: SignInPromptKey) => make('sign_in_prompt', { reason }),
   /** 화면 위 사용법 안내(코치 투어) — 공통 tutorial_* 와 뜻이 달라 따로 센다. `tour` 는 안내 id, 건너뛰기는 세지 않는다. */
   coachTour: (tour: string, action: 'begin' | 'complete') => make('coach_tour', { tour, action }),
+  // ── 담기 중심 흐름 — web-keep-flow.md §4
+  /** 한꺼번에 담기가 끝났다. `place_count` 는 중복을 지운 입력 수(이미 담긴 것 포함), `saved_count` 는 이번에 새로 담은 수, `source` 는 일어난 자리(§9-3). */
+  saveAll: (contentId: number, placeCount: number, savedCount: number, source: SaveAllSource, failedCount: number) =>
+    make('save_all', { content_id: contentId, place_count: placeCount, saved_count: savedCount, source, failed_count: failedCount }),
+  /** 담은 뒤 시트 ① 「다른 작품도 담기」 에서 고른 작품. */
+  keepMore: (contentId: number) => make('keep_more', { content_id: contentId }),
+  /** 간직하기 권유 — 환경과 한 일. 담은 뒤 시트 ② 는 `where` 없이, 첫 화면의 ⑤ 는 `where=intro`(web-ad-landing.md §13-1). */
+  keepPrompt: (env: KeepEnvParam, action: KeepPromptAction, where?: KeepPromptWhere) =>
+    make('keep_prompt', where ? { env, action, where } : { env, action }),
+  /** `?keep=`·`?pois=` 로 넘어와 다시 담았다 — `count` 는 작품 수, `poi_count` 는 새로 담긴 편의시설 수(keep-poi.md §3-6·§8). */
+  keepArrive: (count: number, poiCount = 0) => make('keep_arrive', { count, poi_count: poiCount }),
+  /** 내 지도를 열었다·거기서 한 일. */
+  myMap: (action: MyMapAction) => make('my_map', { action }),
+  // ── 편의시설 담기 — keep-poi.md §4
+  /** 편의시설을 내 지도에 담았다. */
+  savePoi: (poiId: number, group: PoiGroupParam) => make('save_poi', { poi_id: poiId, category_group: group }),
+  /** 내 지도에서 주변 칩을 켰다(사용자가 누른 때만). */
+  myMapNearby: (kind: NearbyKindParam) => make('my_map_nearby', { kind }),
+  // ── 광고 랜딩·더 담기 — web-ad-landing.md §6
+  /** 광고 랜딩(`/go/{id}`)이 떴다·건너뛰었다·끝 장면에 닿았다·담았다·둘러보러 갔다. */
+  landing: (contentId: number, action: LandingAction) => make('landing', { content_id: contentId, action }),
+  /** 첫 화면의 박자가 바뀌었다(박자마다 한 번) — 어느 박자까지 보고 떠나는지 본다. */
+  landingBeat: (contentId: number, beat: LandingBeat) => make('landing', { content_id: contentId, action: 'beat', beat }),
+  /** 담기 전에 페이지를 떠났다(pagehide·가려짐, 한 번) — 마지막 박자와 첫 화면을 시작하고 지난 시간(ms, 정수). */
+  landingLeave: (contentId: number, beat: LandingLeaveBeat, ms: number) =>
+    make('landing', { content_id: contentId, action: 'leave', beat, ms: Math.max(0, Math.round(ms)) }),
+  /** 「더 담기」(`/add`)가 떴다·주변 칸으로 담았다·일정 짜기를 눌렀다. */
+  addMore: (action: AddMoreAction) => make('add_more', { action }),
+  // ── 방문 맥락 — analytics-events.md 「방문 맥락과 이벤트 정리」(MZ2AZ-585)
+  /** 전에 온 적이 있는 브라우저가 새 탭 세션을 열었다(세션에 한 번). `via` 는 광고 꼬리표, 다른 사이트, 직접(즐겨찾기, 주소 입력, 홈 화면 앱). */
+  returnVisit: (daysSinceFirst: number, via: ReturnVia) => make('return_visit', { days_since_first: daysSinceFirst, via }),
+  /** 로그인을 시작했는데 끝나지 않았다 — 앱 안 브라우저에서 창이 막히는지, 사람이 닫는지(MZ2AZ-586). */
+  signInFailed: (method: 'google' | 'apple', reason: SignInFailReason) => make('sign_in_failed', { method, reason }),
 } as const

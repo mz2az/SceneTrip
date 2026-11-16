@@ -13,7 +13,7 @@ import { say } from './protoState'
 import { color, radius } from './protoTokens'
 
 export interface CoachStep {
-  /** 가리킬 요소의 CSS 선택자(예: `[data-coach="plan-trip"]`). */
+  /** 가리킬 요소의 CSS 선택자(예: `[data-coach="fork-city"]`). */
   target: string
   title: string
   text: string

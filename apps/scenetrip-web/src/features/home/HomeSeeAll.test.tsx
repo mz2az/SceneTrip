@@ -19,7 +19,7 @@ vi.mock('../community/store', () => ({
   useCommunityStore: () => ({ posts: [], refresh: async () => {}, blocked: async () => {} }),
 }))
 vi.mock('@/state/cart', () => ({
-  useCart: () => ({ placeIds: new Set<number>() }),
+  useCart: () => ({ placeIds: new Set<number>(), items: [], loadState: 'loaded' }),
   cartActions: { refresh: async () => {}, add: async () => {}, remove: async () => {} },
 }))
 vi.mock('../route/store', () => ({

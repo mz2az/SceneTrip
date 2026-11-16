@@ -83,10 +83,22 @@ export interface PolylineHandle {
   remove(): void
 }
 
+/** 채운 다각형 — 도시 영역 음영 등(web-city-map-first.md §3). 클릭은 받지 않는다. */
+export interface PolygonSpec {
+  /** 닫지 않은 고리. */
+  path: readonly LatLng[]
+  fillColor: string
+  fillOpacity: number
+  strokeColor: string
+  strokeWeight: number
+  strokeOpacity?: number
+}
+
 /** 마커·선을 한꺼번에 지우는 묶음(Leaflet 의 layerGroup). */
 export interface MapLayer {
   addMarker(spec: MarkerSpec): MarkerHandle
   addPolyline(spec: PolylineSpec): PolylineHandle
+  addPolygon(spec: PolygonSpec): PolylineHandle
   clear(): void
   remove(): void
 }

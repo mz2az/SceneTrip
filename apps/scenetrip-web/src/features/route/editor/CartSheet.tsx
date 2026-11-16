@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '@/design/Icon'
 import { HStack, Txt, VStack } from '@/design/primitives'
 import { Pressable } from '../ui/Press'
-import { tr, useLang } from '@/i18n'
+import { say, tr, useLang } from '@/i18n'
 import { cartActions, useCart } from '@/state/cart'
 import { useStore } from '@/state/storage'
 import { unavailableMessage } from '../availability'
@@ -24,7 +24,7 @@ const SAMPLE_COUNT = 6
 
 export function CartSheet(p: PickSheetProps) {
   return (
-    <DetentSheet open={p.open} onClose={p.onClose} label={tr('장바구니에서 담기')}>
+    <DetentSheet open={p.open} onClose={p.onClose} label={say('마이맵에서 추가', 'Add from My map')}>
       {p.open && <CartBody {...p} />}
     </DetentSheet>
   )
@@ -66,7 +66,7 @@ function CartBody({ onClose, taken, onPreview, onAdd }: PickSheetProps) {
   return (
     <VStack style={{ flex: 1, minHeight: 0 }}>
       <NavBar
-        title={tr('장바구니에서 담기')}
+        title={say('마이맵에서 추가', 'Add from My map')}
         leading={<GlassButton onClick={onClose}>{tr('닫기')}</GlassButton>}
         trailing={
           <GlassButton strong disabled={selected.length === 0} onClick={() => { onAdd(selected); onClose() }}>
@@ -77,7 +77,7 @@ function CartBody({ onClose, taken, onPreview, onAdd }: PickSheetProps) {
       <div className="scroll-y" style={{ flex: 1, minHeight: 0, background: 'var(--system-background)' }}>
         {content.isSample && (
           <div style={{ padding: '12px 16px' }}>
-            <Txt size={12} color="secondary">{tr('장바구니가 비어 인기 장소를 보여 줍니다')}</Txt>
+            <Txt size={12} color="secondary">{say('마이맵이 비어 인기 장소를 보여 줍니다', 'My map is empty, so here are popular places')}</Txt>
           </div>
         )}
         {content.places.map((place) => {
@@ -101,7 +101,7 @@ function CartBody({ onClose, taken, onPreview, onAdd }: PickSheetProps) {
                 {gone ? (
                   <span
                     role="button"
-                    aria-label={tr('장바구니에서 빼기')}
+                    aria-label={say('마이맵에서 빼기', 'Remove from My map')}
                     onClick={(e) => {
                       e.stopPropagation()
                       setPicked((s) => new Set([...s].filter((v) => v !== place.id)))
