@@ -94,20 +94,19 @@ describe('afterIntro — 덮개가 걷힌 뒤 한 번', () => {
   })
 })
 
-describe('introStart — iOS 웹뷰 껍데기(shell) 는 덮개 없음(MZ2AZ-591)', () => {
-  const shell = { done: false, signedIn: false, shell: true }
+// MZ2AZ-594(591 을 바꾼다) — iOS 웹뷰 껍데기도 브라우저처럼 첫 화면 덮개를 보인다. introStart 에는 껍데기 옵션이 없다.
+describe('introStart — iOS 웹뷰 껍데기도 덮개를 보인다(MZ2AZ-594)', () => {
+  // 옛 호출부가 남아 shell 을 실어 보내도 결과는 같아야 한다 — 껍데기 여부로 가르지 않는다.
+  const withShell = { done: false, signedIn: false, shell: true } as unknown as Parameters<typeof introStart>[2]
 
-  it.each(['/', '/search', '/my-map'])('처음 온 사람이어도 껍데기면 %s 에 덮개 없음, 주소 그대로', (path) => {
-    expect(introStart(path, '?show=7&utm_source=meta', shell)).toEqual({ intro: null, replaceTo: null })
+  it.each(['/', '/search', '/my-map'])('처음 온 사람은 shell 이 실려 와도 %s 에 덮개(?show 작품), 주소 그대로', (path) => {
+    expect(introStart(path, '?show=7&utm_source=meta', withShell)).toEqual({ intro: { contentId: 7, fromGo: false }, replaceTo: null })
+    expect(introStart(path, '?show=7&utm_source=meta', withShell)).toEqual(introStart(path, '?show=7&utm_source=meta', fresh))
   })
 
-  it('/go/{id} — 껍데기면 이미 본 사람처럼 그 작품 상세로', () => {
-    expect(introStart('/go/7', '?utm_source=meta', shell)).toEqual({ intro: null, replaceTo: '/search/content/7?utm_source=meta' })
-  })
-
-  it('shell: false 는 지금 그대로 — 처음 온 사람은 덮개', () => {
-    const notShell = { done: false, signedIn: false, shell: false }
-    expect(introStart('/', '', notShell)).toEqual({ intro: { contentId: 32, fromGo: false }, replaceTo: null })
-    expect(introStart('/go/7', '', notShell).intro).toEqual({ contentId: 7, fromGo: true })
+  it('/go/{id} — shell 이 실려 와도 처음 온 사람이면 그 작품의 덮개 + /?show={id}', () => {
+    const start = introStart('/go/7', '?utm_source=meta', withShell)
+    expect(start.intro).toEqual({ contentId: 7, fromGo: true })
+    expect(start).toEqual(introStart('/go/7', '?utm_source=meta', fresh))
   })
 })

@@ -519,6 +519,98 @@ describe('삼성 인터넷(samsung_android) — 크롬에서 열기', () => {
   })
 })
 
+// MZ2AZ-594 — iOS 웹뷰 껍데기(SceneTripShell/)는 env 가 installed 여도 ⑤ 를 보인다(로그인 안 했으면).
+//   단추는 주 「로그인하고 코스 짜기」 와 「나중에」 뿐 — 보조 단추는 없다. 진짜 홈 화면 앱(installed, 껍데기 아님)은 지금처럼 건너뛴다.
+const UA_SHELL =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SceneTripShell/1'
+const NO_SECONDARY = ['브라우저에서 열기', '크롬에서 열기', '홈 화면에 추가', '홈 화면에 추가하기', '즐겨찾기에 추가하기', '알겠어요']
+
+describe('iOS 웹뷰 껍데기(MZ2AZ-594) — installed 여도 ⑤', () => {
+  it('로그인 안 했으면 담기가 끝난 뒤 ⑤, 단추는 「로그인하고 코스 짜기」 와 「나중에」 뿐', async () => {
+    setUA(UA_SHELL)
+    await keepAll()
+    expect(closes).toEqual([])
+    expect(beatAttr()).toBe('keep')
+    expect(beats).toContain('keep')
+    expect(buttonWith('로그인하고 코스 짜기')).toBeTruthy()
+    expect(buttonWith('나중에')).toBeTruthy()
+    for (const label of NO_SECONDARY) expect(screen.queryByText(label), `「${label}」 없음`).toBeNull()
+    expect(document.querySelectorAll('.st-keep__second')).toHaveLength(0)
+    expect(introKeepSeen()).toBe(true)
+  })
+
+  it('영어 — 「Sign in and plan my route」 와 「Later」 뿐', async () => {
+    chooseLanguage('en')
+    setUA(UA_SHELL)
+    await keepAll('Keep these 3 on My map')
+    expect(buttonWith('Sign in and plan my route')).toBeTruthy()
+    expect(buttonWith('Later')).toBeTruthy()
+    for (const label of ['Open in browser', 'Open in Chrome', 'Add to Home Screen', 'Bookmark this page', 'Got it']) {
+      expect(screen.queryByText(label), `「${label}」 없음`).toBeNull()
+    }
+  })
+
+  it('보면 keep_prompt(installed, view, intro) 한 번', async () => {
+    setUA(UA_SHELL)
+    await keepAll()
+    expect(prompts()).toEqual([{ env: 'installed', action: 'view', where: 'intro' }])
+  })
+
+  it('「나중에」 → keep_prompt(installed, skip, intro) + onClose(kept)', async () => {
+    setUA(UA_SHELL)
+    await keepAll()
+    fireEvent.click(buttonWith('나중에'))
+    await advance(0)
+    expect(prompts()).toContainEqual({ env: 'installed', action: 'skip', where: 'intro' })
+    expect(closes).toEqual(['kept'])
+  })
+
+  it('「로그인하고 코스 짜기」 → keep_prompt(installed, sign_in, intro) + 로그인 창(이유 keep)', async () => {
+    setUA(UA_SHELL)
+    await keepAll()
+    fireEvent.click(buttonWith('로그인하고 코스 짜기'))
+    await advance(0)
+    expect(needApp).toBe(1)
+    expect(signInPromptStore.get()).toEqual({ requested: true, reason: null, key: 'keep' })
+    expect(prompts()).toContainEqual({ env: 'installed', action: 'sign_in', where: 'intro' })
+  })
+
+  it('껍데기여도 이미 로그인했으면 ⑤ 없이 곧바로 onClose(kept)', async () => {
+    h.session = true
+    setUA(UA_SHELL)
+    await keepAll()
+    expect(closes).toEqual(['kept'])
+    expect(beats).not.toContain('keep')
+    expect(prompts()).toEqual([])
+  })
+
+  it('진짜 홈 화면 앱(installed, 껍데기 아님)은 지금처럼 ⑤ 없이 onClose(kept)', async () => {
+    h.standalone = true
+    setUA(UA_IPHONE_SAFARI)
+    await keepAll()
+    expect(closes).toEqual(['kept'])
+    expect(beats).not.toContain('keep')
+    expect(prompts()).toEqual([])
+  })
+})
+
+describe('KeepBeat 단독 — env installed 이면 보조 단추 없음(MZ2AZ-594)', () => {
+  it('「로그인하고 코스 짜기」 와 「나중에」 뿐, 「나중에」 → skip + onDone', async () => {
+    h.standalone = true
+    setUA(UA_IPHONE_SAFARI)
+    const { KeepBeat } = await import('./KeepBeat')
+    let doneCount = 0
+    render(<KeepBeat count={3} contentId={32} onDone={() => (doneCount += 1)} />)
+    expect(buttonWith('로그인하고 코스 짜기')).toBeTruthy()
+    for (const label of NO_SECONDARY) expect(screen.queryByText(label), `「${label}」 없음`).toBeNull()
+    expect(document.querySelectorAll('.st-keep__second')).toHaveLength(0)
+    expect(prompts()).toEqual([{ env: 'installed', action: 'view', where: 'intro' }])
+    fireEvent.click(buttonWith('나중에'))
+    expect(prompts()).toContainEqual({ env: 'installed', action: 'skip', where: 'intro' })
+    expect(doneCount).toBe(1)
+  })
+})
+
 describe('나중에', () => {
   it('keep_prompt(skip, intro) + onClose(kept) — 「더 담기」 로', async () => {
     setUA(UA.fbAndroid)

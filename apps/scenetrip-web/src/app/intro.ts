@@ -66,11 +66,10 @@ export function showIdOf(search: string): number | null {
  *   - 넘어온 주소(`keep`·`places`·`pois` 중 하나라도, web-ad-landing.md §13-3): 앱 안 브라우저에서 담고 바깥 브라우저로 넘어온 사람이다.
  *     새 브라우저라 첫 화면을 본 적이 없어도 덮개를 띄우지 않고 본 것으로 적는다 — 덮개가 떠 있으면 KeepArrival(다시 담기)이 돌지 않는다.
  */
-export function introStart(pathname: string, search: string, state: { done: boolean; signedIn: boolean; shell?: boolean }): IntroStart {
+export function introStart(pathname: string, search: string, state: { done: boolean; signedIn: boolean }): IntroStart {
   const arriving = hasKeepParams(search)
   if (arriving) markIntroDone()
-  // iOS 웹뷰 껍데기는 덮개 없이 앱으로 시작한다(ios-webview-shell.md §6, MZ2AZ-591).
-  const fresh = !arriving && !state.done && !state.signedIn && state.shell !== true
+  const fresh = !arriving && !state.done && !state.signedIn
   const goId = landingIdOf(pathname)
   if (goId !== null) {
     if (!fresh) return { intro: null, replaceTo: `${paths.searchContent(goId)}${search}` }
