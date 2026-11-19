@@ -33,10 +33,13 @@ python.toolchain(
 
 # 배포 노드는 linux/amd64다. 태그 변경에 영향을 받지 않도록 기반 이미지를 고정한다.
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+
+# Java 실행 기반은 Amazon Corretto 21.0.13.1(2026-11-17) — Java4Shell(CVE-2026-114938, Base64 해석 중 메모리 넘침)
+# 수정판. distroless java21 은 아직 21.0.13(수정 전)이라 잠시 바꿨다. distroless 가 21.0.13.1 이상을 내면 되돌린다.
 oci.pull(
     name = "java21_runtime",
-    digest = "sha256:0a1f5a75661918de9c0813f287f651c3bf2d6dd752eada5f084eb0c1f14ced9e",
-    image = "gcr.io/distroless/java21-debian13",
+    digest = "sha256:5085e890043da2b63af83b0fa7259b90e6687f867db2deed628f1b68c798cadb",
+    image = "index.docker.io/library/amazoncorretto",
     platforms = ["linux/amd64"],
 )
 oci.pull(
