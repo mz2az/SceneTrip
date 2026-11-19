@@ -749,6 +749,10 @@ just web-dev 5174 & just ios-run-webshell http://localhost:5174   # 이 저장�
 - 로그인: 웹이 `window.webkit.messageHandlers.scenetripAuth` 를 부르면 기존 `GoogleOAuth`·`AppleOAuth` 가 공급자 창을 띄우고 자격만
   돌려준다. 서버 교환·토큰은 웹이 한다. 껍데기에서는 네이티브 계정·분석(`AuthStore.start`·`AppAnalytics`)을 켜지 않는다.
 - 위치는 앱 권한 창 다음에 WebKit 의 사이트 권한 창이 **한 번 더** 뜬다(2026-11-12 시뮬레이터 실측).
+- 추적 권한(ATT)은 묻지 않는다. 그래서 웹뷰 레시피(`just ios-run-webshell`, `just ios-package-webshell`)는
+  `--define=scenetrip_web_shell=1` 을 넣고, 번들의 Info.plist 와 en, ko `InfoPlist.strings` 에서 `NSUserTrackingUsageDescription`
+  을 뺀 사본(`:web_shell_info_plist`, `:web_shell_*_infoplist_strings`)을 쓴다. 1.1.0 심사에서 「ATT 를 쓰는데 팝업이 없다」
+  (Guideline 2.1) 질의를 받은 뒤 넣었다(MZ2AZ-598). App Store Connect 개인정보 항목도 웹뷰 판은 「추적 안 함」이어야 한다.
 
 ## 인터페이스
 

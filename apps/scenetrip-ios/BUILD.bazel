@@ -82,6 +82,52 @@ EOF""",
     tags = ["ios"],
 )
 
+# 웹뷰 껍데기 빌드에서는 추적 권한(ATT) 문구를 뺀다 (MZ2AZ-598). 껍데기는 네이티브 분석과
+# 메타 측정을 켜지 않아 권한을 묻지 않는데, 문구가 남아 있으면 App Store 심사가
+# 「ATT 를 쓰는데 팝업이 없다」로 묻는다(1.1.0 심사, Guideline 2.1).
+# 웹뷰 레시피(just ios-run-webshell, just ios-package-webshell)만 --define=scenetrip_web_shell=1 을 넣는다.
+config_setting(
+    name = "web_shell",
+    define_values = {"scenetrip_web_shell": "1"},
+)
+
+# 열쇠 줄과 바로 다음 값 줄을 지운다. 열쇠가 없으면 실패한다 — 지운 줄 알고 지나가지 않게.
+genrule(
+    name = "web_shell_info_plist",
+    srcs = ["Info.plist"],
+    outs = ["web_shell/Info.plist"],
+    cmd = """grep -q '<key>NSUserTrackingUsageDescription</key>' $< && \
+awk '/<key>NSUserTrackingUsageDescription<\\/key>/ {skip = 2} skip > 0 {skip--; next} {print}' $< > $@ && \
+! grep -q NSUserTrackingUsageDescription $@""",
+    tags = ["ios"],
+)
+
+[
+    genrule(
+        name = "web_shell_%s_infoplist_strings" % lang,
+        srcs = ["resources/%s.lproj/InfoPlist.strings" % lang],
+        # rules_apple 은 바로 위 폴더 이름(xx.lproj)으로 언어를 고른다.
+        outs = ["web_shell/%s.lproj/InfoPlist.strings" % lang],
+        cmd = "grep -q '^\"NSUserTrackingUsageDescription\"' $< && grep -v '^\"NSUserTrackingUsageDescription\"' $< > $@",
+        tags = ["ios"],
+    )
+    for lang in [
+        "en",
+        "ko",
+    ]
+]
+
+INFOPLIST_STRINGS = select({
+    ":web_shell": [
+        ":web_shell_en_infoplist_strings",
+        ":web_shell_ko_infoplist_strings",
+    ],
+    "//conditions:default": [
+        "resources/en.lproj/InfoPlist.strings",
+        "resources/ko.lproj/InfoPlist.strings",
+    ],
+})
+
 mobile_api_config(
     name = "api_configuration",
     out = "ApiConfiguration.swift",
@@ -212,12 +258,16 @@ swift_library(
     # 마스코트 일러스트(진도 캐릭터 시트에서 오려 낸 6장). rules_apple 이
     # xcassets 를 Assets.car 로 구워 번들에 넣는다.
     # 데모 코스(중간발표 영상용) — `-demoCourse 1` 이 읽어 서버에 코스를 만든다.
-    data = ["resources/PrivacyInfo.xcprivacy"] + glob([
-        "resources/Images.xcassets/**",
-        "resources/demo/*.json",
-        # 화면 문구 번역 표 (MZ2AZ-343). 열쇠는 한국어 원문이다.
-        "resources/*.lproj/*.strings",
-    ]) + glob(
+    data = ["resources/PrivacyInfo.xcprivacy"] + glob(
+        [
+            "resources/Images.xcassets/**",
+            "resources/demo/*.json",
+            # 화면 문구 번역 표 (MZ2AZ-343). 열쇠는 한국어 원문이다.
+            "resources/*.lproj/*.strings",
+        ],
+        # 권한 문구 표는 웹뷰 빌드에서 ATT 문구를 뺀 사본으로 바뀐다 (MZ2AZ-598).
+        exclude = ["resources/*.lproj/InfoPlist.strings"],
+    ) + INFOPLIST_STRINGS + glob(
         # Firebase 설정 파일 (MZ2AZ-353). Firebase 콘솔에서 받아 이 자리에 둔다. **없어도 빌드된다** —
         # 없으면 앱이 분석을 켜지 않는다(`AppAnalytics.start`).
         [
@@ -270,7 +320,10 @@ ios_application(
     # 팀 ID 자리는 10자여야 한다 — 파일 머리말 참고.
     entitlements = "SceneTrip.entitlements",
     families = ["iphone"],
-    infoplists = ["Info.plist"],
+    infoplists = select({
+        ":web_shell": [":web_shell_info_plist"],
+        "//conditions:default": ["Info.plist"],
+    }),
     minimum_os_version = "17.0",
     tags = ["ios"],
     target_compatible_with = APPLE_ONLY,
@@ -455,7 +508,10 @@ xcodeproj(
 release_info(
     name = "release_info",
     tags = ["manual"],
-    template = "Info.plist",
+    template = select({
+        ":web_shell": ":web_shell_info_plist",
+        "//conditions:default": "Info.plist",
+    }),
 )
 
 ios_application(
