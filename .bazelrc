@@ -60,6 +60,8 @@ build --define=scenetrip_api_base_url=
 # iOS 웹뷰 껍데기 실험 (MZ2AZ-557, ADR 0029 제안). **빈 값 = 끔** — 기존 네이티브 앱 그대로.
 # `just ios-run-webshell <웹 주소>` 만 값을 넣는다 (apps/scenetrip-ios/BUILD.bazel 의 web_shell_swift).
 build --define=scenetrip_web_shell_url=
+# 웹뷰 빌드 표시. 1 이면 추적 권한(ATT) 문구를 뺀 Info.plist 를 쓴다 (MZ2AZ-598). 웹뷰 레시피만 1 을 넣는다.
+build --define=scenetrip_web_shell=0
 
 # 길찾기 키(카카오)는 2026-09-02 에 뺐다(MZ2AZ-297) — main 은 백엔드
 # 계약(`POST /navigation/next-leg`)만 부르므로 앱에 길찾기 키가 없다.
