@@ -33,7 +33,30 @@ function readSaved(): Lang | null {
   }
 }
 
-let current: Lang = readSaved() ?? 'en'
+/** 주소의 `lang=ko|en` — 검색 결과의 언어판 주소(`/?lang=ko`, docs/project/plans/web-seo-bilingual.md). 그 밖의 값은 없는 것으로 본다. */
+export function langFromSearch(search: string): Lang | null {
+  const v = new URLSearchParams(search).get('lang')
+  return v === 'ko' || v === 'en' ? v : null
+}
+
+function readUrl(): Lang | null {
+  try {
+    return typeof window === 'undefined' ? null : langFromSearch(window.location.search)
+  } catch {
+    return null
+  }
+}
+
+/** 주소의 언어가 저장값보다 앞선다 — 그 주소로 온 것을 언어를 고른 것으로 보고 저장한다. */
+const urlLang = readUrl()
+if (urlLang !== null) {
+  try {
+    localStorage.setItem(KEY, urlLang)
+  } catch {
+    /* 저장 못 해도 이번 실행은 그 언어로 */
+  }
+}
+let current: Lang = urlLang ?? readSaved() ?? 'en'
 const listeners = new Set<() => void>()
 /** 언어가 **실제로 바뀔 때** 한 번 부른다. 화면을 다시 그리는 리스너(`listeners`)보다 먼저 돌아서, 다시 읽는 쪽이 비워진 사본을 본다. */
 const changeListeners = new Set<(lang: Lang) => void>()

@@ -10,6 +10,7 @@
 | [web-home-city-spots.md](web-home-city-spots.md) | 웹 홈 「도시의 성지」 — 인사 아래 도시 칩·촬영지 카드·지도 보기, 한국어 주소로 도시 열쇠, 위치는 이미 허용됐을 때만 (MZ2AZ-531, DEV 실험) |
 | [web-place-directions.md](web-place-directions.md) | 웹 촬영지 상세 「길찾기」 — 한 곳짜리 코스를 만들어 바로 여행 모드, 비회원은 로그인 뒤 이어서 (MZ2AZ-532, DEV 실험) |
 | [web-release.md](web-release.md) | 웹앱(`apps/scenetrip-web`) 출시 — Cloudflare Pages, CORS 요청서, 소셜 로그인 웹 설정, GA4, 처리방침 초안 |
+| [web-seo-bilingual.md](web-seo-bilingual.md) | 웹 검색 노출 — 첫 화면 영어 기본 + `?lang=ko` 한국어판, hreflang·언어별 꼬리표(Pages Function)·사이트맵 |
 | [metabase-prd.md](metabase-prd.md) | PRD 데이터 보기 — EKS 안 Metabase, `analytics` 뷰만 읽는 계정, Cloudflare Access(계획, ADR 0027 제안) |
 | [place-photo-credit.md](place-photo-credit.md) | 촬영지 사진에 출처·이용 조건 — `place_image` 세 칸, 주소 열쇠 TSV, 앱 수정 없음, 60 곳 150 장(MZ2AZ-514, 로컬 적용) |
 | [place-photo-refresh.md](place-photo-refresh.md) | 촬영지 사진의 사람 제거 편집본 — 데이터 파일 주소 교체(JPEG 1280px), 로컬·DEV 먼저, PRD 는 심사 뒤 |

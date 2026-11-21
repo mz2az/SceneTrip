@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://app.scenetrip.io/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://app.scenetrip.io/" />
+    <xhtml:link rel="alternate" hreflang="ko" href="https://app.scenetrip.io/?lang=ko" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://app.scenetrip.io/" />
+  </url>
+  <url>
+    <loc>https://app.scenetrip.io/?lang=ko</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://app.scenetrip.io/" />
+    <xhtml:link rel="alternate" hreflang="ko" href="https://app.scenetrip.io/?lang=ko" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://app.scenetrip.io/" />
   </url>
 </urlset>
