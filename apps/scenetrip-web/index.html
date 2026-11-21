@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -14,7 +14,25 @@
     <!-- 촬영지 사진(작은 판)이 있는 곳 — 첫 화면의 카드 사진이 연결을 새로 맺느라 왕복을 더 쓰지 않게(§10-3-3). -->
     <link rel="preconnect" href="https://scenetrip-media-prod.s3.ap-northeast-2.amazonaws.com" />
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
-    <title>SceneTrip</title>
+    <!--
+      검색 결과·링크 미리보기 꼬리표 — 영어가 기본이다. 한국어판 주소 /?lang=ko 는 Pages Function(functions/index.ts)이
+      src/seo/localizeHead.ts 로 이 줄들을 한국어로 바꿔 낸다. 문구를 바꾸면 그 파일의 SEO_COPY 도 같이 바꾼다.
+      지우면 src/seo/staticFiles.test.ts 가 깨진다(2026-11-15 에 한 번 통째로 사라졌다). 계획: docs/project/plans/web-seo-bilingual.md
+    -->
+    <title>SceneTrip — K-Drama &amp; Movie Filming Locations Trip Planner</title>
+    <meta name="description" content="Stand where the scene happened. Pick a K-drama or movie and SceneTrip maps its real filming locations in Korea, then builds a trip with nearby food and cafés." />
+    <link rel="canonical" href="https://app.scenetrip.io/" />
+    <link rel="alternate" hreflang="en" href="https://app.scenetrip.io/" />
+    <link rel="alternate" hreflang="ko" href="https://app.scenetrip.io/?lang=ko" />
+    <link rel="alternate" hreflang="x-default" href="https://app.scenetrip.io/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SceneTrip" />
+    <meta property="og:url" content="https://app.scenetrip.io/" />
+    <meta property="og:title" content="SceneTrip — K-Drama &amp; Movie Filming Locations Trip Planner" />
+    <meta property="og:description" content="Stand where the scene happened. Pick a K-drama or movie and SceneTrip maps its real filming locations in Korea, then builds a trip with nearby food and cafés." />
+    <meta property="og:image" content="https://app.scenetrip.io/icons/icon-512.png" />
+    <meta property="og:locale" content="en_US" />
+    <meta name="twitter:card" content="summary" />
     <!--
       첫 화면(web-ad-landing.md §10-3-1 · §11): 처음 온 사람일 수 있으면(첫 화면을 본 기록·로그인이 없으면) JS 를 받기 전에
       보라 바탕 + 해태 + SceneTrip 을 그린다. 모양은 src/features/landing/IntroSplash.tsx 와 같다. 그림은 빌드가 끼워 넣는다(vite.config.ts).
