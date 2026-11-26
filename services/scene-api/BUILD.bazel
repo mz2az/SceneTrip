@@ -115,6 +115,7 @@ pkg_tar(
         "seed/poi_source_update.sql",
         "seed/poi_update.sql",
         "seed/poi_update_load.sql",
+        "seed/scene_image_thumbnails.tsv",
     ],
     mode = "0444",
     package_dir = "/data/seed",

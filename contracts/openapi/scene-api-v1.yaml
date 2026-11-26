@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.31.0
+  version: 1.32.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -1113,6 +1113,8 @@ paths:
         순서대로 매긴다.
 
         `lat`·`lng` 를 함께 주면 각 항목의 `distanceMeters` 가 채워진다.
+
+        1.32.0 부터 각 항목에 이 작품의 장면 사진 첫 장 작은 판(`sceneImageThumbnailUrl`)과 한국어 이름(`nameKo`)이 온다.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
         - $ref: "#/components/parameters/ContentId"
@@ -4765,6 +4767,13 @@ components:
         name:
           type: string
           example: 여의도공원
+        nameKo:
+          type: string
+          nullable: true
+          description: |
+            촬영지의 한국어 이름(1.32.0) — 요청 언어와 무관하게 언제나 한국어(`ko`) 이름이다. 화면 언어가 한국어가 아닐 때
+            `name` 아래에 작게 병기한다(현지에서 간판·길 안내와 맞춰 보게). 한국어 이름이 없으면 null.
+          example: 여의도공원
         type:
           type: string
           nullable: true
@@ -4811,6 +4820,14 @@ components:
             (또는 `GET /contents/{contentId}/places`) 그 작품 기준으로 채워진다.
             `city` 로 조회했을 때(1.26.0)는 `contents` 의 **첫 작품** 기준으로 채운다 — 도시 여행 짜기에서
             「어느 작품의 어떤 장면인지」를 함께 보이려고(MZ2AZ-545). 그 밖의 조회에서는 `null` 이다.
+        sceneImageThumbnailUrl:
+          type: string
+          nullable: true
+          format: uri
+          description: |
+            그 작품의 그 촬영지 장면 사진 첫 장의 작은 판(1.32.0) — 긴 변 720px JPEG(`Scene.sceneImageThumbnailUrl` 과 같은 값).
+            작은 판이 아직 없으면 원본 장면 사진 주소다. **`GET /contents/{contentId}/places`(또는 `GET /places?contentId=`)에서만
+            채운다** — 랜딩이 촬영지마다 `GET /places/{id}` 를 따로 부르지 않게. 그 밖의 목록과 장면 사진이 없는 촬영지는 `null`.
 
     PlaceCityList:
       type: object
@@ -5312,6 +5329,21 @@ components:
           items:
             type: string
             format: uri
+        sceneImageThumbnailUrl:
+          type: string
+          nullable: true
+          format: uri
+          description: |
+            장면 사진 첫 장의 작은 판(1.32.0) — `sceneImageThumbnailUrls` 의 첫 장. 장면 사진이 없으면 null.
+        sceneImageThumbnailUrls:
+          type: array
+          description: |
+            장면 사진의 작은 판(1.32.0) — 긴 변 720px JPEG, 촬영지 사진의 작은 사진과 같은 방식. **`sceneImageUrls` 와 같은
+            순서·같은 길이**이고, 작은 판이 아직 없는 장은 그 자리에 원본 주소가 온다. 목록·카드·작은 칸은 이것을, 확대
+            보기는 `sceneImageUrls` 를 쓴다. 이 칸이 없는 옛 서버면 `sceneImageUrls` 를 쓴다.
+          items:
+            type: string
+            format: uri
 
     Cart:
       type: object
@@ -5391,6 +5423,11 @@ components:
           format: int64
         name:
           type: string
+        nameKo:
+          type: string
+          nullable: true
+          description: |
+            촬영지의 한국어 이름(1.32.0) — `PlaceSummary.nameKo` 와 같은 규칙. 요청 언어와 무관하게 한국어, 없으면 null.
         address:
           type: string
           nullable: true

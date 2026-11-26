@@ -22,8 +22,8 @@ public final class ThumbnailRules {
   /** 크기를 이름에 넣은 하위 폴더 — 나중에 다른 크기를 같은 자리에 더할 수 있다. */
   static final String FOLDER = "thumb-" + LONG_SIDE + "/";
 
-  /** 작은 사진을 둘 수 있는 자리 — 후기·리뷰 사진(사용자 버킷), 촬영지 사진(공용 버킷). */
-  static final List<String> PREFIXES = List.of("posts/", "reviews/", "place/");
+  /** 작은 사진을 둘 수 있는 자리 — 후기·리뷰 사진(사용자 버킷), 촬영지 사진·장면 사진(공용 버킷, 장면은 1.32.0). */
+  static final List<String> PREFIXES = List.of("posts/", "reviews/", "place/", "scene/");
 
   /** 그림의 가로·세로(px). */
   public record Size(int width, int height) {}
@@ -53,7 +53,7 @@ public final class ThumbnailRules {
    * 예: {@code posts/a.jpg} → {@code posts/thumb-720/a.jpg}, {@code place/x/b.png} → {@code
    * place/thumb-720/x/b.jpg}.
    *
-   * @throws IllegalArgumentException 작은 사진을 두지 않는 자리(임시 자리·장면 사진 등), 이미 작은 사진인 키, 이름이 없는 키
+   * @throws IllegalArgumentException 작은 사진을 두지 않는 자리(임시 자리 등), 이미 작은 사진인 키, 이름이 없는 키
    */
   public static String thumbnailKey(String key) {
     String prefix = prefixOf(key);
@@ -74,7 +74,10 @@ public final class ThumbnailRules {
     return prefix + FOLDER + rest.substring(0, slash + 1) + stem + ".jpg";
   }
 
-  /** 세 자리({@code posts/}·{@code reviews/}·{@code place/}) 바로 아래 {@code thumb-720/} 의 키인가. */
+  /**
+   * 네 자리({@code posts/}·{@code reviews/}·{@code place/}·{@code scene/}) 바로 아래 {@code thumb-720/} 의
+   * 키인가.
+   */
   public static boolean isThumbnailKey(String key) {
     String prefix = prefixOf(key);
     return prefix != null && key.startsWith(prefix + FOLDER);

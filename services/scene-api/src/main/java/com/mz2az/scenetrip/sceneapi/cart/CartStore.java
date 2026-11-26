@@ -70,6 +70,9 @@ public class CartStore {
           (SELECT pim.thumbnail_url FROM place_image pim
             WHERE pim.place_id = p.id
             ORDER BY pim.sort_order, pim.id LIMIT 1) AS image_thumbnail_url,
+          -- 한국어 이름(1.32.0) — 요청 언어와 무관하게. 기본키(place_id, lang) 한 번 찾기다.
+          (SELECT k.name FROM place_i18n k
+            WHERE k.place_id = p.id AND k.lang = 'ko') AS name_ko,
           ci_.source_content_id,
           cd.title AS source_content_title,
           ci_.created_at,
@@ -318,6 +321,7 @@ public class CartStore {
             .longitude(rs.getDouble("longitude"))
             .imageUrl(uri(rs.getString("image_url")))
             .imageThumbnailUrl(uri(rs.getString("image_thumbnail_url")))
+            .nameKo(rs.getString("name_ko"))
             .sourceContentId(longOrNull(rs))
             .sourceContentTitle(rs.getString("source_content_title"))
             .delisted(rs.getBoolean("delisted"));
