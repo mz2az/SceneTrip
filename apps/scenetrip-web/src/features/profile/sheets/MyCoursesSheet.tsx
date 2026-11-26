@@ -106,11 +106,9 @@ export function MyCoursesSheet({ open, onClose, courses }: { open: boolean; onCl
                 <DetailBlock
                   course={course}
                   detail={details[course.id]}
-                  onOpen={() => {
-                    // 탭이 바뀌고 편집 화면이 열린다. 시트는 스스로 닫는다.
-                    router.openCourse(course.id)
-                    onClose()
-                  }}
+                  // 시트의 주소(/profile/courses)를 코스 주소로 갈아 끼운다 — 시트는 주소가 바뀌면 닫히고, 코스에서 「뒤로」 는 마이페이지다.
+                  // 여기서 onClose 를 또 부르면 안 된다: 닫기도 주소 이동(`/profile` 로 replace)이라 코스로 가는 이동을 덮어쓴다(MZ2AZ-599).
+                  onOpen={() => router.openCourse(course.id, { replace: true })}
                 />
               )}
             </div>

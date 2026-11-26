@@ -103,8 +103,9 @@ export function SearchMap(props: MapViewProps) {
       const visible = () => {
         const size = map.getSize()
         const ins = cameraInsets(latest.current.sheetHeight, size.y)
-        const nw = map.containerPointToLatLng([0, ins.top])
-        const se = map.containerPointToLatLng([size.x, Math.max(ins.top + 1, size.y - ins.bottom)])
+        // 화면에 실제로 보이는 지점을 묻는다 — containerPointToLatLng 는 네이버에서 아래 여백의 절반만큼 북쪽을 준다(MZ2AZ-600).
+        const nw = map.screenPointToLatLng([0, ins.top])
+        const se = map.screenPointToLatLng([size.x, Math.max(ins.top + 1, size.y - ins.bottom)])
         return { southWest: { lat: se.lat, lng: nw.lng }, northEast: { lat: nw.lat, lng: se.lng } }
       }
       const camera: MapCameraHandle = {

@@ -24,6 +24,9 @@ case "$web_shell_url" in
   "" | https://app.scenetrip.io) ;;
   *) die "SCENETRIP_WEB_SHELL_URL 은 비우거나 https://app.scenetrip.io 여야 합니다" ;;
 esac
+# 웹뷰 빌드는 추적 권한(ATT) 문구를 뺀 Info.plist 를 쓴다 (MZ2AZ-598).
+web_shell=0
+[ -z "$web_shell_url" ] || web_shell=1
 args=("$profile" "$mode" --team "$SCENETRIP_APPLE_TEAM_ID")
 if [ -n "${SCENETRIP_IOS_DEVICE_UDID:-}" ]; then
   args+=(--device "$SCENETRIP_IOS_DEVICE_UDID")
@@ -57,5 +60,6 @@ fi
   --define=sentry_dsn_ios="${SENTRY_DSN_IOS:-}" \
   --define=posthog_key="${POSTHOG_KEY:-}" \
   --define=scenetrip_web_shell_url="$web_shell_url" \
+  --define=scenetrip_web_shell="$web_shell" \
   --ios_signing_cert_name="$SCENETRIP_IOS_SIGNING_IDENTITY"
 log "산출물: bazel-bin/apps/scenetrip-ios/ipa.ipa — 설치·TestFlight 확인은 별도입니다"

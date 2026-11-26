@@ -5,8 +5,8 @@
 | 문서 | 대상 |
 | --- | --- |
 | [photo-thumbnails.md](photo-thumbnails.md) | 우리 S3 사진의 작은 사진 — scene-api 1 분 작업(사용자 사진·백필)과 한 번 도는 도구(촬영지), 긴 변 720 JPEG, 계약 1.29.0 nullable 칸 (MZ2AZ-561, 계획, ADR 0030 제안) |
-| [ios-webview-shell.md](ios-webview-shell.md) | iOS 앱을 웹앱 WKWebView 껍데기로 — 빌드 스위치(기본 끔), 네이티브 로그인 다리, 심사 위험 (MZ2AZ-557, 실험) |
-| [ios-1.0.1.md](ios-1.0.1.md) | iOS 1.0.1 — 웹에 먼저 들어간 첫 실행·비회원 설치 번호·오늘의 성지·참고자료 접기·Sentry·PostHog 따라잡기와 출시 (MZ2AZ-525) |
+| [ios-webview-shell.md](ios-webview-shell.md) | iOS 앱을 웹앱 WKWebView 껍데기로 — 빌드 스위치(기본 끔), 네이티브 로그인 다리, 심사 위험, 1.1.0 출시 준비 (MZ2AZ-557, MZ2AZ-591) |
+| [ios-1.0.1.md](ios-1.0.1.md) | iOS 1.0.1(네이티브, 내지 않음) — 웹에 먼저 들어간 첫 실행, 비회원 설치 번호, 오늘의 성지, 참고자료 접기, Sentry, PostHog 따라잡기 기록. 다음 버전은 웹뷰 1.1.0 (MZ2AZ-525) |
 | [web-home-city-spots.md](web-home-city-spots.md) | 웹 홈 「도시의 성지」 — 인사 아래 도시 칩·촬영지 카드·지도 보기, 한국어 주소로 도시 열쇠, 위치는 이미 허용됐을 때만 (MZ2AZ-531, DEV 실험) |
 | [web-place-directions.md](web-place-directions.md) | 웹 촬영지 상세 「길찾기」 — 한 곳짜리 코스를 만들어 바로 여행 모드, 비회원은 로그인 뒤 이어서 (MZ2AZ-532, DEV 실험) |
 | [web-release.md](web-release.md) | 웹앱(`apps/scenetrip-web`) 출시 — Cloudflare Pages, CORS 요청서, 소셜 로그인 웹 설정, GA4, 처리방침 초안 |

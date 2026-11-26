@@ -136,8 +136,15 @@ export function useSearchTab(active = true, embedded = false) {
         .map((i) => ({ id: i.placeId, name: i.name, address: i.address, latitude: i.latitude!, longitude: i.longitude!, imageUrl: i.imageUrl, imageThumbnailUrl: i.imageThumbnailUrl })),
     [cart.items],
   )
-  const mapPlaces = selectedContent ? contentPlaces : proto && initial ? savedPins : visiblePlaces
-  const numbered = (proto && initial && !selectedContent) || numbersOnPins(initial, tab)
+  const livePins = selectedContent ? contentPlaces : proto && initial ? savedPins : visiblePlaces
+  const liveNumbered = (proto && initial && !selectedContent) || numbersOnPins(initial, tab)
+  // 「현 지도 내 성지 검색」 을 켠 직후에는 `nearby` 만 먼저 바뀌고 목록은 아직 전국 목록이다. 그것을 그대로 꽂으면 200곳이
+  // 번호 핀으로 그려졌다가 결과가 오는 순간 사라진다(MZ2AZ-600) — 범위 결과가 깔릴 때까지 보이던 핀을 그대로 둔다.
+  const awaitingViewport = nearby && scene.placesFrom !== 'viewport'
+  const shownPins = useRef({ places: livePins, numbered: liveNumbered })
+  if (!awaitingViewport) shownPins.current = { places: livePins, numbered: liveNumbered }
+  const mapPlaces = awaitingViewport ? shownPins.current.places : livePins
+  const numbered = awaitingViewport ? shownPins.current.numbered : liveNumbered
 
   const blurSearch = () => {
     setSearchFocused(false)

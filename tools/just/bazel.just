@@ -126,7 +126,7 @@ ios-run-webshell url *args:
     #!/usr/bin/env bash
     set -euo pipefail
     case {{quote(url)}} in https://*|http://localhost:*|http://127.0.0.1:*) ;; *) echo 'https 주소(시뮬레이터 개발용은 http://localhost:포트)가 필요합니다' >&2; exit 1 ;; esac
-    {{BAZEL}} build //apps/scenetrip-ios:bin --define=scenetrip_web_shell_url={{quote(url)}} --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
+    {{BAZEL}} build //apps/scenetrip-ios:bin --define=scenetrip_web_shell_url={{quote(url)}} --define=scenetrip_web_shell=1 --define=naver_client_id="${NAVER_MAP_CLIENT_ID:-}"
     bash ./tools/scripts/ios-run.sh {{args}}
 
 # 첫 실행에도 스플래시·언어 고르기·사용법 없이 바로 앱(홈 탭)이 뜬다 (MZ2AZ-526).
