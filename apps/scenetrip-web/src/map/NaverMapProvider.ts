@@ -3,8 +3,8 @@
  *
  * 확인한 사실(공식 문서): fitBounds(bounds, {top,right,bottom,left,maxZoom}) · panTo · morph(coord, zoom) · updateBy · setCenter ·
  * 지도 옵션 `padding` · 로고/축척/데이터(저작권) 컨트롤 · 지도 `click` 은 오버레이를 눌렀을 때는 오지 않는다.
- * 확인하지 못한 것(클라이언트 ID 가 없어 실제로 띄워 보지 못했다): padding 이 fitBounds 와 투영에 어떻게 섞이는지, 소수 줌의 지원 여부.
- * 그 부분은 아래에 가정을 적어 두었다.
+ * 확인하지 못한 것(클라이언트 ID 가 없어 실제로 띄워 보지 못했다): padding 이 fitBounds 에 어떻게 섞이는지, 소수 줌의 지원 여부.
+ * 그 부분은 아래에 가정을 적어 두었다. padding 과 투영의 관계는 실측했다 — `screenPointToLatLng` 참고(MZ2AZ-600).
  */
 import { shiftedCenter } from './mercator'
 import type { NaverLatLng, NaverMap, NaverMapOptions, NaverMaps, NaverMarker, NaverOverlay } from './naver'
@@ -152,6 +152,10 @@ export function createNaverMap(maps: NaverMaps, el: HTMLElement): MapHandle {
     },
     getCenter: () => fromNaver(map.getCenter()),
     containerPointToLatLng: ([x, y]) => fromNaver(map.getProjection().fromOffsetToCoord(new maps.Point(x, y))),
+    // 아래 padding 을 주면 네이버는 가운데 좌표를 남은 영역의 가운데((H - padding) / 2 줄)에 그리는데, 투영(fromOffsetToCoord·fromCoordToOffset)은
+    // 요소 가운데(H / 2 줄) 기준 그대로다. 화면의 y 줄에 실제로 보이는 지점은 투영의 y + padding / 2 줄이다(MZ2AZ-600 실측 —
+    // padding 0·100·192·300·419 에서 가운데 마커의 화면 위치와 투영을 견줘 오차 0).
+    screenPointToLatLng: ([x, y]) => fromNaver(map.getProjection().fromOffsetToCoord(new maps.Point(x, y + bottomInset / 2))),
     setView(center: LatLng, zoom: number | null, o: SetViewOptions = {}) {
       const z = zoom ?? map.getZoom()
       const target = ll(shiftedCenter(center, z, extraShift(o.shiftY ?? 0)))

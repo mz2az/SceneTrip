@@ -39,6 +39,7 @@ function makeMap() {
     provider: 'naver', container: document.createElement('div'),
     getZoom: () => 12, getSize: () => ({ x: 400, y: 800 }), getCenter: () => ({ lat: 37.56, lng: 126.97 }),
     containerPointToLatLng: ([x, y]: [number, number]) => ({ lat: 37.6 - y * 0.0001, lng: 126.95 + x * 0.0001 }),
+    screenPointToLatLng: ([x, y]: [number, number]) => ({ lat: 37.6 - y * 0.0001, lng: 126.95 + x * 0.0001 }),
     setView: vi.fn(), fitBounds: vi.fn(), stop: vi.fn(), on: vi.fn(() => () => {}),
     createLayer, setBottomInset: vi.fn(), resize: vi.fn(), destroy: vi.fn(),
   } satisfies MapHandle

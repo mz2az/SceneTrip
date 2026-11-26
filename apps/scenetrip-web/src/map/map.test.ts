@@ -378,6 +378,44 @@ describe('네이버 어댑터 (window.naver.maps 가짜)', () => {
     createNaverMap(maps, el).destroy()
     expect(named(calls, 'destroy')).toHaveLength(1)
   })
+
+  // MZ2AZ-600 — 아래 여백을 주면 네이버는 가운데를 남은 영역의 가운데에 그리지만 투영(fromOffsetToCoord)은 요소 가운데 기준 그대로다.
+  // 가짜 투영: (x, y) → (37 - y*0.001, 127 + x*0.001).
+  const projected = (x: number, y: number) => ({ lat: 37 - y * 0.001, lng: 127 + x * 0.001 })
+
+  it('screenPointToLatLng — 아래 여백이 있으면 (x, y + 여백/2) 를 투영한 값을 준다', () => {
+    const { maps } = fakeMaps()
+    const map = createNaverMap(maps, el)
+    map.setBottomInset(300)
+    expect(map.screenPointToLatLng([100, 200])).toEqual(projected(100, 350))
+    expect(map.screenPointToLatLng([0, 108])).toEqual(projected(0, 258))
+  })
+
+  it('screenPointToLatLng — 여백은 setBottomInset 에 마지막으로 준 값(반올림한 정수)이다', () => {
+    const { maps } = fakeMaps()
+    const map = createNaverMap(maps, el)
+    map.setBottomInset(300)
+    map.setBottomInset(199.6) // → 200
+    expect(map.screenPointToLatLng([40, 500])).toEqual(projected(40, 600))
+    map.setBottomInset(-20) // → 0
+    expect(map.screenPointToLatLng([40, 500])).toEqual(projected(40, 500))
+  })
+
+  it('screenPointToLatLng — 아래 여백이 0 이면 containerPointToLatLng 와 같다', () => {
+    const { maps } = fakeMaps()
+    const map = createNaverMap(maps, el)
+    expect(map.screenPointToLatLng([120, 640])).toEqual(map.containerPointToLatLng([120, 640]))
+    map.setBottomInset(0)
+    expect(map.screenPointToLatLng([120, 640])).toEqual(map.containerPointToLatLng([120, 640]))
+  })
+
+  it('containerPointToLatLng 는 아래 여백과 무관하게 (x, y) 를 그대로 투영한다', () => {
+    const { maps } = fakeMaps()
+    const map = createNaverMap(maps, el)
+    expect(map.containerPointToLatLng([100, 200])).toEqual(projected(100, 200))
+    map.setBottomInset(300)
+    expect(map.containerPointToLatLng([100, 200])).toEqual(projected(100, 200))
+  })
 })
 
 describe('Leaflet 어댑터 — 다각형', () => {
@@ -414,6 +452,14 @@ describe('Leaflet 어댑터 — 다각형', () => {
     expect(lmap!.hasLayer(polygon)).toBe(true)
     handle.remove()
     expect(lmap!.hasLayer(polygon)).toBe(false)
+    map.destroy()
+  })
+
+  it('screenPointToLatLng 는 containerPointToLatLng 와 같다(Leaflet 은 아래 여백을 두지 않는다)', () => {
+    const map = createLeafletMap(el)
+    map.setView({ lat: 37.5, lng: 127.0 }, 12, { animate: false })
+    map.setBottomInset(300)
+    expect(map.screenPointToLatLng([50, 60])).toEqual(map.containerPointToLatLng([50, 60]))
     map.destroy()
   })
 

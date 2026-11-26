@@ -113,6 +113,12 @@ export interface MapHandle {
   getCenter(): LatLng
   /** 화면 좌표 → 위경도. */
   containerPointToLatLng(point: [number, number]): LatLng
+  /**
+   * 지도 요소의 왼쪽 위에서 잰 화면 좌표(px)에 **실제로 보이는** 지점. 「지금 화면에 보이는 범위」 를 물을 때는 이것을 쓴다.
+   * 네이버는 아래 여백(`setBottomInset`)을 주면 가운데를 남은 영역의 가운데에 그리면서 투영은 요소 가운데 기준 그대로라,
+   * `containerPointToLatLng` 가 여백의 절반만큼 북쪽 좌표를 준다(MZ2AZ-600 실측). Leaflet 은 여백을 두지 않아 둘이 같다.
+   */
+  screenPointToLatLng(point: [number, number]): LatLng
   /** `zoom` 이 null 이면 줌은 그대로 두고 가운데만 옮긴다. */
   setView(center: LatLng, zoom: number | null, options?: SetViewOptions): void
   fitBounds(bounds: MapBounds, options?: FitOptions): void
