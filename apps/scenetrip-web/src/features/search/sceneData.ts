@@ -32,6 +32,8 @@ export interface SceneState {
   phase: Phase
   contents: readonly ContentSummary[]
   places: readonly PlaceSummary[]
+  /** `places` 가 무엇의 답인가 — 검색어(전체 목록 포함)인지, 지도 범위(「현 지도 내 성지 검색」)인지. 결과가 깔릴 때 함께 바뀐다. */
+  placesFrom: 'keyword' | 'viewport'
   /** 어디까지 받았고 전부 몇 건인가. 화면의 개수는 여기의 `total` 이다 — 받은 줄 수가 아니다. */
   contentPaging: Paging
   placePaging: Paging
@@ -48,6 +50,7 @@ const initialState: SceneState = {
   phase: { kind: 'loading' },
   contents: [],
   places: [],
+  placesFrom: 'keyword',
   contentPaging: newPaging(),
   placePaging: newPaging(),
   loadingMoreContents: false,
@@ -133,6 +136,7 @@ export class SceneData {
         contents: contentList.items,
         contentPaging: advanced(newPaging(), contentList.items.length, contentList.total),
         places: placeList.items,
+        placesFrom: 'keyword',
         placePaging: advanced(newPaging(), placeList.items.length, placeList.total),
         listSerial: s.listSerial + 1,
         phase: { kind: 'loaded' },
@@ -164,6 +168,7 @@ export class SceneData {
         this.store.set((s) => ({
           ...s,
           places: spots.items,
+          placesFrom: 'viewport',
           placePaging: advanced(newPaging(), spots.items.length, spots.total),
           listSerial: s.listSerial + 1,
           phase: { kind: 'loaded' },

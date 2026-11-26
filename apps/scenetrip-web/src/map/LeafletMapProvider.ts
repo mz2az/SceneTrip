@@ -87,6 +87,7 @@ export function createLeafletMap(el: HTMLElement, options: CreateMapOptions = {}
     },
     getCenter: () => fromLL(map.getCenter()),
     containerPointToLatLng: (pt) => fromLL(map.containerPointToLatLng(pt)),
+    screenPointToLatLng: (pt) => fromLL(map.containerPointToLatLng(pt)),
     setView(center: LatLng, zoom: number | null, o: SetViewOptions = {}) {
       const animate = o.animate !== false
       const duration = o.seconds ?? 0.4

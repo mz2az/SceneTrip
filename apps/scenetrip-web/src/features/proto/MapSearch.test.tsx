@@ -77,6 +77,7 @@ function makeMap() {
     getZoom: () => 12, getSize: () => ({ x: 400, y: 800 }), getCenter: () => ({ lat: 37.56, lng: 126.97 }),
     // 화면 왼쪽 위 (0,0) = (37.6, 126.95). 아래로 1px 에 위도 0.0001 씩 줄고, 오른쪽으로 1px 에 경도 0.0001 씩 는다.
     containerPointToLatLng: ([x, y]: [number, number]) => ({ lat: 37.6 - y * 0.0001, lng: 126.95 + x * 0.0001 }),
+    screenPointToLatLng: ([x, y]: [number, number]) => ({ lat: 37.6 - y * 0.0001, lng: 126.95 + x * 0.0001 }),
     setView: vi.fn(), fitBounds: vi.fn(), stop: vi.fn(), on: vi.fn(() => () => {}),
     createLayer, setBottomInset: vi.fn(), resize: vi.fn(), destroy: vi.fn(),
   } satisfies MapHandle

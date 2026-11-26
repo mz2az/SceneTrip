@@ -375,7 +375,7 @@ iOS·Android 와 **같은 이름·같은 매개변수**의 이벤트 26개를 �
 
 **마커 모양** — 핀 SVG(`pinImage.ts`·`pinSvg.ts`: iOS `NaverMapView.swift` 의 파스텔 하늘→보라 그라데이션·흰 테두리·번호 배지)와 이름표·내 위치 파문의 HTML 은 Leaflet 때와 같은 마크업을 네이버 커스텀 아이콘(`icon.content`)으로 그대로 쓴다.
 
-**저작권·로고** — 네이버 로고·데이터 저작권 컨트롤은 끄지 않고(`logoControl`·`mapDataControl` true) 왼쪽 아래, 축척은 오른쪽 아래에 둔다. 시트가 지도 아래를 덮으므로 어댑터의 `setBottomInset(px)` 가 지도 옵션 `padding.bottom` 을 시트 높이로 올려 로고·저작권이 시트 위에 놓이게 한다(검색 탭은 `cameraInsets` 의 아래 값, 코스 편집·길찾기는 `bottomInset`). 지도 위에 얹는 검색바·버튼이 로고 자리를 덮지 않는지는 **실제 네이버 타일로 확인해야 한다**(아직 못 했다).
+**저작권·로고** — 네이버 로고·데이터 저작권 컨트롤은 끄지 않고(`logoControl`·`mapDataControl` true) 왼쪽 아래, 축척은 오른쪽 아래에 둔다. 시트가 지도 아래를 덮으므로 어댑터의 `setBottomInset(px)` 가 지도 옵션 `padding.bottom` 을 시트 높이로 올려 로고·저작권이 시트 위에 놓이게 한다(검색 탭은 `cameraInsets` 의 아래 값, 코스 편집·길찾기는 `bottomInset`). 이 여백을 주면 네이버는 가운데 좌표를 남은 영역의 가운데에 그리지만 투영(`fromOffsetToCoord`)은 요소 가운데 기준 그대로라, `containerPointToLatLng` 는 여백의 절반만큼 북쪽 좌표를 준다(실측, MZ2AZ-600). 「지금 화면에 보이는 범위」 를 물을 때는 그만큼 바로잡는 `screenPointToLatLng` 를 쓴다 — 검색 탭의 「현 지도 내 성지 검색」 이 쓴다. 코스 지도의 보이는 범위(`meCamera.visibleBounds`)와 주변 편의시설 범위(`useAmbientPois`)는 아직 `containerPointToLatLng` 다(후속). 지도 위에 얹는 검색바·버튼이 로고 자리를 덮지 않는지는 **실제 네이버 타일로 확인해야 한다**(아직 못 했다).
 
 **검증 상태** — 단위 시험은 `window.naver.maps` 가짜로 마커 생성·제거, `fitBounds` 인자, 폴리라인, 공급자 선택, 스크립트 한 번 주입을 지킨다. ID 가 없는 폴백 상태에서 e2e 스모크 13/13 이 통과하고 코스 편집기 화면이 이전과 픽셀 단위로 같다. **실제 네이버 타일 렌더링은 ID 가 없어 확인하지 못했다.** 확인하지 못한 가정: `padding` 이 `fitBounds`·화면 좌표 변환과 섞이는 방식(어댑터는 안쪽 여백 기준이라고 가정), 소수 줌 지원 여부(네이버 비-GL 지도는 정수 줌일 수 있다), 지도 `click` 이 마커 클릭 때 오지 않는다는 문서 설명대로 동작하는지, 인증 실패가 스크립트 로드 직후가 아니라 한참 뒤에 올 때(이미 만든 지도는 폴백하지 않는다).
 
