@@ -95,10 +95,13 @@ export function useTabRouter() {
       pendingStore.set((s) => ({ ...s, plannerManual: true }))
       navigate(paths.courses)
     },
-    /** 경로여정을 열고 그 코스의 편집으로 들어간다. */
-    openCourse: (serverId: number) => {
+    /**
+     * 경로여정을 열고 그 코스의 편집으로 들어간다. `replace` 를 주면 지금 주소를 갈아 끼운다 — 주소로 열린 시트(마이페이지 「내 코스」,
+     * `/profile/courses`)에서 넘어갈 때 쓴다. 시트를 닫는 이동을 따로 부르면 그 이동이 이 이동을 덮어쓴다(MZ2AZ-599).
+     */
+    openCourse: (serverId: number, options?: { replace?: boolean }) => {
       pendingStore.set((s) => ({ ...s, courseId: serverId }))
-      navigate(paths.course(serverId))
+      navigate(paths.course(serverId), options?.replace ? { replace: true } : undefined)
     },
     /**
      * 작품검색 탭으로 가서 그 작품의 상세를 연다. `returnTo` 를 주면 상세의 「뒤로」가 검색 탭이 아니라 그 화면으로 돌아간다
