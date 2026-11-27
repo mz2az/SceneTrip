@@ -66,7 +66,7 @@ function groupByKey(stops: readonly RouteStop[]): Map<string, RouteStop[]> {
 }
 
 /**
- * 챗봇이 준 새 초안으로 편집 사본을 갈아 끼운다. 제목·시작일·속도·서버 id·여행 중 상태는 원래 것을 둔다.
+ * 챗봇이 준 새 초안으로 편집 사본을 갈아 끼운다. uid·제목·시작일·속도·서버 id·여행 중 상태는 원래 것을 둔다.
  * 촬영지 줄의 이름·주소는 `places`(받아 둔 장소 목록, 앱 언어) → 대응한 앞 줄 → 초안 순이다(MZ2AZ-530).
  */
 export function revising(original: RouteCourse, plan: GuidePlan, places?: PlaceLookup): RouteCourse {
@@ -80,6 +80,8 @@ export function revising(original: RouteCourse, plan: GuidePlan, places?: PlaceL
   }
   return {
     ...next,
+    // 같은 코스다 — uid 가 바뀌면 저장 전 코스의 대화 열쇠(draft:<uid>)가 바뀌어 대화가 지워진다(MZ2AZ-602).
+    uid: original.uid,
     serverId: original.serverId,
     detailLoaded: original.detailLoaded,
     isRunning: original.isRunning,
