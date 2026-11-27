@@ -4,6 +4,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { GuidePlan } from '../draft'
 import type { GuideAnswer } from '../guide/guideSender'
+import { type GuideEnv, GuideSession } from '../guide/guideSession'
 import { type RouteCourse, makeCourse, makeDay, makePoiStop, makeStop } from '../models'
 import { fromPoi } from '../poi/poiPlace'
 import type { TripSession } from '../nav/tripSession'
@@ -138,6 +139,67 @@ describe('applyGuideAnswer', () => {
     const place = fromPoi({ id: 9, name: '식당', category: '음식점', latitude: 37, longitude: 127, categoryGroup: 'food' } as never)
     applyGuideAnswer(answer({ places: [place], effects: [{ op: 'something.new' }], ui: [{ op: 'unknown.thing' }, { op: 'sheet.collapse' }] }), host)
     expect(log).toEqual(['close', 'only-ai'])
+  })
+})
+
+// MZ2AZ-602 — 편집 화면은 대화를 코스 열쇠로 묶는다(tripExtensions.tsx 의 courseKey 와 같은 식).
+describe('챗봇 초안을 받아도 저장 전 코스의 대화는 남는다', () => {
+  const keyOf = (c: RouteCourse) => (c.serverId !== null ? `course:${c.serverId}` : `draft:${c.uid}`)
+  const reply = (over: Partial<GuideAnswer> = {}): GuideAnswer => ({ reply: '답', tools: [], places: [], seconds: 1, effects: [], ui: [], route: null, ...over })
+  const plan: GuidePlan = { days: [{ day: 1, stops: [{ order: 1, placeId: 2, name: '나', latitude: 37.02, longitude: 127, arriveMinute: 540 }] }] }
+  function session(): GuideSession {
+    let n = 0
+    const env: GuideEnv = {
+      send: async () => reply(),
+      serverKeepsKeys: () => true,
+      lang: () => 'ko',
+      newKey: () => `key-${(n += 1)}`,
+      asked: () => {},
+      now: () => 9000,
+      wall: () => 2_000_000_000,
+      quota: () => null,
+      sleep: async () => {},
+    }
+    const s = new GuideSession(env)
+    s.setAttended(true, 'panel-1')
+    return s
+  }
+  function revisedBy(c: RouteCourse): RouteCourse {
+    let next: RouteCourse | null = null
+    const host: AnswerHost = {
+      course: c,
+      setCourse: (n) => { next = n },
+      setDayIndex: () => {}, setFocusedUid: () => {}, fit: () => {}, closeGuide: () => {}, refreshCart: () => {}, setPicked: () => {}, showOnlyAiPlaces: () => {},
+    }
+    applyGuideAnswer(reply({ effects: [{ op: 'plan.revise', plan }] }), host)
+    if (!next) throw new Error('setCourse 가 불리지 않았다')
+    return next
+  }
+  const here = { latitude: 37.5663, longitude: 126.9779 }
+
+  it('plan.revise 로 갈아 끼운 저장 전 코스는 열쇠가 그대로라 두 턴이 남는다', async () => {
+    const draft = course({ serverId: null })
+    const s = session()
+    s.bind(keyOf(draft))
+    await s.ask('첫 질문', here, null)
+    await s.ask('둘째 질문', here, null)
+    const before = s.state.turns.length
+    expect(before).toBeGreaterThanOrEqual(2)
+    const next = revisedBy(draft)
+    expect(keyOf(next)).toBe(keyOf(draft))
+    s.bind(keyOf(next))
+    expect(s.state.turns).toHaveLength(before)
+  })
+  it('저장된 코스는 지금처럼 course:<서버 id> 열쇠가 그대로다', async () => {
+    const saved = course()
+    const s = session()
+    s.bind(keyOf(saved))
+    await s.ask('질문', here, null)
+    const before = s.state.turns.length
+    const next = revisedBy(saved)
+    expect(keyOf(next)).toBe('course:5')
+    s.bind(keyOf(next))
+    expect(s.state.turns).toHaveLength(before)
   })
 })
 

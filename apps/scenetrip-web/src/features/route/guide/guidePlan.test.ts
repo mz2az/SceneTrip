@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { type RouteCourse, makeCourse, makeDay, makePoiStop, makeStop } from '../models'
+import type { GuidePlan } from '../draft'
 import { planOf, revising } from './guidePlan'
 
 const place = (id: number, name: string) => ({ id, name, type: '카페', address: null, latitude: 37 + id / 100, longitude: 127 })
@@ -40,5 +41,22 @@ describe('revising', () => {
     const next = revising(course(), { days: [{ day: 1, stops: [{ order: 1, placeId: 99, name: '새', latitude: 37, longitude: 127, arriveMinute: 540 }] }] })
     expect(next.days[0].stops[0].serverItemId).toBeNull()
     expect(next.days[0].stops[0].visited).toBe(false)
+  })
+  // MZ2AZ-602 — 대화의 열쇠는 코스 uid 다. 갈아 끼운 사본이 새 uid 를 받으면 저장 전 코스의 대화가 지워진다.
+  const revise: GuidePlan = { days: [{ day: 1, stops: [{ order: 1, placeId: 1, name: '가', latitude: 37.01, longitude: 127, arriveMinute: 540 }] }] }
+  it('저장 전 코스(serverId null)도 원래 코스의 uid 를 그대로 둔다', () => {
+    const original = makeCourse({ serverId: null, detailLoaded: true, title: '초안', days: [makeDay([makeStop(place(1, '가'), { type: 'place' })])] })
+    const next = revising(original, revise)
+    expect(next.uid).toBe(original.uid)
+    expect(next.serverId).toBeNull()
+    expect(next.title).toBe('초안')
+  })
+  it('저장된 코스도 uid·서버 id·여행 중 상태·제목을 둔다', () => {
+    const original = course()
+    const next = revising(original, revise)
+    expect(next.uid).toBe(original.uid)
+    expect(next.serverId).toBe(5)
+    expect(next.isRunning).toBe(true)
+    expect(next.title).toBe('내 코스')
   })
 })
