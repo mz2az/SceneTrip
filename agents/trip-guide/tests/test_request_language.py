@@ -197,6 +197,17 @@ class FakeSceneApi:
         if path.startswith("/contents/") and path.endswith("/places"):
             cid = int(path.split("/")[2])
             return {"items": [_summary(cid, p, lang) for p in PLACES.get(cid, [])]}
+        if path.startswith("/contents/") and path.split("/")[2].isdigit():
+            # 작품 상세 — 운영 scene-api 처럼 요청 언어의 제목과, 나머지 언어 제목을 별칭으로 준다
+            # (운영 `GET /v1/contents/107`, en: title 「Do Gae-bi」, aliases 에 「도깨비」). 작품 찾기가
+            # 목록 제목이 다르면 상세의 별칭까지 본다(MZ2AZ-555).
+            cid = int(path.split("/")[2])
+            titles = CONTENTS.get(cid)
+            if titles is None:
+                return {}
+            title = _pick(titles, lang)
+            aliases = sorted({t for t in titles.values() if t != title})
+            return {"id": cid, "title": title, "aliases": aliases}
         if path == "/places" and "q" in query:
             q = query["q"][0]
             items = [

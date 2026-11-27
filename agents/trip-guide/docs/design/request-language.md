@@ -99,3 +99,11 @@
 - `plan.notes` 는 에이전트가 쓰는 한국어 문장이라 영어 요청에도 한국어다. 앱이 이 칸을 그리는지에 따라
   따로 다룬다.
 - 편의시설(`source: "poi"`) 카드는 계약대로 한국어 원본이다(§3).
+
+## 6. main 다시 올리기 (2026-11-27)
+
+11/07 이후 main 에 작품 찾기 규칙(MZ2AZ-555)이 들어왔다 — 목록의 제목이 물은 이름과 다르면 `GET /contents/{id}`
+상세의 별칭까지 본다. 시험의 가짜 scene-api 는 상세를 답하지 않아, 앱 언어가 `en` 이고 작품을 「도깨비」 로
+물은 `/plan` 이 400 이 됐다(7 건). 운영 scene-api 는 `en` 상세에도 다른 언어 제목을 별칭으로 준다
+(`GET /v1/contents/107` → title 「Do Gae-bi」, aliases 에 「도깨비」). 가짜가 같은 모양으로 상세를 답하게 고쳤다 —
+구현은 그대로다. `just test //agents/trip-guide:unit_test //agents/trip-guide:eval_test` 통과, `just check` 통과.
