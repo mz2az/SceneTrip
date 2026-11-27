@@ -35,6 +35,14 @@ _RATE_SUBJECT_SHAPE = re.compile(
 )
 
 
+# 요청 언어(docs/design/request-language.md). scene-api 가 앱 언어를 `Accept-Language` 로 넘기면
+# 그 턴의 scene-api 읽기에 같은 값을 싣는다. 창구의 `lang` 을 바꾸지 않는 이유는 한 서버가 여러
+# 턴을 함께 돌리기 때문이다 — 공유하는 창구를 고치면 다른 턴이 그 언어로 읽는다.
+# 받는 값은 계약의 `Lang` 넷뿐이다. 받은 값을 다른 요청의 헤더로 옮기므로 모양을 좁혀 둔다.
+_LANGS = {lang.lower(): lang for lang in ("ko", "en", "ja", "zh-Hant")}
+_REQUEST_LANG = ContextVar("request_lang", default=None)
+
+
 class RequestExpired(RuntimeError):
     """본문·데이터 조회·모델 호출이 함께 쓰는 처리 예산을 다 썼다."""
 
@@ -59,6 +67,22 @@ def rate_subject(value: str | None):
         yield
     finally:
         _RATE_SUBJECT.reset(token)
+
+
+@contextmanager
+def request_lang(value: str | None):
+    """이 턴 동안 scene-api 읽기에 실을 언어를 들고 있는다. 계약 밖의 값이면 없는 것으로."""
+    lang = _LANGS.get(value.lower()) if isinstance(value, str) else None
+    token = _REQUEST_LANG.set(lang)
+    try:
+        yield
+    finally:
+        _REQUEST_LANG.reset(token)
+
+
+def current_lang() -> str | None:
+    """이 턴의 요청 언어. 턴 밖이거나 받은 값이 없으면 None — 창구의 기본 언어로 읽는다."""
+    return _REQUEST_LANG.get()
 
 
 def service_token() -> str:

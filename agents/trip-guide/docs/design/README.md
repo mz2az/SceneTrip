@@ -16,3 +16,4 @@
 | [poi-identity.md](poi-identity.md) | **편의시설과 촬영지.** 같은 곳이면 촬영지 이름으로 한 번만, 「담아 줘」 는 촬영지로. 일정 줄의 세 갈래(촬영지·편의시설·직접 찍은 핀)를 고친 뒤에도 그대로 — 재현과 고친 것 (MZ2AZ-379·382) |
 | [build-draft.md](build-draft.md) | `rules_python` 이 켜질 때 붙일 BUILD.bazel 초안. 지금 넣으면 팀 빌드가 깨진다 |
 | [scope-filter.md](scope-filter.md) | **여행 범위 필터 (MZ2AZ-398).** 무관한 질문은 모델 호출 전에 거절, 섞인 질문·날씨 처리, 기능 테스트 목록과 전후 결과 |
+| [request-language.md](request-language.md) | **요청 언어.** `Accept-Language` 를 그 턴의 scene-api 읽기에 싣는다 — 영어 앱에 영어 장소 이름. 영어 주소에서 깨지던 지역 표시·지역 검색·성지점수, 기능 테스트 목록과 결과 |

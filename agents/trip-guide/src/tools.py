@@ -216,7 +216,14 @@ def _region_stem(query: str) -> str:
 
 
 def _in_region(address: str, stem: str) -> bool:
-    """주소의 앞부분(도·시·군·구)에 그 지역이 있는가. 도로 이름(「북촌로」)은 보지 않는다."""
+    """주소의 앞부분(도·시·군·구)에 그 지역이 있는가. 도로 이름(「북촌로」)은 보지 않는다.
+
+    영어 주소(「121 Jahamun-ro, Jongno-gu, Seoul」)는 첫 마디가 번지·도로라 그것을 빼고
+    나머지를 대소문자 없이 본다(docs/design/request-language.md §3).
+    """
+    if "," in (address or ""):
+        want = stem.lower()
+        return any(want in part.lower() for part in address.split(",")[1:])
     parts = (address or "").split()
     regions = parts[:1] + [
         t for t in parts[1:3] if t.endswith(("도", "시", "군", "구"))
