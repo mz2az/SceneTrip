@@ -48,6 +48,8 @@ MZ2AZ-201 의 회의 지적이 이것이었다. *"일반 GPT 쓰는 건 다를 �
 | --- | --- |
 | `src/planner.py` | **결정적 엔진.** 후보 점수 → 지역 거르기 → 날짜 클러스터링 → 2-opt 순서 → 시간표. 모델이 못 했을 때의 일정과, 고치기(`revise_day`·`move_stop`)를 맡는다. LLM 없음 |
 | `src/llm_planner.py` | **AI 일정 생성.** 마법사(`POST /plan`)·챗봇(`plan_course`)·CLI(`--plan`)가 모두 `plan_with_model` 로 부른다. 성지별 위치·위경도·인기도를 모델에게 주고(규칙 문장은 없다) 날짜별 일정을 받는다. 실패하면 엔진으로 돌아간다 — [설계](docs/design/llm-course-planner.md) |
+| `src/city_planner.py` | **도시로 AI 일정**(`POST /plan` 의 `city`, MZ2AZ-548). 도시 촬영지를 인기순으로 추려 모델에게, 못 하면 가까운 곳 잇기 — [계획](../../docs/project/plans/city-ai-course.md) |
+| `src/saved_planner.py` | **담은 촬영지로 AI 일정**(`POST /plan` 의 `placeIds`, MZ2AZ-601). 담은 곳을 하나도 버리지 않고 날짜별로 나눈다 — 하루는 가까운 곳끼리, 1곳짜리 날은 합치고 과밀한 날은 나눠 고른 일수를 채운다 — [계획](../../docs/project/plans/saved-ai-course.md) |
 | `src/plan_flow.py` | 세 단계를 한 번에 도는 경로(`--plan`). 발표·디버깅용으로 단계를 갈라 보여 준다 |
 | `src/agent.py` | 말 → 도구 → 말 루프. 대화 이력에 도구 결과를 쌓지 않는다 |
 | `src/tools.py` | 도구 7 개의 실행과 인자 검증. 계약은 `schemas/tools.json` 한 벌뿐 |

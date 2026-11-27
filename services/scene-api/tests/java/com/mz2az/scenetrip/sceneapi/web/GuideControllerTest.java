@@ -320,6 +320,76 @@ class GuideControllerTest {
     verify(agent, never()).plan(any(), any(), any());
   }
 
+  // ───────────── 담은 촬영지로 — titles·city·placeIds 중 정확히 하나 (1.33.0, MZ2AZ-601) ─────────────
+
+  @Test
+  @DisplayName("마법사 담은 곳 — placeIds 만 오면 200, 그 id 들이 그대로 에이전트로 간다(titles·city 는 없다)")
+  void planPlaceIdsOnlyForwardsPlaceIds() throws Exception {
+    mvc.perform(plan("{\"placeIds\":[101,202,303],\"days\":2}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.tookSeconds").value(0.02));
+
+    ArgumentCaptor<GuidePlanRequest> sent = ArgumentCaptor.forClass(GuidePlanRequest.class);
+    verify(agent).plan(sent.capture(), any(), any());
+    org.assertj.core.api.Assertions.assertThat(sent.getValue().getPlaceIds())
+        .containsExactly(101L, 202L, 303L);
+    org.assertj.core.api.Assertions.assertThat(sent.getValue().getTitles()).isNullOrEmpty();
+    org.assertj.core.api.Assertions.assertThat(sent.getValue().getCity()).isNull();
+  }
+
+  @Test
+  @DisplayName("마법사 — placeIds 와 titles 가 둘 다 오면 400 INVALID_PARAMETER, 에이전트를 부르지 않는다")
+  void planPlaceIdsWithTitlesIs400() throws Exception {
+    mvc.perform(plan("{\"placeIds\":[101],\"titles\":[\"도깨비\"],\"days\":1}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+
+    verify(agent, never()).plan(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("마법사 — placeIds 와 city 가 둘 다 오면 400 INVALID_PARAMETER, 에이전트를 부르지 않는다")
+  void planPlaceIdsWithCityIs400() throws Exception {
+    mvc.perform(plan("{\"placeIds\":[101],\"city\":\"서울\",\"days\":1}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+
+    verify(agent, never()).plan(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("마법사 — placeIds 가 빈 목록이고 다른 것이 없으면 400 INVALID_PARAMETER(빈 목록은 없는 것)")
+  void planEmptyPlaceIdsAloneIs400() throws Exception {
+    mvc.perform(plan("{\"placeIds\":[],\"days\":1}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+
+    verify(agent, never()).plan(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("마법사 — placeIds 가 빈 목록이고 titles 가 있으면 작품 모드로 200(빈 목록은 없는 것)")
+  void planEmptyPlaceIdsWithTitlesIsTitlesMode() throws Exception {
+    mvc.perform(plan("{\"placeIds\":[],\"titles\":[\"도깨비\"],\"days\":1}"))
+        .andExpect(status().isOk());
+
+    ArgumentCaptor<GuidePlanRequest> sent = ArgumentCaptor.forClass(GuidePlanRequest.class);
+    verify(agent).plan(sent.capture(), any(), any());
+    org.assertj.core.api.Assertions.assertThat(sent.getValue().getTitles()).containsExactly("도깨비");
+  }
+
+  @Test
+  @DisplayName("마법사 — placeIds 가 40개를 넘으면(41) 400, 에이전트를 부르지 않는다")
+  void planTooManyPlaceIdsIs400() throws Exception {
+    String ids =
+        java.util.stream.IntStream.rangeClosed(1, 41)
+            .mapToObj(Integer::toString)
+            .collect(java.util.stream.Collectors.joining(","));
+    mvc.perform(plan("{\"placeIds\":[" + ids + "],\"days\":3}")).andExpect(status().isBadRequest());
+
+    verify(agent, never()).plan(any(), any(), any());
+  }
+
   // ───────────── 유료 한도 (계약 「요청 한도」) ─────────────
 
   private int used() {

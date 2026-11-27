@@ -8,12 +8,16 @@
  *
  * 일정 생성(`POST /guide/plan`)은 외부 AI 로 나가므로 첫 사용 전에 AI 동의를 받고, 현재 위치를 아는 경우에는 위치기반서비스 동의도 받는다(MZ2AZ-468·472).
  * 위치 동의를 취소해도 코스는 만들어진다(좌표 없이).
+ *
+ * 「담은 곳으로 AI」(`aiSaved`, MZ2AZ-601 — docs/project/plans/saved-ai-course.md §4)는 작품을 묻지 않는다 — 기간 · 떠나는 날 · 속도 · 확인.
+ * 담은 촬영지(편의시설 제외)를 `placeIds` 로 보내고, 에이전트가 하나도 버리지 않고 날짜별로 나눈다. 처음 기간은 담은 수 ÷ 하루 곳 수 올림.
  */
 import { useEffect, useRef, useState } from 'react'
 import { HStack, Spinner, Txt, VStack } from '@/design/primitives'
 import { Pressable } from '../ui/Press'
 import { AIConsentSheet, LocationConsentSheet, useAIConsent, useLocationConsent } from '@/features/profile/consent'
-import { tr, useLang } from '@/i18n'
+import { say, tr, useLang } from '@/i18n'
+import { useCart } from '@/state/cart'
 import { likeActions, useLikes } from '@/state/likes'
 import { RouteEditor } from '../editor/RouteEditor'
 import { type RouteCourse, PACE_TITLE, type RoutePace, formatDay, spanLabel, toIso } from '../models'
@@ -27,11 +31,21 @@ import { protoAvailable, protoStore } from '@/features/proto/protoState'
 import { ProtoAIPlan, ProtoSavedPlan } from '@/features/proto/ProtoPlanFlows'
 import { useStore } from '@/state/storage'
 
-export type WizardKind = 'aiPlan' | 'manual'
+export type WizardKind = 'aiPlan' | 'manual' | 'aiSaved'
 type Step = 'span' | 'dates' | 'works' | 'pace' | 'review'
 
 export function stepsOf(kind: WizardKind): Step[] {
-  return kind === 'aiPlan' ? ['span', 'dates', 'works', 'pace', 'review'] : ['span', 'dates']
+  if (kind === 'aiPlan') return ['span', 'dates', 'works', 'pace', 'review']
+  if (kind === 'aiSaved') return ['span', 'dates', 'pace', 'review']
+  return ['span', 'dates']
+}
+
+/** 하루 곳 수 — 에이전트의 `stops_per_day`(빡빡 packed 7 · 널널 relaxed 3)와 같은 값. 처음 기간을 정할 때만 쓴다. */
+const PER_DAY: Record<RoutePace, number> = { tight: 7, loose: 3 }
+
+/** 담은 곳 모드의 처음 기간(박 수) — 담은 수 ÷ 하루 곳 수 올림, 최대 7일(6박). 담은 곳이 없으면 당일. */
+export function savedNights(count: number, pace: RoutePace): number {
+  return Math.min(6, Math.max(0, Math.ceil(count / PER_DAY[pace]) - 1))
 }
 
 /** 질문 제목 — 회의에서 문구까지 정했다(1부 54:01). */
@@ -69,25 +83,29 @@ function useLocatorOnce(enabled: boolean) {
 export function RouteWizard({ kind, onClose, pickAllSaved = false }: { kind: WizardKind; onClose: () => void; pickAllSaved?: boolean }) {
   // 「어디로 가세요?」 시안이 켜져 있으면(로컬 개발 서버 전용) 시안의 두 흐름 — 여행 앱 레퍼런스를 따라 질문을 줄인 모양(docs/project/plans/web-trip-first-prototypes.md).
   const proto = useStore(protoStore, (p) => protoAvailable && p.proto !== null)
-  if (proto) return kind === 'aiPlan' ? <ProtoAIPlan onClose={onClose} /> : <ProtoSavedPlan onClose={onClose} pickAll={pickAllSaved} />
+  if (proto && kind !== 'aiSaved') return kind === 'aiPlan' ? <ProtoAIPlan onClose={onClose} /> : <ProtoSavedPlan onClose={onClose} pickAll={pickAllSaved} />
   return <ClassicWizard kind={kind} onClose={onClose} />
 }
 
 function ClassicWizard({ kind, onClose }: { kind: WizardKind; onClose: () => void }) {
   useLang()
   const steps = stepsOf(kind)
+  const ai = kind !== 'manual'
+  const saved = kind === 'aiSaved'
+  const cart = useCart()
+  const savedIds = cart.items.filter((i) => i.delisted !== true).map((i) => i.placeId)
   const [index, setIndex] = useState(0)
   const [planning, setPlanning] = useState(false)
-  const [nights, setNights] = useState(1)
+  const [nights, setNights] = useState(() => (saved ? savedNights(savedIds.length, 'tight') : 1))
   const [hasDate, setHasDate] = useState(false)
   const [picked, setPicked] = useState(todayIso)
   const [workIds, setWorkIds] = useState<ReadonlySet<number>>(new Set())
   const [pace, setPace] = useState<RoutePace>('tight')
   const [draft, setDraft] = useState<RouteCourse | null>(null)
   const [failure, setFailure] = useState<PlanFailure | null>(null)
-  const ai = useAIConsent()
+  const aiConsent = useAIConsent()
   const location = useLocationConsent()
-  const here = useLocatorOnce(kind === 'aiPlan')
+  const here = useLocatorOnce(ai)
   const works = useSortedWorks()
   const likes = useLikes()
   const planned = useRef(false)
@@ -107,6 +125,7 @@ function ClassicWizard({ kind, onClose }: { kind: WizardKind; onClose: () => voi
     setPlanning(true)
     void guideDraft({
       nights, startDate, workIds, pace, near: here, locationAllowed: location.allowed, sortedWorks: works, places: routeStore.get().places,
+      placeIds: saved ? savedIds : undefined,
     }).then((res) => {
       planned.current = false
       setPlanning(false)
@@ -117,9 +136,9 @@ function ClassicWizard({ kind, onClose }: { kind: WizardKind; onClose: () => voi
 
   const advance = () => {
     if (!last) return setIndex(index + 1)
-    if (kind !== 'aiPlan') return setDraft(routeActions.emptyCourse(nights, startDate))
+    if (!ai) return setDraft(routeActions.emptyCourse(nights, startDate))
     // AI 동의 → (자리를 알면) 위치 동의 → 일정 생성.
-    ai.request(() => {
+    aiConsent.request(() => {
       if (here !== null) location.request(createAIPlan)
       else createAIPlan()
     })
@@ -127,11 +146,13 @@ function ClassicWizard({ kind, onClose }: { kind: WizardKind; onClose: () => voi
 
   if (draft) return <RouteEditor course={draft} isNew onClose={onClose} />
 
-  const finishLabel = kind === 'aiPlan' ? tr('AI 로 일정 짜기') : tr('코스 만들기')
+  const finishLabel = ai ? tr('AI 로 일정 짜기') : tr('코스 만들기')
   const reviewRows: Array<[string, string]> = [
     [tr('기간'), spanLabel(nights)],
     [tr('떠나는 날'), hasDate ? formatDay(picked) : tr('정하지 않음')],
-    [tr('작품'), works.filter((w) => workIds.has(w.id)).map((w) => w.title).join(', ') || tr('인기 작품')],
+    saved
+      ? [say('담은 촬영지', 'Saved spots'), say(`${savedIds.length}곳`, `${savedIds.length}`)]
+      : [tr('작품'), works.filter((w) => workIds.has(w.id)).map((w) => w.title).join(', ') || tr('인기 작품')],
     [tr('스타일'), tr(PACE_TITLE[pace])],
   ]
 
@@ -146,7 +167,7 @@ function ClassicWizard({ kind, onClose }: { kind: WizardKind; onClose: () => voi
         <div style={{ height: 3, borderRadius: 2, background: 'var(--system-gray5)', overflow: 'hidden' }} role="progressbar" aria-valuenow={index + 1} aria-valuemax={steps.length}>
           <div style={{ height: '100%', width: `${((index + 1) / steps.length) * 100}%`, background: 'var(--accent)', borderRadius: 2, transition: 'width 0.25s' }} />
         </div>
-        {kind === 'aiPlan' && <AIBanner text={tr('AI 가 일정을 짜 드립니다')} padY={10} />}
+        {ai && <AIBanner text={tr('AI 가 일정을 짜 드립니다')} padY={10} />}
       </VStack>
 
       <div className="scroll-y" style={{ flex: 1, minHeight: 0 }}>
@@ -207,7 +228,7 @@ function ClassicWizard({ kind, onClose }: { kind: WizardKind; onClose: () => voi
         buttons={[{ label: tr('확인'), role: 'cancel' }]}
         onClose={() => setFailure(null)}
       />
-      <AIConsentSheet gate={ai.gate} />
+      <AIConsentSheet gate={aiConsent.gate} />
       {/* 위치 동의를 취소해도 코스는 만들어진다 — 좌표 없이 */}
       <LocationConsentSheet gate={location.gate} onCancel={createAIPlan} />
     </VStack>

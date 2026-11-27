@@ -103,7 +103,7 @@ beforeEach(() => {
     return respond(200, { items: [], total: 0, limit: 20, offset: 0 })
   })
   vi.mocked(track).mockClear()
-  pendingStore.set((s) => ({ ...s, plannerManual: false }))
+  pendingStore.set((s) => ({ ...s, plannerManual: false, plannerAiSaved: false }))
   keepActions.setArriving(false)
   withCart(ITEMS)
 })
@@ -165,13 +165,15 @@ describe('MyMapCover — 작품별 묶음 목록', () => {
 })
 
 describe('MyMapCover — 아래 단추', () => {
-  it('「이 N곳으로 계획 짜기」 → my_map(plan) + plan_start(my_map), 담은 곳으로 계획(쪽지 plannerManual)', async () => {
+  // 담은 촬영지로 AI 일정(docs/project/plans/saved-ai-course.md §4) — 담은 촬영지가 있으면 직접 짜기가 아니라 AI 마법사(담은 곳 모드)를 연다.
+  it('「이 N곳으로 …」 → my_map(plan) + plan_start(my_map), 담은 촬영지가 있으면 AI 마법사 담은 곳 모드(쪽지 plannerAiSaved)', async () => {
     renderCover()
-    await vi.waitFor(() => expect(screen.getByText('이 5곳으로 계획 짜기')).toBeTruthy())
-    fireEvent.click(buttonWith('이 5곳으로 계획 짜기'))
+    const primary = await vi.waitFor(() => screen.getByRole('button', { name: /이 5곳으로/ }))
+    fireEvent.click(primary)
     expect(events()).toContainEqual(webEvent.myMap('plan'))
     expect(events()).toContainEqual(webEvent.planStart('my_map'))
-    expect(pendingStore.get().plannerManual).toBe(true)
+    expect(pendingStore.get().plannerAiSaved).toBe(true)
+    expect(pendingStore.get().plannerManual).toBe(false)
     expect(location?.pathname).toBe(paths.courses)
   })
 

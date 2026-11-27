@@ -36,6 +36,7 @@ from src.planner import (
     plan_to_api,
 )
 from src.production import request_lang
+from src.saved_planner import plan_saved_with_model
 from src.sceneapi import SceneApiError
 from src.session import Anchor, Session
 from src.tools import ARG_WORDS
@@ -257,9 +258,10 @@ class Handler(BaseHTTPRequestHandler):
             # `config/llm_planner.json` 의 `enabled` 를 끄면 모델을 아예 안 부른다.
             # 출발 위치·설명(③)은 하지 않는다 — 마법사는 초안을 편집 화면에 그린다.
             started = time.monotonic()
-            # 작품과 도시 중 정확히 하나(계약 1.28.0, MZ2AZ-548). 도시면 src/city_planner.py 가 짠다.
+            # 작품·도시·담은 촬영지 중 정확히 하나(계약 1.28.0 MZ2AZ-548, 1.33.0 MZ2AZ-601).
+            # 도시면 src/city_planner.py, 담은 촬영지면 src/saved_planner.py 가 짠다.
             try:
-                titles, city = plan_target(body)
+                titles, city, place_ids = plan_target(body)
             except PlanError as exc:
                 self._send(_bad(str(exc)), 400)
                 return
@@ -283,6 +285,7 @@ class Handler(BaseHTTPRequestHandler):
                 must=[str(x) for x in (body.get("must") or [])],
                 avoid=[str(x) for x in (body.get("avoid") or [])],
                 city=city,
+                place_ids=place_ids,
             )
             try:
                 client = ModelClient()
@@ -291,7 +294,9 @@ class Handler(BaseHTTPRequestHandler):
                 print(f"[plan] 모델을 만들지 못함 → 엔진: {exc!r}", file=sys.stderr)
                 client = None
             try:
-                if city:
+                if place_ids:
+                    plan = plan_saved_with_model(self.desk.book, req, client)
+                elif city:
                     plan = plan_city_with_model(self.desk.book, req, client)
                 else:
                     plan = plan_with_model(self.desk.book, req, client)

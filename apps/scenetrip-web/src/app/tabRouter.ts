@@ -7,6 +7,7 @@
  */
 import { useNavigate } from 'react-router'
 import type { components } from '@/api/generated/schema'
+import { cartStore } from '@/state/cart'
 import { createStore } from '@/state/storage'
 import { paths } from './routes'
 
@@ -26,11 +27,13 @@ export interface Pending {
   planner: boolean
   /** 경로여정이 열리자마자 띄워 줘야 할 직접 짜기 마법사(`manual`) — 「담은 곳으로」 계획 짜기(web-keep-flow.md §5-5). */
   plannerManual: boolean
+  /** 경로여정이 열리자마자 띄워 줘야 할 AI 마법사의 담은 곳 모드(`aiSaved`) — 담은 촬영지로 AI 일정(saved-ai-course.md §4, MZ2AZ-601). */
+  plannerAiSaved: boolean
   /** 작품검색 탭이 「현 지도 내 성지 검색」으로 보여 줘야 할 범위(`minLng,minLat,maxLng,maxLat`) — 홈 「도시의 성지」의 「지도에서 보기」(MZ2AZ-531). */
   region: string | null
 }
 
-const EMPTY: Pending = { content: null, place: null, courseId: null, tripStart: false, planner: false, plannerManual: false, region: null }
+const EMPTY: Pending = { content: null, place: null, courseId: null, tripStart: false, planner: false, plannerManual: false, plannerAiSaved: false, region: null }
 
 export const pendingStore = createStore<Pending>({ ...EMPTY })
 
@@ -73,6 +76,11 @@ export function returnToOf(state: unknown, contentId?: number): string | null {
   return typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : null
 }
 
+/** 담은 촬영지 id — 목록에서 빠진 곳(`delisted`)은 뺀다. AI 일정(담은 곳 모드)이 보내는 값. */
+export function savedPlaceIds(): number[] {
+  return cartStore.get().items.filter((i) => i.delisted !== true).map((i) => i.placeId)
+}
+
 /** iOS `TabRouter.shared` 의 이동 함수들. */
 export function useTabRouter() {
   const navigate = useNavigate()
@@ -90,9 +98,13 @@ export function useTabRouter() {
      * — 작품검색 탭·마이페이지에서 연 사람이 홈으로 튕기지 않게.
      */
     openMyMap: (returnTo?: string) => navigate(paths.myMap, returnTo ? { state: { returnTo } } : undefined),
-    /** 담은 곳으로 계획 짜기 — 쪽지를 남기고 경로여정을 연다. 경로여정이 열리면 직접 짜기 마법사를 띄운다(§5-5). */
+    /**
+     * 담은 곳으로 계획 짜기 — 쪽지를 남기고 경로여정을 연다. 담은 촬영지가 있으면 AI 마법사의 담은 곳 모드(MZ2AZ-601, saved-ai-course.md §4),
+     * 편의시설만 담았으면 지금처럼 직접 짜기 마법사(web-keep-flow.md §5-5) — AI 일정은 아직 촬영지만 받는다.
+     */
     openPlanFromSaved: () => {
-      pendingStore.set((s) => ({ ...s, plannerManual: true }))
+      const hasPlaces = savedPlaceIds().length > 0
+      pendingStore.set((s) => ({ ...s, plannerAiSaved: hasPlaces, plannerManual: !hasPlaces }))
       navigate(paths.courses)
     },
     /**
