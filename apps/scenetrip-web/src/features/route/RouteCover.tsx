@@ -117,6 +117,21 @@ export function RouteCover({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (plannerManual && consumePending('plannerManual')) setManualQueued(true)
   }, [plannerManual])
+  // 담은 촬영지로 AI 일정(MZ2AZ-601) — 위와 같은 규칙으로 AI 마법사의 담은 곳 모드를 띄운다.
+  const plannerAiSaved = useStore(pendingStore, (s) => s.plannerAiSaved)
+  const [aiSavedQueued, setAiSavedQueued] = useState(false)
+  useEffect(() => {
+    if (plannerAiSaved && consumePending('plannerAiSaved')) setAiSavedQueued(true)
+  }, [plannerAiSaved])
+  useEffect(() => {
+    if (!aiSavedQueued) return
+    const timer = setTimeout(() => {
+      setAiSavedQueued(false)
+      setPickAllSaved(false)
+      setWizard('aiSaved')
+    }, 320)
+    return () => clearTimeout(timer)
+  }, [aiSavedQueued])
   useEffect(() => {
     if (!manualQueued) return
     const timer = setTimeout(() => {

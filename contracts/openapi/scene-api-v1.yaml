@@ -11,7 +11,7 @@ openapi: 3.0.3
 
 info:
   title: scene-api
-  version: 1.32.0
+  version: 1.33.0
   description: |
     SceneTrip 앱 **작품검색 탭**과 **경로여정 탭**을 받치는 API. 작품·촬영지·인물을
     검색하고, 지도 뷰포트 안의 촬영지를 조회하고, 방문할 장소를 장바구니에 담고,
@@ -2969,8 +2969,12 @@ paths:
     post:
       tags: [guide]
       operationId: planWithGuide
-      summary: 일정짜기 마법사 — 작품 또는 도시와 기간으로 일정 초안을 받는다
+      summary: 일정짜기 마법사 — 작품·도시·담은 촬영지 중 하나와 기간으로 일정 초안을 받는다
       description: |
+        **담은 촬영지로도 짠다**(1.33.0, MZ2AZ-601). `titles`·`city`·`placeIds` 중 정확히 하나를 보낸다. `placeIds` 면
+        에이전트가 그 촬영지들을 **하나도 버리지 않고** 날짜별로 나누고(하루는 가까운 동네끼리) 순서를 정한다 — 하루 곳 수
+        (`pace`)보다 많으면 하루에 더 넣는다. 없는 id·숨긴 촬영지·좌표 없는 곳만 빠지고 `days[].dropped` 에 이유가 적힌다.
+
         **작품 대신 도시로도 짠다**(1.28.0, MZ2AZ-548). `titles` 와 `city` 중 정확히 하나를 보낸다. 도시면 에이전트가
         그 도시 촬영지를 인기순으로 받아 앞에서 필요한 만큼만(하루 곳 수 × 일수 × 3, 적어도 15곳) 모델에 넘기고,
         모델이 답을 못 주면 「인기순 → 가까운 곳 잇기」 계산으로 짠다. 응답의 `plan.titles` 는 일정에 든 작품들이다.
@@ -3019,6 +3023,7 @@ paths:
             `code` 는 `INVALID_PARAMETER`. 작품을 하나도 못 찾았거나(`titles` 가 데이터에 없다),
             일수·작품 수가 범위 밖이거나, 좌표 있는 촬영지가 하나도 없어 동선을 만들 수 없을 때.
             `titles` 와 `city` 를 둘 다 보냈거나 둘 다 안 보냈을 때, 모르는 도시이거나 그 도시에 좌표 있는 촬영지가 없을 때(1.28.0).
+            `titles`·`city`·`placeIds` 중 둘 이상 보냈거나, `placeIds` 가 40개를 넘거나, 그중 쓸 수 있는(있고·숨기지 않았고·좌표 있는) 촬영지가 하나도 없을 때(1.33.0).
             `message` 에 어느 것인지 적힌다.
           content:
             application/json:
@@ -6767,7 +6772,7 @@ components:
       description: |
         마법사 화면에서 고른 값 그대로. 챗봇 도구 `plan_course` 의 인자와 같은 항목이다 —
         챗봇 경로에서는 모델이 사용자의 말에서 이것을 읽어 내고, 여기서는 앱이 직접 보낸다.
-        **`titles` 와 `city` 중 정확히 하나**(1.28.0) — 둘 다 오거나 둘 다 없으면 400.
+        **`titles`·`city`·`placeIds` 중 정확히 하나**(1.28.0 에 `city`, 1.33.0 에 `placeIds`) — 둘 이상 오거나 하나도 없으면 400.
       required: [days]
       properties:
         titles:
@@ -6786,6 +6791,16 @@ components:
           description: |
             이 도시의 촬영지로 짠다(1.28.0, MZ2AZ-548). 값은 `GET /places/cities` 의 `key`(예: `서울`, `경기 광주`) 그대로.
             `titles` 와 함께 보내지 않는다.
+        placeIds:
+          type: array
+          maxItems: 40
+          description: |
+            사용자가 담은 촬영지 id(1.33.0, MZ2AZ-601) — 이 곳들만으로 짠다. 순서는 뜻이 없다(에이전트가 정한다).
+            `titles`·`city` 와 함께 보내지 않는다. **빈 목록은 보내지 않은 것으로 본다**(`titles` 와 같은 이유).
+            편의시설(`poiId`)은 아직 받지 않는다.
+          items:
+            type: integer
+            format: int64
         days:
           type: integer
           minimum: 1

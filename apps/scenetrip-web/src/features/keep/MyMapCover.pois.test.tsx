@@ -140,7 +140,7 @@ beforeEach(() => {
     return respond(200, { items: [], total: 0, limit: 20, offset: 0 })
   })
   vi.mocked(track).mockClear()
-  pendingStore.set((s) => ({ ...s, plannerManual: false }))
+  pendingStore.set((s) => ({ ...s, plannerManual: false, plannerAiSaved: false }))
   keepActions.setArriving(false)
   keepActions.setNearby(null)
   withCart(ITEMS, POIS)
@@ -152,6 +152,32 @@ afterEach(() => {
   keepStore.set((s) => ({ ...s, nearby: null }))
   cartStore.set({ loadState: 'notLoaded', placeIds: new Set(), items: [], pois: [], poiIds: new Set(), toast: null })
   chooseLanguage('ko')
+})
+
+// 담은 촬영지로 AI 일정(docs/project/plans/saved-ai-course.md §4) — AI 일정에는 촬영지만 간다.
+// 촬영지가 하나라도 있으면 AI 마법사(담은 곳 모드), 편의시설만 담았으면 지금처럼 직접 짜기.
+describe('MyMapCover — 주 단추가 여는 마법사', () => {
+  function clickPrimary() {
+    const primary = screen.getByRole('button', { name: /이 \d+곳으로/ })
+    fireEvent.click(primary)
+  }
+
+  it('촬영지 3 + 편의시설 2 → AI 마법사 담은 곳 모드(쪽지 plannerAiSaved, plannerManual 아님)', async () => {
+    renderCover()
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: /이 5곳으로/ })).toBeTruthy())
+    clickPrimary()
+    expect(pendingStore.get().plannerAiSaved).toBe(true)
+    expect(pendingStore.get().plannerManual).toBe(false)
+  })
+
+  it('편의시설만 담았으면(촬영지 0곳) 지금처럼 직접 짜기(쪽지 plannerManual, plannerAiSaved 아님)', async () => {
+    withCart([], POIS)
+    renderCover()
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: /이 2곳으로/ })).toBeTruthy())
+    clickPrimary()
+    expect(pendingStore.get().plannerManual).toBe(true)
+    expect(pendingStore.get().plannerAiSaved).toBe(false)
+  })
 })
 
 describe('MyMapCover — N 은 촬영지 + 편의시설', () => {

@@ -33,10 +33,14 @@ _PROMPT = Path(__file__).absolute().parent.parent / "prompts" / "plan_city.txt"
 
 # 계약의 `city` 상한(`GuidePlanRequest.city.maxLength`).
 CITY_MAX = 40
+# 계약의 `placeIds` 상한(`GuidePlanRequest.placeIds.maxItems`, 1.33.0 MZ2AZ-601).
+PLACES_MAX = 40
 
 
-def plan_target(body: dict[str, Any]) -> tuple[list[str], str | None]:
-    """`POST /plan` 몸체에서 (작품들, 도시) — **정확히 하나.** 아니면 `PlanError`.
+def plan_target(body: dict[str, Any]) -> tuple[list[str], str | None, list[int]]:
+    """`POST /plan` 몸체에서 (작품들, 도시, 담은 촬영지 id) — **정확히 하나.** 아니면 `PlanError`.
+
+    담은 촬영지(`placeIds`)는 MZ2AZ-601(계약 1.33.0) — `src/saved_planner.py` 가 짠다.
 
     빈 작품 목록과 공백뿐인 도시는 보내지 않은 것으로 본다 — 백엔드의 생성된 요청 객체는 빠진 목록을 빈 목록으로
     실어 보낸다(계약 1.28.0 `GuidePlanRequest.titles`).
@@ -49,9 +53,16 @@ def plan_target(body: dict[str, Any]) -> tuple[list[str], str | None]:
         if not isinstance(city, str) or len(city) > CITY_MAX:
             raise PlanError(f"city 는 {CITY_MAX}자 이하 문자열이어야 한다")
         city = city.strip() or None
-    if bool(titles) == bool(city):
-        raise PlanError("titles 와 city 중 하나만 보내야 한다")
-    return [str(t) for t in titles], city
+    place_ids = body.get("placeIds") or []
+    if (
+        not isinstance(place_ids, list)
+        or len(place_ids) > PLACES_MAX
+        or any(type(x) is not int or x < 1 for x in place_ids)
+    ):
+        raise PlanError(f"placeIds 는 양의 정수 {PLACES_MAX}개 이하의 목록이어야 한다")
+    if [bool(titles), bool(city), bool(place_ids)].count(True) != 1:
+        raise PlanError("titles·city·placeIds 중 하나만 보내야 한다")
+    return [str(t) for t in titles], city, [int(i) for i in place_ids]
 
 
 def _city_cfg(cfg: dict[str, Any]) -> dict[str, Any]:

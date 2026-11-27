@@ -98,11 +98,10 @@ def validate_body(route: str, body) -> None:
         ):
             raise BodyError("일수 또는 여행 속도가 올바르지 않습니다")
         try:
-            plan_target(
-                body
-            )  # 작품과 도시 중 정확히 하나, 도시는 40자 이하(계약 1.28.0)
+            # 작품·도시·담은 촬영지 중 정확히 하나, 도시는 40자 이하(계약 1.28.0·1.33.0)
+            plan_target(body)
         except PlanError as exc:
-            raise BodyError("작품 또는 도시 중 하나만 보내야 합니다") from exc
+            raise BodyError("작품·도시·담은 촬영지 중 하나만 보내야 합니다") from exc
         return
     sid = body.get("sessionId")
     messages = body.get("messages")

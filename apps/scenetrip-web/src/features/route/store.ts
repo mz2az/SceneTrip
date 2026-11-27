@@ -10,7 +10,7 @@
 import { ApiFailure, api, asFailure, installHeader, ok } from '@/api/client'
 import { appEvent, track, webEvent } from '@/analytics'
 import { installNudge } from '@/features/keep/installNudge'
-import { onLanguageChange, tr } from '@/i18n'
+import { onLanguageChange, say, tr } from '@/i18n'
 import { useLikes } from '@/state/likes'
 import { accountGeneration, onAccountReset } from '@/state/shared'
 import { createStore, useStore } from '@/state/storage'
@@ -293,6 +293,11 @@ export interface DraftRequest {
   titles?: readonly string[]
   /** 받아 둔 촬영지(앱 언어) — 초안의 한국어 촬영지 이름·주소를 바꾼다(MZ2AZ-530). */
   places: readonly PlaceSummary[]
+  /**
+   * 담은 촬영지 id(MZ2AZ-601, 계약 1.33.0) — 있으면 작품 대신 이 곳들로 짠다. 이때 `titles`·`city` 는 보내지 않는다
+   * (셋 중 정확히 하나). 초안 제목은 「담은 곳」 기준.
+   */
+  placeIds?: readonly number[]
 }
 
 /**
@@ -300,6 +305,7 @@ export interface DraftRequest {
  * 속도는 앱의 둘(빡빡·널널)을 계약의 양끝(packed·relaxed)으로 보낸다. 작품을 하나도 안 골랐으면 인기 작품 셋의 제목을 보낸다 — 계약이 titles 를 최소 하나 요구한다.
  */
 export async function guideDraft(r: DraftRequest): Promise<DraftResult> {
+  if (r.placeIds && r.placeIds.length > 0) return savedDraft(r, r.placeIds)
   let titles = r.titles ? [...r.titles] : r.sortedWorks.filter((w) => r.workIds.has(w.id)).map((w) => w.title)
   const chosen = r.titles ? (r.workIds.size > 0 ? titles : []) : titles
   if (titles.length === 0) titles = r.sortedWorks.slice(0, 3).map((w) => w.title)
@@ -319,6 +325,28 @@ export async function guideDraft(r: DraftRequest): Promise<DraftResult> {
     track(appEvent.generatePlan(spanDays(r.nights), Math.min(titles.length, 5)))
     const places = await withMissingPlaces(reply.plan, r.places)
     return { ok: true, course: courseFromPlan(reply.plan, { title: draftTitle(chosen, r.nights), startDate: r.startDate, pace: r.pace, places }) }
+  } catch (error) {
+    return { ok: false, failure: classifyPlanFailure(error) }
+  }
+}
+
+/** 담은 촬영지로(MZ2AZ-601) — 같은 창구에 `placeIds` 만 싣는다. 담은 곳은 에이전트가 하나도 버리지 않는다. */
+async function savedDraft(r: DraftRequest, placeIds: readonly number[]): Promise<DraftResult> {
+  try {
+    const reply = await ok(
+      api.POST('/guide/plan', {
+        body: {
+          placeIds: placeIds.slice(0, 40),
+          days: spanDays(r.nights),
+          pace: r.pace === 'loose' ? 'relaxed' : 'packed',
+          latitude: r.locationAllowed ? (r.near?.lat ?? null) : null,
+          longitude: r.locationAllowed ? (r.near?.lng ?? null) : null,
+        },
+      }),
+    )
+    track(appEvent.generatePlan(spanDays(r.nights), 0))
+    const places = await withMissingPlaces(reply.plan, r.places)
+    return { ok: true, course: courseFromPlan(reply.plan, { title: say(`담은 곳 ${spanLabel(r.nights)}`, `My spots · ${spanLabel(r.nights)}`), startDate: r.startDate, pace: r.pace, places }) }
   } catch (error) {
     return { ok: false, failure: classifyPlanFailure(error) }
   }

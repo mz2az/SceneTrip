@@ -138,6 +138,10 @@ class PlaceSource:
         """도시의 촬영지를 인기순으로(MZ2AZ-548). scene-api 창구만 안다 — CSV 에는 도시 열이 없다."""
         raise NotImplementedError("도시로 짜기는 scene-api 창구에서만 된다")
 
+    def place_by_id(self, place_id: int) -> Place | None:
+        """촬영지 하나(MZ2AZ-601 담은 곳으로 짜기). 없거나 숨겼으면 None. scene-api 창구만 안다."""
+        raise NotImplementedError("담은 곳으로 짜기는 scene-api 창구에서만 된다")
+
     def title_detail(self, title: str) -> dict | None:
         """작품 상세(줄거리·출연, MZ2AZ-554). scene-api 창구만 안다 — CSV 에는 줄거리 열이 없어 None(「정보 없음」)."""
         return None

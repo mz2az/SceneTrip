@@ -174,6 +174,13 @@ class SceneApiPlaceBook(PlaceSource):
         data = self._get(f"/contents/{hit['id']}/places", {"limit": limit})
         return hit.get("title"), [self._to_place(i) for i in data.get("items", [])]
 
+    def place_by_id(self, place_id: int) -> Place | None:
+        """`GET /places/{id}` — 담은 곳으로 짜기(MZ2AZ-601). 404(없음·숨김)면 None."""
+        data = self._get(f"/places/{int(place_id)}")
+        if not data or data.get("id") is None:
+            return None
+        return self._to_place(data)
+
     def by_city(self, city: str, limit: int = 200) -> list[Place]:
         """`GET /places?city=` — 서버의 기본 정렬(인기도 내림차순) 그대로(MZ2AZ-548)."""
         data = self._get("/places", {"city": city, "limit": limit})
